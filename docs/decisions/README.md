@@ -1,270 +1,216 @@
-# Concord Documentation
+# Concord Architecture Decision Records
 
-This directory contains the design, architecture, and domain documentation for `pds-concord`.
+This directory contains the Architecture Decision Records for `pds-concord`.
 
-Concord is the Paper Data Suite module responsible for paper-first evidence generated during collaborative classroom activities. Its documentation defines:
+An Architecture Decision Record documents one significant architectural decision, the problem that required the decision, the selected approach, its consequences, and the principal alternatives considered.
 
-* the module’s scope and boundaries;
-* the representative classroom workflows it must support;
-* the shared domain concepts used across those workflows;
-* the architectural decisions that constrain implementation;
-* and the conceptual contracts that will guide schemas, storage, and interfaces.
+Accepted ADRs constrain later conceptual contracts, schemas, storage decisions, interfaces, and implementation work.
 
-## Current Status
+## Naming Convention
 
-The initial architecture phase is complete.
-
-The repository now contains:
-
-* a revised conceptual design;
-* three representative packet models;
-* a cross-case requirements analysis;
-* an initial domain model;
-* and thirteen accepted Architecture Decision Records.
-
-The next phase should convert those decisions into explicit conceptual contracts and representative serialized examples.
-
-## Recommended Reading Order
-
-Readers approaching Concord for the first time should review the documents in this order.
-
-### 1. Conceptual Design
-
-[`concord-conceptual-design-revised.md`](concord-conceptual-design-revised.md)
-
-Defines:
-
-* Concord’s purpose;
-* module boundaries;
-* paper-first and human-reviewed principles;
-* relationships with Core, ScoreForm, Quillan, and future modules;
-* and the major conceptual areas requiring further design.
-
-This is the best starting point for understanding what Concord is intended to do.
-
-### 2. Representative Packet Models
-
-The packet models test the design against concrete classroom cases.
-
-* [`packet_models/socratic-seminar-packet-model.md`](packet_models/socratic-seminar-packet-model.md)
-* [`packet_models/science-laboratory-group-packet-model.md`](packet_models/science-laboratory-group-packet-model.md)
-* [`packet_models/collaborative-programming_engineering_project_packet_model.md`](packet_models/collaborative-programming_engineering_project_packet_model.md)
-
-These documents show how Concord may support:
-
-* short and long-running Activities;
-* changing Groups, Memberships, Roles, and Responsibilities;
-* individual, Group, and multi-subject evidence;
-* peer and teacher observation;
-* troubleshooting, testing, handoffs, and revision;
-* external project Artifacts;
-* and individual and Group Scoring.
-
-The packet models are representative design cases, not mandatory packet specifications.
-
-### 3. Cross-Case Requirements
-
-[`design/cross-case-requirements.md`](design/cross-case-requirements.md)
-
-Compares the representative packet models and separates their requirements into:
-
-* universal Concord capabilities;
-* common optional capabilities;
-* activity-specific extensions;
-* capabilities owned by other Paper Data Suite modules;
-* and capabilities that remain outside Concord.
-
-This document explains why certain concepts belong in the foundational model while others remain optional.
-
-### 4. Initial Domain Model
-
-[`design/initial-concord-domain-model.md`](design/initial-concord-domain-model.md)
-
-Defines the initial conceptual model, including:
-
-* Activities and Sessions;
-* Groups, Memberships, Roles, and Responsibilities;
-* Templates, Packets, Artifacts, and Pages;
-* Authors and Subjects;
-* scans, evidence, Review, and Moderation;
-* Criteria, Scoring Scales, Scores, and evidence links;
-* External References;
-* optional Activity context;
-* cardinalities;
-* lifecycle relationships;
-* and major invariants.
-
-The domain model is a design specification. It does not yet prescribe final Python classes, JSON schemas, database tables, or command-line interfaces.
-
-### 5. Architecture Decision Records
-
-[`decisions/README.md`](decisions/README.md)
-
-The Architecture Decision Records establish the accepted constraints that future contracts and implementations must follow.
-
-The ADR set covers:
-
-* module ownership and boundaries;
-* paper-first and human-reviewed evidence;
-* explicit Sessions;
-* contextual collaboration structures;
-* Artifact authorship and subject scope;
-* Roles, Responsibilities, Tasks, and Contributions;
-* source preservation and historical records;
-* Review, Moderation, Scoring, Grading, and Reporting;
-* evidence-to-Score cardinality;
-* exceptional evidence and non-score states;
-* external Artifacts and source-system ownership;
-* ScoreForm and Quillan integration;
-* and optional Activity-specific structures.
-
-When an ADR conflicts with an earlier exploratory design statement, the accepted ADR governs.
-
-## Documentation Structure
+ADR files use a four-digit sequence followed by a concise, lowercase, hyphenated title:
 
 ```text
-docs/
-├── README.md
-├── concord-conceptual-design-revised.md
-├── decisions/
-│   ├── README.md
-│   └── 0001-... through 0013-...
-├── design/
-│   ├── cross-case-requirements.md
-│   └── initial-concord-domain-model.md
-└── packet_models/
-    ├── socratic-seminar-packet-model.md
-    ├── science-laboratory-group-packet-model.md
-    └── collaborative-programming_engineering_project_packet_model.md
+NNNN-decision-name.md
 ```
 
-Future documentation may add directories such as:
+Examples:
 
 ```text
-docs/
-├── contracts/
-├── examples/
-├── schemas/
-└── workflows/
+0001-concord-module-boundaries.md
+0009-many-to-many-evidence-to-score-relationships.md
 ```
 
-Those directories should be introduced only when their contents have a defined purpose and ownership.
+Numbers are never reused, even when an ADR is later superseded or deprecated.
 
-## Document Authority
+## Current Decisions
 
-The documents have different roles.
+| ADR                                                                        | Decision                                                      | Status   |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- |
+| [0001](0001-concord-module-boundaries.md)                                  | Concord Module Boundaries                                     | Accepted |
+| [0002](0002-paper-first-human-reviewed-evidence.md)                        | Paper-First, Human-Reviewed Evidence                          | Accepted |
+| [0003](0003-activities-require-explicit-sessions.md)                       | Activities Require Explicit Sessions                          | Accepted |
+| [0004](0004-contextual-groups-memberships-and-roles.md)                    | Contextual Groups, Memberships, and Roles                     | Accepted |
+| [0005](0005-separate-artifact-authors-and-subjects.md)                     | Separate Artifact Authors and Subjects                        | Accepted |
+| [0006](0006-distinguish-roles-responsibilities-tasks-and-contributions.md) | Distinguish Roles, Responsibilities, Tasks, and Contributions | Accepted |
+| [0007](0007-preserve-source-evidence-and-history.md)                       | Preserve Source Evidence and History                          | Accepted |
+| [0008](0008-separate-review-moderation-scoring-grading-and-reporting.md)   | Separate Review, Moderation, Scoring, Grading, and Reporting  | Accepted |
+| [0009](0009-many-to-many-evidence-to-score-relationships.md)               | Many-to-Many Evidence-to-Score Relationships                  | Accepted |
+| [0010](0010-exceptional-evidence-states-are-not-low-scores.md)             | Exceptional Evidence States Are Not Low Scores                | Accepted |
+| [0011](0011-link-external-artifacts-without-managing-source-systems.md)    | Link External Artifacts Without Managing Source Systems       | Accepted |
+| [0012](0012-link-scoreform-and-quillan-without-duplication.md)             | Link ScoreForm and Quillan Without Duplication                | Accepted |
+| [0013](0013-keep-activity-specific-structures-optional.md)                 | Keep Activity-Specific Structures Optional                    | Accepted |
 
-### Accepted ADRs
+## Standard ADR Structure
 
-The ADRs are the current authoritative architectural decisions.
+Each ADR should normally contain:
 
-Future implementation and contract work should conform to them unless an ADR is explicitly superseded.
+```text
+# ADR NNNN: Decision Title
 
-### Conceptual Domain Model
+Status
+Date
+Decision owners
+Applies to
 
-The domain model consolidates the expected concepts, relationships, cardinalities, and lifecycle rules.
+Context
+Decision
+Consequences
+Alternatives Considered
+Required Follow-Up
+References
+Notes
+```
 
-It should be updated when contract work exposes a necessary clarification, but it must remain consistent with accepted ADRs.
+The exact number of subsections may vary, but each ADR must clearly include:
 
-### Cross-Case Requirements
+* the design pressure or problem;
+* the accepted decision;
+* important positive and negative consequences;
+* credible alternatives considered;
+* required follow-up work;
+* and references to supporting design material.
 
-The cross-case analysis records the evidence used to distinguish universal, optional, external, and activity-specific capabilities.
+An ADR should address one coherent architectural decision.
 
-It is primarily an architectural rationale and requirements-synthesis document.
+It should not become a replacement for:
 
-### Packet Models
+* a domain model;
+* a complete conceptual contract;
+* an implementation plan;
+* a schema specification;
+* or a user-interface design.
 
-The packet models are representative cases used to test the architecture.
+## ADR Statuses
 
-They may evolve as classroom workflows become clearer, but one packet model should not impose its specialized terminology on every Concord Activity.
+The normal statuses are:
 
-### Conceptual Contracts
+### Proposed
 
-The planned conceptual contracts will define precise record structures, required fields, reference rules, validation behavior, and representative examples.
+The decision is under consideration and has not yet been accepted.
 
-Once accepted, those contracts will become more specific than the broad domain-model descriptions while remaining subordinate to the ADRs.
+### Accepted
 
-### Implementation Documentation
+The decision governs current design and implementation work.
 
-Future schema, storage, CLI, and workflow documentation will describe how the accepted architecture is implemented.
+### Deprecated
 
-Implementation convenience must not silently change the domain semantics established here.
+The decision is no longer recommended, but no single later ADR fully replaces it.
 
-## Foundational Principles
+A deprecated ADR must explain why it was deprecated and point to relevant later guidance.
 
-All future Concord work should preserve the following principles.
+### Superseded
 
-### Paper-first
+A later ADR replaces the decision.
 
-Printed classroom Artifacts are primary workflow instruments, not fallback exports from a device-centered application.
+A superseded ADR must identify the replacing ADR.
 
-### Human-reviewed
+### Rejected
 
-Concord organizes and presents evidence for teacher judgment. It does not interpret handwriting, infer behavior, or automate collaborative-performance Scoring.
+The proposal was considered but not adopted.
 
-### Source-preserving
+Rejected ADRs may be retained when the reasoning is valuable and likely to recur.
 
-Core-retained scans remain canonical digital evidence. Filing, attribution, Review, Moderation, and Scoring are linked records that preserve history.
+## Adding a New ADR
 
-### Contextual
+Before adding an ADR:
 
-Groups, Memberships, Roles, Responsibilities, Authors, Subjects, Contributions, and Scores are contextual relationships rather than permanent participant attributes.
+1. Confirm that the subject is an architectural decision rather than an unresolved question, implementation detail, or ordinary documentation update.
+2. Review the existing ADRs for overlap or conflict.
+3. Choose the next unused sequence number.
+4. Create a file using the naming convention.
+5. Begin with `Proposed` unless the decision has already been explicitly accepted.
+6. Explain the decision independently enough that a future maintainer can understand it without reconstructing the entire discussion.
+7. Identify consequences and credible rejected alternatives.
+8. Link the relevant design, domain, contract, issue, or module documentation.
+9. Add the ADR to the table in this README.
+10. Check the full ADR set for consistency.
 
-### Explicitly scored
+A new ADR should be preferred when a change:
 
-A Score is an explicit teacher-approved judgment about one Criterion for one target. Evidence, Review, Moderation, Score, Grade, and Report remain distinct.
+* alters module ownership;
+* changes foundational cardinality or identity rules;
+* changes evidence or scoring semantics;
+* changes source-preservation requirements;
+* introduces automated interpretation;
+* changes dependency direction;
+* moves responsibility between Paper Data Suite modules;
+* or reverses an accepted architectural constraint.
 
-### Modular
+## Editing an Accepted ADR
 
-Concord consumes shared Core infrastructure and links to sibling modules without duplicating their responsibilities.
+Accepted ADRs may be edited for limited non-semantic maintenance, including:
 
-### Progressively structured
+* correcting typographical errors;
+* repairing links;
+* improving formatting;
+* clarifying wording that does not change the decision;
+* or adding references to later supporting documents.
 
-Simple Activities remain simple. Milestones, Work Items, dependencies, Events, subteams, Contribution Claims, Attachments, and similar structures are added only when the Activity requires them.
+An accepted ADR must not be silently edited to reverse, weaken, or materially expand its decision.
 
-## Next Documentation Phase
+When a substantive architectural decision changes, create a new ADR.
 
-The next phase should define conceptual contracts for the foundational records.
+The new ADR should explain:
 
-A practical sequence is:
+* what changed;
+* why the earlier decision is no longer sufficient;
+* which earlier ADRs are affected;
+* and whether they are superseded or deprecated.
 
-1. Activity and Session;
-2. Group, Group Membership, Role Assignment, and Responsibility Assignment;
-3. Template Definition, Template Version, Packet Definition, and Packet Instance;
-4. Artifact Instance, Artifact Page, Artifact Author, and Artifact Subject;
-5. Scan Reference, Artifact Review, Moderation Record, and Correction Record;
-6. Criterion Set, Criterion, Scoring Scale, Score Record, and Score Evidence Link;
-7. External Reference and Attachment;
-8. optional Activity Marker, Work Item, Dependency, Event, and Contribution Claim structures;
-9. shared typed-reference conventions;
-10. lifecycle, privacy, correction, and supersession rules.
+## Superseding an ADR
 
-Each contract should include:
+To supersede an ADR:
 
-* purpose;
-* ownership;
-* required and optional fields;
-* field semantics;
-* identifiers;
-* cardinalities;
-* invariants;
-* lifecycle states;
-* correction and supersession behavior;
-* privacy considerations;
-* validation rules;
-* and representative valid and invalid examples.
+1. Create a new ADR with the next unused number.
+2. Set the new ADR status to `Accepted`.
+3. Explain the relationship to the earlier decision.
+4. Change the earlier ADR status to:
 
-## Contribution Guidance
+```text
+Superseded by ADR NNNN
+```
 
-When adding or revising documentation:
+5. Add a prominent reference from the earlier ADR to the new ADR.
+6. Update this index.
+7. Preserve the original decision text and reasoning.
 
-* preserve established terminology and capitalization;
-* distinguish universal capabilities from mandatory record presence;
-* identify the owning module for every cross-module concept;
-* avoid treating identifiers, labels, paths, and display names as interchangeable;
-* state cardinalities and invariants explicitly;
-* preserve evidence and historical-record semantics;
-* avoid adding automated interpretation or Scoring behavior;
-* and update affected ADRs or contracts when a change alters an accepted architectural decision.
+Supersession is historical, not destructive.
 
-Significant architectural changes should be recorded through a new ADR that supersedes or amends the earlier decision rather than silently rewriting the project’s history.
+The earlier ADR remains part of the project record.
+
+## Deprecating an ADR
+
+Deprecation is appropriate when a decision should no longer guide new work but is not fully replaced by one later ADR.
+
+To deprecate an ADR:
+
+1. Change its status to `Deprecated`.
+2. Add a brief explanation.
+3. Link any relevant replacement guidance.
+4. Update this index.
+5. Preserve the original decision and rationale.
+
+## Relationship to Other Documentation
+
+The broader Concord documentation index is located at:
+
+* [`../README.md`](../README.md)
+
+The ADRs are supported by:
+
+* [`../concord-conceptual-design-revised.md`](../concord-conceptual-design-revised.md)
+* [`../design/cross-case-requirements.md`](../design/cross-case-requirements.md)
+* [`../design/initial-concord-domain-model.md`](../design/initial-concord-domain-model.md)
+* [`../packet_models/socratic-seminar-packet-model.md`](../packet_models/socratic-seminar-packet-model.md)
+* [`../packet_models/science-laboratory-group-packet-model.md`](../packet_models/science-laboratory-group-packet-model.md)
+* [`../packet_models/collaborative-programming_engineering_project_packet_model.md`](../packet_models/collaborative-programming_engineering_project_packet_model.md)
+
+When documents disagree:
+
+1. an accepted ADR governs the architectural decision;
+2. an accepted conceptual contract should govern the detailed record structure;
+3. implementation documentation should describe the current implementation;
+4. exploratory and packet-model documents remain supporting rationale and representative cases.
+
+Implementation convenience must not silently override an accepted ADR.
