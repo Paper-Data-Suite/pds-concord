@@ -3,7 +3,7 @@
 **Status:** Draft for contract discovery  
 **Project:** Paper Data Suite  
 **Module:** `pds-concord`  
-**Location:** Intended for `local_work/packet_models/`  
+**Location:** `docs/packet_models/`  
 **Date:** July 11, 2026
 
 ## 1. Purpose
