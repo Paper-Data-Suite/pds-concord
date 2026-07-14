@@ -8,11 +8,12 @@ Concord is the Paper Data Suite module responsible for paper-first evidence gene
 * the representative classroom workflows it must support;
 * the shared domain concepts used across those workflows;
 * the architectural decisions that constrain implementation;
+* the Core integration requirements needed to support Concord as a first-class Paper Data Suite module;
 * and the conceptual contracts that will guide schemas, storage, and interfaces.
 
 ## Current Status
 
-The initial architecture phase is complete.
+The initial architecture phase and the first Core integration specification are complete.
 
 The repository now contains:
 
@@ -20,9 +21,14 @@ The repository now contains:
 * three representative packet models;
 * a cross-case requirements analysis;
 * an initial domain model;
-* and thirteen accepted Architecture Decision Records.
+* thirteen accepted Architecture Decision Records;
+* and a detailed `pds-core` integration requirements specification covering PDS2, route registration, module-qualified work identity, workspace routing, scan provenance, and coordinated module migration.
 
-The next phase should convert those decisions into explicit conceptual contracts and representative serialized examples.
+The next phase should:
+
+* convert the accepted Concord architecture into explicit conceptual contracts and representative serialized examples;
+* coordinate the required Core, ScoreForm, Quillan, and Concord migration work;
+* and preserve consistency between the Concord contracts and the shared Core routing implementation.
 
 ## Recommended Reading Order
 
@@ -120,6 +126,28 @@ The ADR set covers:
 
 When an ADR conflicts with an earlier exploratory design statement, the accepted ADR governs.
 
+### 6. PDS Core Integration Requirements
+
+[`design/pds-core-integration-requirements.md`](design/pds-core-integration-requirements.md)
+
+Translates the accepted Concord architecture into explicit requirements for `pds-core` and coordinated migration requirements for the current Paper Data Suite modules.
+
+It defines:
+
+* the PDS2 page-locator QR contract;
+* durable route registration for every expected returned page;
+* module-qualified class and work identity;
+* generic module-owned route targets;
+* module-scoped workspace paths;
+* generalized routing-failure and resolution metadata;
+* retained-source scan and provenance requirements;
+* ScoreForm and Quillan migration requirements;
+* Concord Artifact Page routing requirements;
+* package and contract versioning requirements;
+* and compatibility with a future suite assignment registry.
+
+This document should be read after the ADRs because it applies their architectural constraints to the shared Core contracts and cross-repository migration plan.
+
 ## Documentation Structure
 
 ```text
@@ -131,7 +159,8 @@ docs/
 │   └── 0001-... through 0013-...
 ├── design/
 │   ├── cross-case-requirements.md
-│   └── initial-concord-domain-model.md
+│   ├── initial-concord-domain-model.md
+│   └── pds-core-integration-requirements.md
 └── packet_models/
     ├── socratic-seminar-packet-model.md
     ├── science-laboratory-group-packet-model.md
@@ -166,6 +195,19 @@ The domain model consolidates the expected concepts, relationships, cardinalitie
 
 It should be updated when contract work exposes a necessary clarification, but it must remain consistent with accepted ADRs.
 
+### Core Integration Requirements
+
+The Core integration requirements specify how the accepted Concord architecture must be supported by shared Paper Data Suite identity, QR, routing, workspace, provenance, failure, and package contracts.
+
+The integration specification:
+
+* is subordinate to accepted ADRs;
+* is more specific than the broad conceptual domain model for Core-facing concerns;
+* governs the coordinated Core, ScoreForm, Quillan, and Concord migration unless superseded;
+* and must remain consistent with later accepted Core ADRs and implemented shared contracts.
+
+If implementation work exposes a necessary architectural change, the relevant ADRs and integration requirements must be revised deliberately rather than bypassed through module-specific workarounds.
+
 ### Cross-Case Requirements
 
 The cross-case analysis records the evidence used to distinguish universal, optional, external, and activity-specific capabilities.
@@ -183,6 +225,8 @@ They may evolve as classroom workflows become clearer, but one packet model shou
 The planned conceptual contracts will define precise record structures, required fields, reference rules, validation behavior, and representative examples.
 
 Once accepted, those contracts will become more specific than the broad domain-model descriptions while remaining subordinate to the ADRs.
+
+Where a conceptual contract depends on Core identity, routing, or provenance, it must also conform to the accepted Core integration requirements and the implemented Core contract version.
 
 ### Implementation Documentation
 
@@ -224,7 +268,7 @@ Simple Activities remain simple. Milestones, Work Items, dependencies, Events, s
 
 ## Next Documentation Phase
 
-The next phase should define conceptual contracts for the foundational records.
+With the Core integration requirements specified, the next Concord documentation phase should define conceptual contracts for the foundational records.
 
 A practical sequence is:
 
@@ -239,6 +283,8 @@ A practical sequence is:
 9. shared typed-reference conventions;
 10. lifecycle, privacy, correction, and supersession rules.
 
+The Artifact Page and Scan Reference contracts must align directly with the accepted PDS2 route-locator, route-registration, and Core source-provenance requirements.
+
 Each contract should include:
 
 * purpose;
@@ -252,6 +298,7 @@ Each contract should include:
 * correction and supersession behavior;
 * privacy considerations;
 * validation rules;
+* relationships to applicable Core contracts;
 * and representative valid and invalid examples.
 
 ## Contribution Guidance
@@ -264,7 +311,9 @@ When adding or revising documentation:
 * avoid treating identifiers, labels, paths, and display names as interchangeable;
 * state cardinalities and invariants explicitly;
 * preserve evidence and historical-record semantics;
+* keep route identity separate from Author, Subject, student, evidence, and Score-target identity;
 * avoid adding automated interpretation or Scoring behavior;
+* verify consistency with the Core integration requirements when a change affects QR, routing, workspace paths, scan provenance, or cross-module identity;
 * and update affected ADRs or contracts when a change alters an accepted architectural decision.
 
 Significant architectural changes should be recorded through a new ADR that supersedes or amends the earlier decision rather than silently rewriting the project’s history.
