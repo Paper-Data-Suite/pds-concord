@@ -1,56 +1,42 @@
 # PDS Core Integration Requirements
 
-**Status:** Proposed integration specification
+**Status:** Accepted architecture record; implemented by the released `pds-core` 0.5/PDS2 foundation
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `Paper-Data-Suite/pds-concord#10`
-**Date:** July 13, 2026
+**Original date:** July 13, 2026
+**Reconciled:** July 24, 2026
+**Current Core baseline:** `pds-core` 0.5.0, Python 3.11+, PDS2
 
 ## 1. Purpose
 
-This document specifies the changes required in `pds-core` to make `pds-concord` a first-class Paper Data Suite module while establishing a QR, routing, identity, workspace, scan-provenance, and package contract suitable for all Paper Data Suite modules that generate and receive paper pages.
+This document records the integration requirements that led to the released `pds-core` 0.5/PDS2 architecture and defines the continuing boundary between Core routing infrastructure and Concord-owned semantics.
 
-This specification addresses the current Core assumptions that:
+The document was originally written prospectively, before PDS2 and the module-qualified work architecture were implemented. It is retained because it explains:
 
-* every routed page belongs to one student;
-* every routed page belongs to one assignment identified by an unqualified `assignment_id`;
-* every QR payload must contain `student_id`;
-* every successful route terminates in a student submission directory;
-* and every module can safely share one assignment directory and one `assignment.json`.
+* why the earlier student-oriented PDS1 model could not represent Concord;
+* why page routing must remain separate from Artifact Authors, Artifact Subjects, students, Groups, and Score targets;
+* why module work identity must be qualified by module, class, and work;
+* how retained source scans and module-owned evidence remain connected;
+* and which Concord implementation obligations remain after Core supplies the shared infrastructure.
 
-Those assumptions describe the initial ScoreForm and Quillan workflows but cannot represent Concord accurately.
+The released Core 0.5 contracts now govern the shared implementation. Where this document uses historical language such as “current PDS1 contract,” “replace,” or “must introduce,” that language describes the pre-PDS2 state and the requirement that produced the current Core design. It must not be read as an instruction to re-open settled PDS2 decisions.
 
-Concord must support pages associated with:
+For current Concord domain and scoring semantics, the governing documents are:
 
-* one student;
-* several students;
-* one Group;
-* several Groups;
-* one Session;
-* one Activity;
-* one Artifact Instance;
-* one Artifact Page;
-* one Activity Event;
-* a teacher-authored multi-subject tracker;
-* an unresolved Author or Subject;
-* or another Concord-owned contextual record.
+* `docs/concord-conceptual-design-revised.md`;
+* `docs/design/cross-case-requirements.md`;
+* `docs/design/initial-concord-domain-model.md`;
+* `docs/design/conceptual-data-contracts.md`;
+* and the accepted Concord ADRs, including ADR 0014.
 
-The new Core contract must support these cases without:
-
-* creating synthetic students;
-* placing Group, Session, Activity, Artifact, or other identifiers into `student_id`;
-* treating a route target as an Artifact Author or Artifact Subject;
-* encoding an Artifact’s complete Author or Subject graph in its QR code;
-* duplicating Concord’s domain model in Core;
-* or requiring direct dependencies among sibling modules.
-
-This is an integration-requirements document. It defines the required architecture and contract semantics. It does not prescribe every internal class name, storage implementation, command-line interface, or graphical workflow.
+This remains an integration-architecture document. It does not define every Concord record, serialized schema, persistence service, command-line workflow, graphical workflow, grading policy, or reporting contract.
 
 ---
 
 ## 2. Governing Design Sources
 
-This specification must remain consistent with the accepted Concord Architecture Decision Records and the Concord conceptual domain model.
+This specification must remain consistent with the accepted Concord Architecture Decision Records and the current Concord conceptual documents.
 
 The most directly relevant decisions are:
 
@@ -62,28 +48,38 @@ The most directly relevant decisions are:
 * `docs/decisions/0009-many-to-many-evidence-to-score-relationships.md`;
 * `docs/decisions/0010-exceptional-evidence-states-are-not-low-scores.md`;
 * `docs/decisions/0012-link-scoreform-and-quillan-without-duplication.md`;
-* and `docs/decisions/0013-keep-activity-specific-structures-optional.md`.
+* `docs/decisions/0013-keep-activity-specific-structures-optional.md`;
+* and `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`.
 
-The relevant existing Core contracts and implementations include:
+The current Concord conceptual authorities are:
 
-* `pds-core/docs/qr_payload_and_routing_contract.md`;
-* `pds-core/docs/active_scan_contract.md`;
-* `pds_core.qr_payload`;
-* `pds_core.pds1`;
-* `pds_core.routes`;
-* `pds_core.scan_routes`;
-* `pds_core.scan_failure_metadata`;
-* and `pds_core.scan_resolution_metadata`.
+* `docs/concord-conceptual-design-revised.md`;
+* `docs/design/cross-case-requirements.md`;
+* `docs/design/initial-concord-domain-model.md`;
+* and `docs/design/conceptual-data-contracts.md`.
 
-When this specification conflicts with the current pre-production Core QR or route implementation, this specification describes the required replacement. When it conflicts with an accepted Concord ADR, the ADR governs unless a later ADR explicitly supersedes it.
+The relevant released Core authorities include:
+
+* `pds-core` 0.5.0;
+* the PDS2 QR and routing contracts;
+* the route-registration contract;
+* module-qualified work-path contracts;
+* active source-scan retention and provenance contracts;
+* generic routing failure and resolution schema version 2;
+* module-profile registration and dispatch;
+* and `pds-core/docs/module_standards_integration.md`.
+
+The released Core contracts govern shared QR, route, path, scan, profile, and standards-reference behavior. Concord ADRs and conceptual contracts govern Concord-owned Activity, Artifact, Author, Subject, Review, Moderation, Criterion, Score, and standards-scoring semantics.
+
+When this historical document conflicts with the released Core 0.5 contracts, Core 0.5 governs shared infrastructure. When it conflicts with an accepted Concord ADR, the ADR governs unless a later ADR explicitly supersedes it.
 
 ---
 
 ## 3. Decision Summary
 
-The integration should adopt the following architecture:
+The integration adopts the following architecture:
 
-1. Replace the current student-oriented `PDS1` contract with a new `PDS2` page-locator contract.
+1. Use the released `PDS2` page-locator contract in place of the historical student-oriented `PDS1` contract.
 2. Give every scannable returned page a durable, module-owned route identity before the page is generated.
 3. Encode only a compact route locator in the QR code.
 4. Resolve student, Group, Author, Subject, document, template, attempt, and other semantic context from a persisted route registration and module-owned records.
@@ -95,10 +91,10 @@ The integration should adopt the following architecture:
 6. Store module work beneath module-qualified class paths.
 7. Persist route registrations at deterministic Core-defined locations so routing does not require recursive directory discovery.
 8. Use a Core module-profile registry for module recognition and dispatch without hard-coding sibling-module imports into Core.
-9. Replace student-specific normalized route and failure models with generic route-locator and typed-target models.
+9. Use generic route-locator and typed-target models rather than student-specific normalized route and failure models.
 10. Preserve the existing Core source-scan retention, immutability, provenance, and append-only resolution principles.
-11. Migrate ScoreForm and Quillan deliberately to the new contract rather than preserving the student-oriented route as the universal model.
-12. Use explicit, compatible package versions across Core, ScoreForm, Quillan, and Concord.
+11. Keep ScoreForm and Quillan aligned with the shared PDS2 contract rather than treating their student-oriented workflows as the universal model.
+12. Use explicit, compatible package and contract-version ranges across Core, ScoreForm, Quillan, and Concord.
 
 The core principle is:
 
@@ -106,11 +102,14 @@ The core principle is:
 
 ---
 
-## 4. Current Contract Defects
+## 4. Historical Pre-PDS2 Contract Defects
+
+This section describes the defects in the earlier PDS1-era contracts that motivated PDS2. The defects are retained as architectural rationale; they are not descriptions of the released Core 0.5 design.
+
 
 ### 4.1 Student identity is universally required
 
-The current normalized `QrPayload` requires:
+The earlier normalized `QrPayload` required:
 
 * `schema`;
 * `module`;
@@ -120,7 +119,7 @@ The current normalized `QrPayload` requires:
 * `page`;
 * and optional metadata.
 
-The current `PDS1` parser similarly requires:
+The earlier `PDS1` parser similarly required:
 
 ```text
 module
@@ -143,7 +142,7 @@ Making `student_id` nullable would not solve the deeper problem. It would preser
 
 ### 4.2 Assignment identity is not module-qualified
 
-The current route layout uses:
+The earlier route layout used:
 
 ```text
 classes/<class_id>/assignments/<assignment_id>/
@@ -162,11 +161,11 @@ A bare `assignment_id` does not distinguish:
 * Concord Activity `project_check`;
 * or a similarly named record in a future module.
 
-The current shared `assignment.json` also creates an ownership collision because each module has a different assignment or activity schema.
+The earlier shared `assignment.json` also created an ownership collision because each module has a different assignment or activity schema.
 
 ### 4.3 The route destination is student-specific
 
-The current universal route terminates in:
+The earlier universal route terminated in:
 
 ```text
 submissions/<student_id>/
@@ -187,7 +186,7 @@ A Concord Artifact Page may belong operationally beneath an Artifact Instance wh
 
 ### 4.4 QR metadata duplicates mutable semantic data
 
-The current payload can carry student, page number, document type, template, form, attempt, and similar values.
+The earlier payload could carry student, page number, document type, template, form, attempt, and similar values.
 
 Encoding semantic context in the QR creates several risks:
 
@@ -201,13 +200,13 @@ The QR should contain a stable locator. The authoritative semantic record should
 
 ### 4.5 Failure metadata assumes assignment and student resolution
 
-The current shared failure schema contains top-level:
+The earlier shared failure schema contained top-level:
 
 * `class_id`;
 * `assignment_id`;
 * and `student_id`.
 
-The shared categories include:
+The earlier shared categories included:
 
 * `assignment_unknown`;
 * and `student_unknown`.
@@ -216,9 +215,9 @@ These fields and categories cannot serve as the universal route model for non-st
 
 ### 4.6 Package relationships are implicit
 
-ScoreForm and Quillan import Core code but do not declare a released, versioned `pds-core` runtime dependency.
+At the time of the original specification, ScoreForm and Quillan imported Core code without declaring a released, versioned `pds-core` runtime dependency.
 
-Quillan additionally relies on a sibling-repository `mypy_path`.
+At that time, Quillan also relied on a sibling-repository `mypy_path`.
 
 A coordinated breaking contract requires explicit dependency declarations and compatible supported Python versions.
 
@@ -228,7 +227,7 @@ A coordinated breaking contract requires explicit dependency declarations and co
 
 ### 5.1 Core ownership
 
-`pds-core` must own:
+`pds-core` owns:
 
 * workspace-root resolution;
 * canonical class identity;
@@ -265,7 +264,7 @@ Each module must own:
 
 ### 5.3 Core must not own Concord semantics
 
-Core must not define or interpret:
+Core does not define or interpret:
 
 * Activity;
 * Session;
@@ -340,7 +339,7 @@ Module identifiers should be lowercase and must satisfy the Core safe-identifier
 
 ### 6.2 Module work reference
 
-Core must introduce a neutral module work reference.
+Core provides a neutral module work reference.
 
 Conceptually:
 
@@ -391,7 +390,7 @@ A `route_id` must be:
 * unique within its `ModuleWorkRef`;
 * and never reused for a different target.
 
-Core should provide a shared route-ID generator.
+Core provides shared route-ID generation under its public contract.
 
 The generated identifier should not contain:
 
@@ -407,7 +406,7 @@ A short prefix such as `rt_` may be used for diagnostics, but the identifier’s
 
 ### 6.4 Module record reference
 
-Core must define a generic typed reference for module-owned records.
+Core provides a generic typed reference for module-owned records.
 
 Conceptually:
 
@@ -464,7 +463,7 @@ They may sometimes refer to related records, but none may be inferred universall
 
 ### 7.1 New schema identifier
 
-The revised QR contract must use a new schema identifier:
+The released QR contract uses the schema identifier:
 
 ```text
 PDS2
@@ -508,7 +507,7 @@ PDS2|m=concord|c=english10_p3|w=socratic_seminar_1|r=rt_01j2m8h8x5z2
 
 ### 7.3 Required fields
 
-Every `PDS2` payload contains exactly these four fields:
+Every valid `PDS2` payload contains exactly these four fields:
 
 | QR key | Internal name | Meaning                                  |
 | ------ | ------------- | ---------------------------------------- |
@@ -611,7 +610,7 @@ The absence of `student_id` from the QR does not prevent student workflows. It p
 
 ### 7.8 Strict grammar
 
-The parser must enforce:
+The parser enforces:
 
 * the first segment is exactly `PDS2`;
 * subsequent segments use `key=value`;
@@ -625,7 +624,7 @@ The parser must enforce:
 
 Field order must not affect parsing.
 
-The canonical serializer must emit:
+The canonical serializer emits:
 
 ```text
 PDS2|m=...|c=...|w=...|r=...
@@ -648,15 +647,15 @@ A future universally required routing field should be introduced through an expl
 
 ### 7.10 Payload size
 
-Core must enforce an absolute serialized payload limit.
+Core enforces an absolute serialized payload limit under the released contract.
 
-The initial maximum should be no more than:
+The architectural maximum is:
 
 ```text
 256 ASCII bytes
 ```
 
-Generators should warn or fail earlier when identifiers produce a payload above a recommended operational target of:
+Generators should warn or fail earlier when identifiers produce a payload above the recommended operational target of:
 
 ```text
 160 ASCII bytes
@@ -792,7 +791,7 @@ A future assignment registry will index module work references and academic orga
 
 ### 9.1 Required module-qualified root
 
-Core must replace the unqualified shared assignment root with a module-qualified work root.
+Core uses a module-qualified work root rather than the former unqualified shared assignment root.
 
 The preferred layout is:
 
@@ -816,7 +815,7 @@ classes/<class_id>/modules/<module_id>/work/<work_id>/
 
 ### 9.2 Route registration location
 
-Core must define a deterministic helper for locating a route registration from a `RouteLocator`.
+Core defines deterministic route-registration lookup from a `RouteLocator`.
 
 A conceptual layout is:
 
@@ -887,7 +886,7 @@ These examples do not establish the final module-specific layouts. They demonstr
 
 ### 9.4 Core path APIs
 
-Core should provide helpers conceptually equivalent to:
+Core provides public path helpers equivalent in responsibility to:
 
 ```python
 classes_dir(root)
@@ -923,7 +922,7 @@ assignment_submissions_dir(...)
 student_submission_dir(...)
 ```
 
-must no longer define the universal Core route model.
+do not define the universal Core route model.
 
 Migration options include:
 
@@ -937,7 +936,7 @@ No retained compatibility helper may cause Concord or future modules to adopt st
 
 ## 10. Normalized Core Models
 
-Core should replace the current student-required `QrPayload` with explicit models separating locator, registration, target, and resolution.
+Core separates locator, registration, target, and resolution through explicit public models.
 
 Representative conceptual models follow.
 
@@ -1003,9 +1002,9 @@ A module may derive those values after it receives the resolution.
 
 ### 11.1 Requirement
 
-Core must recognize installed PDS modules without importing their private implementations or maintaining a permanently closed module allow-list.
+Core recognizes installed PDS modules without importing their private implementations or treating a closed allow-list as the public extension model.
 
-Core should define a public module-profile interface.
+Core defines a public module-profile interface.
 
 A profile should provide at least:
 
@@ -1200,7 +1199,7 @@ Corrections belong in:
 
 ### 14.1 Generalized identity
 
-The shared failure schema must replace top-level assignment/student identity with route-oriented structures.
+The shared failure schema version 2 uses route-oriented structures rather than top-level assignment/student identity.
 
 A representative shape is:
 
@@ -1552,62 +1551,100 @@ A successful Concord route must create or support creation of a Concord Scan Ref
 * filing state;
 * and supersession history.
 
+
+### 17.6 Standards integration boundary
+
+Core owns shared standards infrastructure:
+
+* standards libraries;
+* standards profiles;
+* durable `standard_id` and `profile_id` values;
+* module-neutral reference validation;
+* and shared display metadata.
+
+Concord owns the meaning and use of those references within Concord:
+
+* Activity `standards_profile_id`;
+* ordered Activity `focus_standard_ids`;
+* Activity scoring orientation;
+* standard-backed and local Criterion classification;
+* the rule that one standard-backed Criterion has exactly one governing `standard_id`;
+* teacher-approved standard-backed Scores;
+* evidence links supporting those Scores;
+* and Concord-specific standards-result handoff data.
+
+Standards identity does not belong in the PDS2 QR, Route Locator, or generic Route Registration. Routing resolves an expected physical Artifact Page. Concord then resolves the Activity, Criterion, Score target, and governing standard from Concord-owned records.
+
+Core must not infer that:
+
+* selecting a standard is a Score;
+* aligning evidence to a standard establishes mastery;
+* one Score applies to several standards;
+* a local Criterion is a direct standards result;
+* or a Concord standards Score is a course Grade.
+
+The future grading and reporting module may consume Concord standards results through explicit module-owned exports or public contracts. It must not reconstruct standards meaning from QR payloads or generic routing metadata.
+
+
 ---
 
 ## 18. Versioning and Package Requirements
 
-### 18.1 Core release
+### 18.1 Current Core baseline
 
-The PDS2 and module-qualified route redesign is a breaking Core contract.
-
-Because `pds-core` is currently pre-1.0, the coordinated release should use at least:
+The architecture described by this document is implemented by:
 
 ```text
-pds-core 0.2.0
+pds-core 0.5.0
+Python >= 3.11
+QR schema: PDS2
+route-registration contract: 1
+routing failure/resolution contract: 2
 ```
 
-### 18.2 Explicit dependencies
+The earlier recommendation to publish `pds-core 0.2.0` was a pre-implementation planning target and is historical. It is not the current compatibility baseline.
 
-Each consuming module must declare a compatible Core dependency.
+### 18.2 Concord dependency range
 
-For the initial coordinated release:
+The initial Concord implementation should declare:
 
 ```toml
 dependencies = [
-    "pds-core>=0.2,<0.3"
+    "pds-core>=0.5,<0.6"
 ]
 ```
 
-The exact installation source may be a local package, private index, or released distribution, but dependency compatibility must be machine-verifiable.
+The dependency must be machine-verifiable. Concord must not depend on an undeclared sibling checkout or local type-checking path.
 
-### 18.3 Python version alignment
+### 18.3 Sibling-module independence
 
-All four repositories should align on:
+The supported dependency direction remains:
 
 ```text
-Python >= 3.11
+pds-scoreform -> pds-core
+pds-quillan   -> pds-core
+pds-concord   -> pds-core
 ```
 
-ScoreForm must update its declared minimum from Python 3.10 if it depends on a Core release requiring Python 3.11.
+Concord must not require ScoreForm or Quillan as runtime dependencies merely to resolve shared identities, standards, paths, QRs, retained scans, or routes.
 
-### 18.4 No sibling-checkout type path
+Cross-module relationships use public serialized contracts, module-qualified references, module-owned exports, or optional adapters.
 
-Quillan must remove:
+### 18.4 Python alignment
 
-```toml
-mypy_path = "../pds-core"
-```
+PDS Core 0.5 requires Python 3.11 or newer.
 
-Type checking and runtime imports must resolve through the declared package dependency.
+A consuming module must declare a Python range compatible with its selected Core range and must verify that runtime imports and type checking resolve through installed dependencies rather than sibling paths.
 
 ### 18.5 Contract compatibility
 
-Module profiles must declare the supported ranges of:
+Module profiles and public adapters must declare compatible ranges for:
 
 * Core package version;
 * QR schema;
 * route-registration schema;
-* and any public module-record contract used by optional adapters.
+* routing failure and resolution schemas;
+* and any public module-record contract they consume.
 
 Incompatibility must fail explicitly rather than being ignored.
 
@@ -1730,6 +1767,9 @@ QR error correction already addresses ordinary scan corruption, while route-regi
 ---
 
 ## 21. Testing Requirements
+
+This section preserves the required behavioral coverage identified by the original integration specification. Core 0.5 supplies the shared PDS2 foundation; each repository must verify its own current test coverage. Concord-specific cases remain acceptance requirements for later Concord implementation and are not satisfied merely because Core can parse or dispatch PDS2 routes.
+
 
 ### 21.1 Core parser tests
 
@@ -1869,81 +1909,81 @@ This integration does not:
 
 ---
 
-## 23. Required Implementation Issues
+## 23. Implementation Status and Remaining Work
 
-Acceptance of this document should produce separate implementation issues.
+The original version of this section listed implementation issues that were required to produce PDS2. The shared Core architecture has since been released. The list below distinguishes settled Core capability from remaining module-owned work.
 
-### 23.1 `pds-core`
+### 23.1 Implemented Core foundation
 
-1. Record an ADR for PDS2 page-locator routing.
-2. Add `ModuleWorkRef`, `RouteLocator`, `ModuleRecordRef`, `RouteRegistration`, and `RouteResolution`.
-3. Implement strict PDS2 parsing and serialization.
-4. Add route-ID generation.
-5. Add module-qualified class/work path helpers.
-6. Add deterministic route-registration storage and validation.
-7. Add module-profile registration and dispatch.
-8. Replace routing-failure metadata with schema version 2.
-9. Update scan-resolution metadata for corrected generic routes.
-10. Update the active-scan contract.
-11. Remove or deprecate universal student-assignment route helpers.
-12. Publish `pds-core 0.2.0`.
+The released Core 0.5 baseline provides the architectural capabilities required by this document:
 
-### 23.2 `pds-scoreform`
+1. PDS2 page-locator parsing and serialization.
+2. `ModuleWorkRef`, `RouteLocator`, `ModuleRecordRef`, `RouteRegistration`, and route-resolution contracts.
+3. route-ID generation and validation.
+4. module-qualified class/work path helpers.
+5. deterministic route-registration storage and validation.
+6. module-profile registration and generic dispatch.
+7. generic routing failure and resolution schema version 2.
+8. source-scan retention and provenance.
+9. package and contract-version boundaries suitable for independent modules.
+10. shared standards libraries, profiles, durable standards IDs, and module-neutral validation.
 
-1. Declare the compatible Core dependency.
-2. Align Python support.
-3. Move assignment storage beneath the ScoreForm module work root.
-4. Add durable answer-sheet page records.
-5. Create route registrations before PDF rendering.
-6. Generate PDS2 QR codes.
-7. Resolve student identity from page records.
-8. Migrate scanner and scoring routes.
-9. Add provenance and duplicate-page tests.
-10. Remove active generation of OMR1 and PDS1.
+The earlier requirement to publish `pds-core 0.2.0` is superseded by the released `pds-core` 0.5.0 baseline.
 
-### 23.3 `pds-quillan`
+### 23.2 ScoreForm and Quillan
 
-1. Declare the compatible Core dependency.
-2. Remove sibling `mypy_path`.
-3. Move assignment storage beneath the Quillan module work root.
-4. Add durable response-page records.
-5. Create route registrations before document rendering.
-6. Generate PDS2 QR codes.
-7. Resolve student submissions from page records.
-8. Migrate scan assembly and review routes.
-9. Add continuation-page and provenance tests.
-10. Remove active generation of PDS1.
+ScoreForm and Quillan remain responsible for their own current PDS2 page records, route registrations, scanning workflows, package dependencies, and result contracts.
 
-### 23.4 `pds-concord`
+This Concord document does not serve as the current implementation tracker for those repositories. Their repositories and issues govern any remaining migration or maintenance work.
 
-1. Declare the compatible Core dependency.
-2. Register the Concord module profile.
-3. Use `activity_id` as the Concord routing `work_id`.
-4. Create Artifact Page records before rendering.
-5. Create route registrations for returned Artifact Pages.
-6. Generate PDS2 QR codes.
-7. Resolve routes to Artifact Pages.
-8. Create Concord Scan References from Core source-page references.
-9. Implement routing-review integration.
-10. Test all representative student, Group, Session, Activity, Event, and multi-subject cases.
+### 23.3 Remaining Concord implementation work
 
-### 23.5 Future Core design issue
+Later Concord implementation issues must:
 
-Open a separate issue for the suite assignment registry, including:
+1. declare `pds-core>=0.5,<0.6`;
+2. register the Concord module profile;
+3. use `activity_id` as the Concord routing `work_id`;
+4. create Artifact Page records before rendering;
+5. create route registrations for returned Artifact Pages;
+6. generate PDS2 QR codes through Core;
+7. resolve routes to Artifact Pages through a side-effect-free route handler;
+8. create Concord Scan References through a separate persistence service after successful dispatch;
+9. integrate routing results with filing and Review;
+10. preserve Core source-page provenance;
+11. test student, Group, Session, Activity, Event, unresolved-attribution, and multi-subject cases;
+12. implement Activity standards configuration and standard-backed/local Criterion semantics under ADR 0014;
+13. preserve direct standards-result meaning without placing standards data in QRs or generic route records;
+14. and expose future reporting handoff data through Concord-owned contracts rather than Core routing metadata.
 
-* module work discovery;
+### 23.4 Future suite assignment and reporting work
+
+A separate future design effort remains responsible for:
+
+* module-work discovery;
 * academic-period hierarchy;
 * assessment classification;
-* lifecycle and status;
+* reporting eligibility;
 * rebuildable indexes;
 * stale-entry detection;
-* and grading/reporting consumption.
+* standards-result aggregation;
+* grading policy;
+* and reporting consumption.
+
+That future work must reference module work through:
+
+```text
+module_id + class_id + work_id
+```
+
+It must not change the PDS2 QR grammar to carry grading, standards, academic-period, or reporting metadata.
 
 ---
 
-## 24. Acceptance Criteria
+## 24. Architectural Acceptance Criteria
 
-This integration specification is satisfied when:
+The shared architecture represented by this document is satisfied when the following conditions hold. Core-level conditions are governed by the released Core contracts; module-level readiness must be verified in each consuming repository.
+
+
 
 1. Core no longer requires `student_id` in its universal QR or normalized route model.
 2. Core no longer treats student submission directories as the universal route destination.
@@ -1959,12 +1999,15 @@ This integration specification is satisfied when:
 12. generic failure metadata supports student and non-student routes.
 13. retained source scans remain canonical and immutable.
 14. all routed evidence remains traceable to its source scan and source page.
-15. ScoreForm and Quillan declare compatible Core package dependencies.
-16. all modules run under a compatible Python version.
+15. every consuming module declares a compatible Core package dependency.
+16. every consuming module declares and tests a Python version compatible with its selected Core range.
 17. Concord routes valid pages with no student Subject.
 18. one teacher tracker can route as one Artifact while retaining several Subjects.
 19. unresolved Author or Subject status does not prevent correct page routing.
 20. the resulting identity model can be indexed later by a suite assignment registry without changing the QR contract.
+21. Core standards libraries and profiles remain separate from Concord-owned standards-scoring semantics.
+22. no standard, Criterion, Score target, rating, mastery state, Grade, or reporting category is encoded in PDS2 or generic Route Registration.
+23. a future reporting module can consume Concord standards results from Concord-owned records without reverse-engineering generic routing metadata.
 
 ---
 
@@ -1990,3 +2033,23 @@ QR
 ```
 
 This distinction is required for Concord and provides the cleaner long-term contract for ScoreForm, Quillan, and future paper-processing modules.
+
+The corresponding standards boundary is:
+
+```text
+Core standard/profile identity
+    -> Concord Activity Focus Standards
+    -> Concord standard-backed Criterion
+    -> teacher-approved Concord Score
+    -> future Concord-owned standards-result handoff
+```
+
+It is not:
+
+```text
+PDS2 QR or Route Registration
+    -> inferred standard
+    -> inferred mastery or Grade
+```
+
+Routing identifies the physical page. Concord-owned records identify the evidence, target, Criterion, governing standard, and teacher judgment.

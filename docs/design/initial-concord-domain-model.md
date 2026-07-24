@@ -1,51 +1,98 @@
 # Initial Concord Domain Model
 
-**Status:** Draft for conceptual contract design
+**Status:** Revised draft for conceptual contract design
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** #8
-**Date:** July 13, 2026
-
+**Date:** July 22, 2026
+**Revision:** 2 — aligned with PDS2, the initial conceptual data contracts, and ADR 0014
 ## 1. Purpose
 
 This document defines the initial conceptual domain model for `pds-concord`.
 
-It translates the findings from the following documents into a coherent set of domain concepts and relationships:
+It translates the findings and decisions from the following documents into a coherent set of domain concepts and relationships:
 
 * [Concord Conceptual Design](../concord-conceptual-design-revised.md);
 * [Cross-Case Requirements Matrix](cross-case-requirements.md);
+* [Initial Concord Conceptual Data Contracts](conceptual-data-contracts.md);
 * [Socratic Seminar Packet Model](../packet_models/socratic-seminar-packet-model.md);
-* [Science Laboratory Group Packet Model](../packet_models/science-laboratory-group-packet-model.md); and
-* [Collaborative Programming or Engineering Project Packet Model](../packet_models/collaborative-programming_engineering_project_packet_model.md).
+* [Science Laboratory Group Packet Model](../packet_models/science-laboratory-group-packet-model.md);
+* [Collaborative Programming or Engineering Project Packet Model](../packet_models/collaborative-programming_engineering_project_packet_model.md);
+* the accepted Concord architecture decisions through ADR 0014;
+* and the released `pds-core` 0.5/PDS2 contracts.
 
 The model is implementation-neutral. It does not prescribe:
 
 * Python classes;
 * JSON Schema structure;
 * database tables;
-* filesystem layout;
-* QR payload syntax;
+* final filesystem layout beneath the module-qualified Concord work root;
 * user-interface design;
 * or public API stability.
 
-Its purpose is to establish the concepts, relationships, cardinalities, ownership boundaries, and invariants that later contracts and implementations must preserve.
+Its purpose is to establish the concepts, relationships, cardinalities, ownership boundaries, standards semantics, and invariants that later contracts and implementations must preserve.
 
+When this document conflicts with an accepted Concord ADR, the ADR governs unless a later ADR explicitly supersedes it.
+
+When an earlier design assumption conflicts with the finalized PDS2 architecture, the finalized Core contract governs.
 ## 2. Domain Definition
 
 Concord is a paper-based collaborative-evidence system.
 
-Its domain begins with an already-planned collaborative classroom activity and covers:
+Its domain begins with an already-planned collaborative classroom Activity and covers:
 
-1. configuring the activity context;
-2. generating packets and artifacts;
-3. identifying artifact authors and subjects;
-4. receiving and filing scans;
-5. reviewing and moderating evidence;
-6. recording criterion-level scores; and
-7. linking Concord evidence and scores to records owned elsewhere.
+1. configuring the Activity context;
+2. declaring whether the Activity is evidence-only, standards-based, mixed, or local-criteria-only;
+3. selecting a Core standards profile and ordered Focus Standards when standards-based scoring applies;
+4. generating Packets and Artifacts;
+5. identifying Artifact Authors and Subjects;
+6. receiving and filing scans through PDS2 routing;
+7. reviewing and moderating evidence;
+8. recording criterion-level teacher judgments;
+9. distinguishing direct standard-backed Scores from local Concord Scores;
+10. preserving a future standards-result handoff without calculating mastery or Grades; and
+11. linking Concord evidence and Scores to records owned elsewhere.
 
-Concord does not own lesson planning, OMR, extended written-response evaluation, course-grade calculation, formal incident management, or external project-file systems.
+Concord’s primary academic scoring model is standards-based.
 
+Concord is not standards-exclusive. It also supports:
+
+* evidence-only Activities;
+* local procedural or collaborative Criteria;
+* Group-process Criteria;
+* Activity-component Criteria;
+* formative evidence that produces no Score;
+* and nonacademic or locally defined collaborative contexts.
+
+The central standards-based relationship is:
+
+```text
+collaborative evidence
+    -> standard-backed Criterion
+    -> teacher-approved Score
+    -> future standards-based grading and reporting
+```
+
+The local-criterion relationship is:
+
+```text
+collaborative evidence
+    -> local Criterion
+    -> teacher-approved local Score
+```
+
+A local Score is not a direct standards result merely because the local Criterion carries optional standards-alignment metadata.
+
+Concord does not own:
+
+* lesson planning;
+* optical mark recognition;
+* extended written-response evaluation;
+* course-grade calculation;
+* cross-Activity or cross-module mastery determination;
+* longitudinal reporting;
+* formal incident management;
+* or external project-file systems.
 ## 3. Modeling Conventions
 
 ### 3.1 First-class entity
@@ -54,10 +101,10 @@ A first-class entity:
 
 * has a durable identity;
 * has an independent lifecycle;
-* may be referenced by other records; and
-* must remain distinguishable from similar entities over time.
+* may be referenced by other records;
+* and must remain distinguishable from similar entities over time.
 
-Examples include an activity, session, artifact instance, review, or score record.
+Examples include an Activity, Session, Artifact Instance, Review, Criterion, or Score Record.
 
 ### 3.2 Association record
 
@@ -68,9 +115,19 @@ It should have its own durable identity when the relationship:
 * changes over time;
 * carries metadata;
 * may be corrected or superseded;
+* may be disputed;
 * or must be cited as evidence.
 
-Examples include group membership, role assignment, artifact authorship, artifact subject assignment, and score-evidence linkage.
+Examples include:
+
+* Group Membership;
+* Role Assignment;
+* Responsibility Assignment;
+* Artifact Author;
+* Artifact Subject;
+* Score Evidence Link;
+* Work-Item Dependency;
+* and External Reference.
 
 ### 3.3 Typed reference
 
@@ -79,16 +136,19 @@ A typed reference identifies something owned either by Concord or another module
 Examples include:
 
 * Core student reference;
-* Concord group reference;
-* Concord session reference;
+* Concord Group reference;
+* Concord Session reference;
+* Core standard reference;
 * ScoreForm result reference;
-* Quillan response reference;
-* or future gradebook record reference.
+* Quillan result reference;
+* or future grading and reporting record reference.
 
-A typed reference identifies both:
+A typed reference identifies:
 
-* the kind of target; and
-* the durable identifier of that target.
+* the owning system;
+* the kind of target;
+* the durable identifier of that target;
+* and, where needed, the public contract version.
 
 ### 3.4 Value object
 
@@ -96,31 +156,34 @@ A value object has meaning but does not require independent identity.
 
 Examples include:
 
-* privacy classification;
+* privacy policy;
 * evidence locator;
 * role key;
-* score disposition;
+* Score disposition;
 * authorship mode;
 * page position;
-* and status reason.
+* Activity scoring orientation;
+* Criterion classification;
+* and Status Reason.
 
-### 3.5 Definitions and instances
+### 3.5 Definitions, versions, and instances
 
-Reusable definitions must remain separate from generated classroom records.
+Reusable definitions must remain separate from immutable versions and generated classroom records.
 
 Examples:
 
-* a template definition is reusable;
-* a template version is an immutable revision;
-* an artifact instance is one generated copy of that version;
-* a packet definition is reusable;
-* a packet instance is generated for a specific activity context.
+* a Template Definition is a reusable lineage;
+* a Template Version is one immutable revision;
+* an Artifact Instance is one generated copy of that version;
+* a Packet Definition is a reusable lineage;
+* a Packet Version is one immutable composition;
+* and a Packet Instance is generated for a specific Activity context.
 
 ### 3.6 Historical preservation
 
-Records that have been used as evidence must not be silently rewritten.
+Records that have been printed, distributed, scanned, reviewed, moderated, scored, exported, reported, or used as evidence must not be silently rewritten.
 
-Corrections, rescans, reassignments, revised scores, and superseding decisions must preserve the earlier state and explain what changed.
+Corrections, rescans, reassignments, revised Scores, revised standards relationships, and superseding decisions must preserve the earlier state and explain what changed.
 
 ### 3.7 Surface neutrality
 
@@ -129,51 +192,116 @@ The conceptual model must not depend on whether a teacher completes a step:
 * on paper;
 * in a terminal interface;
 * in a future graphical interface;
-* or through another local workflow.
+* through an import;
+* or through another authorized local workflow.
 
-For example, a scanned paper rubric and a digitally entered rubric should be capable of producing the same conceptual score record.
+For example, a scanned paper rubric and a digitally entered rubric should be capable of producing equivalent Score Records when they represent the same teacher judgment.
 
+### 3.8 Standards semantics
+
+Core owns shared standards identity, storage, profiles, display metadata, and module-neutral validation.
+
+Concord owns:
+
+* Activity Focus Standard selection;
+* standard-backed Criterion meaning;
+* local Criterion meaning;
+* teacher-approved Score Records;
+* evidence relationships;
+* and Concord-specific standards-result handoff semantics.
+
+The following are distinct:
+
+```text
+Focus Standard selection
+standards alignment
+standard-backed Criterion
+teacher-approved standard-backed Score
+future mastery or Grade determination
+```
+
+Selecting a Focus Standard does not prove that it was taught, practiced, assessed, demonstrated, or mastered.
+
+A direct Concord standards result exists only through an explicit teacher-approved standard-backed Score Record.
 ## 4. Ownership Boundaries
 
 ### 4.1 Concord-owned concepts
 
 Concord owns:
 
-* activities;
-* sessions;
-* activity-specific groups;
-* group membership;
-* contextual roles;
-* optional responsibilities;
-* packet and template definitions;
-* generated packet and artifact instances;
-* artifact authorship and subject relationships;
-* Concord-specific routed evidence references;
-* artifact review and moderation;
-* criteria and scoring scales;
-* score records;
-* score-evidence relationships;
-* external-module relationships;
-* and Concord-specific corrections and supersession history.
+* Activities;
+* Sessions;
+* Activity-specific Groups;
+* Group Membership;
+* contextual Roles;
+* optional Responsibilities;
+* Activity scoring orientation;
+* Activity Focus Standard selection;
+* Criterion Sets;
+* standard-backed and local Criteria;
+* Scoring Scales;
+* Score Records;
+* standards-result handoff projections derived from Concord Scores;
+* Packet and Template Definitions;
+* Packet and Template Versions;
+* generated Packet and Artifact Instances;
+* Artifact Authors and Subjects;
+* Concord-specific routed Scan References;
+* Artifact Review and Moderation;
+* Score Evidence Links;
+* External References;
+* Attachments;
+* optional Activity Markers, Work Items, Events, and Contribution Claims;
+* and Concord-specific correction and supersession history.
 
-### 4.2 Core-owned concepts
+### 4.2 Core-owned concepts and capabilities
 
 `pds-core` owns:
 
 * workspace resolution;
 * canonical class identity;
 * roster and student identity;
-* canonical assignment-routing conventions;
 * shared identifier validation;
-* safe path construction;
-* shared `PDS1` QR contracts;
+* module-qualified work-path construction;
+* the PDS2 locator grammar;
+* PDS2 parsing and serialization;
+* Route Registrations;
+* shared Module Record References;
 * source-scan retention;
 * source-scan provenance;
-* shared routing-failure and resolution metadata;
-* standards libraries and standards profiles;
+* generic routing-failure and resolution metadata;
+* module-profile dispatch;
+* standards libraries;
+* standards profiles;
+* durable `standard_id` and `profile_id` identity;
+* standards browsing and selection helpers;
+* standards profile-membership validation;
+* standards display metadata;
+* active, inactive, and deprecated status;
 * and shared navigation behavior.
 
-Concord references these records rather than duplicating them.
+For Concord’s top-level module work identity:
+
+```text
+module_id = concord
+class_id  = <Core class identifier>
+work_id   = <Concord activity_id>
+```
+
+Therefore:
+
+```text
+work_id = activity_id
+```
+
+Concord references Core-owned records and capabilities rather than duplicating them.
+
+Concord must not create:
+
+* a competing standards library;
+* a competing class or roster model;
+* a separate QR grammar;
+* or a second source-scan authority.
 
 ### 4.3 ScoreForm-owned concepts
 
@@ -183,7 +311,15 @@ Concord references these records rather than duplicating them.
 * machine-readable answer sheets;
 * bubble ratings;
 * structured machine-readable checks;
+* answer keys;
+* OMR scoring;
+* question-level standards alignment;
+* attempts;
 * and ScoreForm result records.
+
+A ScoreForm result may support a Concord judgment through an External Reference and Score Evidence Link.
+
+It does not become a Concord Score automatically.
 
 ### 4.4 Quillan-owned concepts
 
@@ -193,25 +329,50 @@ Concord references these records rather than duplicating them.
 * extended reflections;
 * substantial written peer feedback;
 * written explanations and defenses;
-* and Quillan review and scoring records.
+* writing-assignment Focus Standards;
+* Quillan review-unit observations;
+* Quillan overall Focus Standard ratings;
+* Quillan feedback;
+* and Quillan result and reporting records.
+
+A Quillan result may support a Concord judgment through an External Reference and Score Evidence Link.
+
+It does not become a Concord Score automatically.
 
 ### 4.5 Future or external ownership
 
-Other systems own:
+A future Paper Data Suite grading and reporting module owns or is expected to own:
+
+* cross-Activity aggregation;
+* cross-module aggregation;
+* marking-period and course-grade calculation;
+* scale normalization;
+* weighting;
+* attempt selection;
+* longitudinal standards analysis;
+* mastery determination;
+* report-card output;
+* parent communication;
+* and broader student, class, course, term, and school-year reporting.
+
+Other external systems remain authoritative for:
 
 * lesson and unit plans;
-* course-grade calculation;
-* reporting and communication;
 * formal safety or disciplinary incidents;
+* medical and accommodation records;
 * source-control history;
 * CAD and engineering files;
-* and authoritative cloud-document histories.
+* cloud-document history;
+* and institutional records.
 
+Concord supplies contextual Scores and evidence relationships. It does not determine final mastery or Grades.
 ## 5. Conceptual Overview
 
 ```mermaid
 erDiagram
     CORE_CLASS ||--o{ ACTIVITY : contains
+    CORE_STANDARDS_PROFILE ||--o{ ACTIVITY : governs_when_selected
+    CORE_STANDARD }o--o{ ACTIVITY : selected_as_focus
     ACTIVITY ||--|{ SESSION : occurs_in
     ACTIVITY ||--o{ GROUP : defines
     GROUP ||--o{ GROUP_MEMBERSHIP : has
@@ -220,33 +381,55 @@ erDiagram
     GROUP_MEMBERSHIP ||--o{ RESPONSIBILITY_ASSIGNMENT : may_receive
 
     TEMPLATE_DEFINITION ||--|{ TEMPLATE_VERSION : versions
-    PACKET_DEFINITION ||--|{ PACKET_COMPONENT : contains
+    PACKET_DEFINITION ||--|{ PACKET_VERSION : versions
+    PACKET_VERSION ||--|{ PACKET_COMPONENT : contains
     TEMPLATE_VERSION ||--o{ PACKET_COMPONENT : selected_by
 
     ACTIVITY ||--o{ PACKET_INSTANCE : generates
-    PACKET_DEFINITION ||--o{ PACKET_INSTANCE : instantiates
+    PACKET_VERSION ||--o{ PACKET_INSTANCE : instantiates
     PACKET_INSTANCE ||--|{ ARTIFACT_INSTANCE : contains
     TEMPLATE_VERSION ||--o{ ARTIFACT_INSTANCE : generates
     ARTIFACT_INSTANCE ||--|{ ARTIFACT_PAGE : contains
+    CORE_ROUTE_REGISTRATION ||--|| ARTIFACT_PAGE : targets
 
     ARTIFACT_INSTANCE ||--o{ ARTIFACT_AUTHOR : has
     ARTIFACT_INSTANCE ||--o{ ARTIFACT_SUBJECT : concerns
     ARTIFACT_PAGE ||--o{ SCAN_REFERENCE : evidenced_by
+    CORE_SOURCE_SCAN ||--o{ SCAN_REFERENCE : retained_source
     ARTIFACT_INSTANCE ||--o{ ARTIFACT_REVIEW : reviewed_by
-    ARTIFACT_REVIEW ||--o{ MODERATION_RECORD : may_produce
+    EVIDENCE_REFERENCE ||--o{ MODERATION_RECORD : may_require
 
     CRITERION_SET ||--|{ CRITERION : contains
     ACTIVITY }o--o{ CRITERION_SET : selects
+    CORE_STANDARD ||--o{ CRITERION : governs_standard_backed
+    CORE_STANDARD }o--o{ CRITERION : may_align_local
     SCORING_SCALE ||--o{ SCORE_RECORD : governs
     CRITERION ||--o{ SCORE_RECORD : evaluated_by
     SCORE_RECORD ||--o{ SCORE_EVIDENCE_LINK : supported_by
+    SCORE_RECORD ||--o| STANDARDS_RESULT_HANDOFF : projects_when_standard_backed
 
     EXTERNAL_REFERENCE ||--o{ SCORE_EVIDENCE_LINK : may_support
     ARTIFACT_INSTANCE ||--o{ SCORE_EVIDENCE_LINK : may_support
 ```
 
-The diagram shows conceptual relationships only. It does not prescribe implementation aggregates or database foreign keys.
+The diagram shows conceptual relationships only.
 
+It does not prescribe:
+
+* implementation aggregates;
+* database foreign keys;
+* filesystem records;
+* or serialization nesting.
+
+The Core Route Registration points to an existing Artifact Page.
+
+The PDS2 locator identifies the route only:
+
+```text
+PDS2|m=<module_id>|c=<class_id>|w=<work_id>|r=<route_id>
+```
+
+The Artifact Page and linked Concord records supply the page’s complete semantic context.
 ## 6. Activity and Collaboration Context
 
 ### 6.1 Activity
@@ -267,34 +450,136 @@ An Activity should contain:
 * durable Concord `activity_id`;
 * required Core class reference;
 * title or short label;
-* activity type or teacher-defined category;
+* Activity type or teacher-defined category;
+* required scoring orientation;
+* conditional Core `standards_profile_id`;
+* conditional ordered `focus_standard_ids`;
 * lifecycle status;
-* optional Core assignment-routing reference;
-* optional selected criterion sets;
-* optional standards references;
+* optional selected Criterion Sets;
 * creation and update provenance;
+* optional privacy default;
 * and optional links to related module records.
 
-#### Identity recommendation
+#### Module work identity
 
-Concord should use its own durable `activity_id`.
+The Activity is Concord’s top-level Core work unit.
 
-The Activity should also reference the appropriate Core assignment-routing context when one exists. These identifiers serve different purposes:
+Its routing and workspace identity is:
 
-* `activity_id` identifies the Concord collaborative activity;
-* the Core assignment reference identifies its shared workspace or suite-level routing context.
+```text
+module_id = concord
+class_id  = <Core class identifier>
+work_id   = <activity_id>
+```
 
-A one-to-one mapping may be used initially, but the concepts should not be collapsed prematurely. One Core assignment may eventually contain several Concord activities, and one Concord activity may link to several ScoreForm or Quillan assignments.
+The Activity does not need a second Concord-versus-Core assignment identity for PDS2 routing.
+
+The complete module work identity is:
+
+```text
+module_id + class_id + activity_id
+```
+
+Concord’s canonical work root is conceptually:
+
+```text
+classes/<class_id>/modules/concord/work/<activity_id>/
+```
+
+The path must be constructed through Core helpers rather than unvalidated string concatenation.
+
+#### Scoring orientation
+
+Every Activity declares one of:
+
+```text
+evidence_only
+standards_based
+mixed
+local_criteria_only
+```
+
+##### `evidence_only`
+
+The Activity collects, organizes, reviews, or moderates evidence without producing Concord Score Records.
+
+It does not require:
+
+* a standards profile;
+* Focus Standards;
+* Criteria;
+* or a Scoring Scale.
+
+##### `standards_based`
+
+The Activity’s scored judgments are direct judgments against selected Focus Standards.
+
+It requires:
+
+* one Core `standards_profile_id`;
+* one or more ordered `focus_standard_ids`;
+* one or more standard-backed Criteria;
+* and applicable Scoring Scale revisions.
+
+Scored Criteria should ordinarily be standard-backed.
+
+##### `mixed`
+
+The Activity uses both:
+
+* standard-backed Criteria;
+* and local Concord Criteria.
+
+It requires one standards profile and one or more ordered Focus Standards.
+
+##### `local_criteria_only`
+
+The Activity produces Scores, but those Scores are not direct standards judgments.
+
+It does not require a standards profile or Focus Standards.
+
+Local Criteria may carry optional non-governing standards-alignment metadata.
+
+That metadata must not cause a local Score to enter a direct standards-result handoff.
+
+#### Focus Standards
+
+For `standards_based` and `mixed` Activities:
+
+* `standards_profile_id` identifies the Core-owned profile used for selection;
+* `focus_standard_ids` is nonempty;
+* duplicate Focus Standard IDs are invalid;
+* order is meaningful for teacher-facing scoring and future handoff;
+* each Focus Standard should belong to the selected profile;
+* and missing, inactive, or deprecated references must be reported without silently mutating the Activity.
+
+Selecting a Focus Standard does not create a Score.
 
 #### Cardinality
 
-* One Core class may contain zero or many Concord activities.
+* One Core class may contain zero or many Concord Activities.
 * One Activity belongs to exactly one Core class in the initial model.
 * One Activity contains one or more Sessions.
 * One Activity may contain zero or more Groups.
+* One Activity may select zero or more Criterion Sets.
 * One Activity may generate zero or more Packet Instances.
+* One Activity may contain zero or more Artifact Instances.
+* One Activity may produce zero or more Score Records.
+* One `standards_based` or `mixed` Activity selects exactly one standards profile and one or more Focus Standards.
+* One `evidence_only` or `local_criteria_only` Activity may omit standards configuration.
 
-Cross-class collaborative activities are outside the initial model.
+Cross-class collaborative Activities are outside the initial model.
+
+#### Invariants
+
+* `activity_id` is Concord’s Core `work_id`.
+* An Activity is not automatically a graded assignment.
+* An evidence-only Activity must not produce Score Records.
+* A standard-backed Criterion used by an Activity must govern one of that Activity’s Focus Standards.
+* A local Criterion remains local even when it contains optional alignment references.
+* Cancellation does not delete generated evidence.
+* Activity-specific structures remain optional unless selected records require them.
+
 
 ### 6.2 Session
 
@@ -325,6 +610,7 @@ A Session should contain:
 * One Session may contextualize zero or more memberships, roles, responsibilities, artifacts, events, and scores.
 
 Even a single-period activity should have one Session. This avoids special cases in group membership, role assignment, artifact routing, and provenance.
+
 
 ### 6.3 Group
 
@@ -360,6 +646,7 @@ A separate Subteam entity is not required in the initial model.
 * One Group may have zero or many child Groups.
 * One Group has zero or many Group Membership records.
 
+
 ### 6.4 Group Membership
 
 A **Group Membership** associates one human participant with one Group for a defined context.
@@ -388,6 +675,7 @@ The participant will normally be a Core student reference. The model should also
 * One membership is effective for one or more identified Sessions.
 
 A participant may belong to different Groups in different Sessions without rewriting earlier records.
+
 
 ### 6.5 Role Assignment
 
@@ -423,6 +711,7 @@ A Role Assignment should contain:
 * A role assignment may be limited to one Session, several Sessions, one Group, or one stage within a Session.
 
 Roles are contextual assignments, not personality labels or permanent classifications.
+
 
 ### 6.6 Responsibility Assignment
 
@@ -464,7 +753,6 @@ It does not prove:
 * or role fulfillment.
 
 Evidence of fulfillment must come from an artifact, observation, contribution claim, teacher judgment, or other reviewed source.
-
 ## 7. Reusable Definitions and Generated Instances
 
 ### 7.1 Template Definition
@@ -476,7 +764,7 @@ Examples include:
 * peer observation form;
 * discussion map;
 * responsibility record;
-* group retrospective;
+* Group retrospective;
 * teacher observation tracker;
 * or scoring rubric.
 
@@ -484,13 +772,14 @@ A Template Definition should contain:
 
 * durable `template_id`;
 * name;
-* general artifact category;
+* general Artifact category;
 * purpose;
 * owner or source;
 * lifecycle status;
-* and zero or more Template Versions.
+* creation provenance;
+* and one or more Template Versions.
 
-A Template Definition does not contain a specific class, group, student, or activity assignment.
+A Template Definition does not contain a specific class, Group, student, or Activity assignment.
 
 ### 7.2 Template Version
 
@@ -502,76 +791,126 @@ It should contain:
 * parent `template_id`;
 * version label or sequence;
 * layout or rendering specification reference;
-* artifact category;
-* page structure;
+* Artifact category;
+* expected page structure;
 * expected-return behavior;
-* default privacy classification;
-* default authorship and subject expectations;
-* optional supported criteria;
-* QR-placement requirements;
+* default privacy policy;
+* default authorship and Subject expectations;
+* optional supported Criteria;
+* page-level PDS2 route requirements;
 * creation provenance;
-* and retirement status.
+* lifecycle status;
+* and optional superseded Template Version.
 
 Once a Template Version has generated an Artifact Instance, it must not be silently modified.
 
-A change to wording, layout, QR placement, scoring criteria, or page structure requires a new Template Version.
+A change to:
+
+* wording;
+* layout;
+* page structure;
+* QR placement;
+* authorship expectations;
+* Subject expectations;
+* supported Criteria;
+* or return behavior
+
+requires a new Template Version.
 
 ### 7.3 Packet Definition
 
-A **Packet Definition** is a reusable, ordered composition of Template Versions.
+A **Packet Definition** represents the stable identity and lineage of one reusable packet design.
 
 It should contain:
 
 * durable `packet_definition_id`;
 * name;
-* version or revision;
 * purpose;
+* lifecycle status;
+* creation provenance;
+* and one or more Packet Versions.
+
+A Packet Definition does not directly contain mutable component composition after use.
+
+Composition belongs to Packet Version.
+
+### 7.4 Packet Version
+
+A **Packet Version** is one immutable ordered composition of Template Versions and optional external components.
+
+It should contain:
+
+* durable `packet_version_id`;
+* parent `packet_definition_id`;
+* version label or sequence;
 * ordered Packet Components;
 * optional generation rules;
 * lifecycle status;
-* and creation provenance.
+* creation provenance;
+* and optional superseded Packet Version.
 
-Each Packet Component should identify:
+A Packet Version must contain at least one Packet Component.
 
-* exact Template Version;
+Once a Packet Version has generated a Packet Instance, changes to composition or order require a new Packet Version.
+
+### 7.5 Packet Component
+
+A **Packet Component** is one ordered element of a Packet Version.
+
+It should identify:
+
+* durable `packet_component_id`;
+* parent `packet_version_id`;
+* sequence;
+* component kind;
+* exact Concord Template Version or external component reference;
 * quantity or repetition rule;
 * intended audience or context;
-* whether it is required, recommended, or conditional;
-* and its order within the packet.
+* requirement level;
+* optional generation condition;
+* and optional display label.
 
-A Packet Definition should be immutable after it has generated Packet Instances. Changes to its composition require a new revision.
+Exactly one Concord Template Version or external component is identified according to component kind.
 
-### 7.4 Packet Instance
+Physical assembly into one packet does not transfer record ownership.
+
+### 7.6 Packet Instance
 
 A **Packet Instance** is a generated packet tied to a specific classroom context.
 
 It should contain:
 
 * durable `packet_instance_id`;
-* exact Packet Definition revision;
+* exact `packet_version_id`;
 * `activity_id`;
 * optional `session_id`;
 * optional Group or participant context;
+* optional long-running series identity;
+* optional previous Packet Instance;
 * generation timestamp;
 * generator or teacher reference;
 * generation status;
-* and one or more Artifact Instances.
+* creation provenance;
+* and one or more Concord Artifact Instances.
 
 #### Cardinality
 
-* One Packet Definition may generate zero or many Packet Instances.
-* One Packet Instance uses exactly one Packet Definition revision.
+* One Packet Definition has one or more Packet Versions.
+* One Packet Version may generate zero or many Packet Instances.
+* One Packet Instance uses exactly one Packet Version.
 * One Activity may have zero or many Packet Instances.
-* One Packet Instance contains one or more Artifact Instances.
+* One Packet Instance contains one or more Concord Artifact Instances.
 
 A long-running Activity may use:
 
-* one Packet Instance containing artifacts that continue across Sessions; or
-* several linked Packet Instances generated at different checkpoints.
+* one continuing Packet Instance whose Artifacts span several Sessions; or
+* several linked Packet Instances within one series.
 
-The exact long-lived-packet policy remains a contract question.
+The Activity or packet-generation configuration must choose deliberately.
 
-### 7.5 Artifact Instance
+Regeneration does not silently replace an already distributed Packet Instance.
+
+### 7.7 Artifact Instance
 
 An **Artifact Instance** is one generated copy of one Template Version.
 
@@ -588,13 +927,14 @@ An Artifact Instance should contain:
 * exact `template_version_id`;
 * parent `activity_id`;
 * optional `packet_instance_id`;
-* optional Session, Group, or activity-marker context;
-* artifact category;
+* optional Session, Group, Activity Marker, or Work Item context;
+* Artifact category;
 * generation provenance;
 * expected-return status;
-* artifact lifecycle status;
-* default or effective privacy classification;
-* and one or more Artifact Pages.
+* Artifact lifecycle status;
+* effective privacy policy;
+* one or more Artifact Pages;
+* and optional superseded Artifact Instance.
 
 An Artifact Instance may exist independently of a Packet Instance when the teacher generates a single form.
 
@@ -608,34 +948,69 @@ An Artifact Instance may exist independently of a Packet Instance when the teach
 * One Artifact Instance may have zero or many Authors.
 * One Artifact Instance may have zero or many Subjects.
 
-### 7.6 Artifact Page
+### 7.8 Artifact Page
 
-An **Artifact Page** represents one expected page within an Artifact Instance.
+An **Artifact Page** represents one expected physical page within an Artifact Instance.
 
 It should contain:
 
 * durable `artifact_page_id`;
 * parent `artifact_instance_id`;
-* page number;
+* logical page number;
 * total expected pages where known;
 * page kind;
-* stable human-readable fallback identifier;
-* shared QR payload or QR reference where required;
 * expected-return status;
+* whether a PDS2 route is required;
+* one immutable `route_id` when routing is required;
+* stable human-readable fallback identifier when routing is required;
 * optional continuation-page relationship;
-* and page lifecycle status.
+* page lifecycle status;
+* and creation provenance.
 
-Every scannable page expected to return to Concord should have stable page identity.
+Every returned scannable page should have stable page identity before rendering.
 
-Non-returned instructional scaffolds may omit QR data when the Template Version declares that the page is not evidence-bearing.
+#### PDS2 route semantics
+
+The generated locator is exactly:
+
+```text
+PDS2|m=concord|c=<class_id>|w=<activity_id>|r=<route_id>
+```
+
+The Core Route Registration targets:
+
+```text
+module_id: concord
+record_kind: artifact_page
+record_id: <artifact_page_id>
+```
+
+The Artifact Page must exist before its Route Registration and QR code are generated.
+
+The locator does not contain:
+
+* student identity;
+* Artifact Author;
+* Artifact Subject;
+* Group identity;
+* Session identity;
+* logical page semantics;
+* Criterion identity;
+* standard identity;
+* scorer identity;
+* or Score target identity.
+
+Those meanings resolve through the Artifact Page and linked Concord records.
 
 #### Cardinality
 
 * One Artifact Instance contains one or more Artifact Pages.
 * One Artifact Page belongs to exactly one Artifact Instance.
 * One Artifact Page may have zero or many Scan References.
-* One Scan Reference should identify one source page associated with one Artifact Page.
+* One route-required Artifact Page has exactly one immutable Core route registration.
+* One Scan Reference identifies one source page or defined region associated with one Artifact Page.
 
+Non-returned instructional scaffolds may omit a route when the Template Version declares that the page is not evidence-bearing.
 ## 8. Authorship and Subject Relationships
 
 ### 8.1 Artifact Author
@@ -731,7 +1106,6 @@ The initial model does not require handwriting-region extraction. A Score Eviden
 * student label;
 * criterion column;
 * or teacher-entered note.
-
 ## 9. Evidence, Scans, Review, and Moderation
 
 ### 9.1 Evidence as a domain role
@@ -744,26 +1118,34 @@ The following may function as evidence:
 * one Artifact Page;
 * a teacher observation;
 * a moderated peer observation;
-* a reviewed attachment;
-* a contribution claim;
+* a reviewed Attachment;
+* a Contribution Claim;
+* an Activity Event;
 * a teacher-entered rationale;
 * a ScoreForm result;
-* or a Quillan response.
+* a Quillan result;
+* or another authorized external record.
 
-The domain should therefore use a typed **Evidence Reference** rather than requiring every evidence source to be transformed into one universal evidence entity.
+The domain therefore uses a typed **Evidence Reference** rather than requiring every source to become one universal Evidence entity.
 
 An Evidence Reference should identify:
 
-* evidence source type;
+* evidence source kind;
+* owning system;
 * durable source identifier;
-* optional page or location;
-* optional subject context;
+* optional public contract version;
+* optional page or source location;
+* optional Subject context;
 * optional relevance note;
-* and optional moderation requirement.
+* and optional Moderation requirement.
+
+Evidence ownership remains with the source record’s owner.
+
+A reference to evidence does not create a Score.
 
 ### 9.2 Scan Reference
 
-A **Scan Reference** is a Concord-owned routed reference to a source scan retained by Core.
+A **Scan Reference** is a Concord-owned routed association between one Artifact Page and one page or defined region of a Core-retained source scan.
 
 It should contain:
 
@@ -771,22 +1153,45 @@ It should contain:
 * `artifact_page_id`;
 * Core source-scan reference;
 * source page index;
-* routed representation reference where applicable;
+* routed derivative reference where applicable;
 * routing status;
 * readability status;
 * filing status;
-* provenance metadata required by Core;
+* review status;
+* whether the source is currently preferred for use;
+* provenance;
+* optional Status Reason;
 * and optional superseded Scan Reference.
 
 Concord does not own or replace the original source scan.
+
+#### PDS2 relationship
+
+The normal resolution chain is:
+
+```text
+PDS2 locator
+    -> Core Route Registration
+    -> Artifact Page
+    -> Artifact Instance
+    -> optional Packet Instance
+    -> Activity
+    -> optional Session and Group context
+    -> Artifact Authors
+    -> Artifact Subjects
+```
+
+Core retains the original source before module-specific processing.
+
+Concord creates the Scan Reference after dispatch and semantic validation.
 
 #### Cardinality
 
 * One Artifact Page may have zero or many Scan References.
 * One Core source scan may yield references for many Artifact Pages.
-* One Scan Reference links one source page or page region to one Artifact Page.
+* One Scan Reference links one source page or defined region to one Artifact Page.
 * One active routed source page should normally resolve to one Artifact Page after review.
-* Duplicate, conflicting, or corrected routing states must remain representable.
+* Duplicate, conflicting, rescanned, misrouted, and corrected states remain representable.
 
 ### 9.3 Artifact Review
 
@@ -801,16 +1206,24 @@ It should contain:
 * scan-readability judgment;
 * page-completeness judgment;
 * filing confirmation;
-* author confirmation or correction;
-* subject confirmation or correction;
+* Author confirmation or correction;
+* Subject confirmation or correction;
 * privacy confirmation or override;
 * relevance judgment;
-* moderation requirement;
+* Moderation requirement;
 * scoring-readiness status;
+* review outcome;
 * notes;
-* and optional superseded Review reference.
+* privacy policy;
+* and optional superseded Review.
 
 A Review may confirm or correct metadata, but it must not modify the source scan.
+
+Review determines administrative and evidentiary readiness.
+
+It does not determine performance.
+
+It does not create a Score.
 
 #### Cardinality
 
@@ -821,26 +1234,29 @@ A Review may confirm or correct metadata, but it must not modify the source scan
 
 ### 9.4 Moderation Record
 
-A **Moderation Record** documents a teacher’s judgment about the reliability, fairness, relevance, or permissible use of evidence.
+A **Moderation Record** documents an authorized judgment about the reliability, fairness, relevance, credibility, or permissible use of evidence.
 
 Moderation is especially important for:
 
 * peer observations;
 * student-created claims about other students;
 * disputed contribution records;
-* conflicting group accounts;
-* and incomplete or questionable evidence.
+* conflicting Group accounts;
+* incomplete or questionable evidence;
+* and evidence proposed for consequential individual scoring.
 
 A Moderation Record should contain:
 
 * durable `moderation_record_id`;
 * moderator reference;
-* target evidence reference;
-* optional target subject;
-* moderation status;
-* qualification or rationale;
-* permitted scoring use;
+* target Evidence Reference;
+* optional target Subjects;
+* Moderation status;
+* qualification where required;
+* permitted use;
+* rationale;
 * timestamp;
+* privacy policy;
 * and optional superseded Moderation Record.
 
 Possible statuses include:
@@ -856,12 +1272,23 @@ Possible statuses include:
 
 * One evidence source may have zero or many Moderation Records.
 * One Moderation Record evaluates exactly one primary evidence source or claim.
-* One Moderation Record may apply to one or several Subjects if explicitly identified.
-* Evidence requiring moderation must not support a consequential score until an applicable moderation decision exists.
+* One Moderation Record may apply to one or several Subjects when explicitly identified.
+* Evidence requiring Moderation must not support a consequential Score until an applicable permitted-use decision exists.
+
+#### Invariants
+
+* Moderation evaluates evidence use, not performance.
+* Accepted evidence is not a high Score.
+* Rejected evidence is not negative evidence against a Subject.
+* Moderation does not select the Criterion, Score target, standard, scale value, or final Score.
+* Superseded decisions remain available.
 
 ### 9.5 Correction and Supersession
 
-The initial model should support a general **Correction Record** or equivalent append-only correction relationship.
+Concord uses a hybrid correction model:
+
+1. same-type replacement records use explicit supersession relationships; and
+2. a general **Correction Record** explains the correction, actor, reason, and old-to-new relationship.
 
 A Correction Record should identify:
 
@@ -869,78 +1296,209 @@ A Correction Record should identify:
 * target record type and identifier;
 * correction type;
 * reason;
-* correcting actor;
+* correcting Actor;
 * timestamp;
 * replacement or superseding record where applicable;
+* optional supporting source;
+* privacy policy;
 * and optional note.
 
 Corrections may apply to:
 
 * filing metadata;
-* author attribution;
-* subject attribution;
-* Group membership;
-* role or responsibility assignment;
+* Author attribution;
+* Subject attribution;
+* Group Membership;
+* Role or Responsibility Assignment;
 * Scan Reference;
 * Review;
 * Moderation Record;
+* Criterion revision;
 * Score Record;
-* or optional activity-context records.
+* or optional Activity-context records.
 
 The original record remains available for provenance.
 
+A current-record designation is a retrieval aid, not deletion of history.
 ## 10. Criteria and Scoring
 
-### 10.1 Criterion Set
+Concord’s primary academic scoring model is standards-based.
 
-A **Criterion Set** is a reusable or activity-specific collection of related Criteria.
+The model also preserves local Criteria and local Scores where direct standards judgment is not intended.
 
-It should contain:
+### 10.1 Core standards context
 
-* durable `criterion_set_id`;
+Core owns:
+
+* shared standard definitions;
+* standards profiles;
+* durable `standard_id` values;
+* durable `profile_id` values;
+* display metadata;
+* profile membership;
+* active, inactive, and deprecated status;
+* browsing and selection;
+* and module-neutral validation.
+
+Concord stores durable Core references and owns their Activity-, Criterion-, Score-, and workflow-specific meaning.
+
+The principal standards references are:
+
+* `standards_profile_id` on a `standards_based` or `mixed` Activity;
+* ordered `focus_standard_ids` on that Activity;
+* exactly one governing `standard_id` on a standard-backed Criterion;
+* optional non-governing `alignment_standard_ids` on a local Criterion;
+* and the governing `standard_id` on a standard-backed Score Record.
+
+Display codes, short names, titles, and descriptions are not durable identities.
+
+### 10.2 Criterion Set
+
+A **Criterion Set** is one immutable revision of an ordered collection of related Criteria.
+
+Each revision should contain:
+
+* durable immutable `criterion_set_id`;
+* stable `lineage_id`;
 * name;
 * purpose;
-* version or revision;
-* scope;
+* revision label or sequence;
+* reusable or Activity-specific scope;
+* required classification as `standard_backed`, `local`, or `mixed`;
+* optional Core standards-profile context;
 * ordered Criterion references;
-* optional Core standards references;
 * lifecycle status;
-* and creation provenance.
+* creation provenance;
+* and optional superseded Criterion Set revision.
 
-An Activity may select one or more Criterion Sets.
+#### Classification
 
-A Criterion Set should be immutable after scores reference it. Changes require a new revision.
+```text
+standard_backed
+local
+mixed
+```
 
-### 10.2 Criterion
+A `standard_backed` Criterion Set contains only standard-backed Criteria.
+
+A `local` Criterion Set contains only local Criteria.
+
+A `mixed` Criterion Set may contain both.
+
+#### Cardinality and invariants
+
+* One Criterion Set contains one or more Criteria.
+* One Activity may select zero or many Criterion Sets.
+* One Criterion Set revision may be selected by zero or many Activities.
+* A Criterion Set becomes immutable once selected by an Activity that produces Scores.
+* Changes to Criterion membership, order, definition, governing standards, target applicability, classification, or scoring meaning require a new revision.
+* Historical Scores retain the exact referenced Criterion and Set revision.
+* Selecting a Criterion Set does not create Scores.
+
+### 10.3 Criterion
 
 A **Criterion** defines one aspect of performance, process, contribution, or product quality.
 
-Examples include:
+Every Criterion used for scoring is classified as:
 
-* responds to peers’ ideas;
-* uses evidence in decisions;
-* fulfills responsibilities;
-* contributes to testing;
-* supports Group coordination;
-* or improves the shared product.
+```text
+standard_backed
+local
+```
 
 A Criterion should contain:
 
-* durable `criterion_id`;
-* parent Criterion Set;
+* durable immutable `criterion_id`;
+* parent Criterion Set revision;
 * stable key;
 * teacher-facing label;
 * definition;
-* supported score-target types;
-* optional default Scoring Scale;
-* optional standards references;
-* and lifecycle status.
+* required Criterion classification;
+* exactly one governing `standard_id` when standard-backed;
+* optional non-governing `alignment_standard_ids` when local;
+* supported Score-target types;
+* optional default Scoring Scale revision;
+* lifecycle status;
+* and creation provenance.
 
-Criteria should describe performance rather than personality.
+#### Standard-backed Criterion
 
-### 10.3 Scoring Scale
+A standard-backed Criterion defines how one selected Focus Standard will be judged in an Activity context.
 
-A **Scoring Scale** defines the permitted values and meanings used by Score Records.
+Conceptually:
+
+```text
+criterion_kind: standard_backed
+standard_id: <one durable Core standard_id>
+```
+
+Example:
+
+```text
+Standard:
+njsls-ela:SL.PE.9-10.1
+
+Activity-specific Criterion:
+Builds on peers' ideas and responds substantively during collaborative discussion
+```
+
+The Activity-specific definition may clarify what the shared standard looks like in:
+
+* a seminar;
+* a laboratory;
+* a programming project;
+* an engineering challenge;
+* or another collaborative context.
+
+It does not redefine the Core-owned standard.
+
+A standard-backed Criterion used by an Activity must govern exactly one standard in that Activity’s ordered Focus Standards.
+
+#### Local Criterion
+
+A local Criterion evaluates an Activity-specific, procedural, organizational, or collaborative expectation that is not a direct standards rating.
+
+Conceptually:
+
+```text
+criterion_kind: local
+standard_id: absent
+```
+
+Examples include:
+
+* returns shared materials;
+* performs an assigned observer rotation;
+* records a component handoff;
+* follows a local discussion protocol;
+* or maintains an Activity-specific version log.
+
+A local Criterion may include optional `alignment_standard_ids`.
+
+Those references document instructional relevance only.
+
+A Score against the local Criterion must not become a direct rating for any aligned standard.
+
+#### Multi-standard or holistic Criteria
+
+One direct Score must not govern several standards.
+
+When one classroom behavior reflects several standards, Concord should ordinarily use:
+
+* several standard-backed Criteria;
+* and several separate Score Records.
+
+A holistic Criterion spanning several standards must be modeled as:
+
+* a local Criterion with non-governing alignment references;
+* several separate standard-backed Criteria;
+* or a future explicitly defined composite contract.
+
+A future reporting module must not split one holistic Score across several standards automatically.
+
+### 10.4 Scoring Scale
+
+A **Scoring Scale** defines one immutable revision of the values and meanings used by Score Records.
 
 It may be:
 
@@ -952,75 +1510,186 @@ It may be:
 
 A Scoring Scale should contain:
 
-* durable `scoring_scale_id`;
+* durable immutable `scoring_scale_id`;
+* stable `lineage_id`;
 * name;
-* version or revision;
+* revision label or sequence;
 * scale type;
 * permitted values or levels;
 * level labels and descriptions;
-* optional aggregation guidance;
+* ordering where applicable;
+* optional non-binding aggregation guidance;
 * lifecycle status;
-* and creation provenance.
+* creation provenance;
+* and optional superseded Scoring Scale revision.
 
-A scale used by an existing Score Record must remain reproducible. Changes require a new revision.
+A scale used by an existing Score Record must remain reproducible.
 
-### 10.4 Score Record
+Changes require a new Scoring Scale revision.
+
+A future grading and reporting module must not assume that similarly numbered scales are semantically equivalent.
+
+### 10.5 Score Record
 
 A **Score Record** is one teacher-approved judgment about one Criterion for one target.
 
-It should contain:
+Every Score is classified as:
+
+```text
+standard_backed
+local
+```
+
+The classification must match the referenced Criterion.
+
+A Score Record should contain:
 
 * durable `score_record_id`;
 * `activity_id`;
 * optional `session_id`;
-* typed score-target reference;
-* `criterion_id`;
+* exactly one typed Score-target reference;
+* exact immutable `criterion_id`;
+* required Score classification;
+* governing `standard_id` when standard-backed;
 * exact Scoring Scale revision;
-* score disposition;
-* score value when applicable;
+* Score disposition;
+* Score value when applicable;
+* basis;
 * scorer reference;
 * scoring timestamp;
-* optional rationale;
-* optional moderation-complete status;
+* rationale where required;
+* optional Status Reason;
+* whether required Moderation is complete;
+* privacy policy;
 * and optional superseded Score Record.
 
-Score-target types may include:
+#### Standard-backed Score
 
-* student;
-* Group;
-* subteam represented as Group;
+A standard-backed Score is a direct contextual Concord judgment about one standard.
+
+It must reference:
+
+* one standard-backed Criterion;
+* the same one governing `standard_id`;
+* one target;
+* one exact Scoring Scale revision;
+* one scorer;
+* and one decision time.
+
+Conceptually:
+
+```text
+one Score Record
+    -> one standard-backed Criterion
+    -> one standard_id
+    -> one Score target
+    -> one Scoring Scale revision
+```
+
+The direct `standard_id` on the Score Record is a historical and interoperability field.
+
+It must match the immutable referenced Criterion.
+
+A standard-backed Score is not automatically:
+
+* mastery;
+* a final standards rating;
+* a marking-period result;
+* or a course Grade.
+
+#### Local Score
+
+A local Score evaluates one local Criterion.
+
+It must reference:
+
+* one local Criterion;
+* no governing `standard_id`;
+* one target;
+* and one exact Scoring Scale revision.
+
+Optional Criterion alignment does not convert the Score into a direct standards result.
+
+#### Score-target types
+
+Initial target kinds may include:
+
+* Core student;
+* Concord Group;
 * Session;
 * Artifact Instance;
-* activity component;
+* Work Item;
+* Activity component;
 * or Activity.
+
+A Group target does not imply individual Scores for Group members.
 
 #### Score disposition
 
-A Score Record should distinguish:
+A Score Record distinguishes:
 
-* scored;
-* insufficient evidence;
-* absent;
-* excused;
-* not observed;
-* not applicable;
-* or deferred.
+* `scored`;
+* `insufficient_evidence`;
+* `absent`;
+* `excused`;
+* `not_observed`;
+* `not_applicable`;
+* or `deferred`.
 
-When the disposition is `scored`, a valid scale value is required.
+When `disposition = scored`:
 
-When the disposition is not `scored`, a low or zero score must not be inferred automatically.
+* a valid value from the exact Scoring Scale revision is required;
+* the scorer and decision time are required;
+* and required Moderation must be complete.
 
-#### Cardinality
+When the disposition is not `scored`:
 
-* One Criterion may be used by zero or many Score Records.
-* One target may have zero or many Score Records.
-* One Score Record evaluates exactly one Criterion for exactly one target.
-* One Score Record may have zero or many Score Evidence Links.
-* One Score Record may supersede zero or one earlier Score Record.
+* a value is forbidden;
+* zero or the lowest scale level must not be inferred;
+* and a Status Reason may be required by workflow policy.
 
-A teacher may enter a Score using professional judgment without one controlling Artifact, but the Score should retain a rationale and scorer provenance.
+#### Score basis
 
-### 10.5 Score Evidence Link
+Initial basis values are:
+
+```text
+linked_evidence
+professional_judgment
+mixed_basis
+```
+
+A teacher may enter a Score through professional judgment without one controlling Artifact.
+
+When no formal Score Evidence Link exists:
+
+* rationale is required;
+* scorer provenance is required;
+* and the Activity context must be explicit.
+
+#### Individual Scores and Group evidence
+
+An individual Score does not require an exclusively individual evidence source.
+
+A teacher may use Group or multi-subject evidence when:
+
+* the evidence is relevant to the individual target;
+* any required Moderation permits that use;
+* the Score is an explicit teacher judgment;
+* and the rationale or evidence-link description explains the individual relevance.
+
+Group evidence must never generate individual Scores automatically.
+
+#### Group standards Scores
+
+A standard-backed Score may target a Group when:
+
+* the governing standard validly supports Group-level judgment;
+* the Criterion supports Group targets;
+* and the teacher deliberately selects the Group target.
+
+A Group standards Score does not become an individual standards Score for each Group member.
+
+### 10.6 Score Evidence Link
 
 A **Score Evidence Link** associates one Score Record with one evidence source.
 
@@ -1029,57 +1698,157 @@ It should contain:
 * durable `score_evidence_link_id`;
 * `score_record_id`;
 * typed Evidence Reference;
-* optional evidence locator;
-* relevance or use description;
-* optional weight or significance note;
-* moderation status where applicable;
-* and creation provenance.
+* optional Evidence Locator;
+* optional Subject context;
+* required relevance description;
+* optional significance;
+* applicable Moderation Record where required;
+* lifecycle status;
+* creation provenance;
+* and optional superseded Score Evidence Link.
+
+Possible significance values include:
+
+* primary;
+* corroborating;
+* contextual;
+* qualifying;
+* counterevidence;
+* and background.
 
 #### Cardinality
 
 * One Score Record may link to zero or many evidence sources.
 * One evidence source may support zero or many Score Records.
-* Individual, Group, and subteam Scores may cite overlapping evidence.
-* Overlapping evidence does not make those Scores equivalent.
+* Individual and Group Scores may cite overlapping evidence.
+* One source may support several standard-backed Scores.
+* One standard-backed Score may use several sources.
 
-#### Invariant
+#### Invariants
 
-Group evidence or a Group score must not automatically generate or populate an individual Score Record.
+* Overlapping evidence does not make Scores equivalent.
+* Link count does not determine Score value.
+* Numeric evidence weighting is not required.
+* Rejected evidence must not remain an active supporting link for a consequential Score.
+* Historical links remain associated with historical Scores.
+* Group evidence does not automatically create individual Scores.
 
-An individual score requires an explicit teacher judgment.
+### 10.7 Standards Result Handoff Projection
 
+A **Standards Result Handoff Projection** is a future derived interoperability view of canonical standard-backed Score Records.
+
+It is not a replacement for:
+
+* the Score Record;
+* Criterion;
+* Activity;
+* Score Evidence Links;
+* Moderation Records;
+* or source evidence.
+
+The projection exists so a future grading and reporting module does not need to infer standards meaning from generic Criteria.
+
+A future handoff must expose at least:
+
+* `module_id = concord`;
+* Core class identity;
+* `activity_id`;
+* optional `session_id`;
+* `score_record_id`;
+* typed Score target;
+* governing `standard_id`;
+* exact `criterion_id`;
+* exact `scoring_scale_id`;
+* disposition;
+* value when scored;
+* scorer;
+* scoring timestamp;
+* evidence-link references;
+* Moderation-complete state;
+* supersession relationship;
+* and whether the Score is current or superseded.
+
+#### Invariants
+
+* Only standard-backed Scores enter the direct standards-result projection.
+* Local Scores are excluded from direct standards-result handoff.
+* Non-score dispositions remain explicit and are not converted to zero.
+* Group and individual targets remain distinguishable.
+* External evidence remains distinguishable from Concord-owned judgment.
+* The projection does not calculate mastery, Grades, weights, averages, growth, or cross-scale normalization.
 ## 11. External References
 
-An **External Reference** represents a relationship to a record owned by another module or system.
+An **External Reference** represents a relationship to a record owned by another PDS module or external system.
 
 It should contain:
 
 * durable `external_reference_id`;
 * owning module or system;
-* external record type;
+* external record kind;
 * external record identifier;
+* optional public contract version;
 * relationship purpose;
-* related Concord Activity, Session, Artifact, Criterion, or Score;
+* related Concord Activity;
+* optional Session, Group, Activity Marker, Work Item, Artifact, Criterion, Score, or Subject context;
 * availability status;
+* optional provider-neutral locator;
 * optional descriptive label;
-* and creation provenance.
+* last-confirmed timestamp where available;
+* creation provenance;
+* and optional superseded External Reference.
 
 Possible external references include:
 
 * ScoreForm assignment;
 * ScoreForm result;
 * Quillan assignment;
-* Quillan response;
+* Quillan response or standards result;
 * Core standards profile;
 * Core standard;
 * future lesson-plan record;
-* future gradebook record;
-* or authorized external artifact location.
+* future grading and reporting record;
+* source-control record;
+* or authorized external Artifact location.
 
-Concord should not copy the external record’s full content when a stable reference is sufficient.
+Possible relationship purposes include:
+
+* related assignment;
+* packet instruction;
+* individual accountability check;
+* supporting evidence;
+* complementary written response;
+* prerequisite check;
+* follow-up reflection;
+* Score evidence;
+* contextual result;
+* or downstream export relationship.
+
+Concord should not copy an external record’s full content when a stable reference is sufficient.
 
 An unavailable external record should remain an explicit unavailable reference rather than being treated as missing student performance.
 
+### Standards-related external evidence
+
+A ScoreForm or Quillan result may support a Concord standard-backed Score through:
+
+```text
+external result
+    -> Concord External Reference
+    -> Evidence Reference
+    -> Score Evidence Link
+    -> explicit Concord Score Record
+```
+
+The external module remains authoritative for its own result.
+
+The Concord Score remains authoritative for the Concord Activity judgment.
+
+Concord must not:
+
+* infer a Concord Score merely because an external record cites the same standard;
+* convert ScoreForm percent correct automatically into a Concord rating;
+* import Quillan review-unit workflow;
+* or create a direct runtime package dependency on ScoreForm or Quillan.
 ## 12. Optional Context and Extension Concepts
 
 The following concepts belong in the Concord domain but should not be required for every Activity.
@@ -1228,40 +1997,47 @@ An Attachment is distinct from a Scan Reference:
 
 * a Scan Reference links a Core-retained source scan to an Artifact Page;
 * an Attachment identifies related work that may have its own file, photograph, cover sheet, or external location.
-
 ## 13. Cardinality Summary
 
-| Relationship                                  | Cardinality         |
-| --------------------------------------------- | ------------------- |
-| Core Class → Activity                         | One to zero-or-many |
-| Activity → Session                            | One to one-or-many  |
-| Activity → Group                              | One to zero-or-many |
-| Group → child Group                           | One to zero-or-many |
-| Group → Group Membership                      | One to zero-or-many |
-| Participant → Group Membership                | One to zero-or-many |
-| Membership/participant → Role Assignment      | One to zero-or-many |
+| Relationship | Cardinality |
+| --- | --- |
+| Core Class → Activity | One to zero-or-many |
+| Core Standards Profile → standards-based or mixed Activity | One to zero-or-many |
+| Activity → Focus Standard | One to one-or-many when standards configuration is required |
+| Activity → Session | One to one-or-many |
+| Activity → Group | One to zero-or-many |
+| Group → child Group | One to zero-or-many |
+| Group → Group Membership | One to zero-or-many |
+| Participant → Group Membership | One to zero-or-many |
+| Membership/participant → Role Assignment | One to zero-or-many |
 | Participant/Group → Responsibility Assignment | One to zero-or-many |
-| Template Definition → Template Version        | One to one-or-many  |
-| Packet Definition → Packet Component          | One to one-or-many  |
-| Template Version → Packet Component           | One to zero-or-many |
-| Packet Definition → Packet Instance           | One to zero-or-many |
-| Activity → Packet Instance                    | One to zero-or-many |
-| Packet Instance → Artifact Instance           | One to one-or-many  |
-| Template Version → Artifact Instance          | One to zero-or-many |
-| Artifact Instance → Artifact Page             | One to one-or-many  |
-| Artifact Instance → Artifact Author           | One to zero-or-many |
-| Artifact Instance → Artifact Subject          | One to zero-or-many |
-| Artifact Page → Scan Reference                | One to zero-or-many |
-| Artifact Instance → Artifact Review           | One to zero-or-many |
-| Evidence source → Moderation Record           | One to zero-or-many |
-| Criterion Set → Criterion                     | One to one-or-many  |
-| Activity → Criterion Set                      | Many-to-many        |
-| Criterion → Score Record                      | One to zero-or-many |
-| Score target → Score Record                   | One to zero-or-many |
-| Score Record → Score Evidence Link            | One to zero-or-many |
-| Evidence source → Score Evidence Link         | One to zero-or-many |
-| Concord record → External Reference           | One to zero-or-many |
-
+| Template Definition → Template Version | One to one-or-many |
+| Packet Definition → Packet Version | One to one-or-many |
+| Packet Version → Packet Component | One to one-or-many |
+| Template Version → Packet Component | One to zero-or-many |
+| Packet Version → Packet Instance | One to zero-or-many |
+| Activity → Packet Instance | One to zero-or-many |
+| Packet Instance → Artifact Instance | One to one-or-many |
+| Template Version → Artifact Instance | One to zero-or-many |
+| Artifact Instance → Artifact Page | One to one-or-many |
+| Core Route Registration → route-required Artifact Page | One to one |
+| Artifact Instance → Artifact Author | One to zero-or-many |
+| Artifact Instance → Artifact Subject | One to zero-or-many |
+| Artifact Page → Scan Reference | One to zero-or-many |
+| Core Source Scan → Scan Reference | One to zero-or-many |
+| Artifact Instance → Artifact Review | One to zero-or-many |
+| Evidence source → Moderation Record | One to zero-or-many |
+| Criterion Set → Criterion | One to one-or-many |
+| Activity → Criterion Set | Many-to-many |
+| Core Standard → standard-backed Criterion | One to zero-or-many |
+| Core Standard → local Criterion alignment | Many-to-many, non-governing |
+| Criterion → Score Record | One to zero-or-many |
+| Score target → Score Record | One to zero-or-many |
+| Standard-backed Score Record → Core Standard | Many-to-one |
+| Score Record → Score Evidence Link | One to zero-or-many |
+| Evidence source → Score Evidence Link | One to zero-or-many |
+| Standard-backed Score Record → Standards Result Handoff Projection | One to zero-or-one derived current view |
+| Concord record → External Reference | One to zero-or-many |
 ## 14. Lifecycle Relationships
 
 ### 14.1 Activity lifecycle
@@ -1274,53 +2050,105 @@ draft
   -> archived
 ```
 
-An Activity may also be cancelled. Cancellation must not remove already generated evidence.
+An Activity may also be cancelled.
 
-### 14.2 Packet and artifact lifecycle
+Cancellation must not remove already generated evidence.
+
+Configuration includes:
+
+* class and Activity identity;
+* scoring orientation;
+* standards profile and Focus Standards when required;
+* selected Criterion Sets;
+* optional Groups, Roles, Responsibilities, and packet choices;
+* and applicable privacy defaults.
+
+An Activity must not enter standards-based or mixed scoring workflows until its standards references and standard-backed Criteria validate.
+
+### 14.2 Packet and Artifact lifecycle
 
 ```text
 definition selected
-  -> packet instance generated
-  -> artifact instances generated
+  -> immutable version selected
+  -> Packet Instance generated
+  -> Artifact Instances generated
+  -> Artifact Pages and routes created
   -> pages printed/distributed
   -> evidence expected
   -> pages returned
-  -> scans retained by Core
-  -> pages identified and filed by Concord
-  -> artifacts reviewed
-  -> moderation completed where required
-  -> evidence ready for scoring
-  -> scores recorded
+  -> source scans retained by Core
+  -> PDS2 routes resolved
+  -> Scan References created by Concord
+  -> Artifacts reviewed
+  -> Moderation completed where required
+  -> evidence ready for possible scoring
+  -> Scores recorded
   -> records retained or archived
 ```
 
-Not every Artifact will pass through every step.
+Not every Artifact passes through every step.
 
 Examples:
 
 * a non-returned scaffold stops after distribution;
 * a missing Artifact never reaches scan review;
-* a peer observation requires moderation;
-* a teacher tracker may move directly from review to scoring use.
+* a peer observation requires Moderation;
+* a teacher tracker may move directly from Review to scoring use;
+* and an evidence-only Activity may never create Scores.
 
-### 14.3 Independent status dimensions
+### 14.3 Standard-backed Score lifecycle
 
-The initial contracts should avoid one overly broad status field when several independent facts exist.
+```text
+Focus Standard selected
+  -> standard-backed Criterion selected
+  -> evidence collected and reviewed
+  -> Moderation completed where required
+  -> teacher records standard-backed Score or non-score disposition
+  -> Score becomes available to standards-result handoff
+  -> later Score may supersede it
+  -> historical Score remains available
+```
+
+The following do not create a standards Score:
+
+* selecting a Focus Standard;
+* attaching a standard to a Criterion Set;
+* printing a standards-aligned form;
+* receiving an Artifact;
+* completing Review;
+* accepting evidence through Moderation;
+* or linking an external standards-related result.
+
+The explicit teacher-approved standard-backed Score Record is the direct Concord standards result.
+
+### 14.4 Independent status dimensions
+
+The contracts should avoid one overly broad status field when several independent facts exist.
 
 An Artifact may separately have:
 
 * generation status;
 * expected-return status;
+* page status;
 * scan status;
 * filing status;
-* review status;
-* moderation status;
+* Review status;
+* Moderation status;
 * scoring-readiness status;
 * and supersession status.
 
+A Score separately has:
+
+* standard-backed or local classification;
+* disposition;
+* value state;
+* basis;
+* Moderation-complete state;
+* and current or superseded state.
+
 This prevents ambiguous states such as treating “reviewed” as meaning “complete, accepted, moderated, and scored.”
 
-### 14.4 Correction lifecycle
+### 14.5 Correction lifecycle
 
 ```text
 original record
@@ -1330,9 +2158,10 @@ original record
   -> original remains available for provenance
 ```
 
+Changes to governing standard, Criterion classification, Criterion meaning, Scoring Scale meaning, or consequential Score create new immutable revisions or superseding records.
 ## 15. Durable Identifier Requirements
 
-The following should have durable identifiers:
+The following should have durable Concord identifiers:
 
 * Activity;
 * Session;
@@ -1343,6 +2172,8 @@ The following should have durable identifiers:
 * Template Definition;
 * Template Version;
 * Packet Definition;
+* Packet Version;
+* Packet Component;
 * Packet Instance;
 * Artifact Instance;
 * Artifact Page;
@@ -1351,9 +2182,9 @@ The following should have durable identifiers:
 * Scan Reference;
 * Artifact Review;
 * Moderation Record;
-* Criterion Set;
+* Criterion Set revision;
 * Criterion;
-* Scoring Scale;
+* Scoring Scale revision;
 * Score Record;
 * Score Evidence Link;
 * External Reference;
@@ -1365,28 +2196,52 @@ The following should have durable identifiers:
 * Contribution Claim;
 * and Attachment.
 
-Identifier formats are owned by shared Core conventions.
+`activity_id` is also Concord’s Core `work_id`.
+
+Core owns the identifiers for:
+
+* class;
+* student;
+* standards profile;
+* standard;
+* Route Registration;
+* source scan;
+* and other Core records.
+
+Concord stores those as typed references rather than issuing replacement identities.
+
+Identifier formats are governed by shared Core conventions and later Concord contracts.
 
 Identifiers must:
 
 * be stable;
+* be opaque;
 * avoid student names or other direct PII;
 * remain safe for local paths when used in paths;
-* and remain usable after display names, Group labels, or titles change.
+* remain usable after display names, Group labels, standard display metadata, or titles change;
+* and never be reused for a different record.
+
+Stable lineages and immutable revisions are distinct:
+
+* Template Definition uses `template_id`; each revision uses `template_version_id`.
+* Packet Definition uses `packet_definition_id`; each revision uses `packet_version_id`.
+* Criterion Set revisions use immutable `criterion_set_id` plus stable `lineage_id`.
+* Scoring Scale revisions use immutable `scoring_scale_id` plus stable `lineage_id`.
 
 The following are normally value objects rather than independently identified records:
 
 * privacy classification;
 * role key;
 * authorship mode;
-* subject type;
-* evidence locator;
-* score disposition;
-* status reason;
+* Subject type;
+* Evidence Locator;
+* Score disposition;
+* Status Reason;
 * event type;
 * contribution type;
-* and page position.
-
+* page position;
+* Activity scoring orientation;
+* and Criterion classification.
 ## 16. Privacy Model
 
 Privacy should be attached to evidence-bearing and judgment-bearing records.
@@ -1399,194 +2254,313 @@ At minimum, privacy must be supported on:
 * Contribution Claim;
 * Attachment;
 * Score Record;
+* Correction Record;
+* Activity Event where sensitive;
 * and teacher-entered notes.
 
-The effective privacy level may be inherited from a Template Version and overridden by the generated record.
+The effective privacy policy may be inherited from a Template Version and overridden by the generated record.
 
 A child or derived record may become more restrictive than its parent.
+
+A child must not become less restrictive automatically.
 
 For example:
 
 * a Group process sheet may be Group-and-teacher;
+* a peer observation may be teacher-restricted;
 * a teacher note about a dispute may be teacher-restricted;
-* a Score Record may be visible only to the teacher and scored subject.
+* a standard-backed Score may be visible to the teacher and scored Subject;
+* and a Moderation rationale may remain more restricted than the resulting Score.
 
-A less restrictive child privacy setting must not be inferred automatically from a parent record.
+Access to a Score does not imply access to every supporting evidence source.
 
-The exact shared privacy vocabulary remains to be coordinated with Core.
+Author, Subject, Group Membership, Score target, and audience are separate concepts.
 
+The initial minimum privacy vocabulary may include:
+
+* `teacher_restricted`;
+* `teacher_and_subjects`;
+* `group_and_teacher`;
+* `classroom_shared`;
+* `inherited`;
+* and `external_policy`.
+
+Final suite-wide ownership of the privacy vocabulary remains to be coordinated with Core.
+
+Sensitive medical, disability, counseling, or disciplinary details must not be copied into Concord merely to explain a restriction or exception.
 ## 17. Domain Invariants
 
 The following rules must be preserved by all later contracts and implementations.
 
-1. **The retained source scan is canonical evidence.**
-   Routed files, metadata, notes, reviews, and scores do not replace it.
+1. **The retained source scan is canonical evidence.**  
+   Routed derivatives, metadata, notes, Reviews, Moderation decisions, and Scores do not replace it.
 
-2. **Author and subject are separate relationships.**
-   They must never be inferred to be the same merely because only one student is named.
+2. **PDS2 identifies a physical route, not full semantic context.**  
+   The QR contains module, class, work, and route identity. Artifact Page and linked Concord records provide Authors, Subjects, Group, Session, Criterion, standard, and Score meaning.
 
-3. **Authorship is not inferred from physical or digital possession.**
-   Handwriting, recorder status, account ownership, and file ownership do not establish sole authorship.
+3. **The route target is an existing Artifact Page.**  
+   The Artifact Page exists before its Route Registration and QR are created.
 
-4. **Roles, responsibilities, tasks, and contributions are distinct.**
-   One may inform another, but none proves the others automatically.
+4. **`activity_id` is Concord’s Core `work_id`.**  
+   The effective work identity is `module_id + class_id + activity_id`.
 
-5. **Assignment is not performance.**
-   Being assigned a role or responsibility does not prove fulfillment.
+5. **Author and Subject are separate relationships.**  
+   They must never be inferred to be the same merely because only one participant is named.
 
-6. **Missing evidence is not negative evidence.**
+6. **Authorship is not inferred from physical or digital possession.**  
+   Handwriting, recorder status, account ownership, file ownership, scanning, and upload identity do not establish sole authorship.
+
+7. **Roles, Responsibilities, Work Items, and Contributions are distinct.**  
+   One may contextualize another, but none proves the others automatically.
+
+8. **Assignment is not performance.**  
+   Being assigned a Role or Responsibility does not prove fulfillment.
+
+9. **Missing evidence is not negative evidence.**  
    Missing, unreadable, misrouted, absent, excused, not observed, and insufficient-evidence states remain distinct.
 
-7. **External failure is not poor performance.**
-   Equipment failure, interruption, blocked work, dependency failure, or unavailable external files must be represented separately from neglect or low-quality work.
+10. **External failure is not poor performance.**  
+    Equipment failure, interruption, blocked work, dependency failure, or unavailable external records remain separate from neglect or low-quality work.
 
-8. **Moderation precedes consequential use when required.**
-   Peer evidence and disputed student-generated claims must receive human review before affecting a score.
+11. **Moderation precedes consequential use when required.**  
+    Peer evidence and disputed student-generated claims must receive authorized human review before affecting a consequential Score.
 
-9. **Group evidence does not automatically produce individual scores.**
-   An individual Score requires explicit teacher judgment.
+12. **Group evidence does not automatically produce individual Scores.**  
+    An individual Score requires an explicit teacher judgment.
 
-10. **Evidence and scores have a many-to-many relationship.**
-    One score may use several evidence sources, and one source may support several scores.
+13. **A Group Score does not become member Scores.**  
+    Target identity remains explicit.
 
-11. **Review, moderation, and scoring remain separate.**
-    Reviewing a scan does not imply accepting its claims or assigning a score.
+14. **Evidence and Scores have a many-to-many relationship.**  
+    One Score may use several sources, and one source may support several Scores.
 
-12. **A score is not a course grade.**
-    Concord records judgments about criteria or components. Grade calculation belongs elsewhere.
+15. **Review, Moderation, and Scoring remain separate.**  
+    Reviewing a scan does not accept its claims, and accepting evidence does not assign a Score.
 
-13. **History is preserved.**
-    Corrections, rescans, reassignments, revised decisions, and revised scores must not erase earlier records.
+16. **Concord’s primary academic scoring model is standards-based.**  
+    Standards-based and mixed Activities explicitly select a Core standards profile and ordered Focus Standards.
 
-14. **Definitions used by evidence are reproducible.**
-    Template Versions, Packet Definition revisions, Criterion Sets, Criteria, and Scoring Scales must remain identifiable after use.
+17. **Concord is not standards-exclusive.**  
+    Evidence-only, local-criteria-only, and mixed Activities remain valid.
 
-15. **Activity-specific vocabulary remains optional.**
+18. **A standard-backed Criterion governs exactly one standard.**  
+    A direct Score must not be split across several standards automatically.
+
+19. **A local Criterion has no governing standard.**  
+    Optional alignment references are non-governing.
+
+20. **Alignment is not a direct standards result.**  
+    A local Score does not enter the standards-result handoff merely because the local Criterion cites standards.
+
+21. **Focus Standard selection is not a Score.**  
+    Selection alone does not prove teaching, practice, assessment, demonstration, mastery, or Grade impact.
+
+22. **A standard-backed Score is explicit and teacher-approved.**  
+    It identifies one standard-backed Criterion, one governing `standard_id`, one target, one exact Scoring Scale revision, one scorer, and one decision time.
+
+23. **A Score is not mastery or a course Grade.**  
+    Concord records contextual judgments. Cross-Activity aggregation, weighting, normalization, mastery, and grading belong elsewhere.
+
+24. **Non-score dispositions are not low Scores.**  
+    Insufficient evidence, absence, excusal, not observed, not applicable, and deferred states must not become zero or the lowest scale value.
+
+25. **Zero is valid only when deliberately permitted and selected from the exact scale.**
+
+26. **External standards-related results do not automatically become Concord Scores.**  
+    ScoreForm and Quillan records may support a Concord judgment through explicit evidence relationships.
+
+27. **Core remains authoritative for standards identity and profiles.**  
+    Concord must not duplicate shared standard definitions or use display codes as durable keys.
+
+28. **Missing, inactive, or deprecated standards references preserve history.**  
+    Validation reports the problem without silently deleting or substituting Concord records.
+
+29. **Definitions used by evidence and Scores are reproducible.**  
+    Template Versions, Packet Versions, Criterion Set revisions, Criteria, and Scoring Scale revisions remain identifiable after use.
+
+30. **History is preserved.**  
+    Corrections, rescans, reassignments, revised decisions, revised Criteria, and revised Scores must not erase earlier records.
+
+31. **Activity-specific vocabulary remains optional.**  
     Seminar rotations, laboratory trials, project milestones, software builds, and similar terms must not become required fields in every Concord record.
 
-16. **External systems remain authoritative for their own records.**
-    Concord may reference ScoreForm, Quillan, Core, source-control, cloud-document, or institutional records but does not silently copy or replace their authority.
+32. **External systems remain authoritative for their own records.**  
+    Concord may reference Core, ScoreForm, Quillan, source-control, cloud-document, or institutional records but does not silently copy or replace their authority.
 
+33. **Privacy is record-specific.**  
+    Access to a Score does not imply access to all supporting evidence, and a child record must not become less restrictive automatically.
 ## 18. Domain Decisions Reached
 
-The initial domain model adopts the following decisions:
+The revised initial domain model adopts the following decisions.
 
-1. Concord uses its own `activity_id` while retaining a reference to Core’s assignment-routing context.
-2. Every Activity contains at least one Session.
-3. Groups are Activity-specific and Concord-owned.
-4. Temporary subteams are represented as Groups with a parent Group and bounded context.
-5. Group Membership is contextual and preserves historical changes.
-6. Role Assignment is a universal first-class relationship.
-7. Responsibility Assignment is a first-class but optional relationship.
-8. Packet Definitions and Template Versions are reusable definitions; Packet and Artifact Instances are generated records.
-9. Artifact Authors and Artifact Subjects are separate association records with flexible cardinality.
-10. Multi-subject teacher trackers remain single source Artifacts with several Subject relationships.
-11. Evidence is represented through typed references rather than one universal evidence entity.
-12. Scan References point to Core-retained source scans rather than duplicating source-scan ownership.
-13. Review and Moderation are separate concepts.
-14. Score Records evaluate one Criterion for one target.
-15. Score Evidence Links provide the many-to-many relationship between scores and evidence.
-16. Activity-specific decisions, tests, troubleshooting episodes, revisions, and handoffs initially share a typed Activity Event envelope.
-17. Milestones, phases, checkpoints, and iterations may share an optional Activity Marker concept.
-18. Tasks and components may share an optional Work Item concept.
-19. Attachments are distinct from normal Artifact Pages and Scan References.
-20. Corrections and superseding records preserve history rather than overwriting evidence.
+1. Concord uses `activity_id` as its Core `work_id`.
+2. The effective PDS2 work identity is `module_id + class_id + activity_id`.
+3. The canonical Concord work root is module-qualified.
+4. Every returnable scannable page is represented by an Artifact Page before route creation.
+5. The PDS2 Route Registration targets `record_kind = artifact_page`.
+6. The PDS2 locator carries route identity only; semantic context resolves through Concord records.
+7. Every Activity contains at least one Session.
+8. Every Activity declares one scoring orientation: evidence-only, standards-based, mixed, or local-criteria-only.
+9. Concord’s primary academic scoring model is standards-based.
+10. Concord remains capable of evidence-only and local-criterion workflows.
+11. Standards-based and mixed Activities select one Core standards profile and one or more ordered Focus Standards.
+12. Core owns standards identity, definitions, profiles, display metadata, and module-neutral validation.
+13. Criteria are classified as standard-backed or local.
+14. A standard-backed Criterion governs exactly one Focus Standard.
+15. A local Criterion has no governing standard but may carry non-governing alignment references.
+16. One direct Score must not be interpreted as several standards ratings.
+17. Score Records are classified as standard-backed or local and must match their Criteria.
+18. A standard-backed Score preserves the governing `standard_id` explicitly.
+19. Only standard-backed Scores enter the direct standards-result handoff projection.
+20. Local Scores and alignment-only records remain outside direct standards-result handoff.
+21. Standards-result handoff preserves Group versus individual targets and does not calculate mastery or Grades.
+22. Groups are Activity-specific and Concord-owned.
+23. Temporary subteams are represented as Groups with a parent Group and bounded context.
+24. Group Membership is contextual and preserves historical changes.
+25. Role Assignment is a universal first-class relationship.
+26. Responsibility Assignment is a first-class but optional relationship.
+27. Template Definition and Template Version are separate.
+28. Packet Definition and Packet Version are separate.
+29. Packet Components preserve ordered composition and external ownership.
+30. Packet and Artifact Instances are generated records tied to exact immutable versions.
+31. Artifact Authors and Artifact Subjects are separate association records with flexible cardinality.
+32. Multi-subject teacher trackers remain one source Artifact with several Subject relationships.
+33. Evidence is represented through typed references rather than one universal Evidence entity.
+34. Scan References point to Core-retained source scans rather than duplicating source ownership.
+35. Review and Moderation are separate.
+36. Score Records evaluate one Criterion for one target.
+37. Score Evidence Links provide a many-to-many relationship between Scores and evidence.
+38. Group evidence may support an individual Score only through explicit teacher judgment and relevance.
+39. Activity-specific decisions, tests, troubleshooting episodes, revisions, and handoffs initially share a typed Activity Event envelope.
+40. Milestones, phases, checkpoints, and iterations may share an optional Activity Marker.
+41. Tasks and components may share an optional Work Item.
+42. Attachments are distinct from normal Artifact Pages and Scan References.
+43. Both continuing and linked-series Packet Instance models are permitted for long-running Activities.
+44. Session identity is the primary effective-time unit for Memberships, Roles, and Responsibilities; Markers and sequence may refine it.
+45. Teachers and other authorized adults use typed Actor References; a mandatory Concord-local actor registry is not required by the foundation.
+46. Criterion Sets and Scoring Scales use immutable revision records with stable lineages.
+47. Concord uses same-type supersession plus a general Correction Record.
+48. Corrections and superseding records preserve history rather than overwriting evidence.
+49. External ScoreForm and Quillan records remain source-module-owned and may support, but do not determine, Concord Scores.
+50. Course-grade calculation, cross-module reporting, mastery, weighting, and scale conversion remain outside Concord.
+## 19. Deferred Implementation Questions
 
-## 19. Unresolved Questions
+The foundational domain decisions are sufficiently settled for representative contract examples and implementation planning.
 
-The following questions remain for architecture decisions or conceptual contract work:
+The following questions remain implementation-level or belong to later modules.
 
-1. What exact relationship should exist between Concord `activity_id` and Core `assignment_id`?
-2. Which Activity and Artifact context fields belong in the shared QR payload rather than the linked Artifact record?
-3. How will the shared QR contract represent Group, Session, Activity, Event, Artifact, and multi-subject scope without a required `student_id`?
-4. Does Core provide a durable teacher or authorized-adult identity, or must Concord define a local actor reference?
-5. What temporal precision should Group Membership, Role Assignment, and Responsibility Assignment use:
+1. What exact serialized schema versions will govern each record?
+2. What exact filesystem layout will be used beneath:
 
-   * Session;
-   * Session range;
-   * sequence within Session;
-   * named stage;
-   * or timestamp?
-6. Should Packet Definition versioning use a separate Packet Version entity or an immutable revision field on Packet Definition?
-7. Should a long-running project use one continuing Packet Instance or several linked Packet Instances?
-8. Which privacy classifications should be shared across PDS modules?
-9. Should Correction Record be one generic contract or should each record type use type-specific supersession fields?
-10. How much typed structure should Activity Event provide before specialized event contracts become necessary?
-11. Should an individual Score require at least one individual-specific evidence source?
-12. Should Criterion and Scoring Scale revisions be separate entities or immutable version fields?
-13. How should teacher-entered professional judgment be represented when no Artifact or external evidence record controls the Score?
-14. How should external digital locations be stored without assuming Git, Google Drive, or another provider?
-15. Which role, criterion, contribution, and event vocabularies should ship as starter data rather than domain requirements?
+   ```text
+   classes/<class_id>/modules/concord/work/<activity_id>/
+   ```
 
-## 20. Recommendations for Conceptual Contract Work
+3. What persistence service will create Scan References after successful Core dispatch?
+4. How will authorized-adult Actor References resolve when a broader suite identity capability becomes available?
+5. Which privacy classifications will ultimately move into a shared Core contract?
+6. What exact teacher workflow will present multiple standard-backed Criteria efficiently when one classroom behavior supplies evidence for several standards?
+7. What exact exported file, event, or API contract will carry the Standards Result Handoff Projection to the future grading and reporting module?
+8. Which ScoreForm and Quillan public record kinds and contract versions will Concord support first?
+9. Which role, Criterion, contribution, and Activity Event vocabularies should ship as starter data rather than domain requirements?
+10. When do repeated Activity Event extension fields justify specialized event contracts?
+11. What user-interface safeguards will make the distinction between:
 
-The initial conceptual contracts should be drafted in the following order.
+    * direct standard-backed Score;
+    * local Score;
+    * standards alignment;
+    * non-score disposition;
+    * and evidence-only status
+
+    unmistakable to teachers?
+12. What current-record indexing strategy will make supersession traversal efficient without weakening append-only history?
+13. Which cross-scale conversion, weighting, attempt-selection, and mastery policies will the future grading and reporting module adopt?
+
+Question 13 is explicitly outside Concord’s authority.
+
+No foundational question remains about whether Concord’s primary academic scoring model is standards-based.
+## 20. Recommendations for Representative Contract Work
+
+The next contract work should validate the domain in the following order.
 
 ### Phase 1: Shared reference primitives
 
-Define:
+Validate:
 
 * Concord identifier conventions;
 * Core class reference;
 * Core student reference;
-* actor reference;
-* subject reference;
-* score-target reference;
-* evidence reference;
-* privacy classification;
-* provenance fields;
+* Actor Reference;
+* Subject Reference;
+* Score-Target Reference;
+* Evidence Reference;
+* Core standards profile and standard references;
+* privacy policy;
+* provenance;
+* Effective Context;
 * and supersession references.
 
-### Phase 2: Activity context
+### Phase 2: Activity and scoring context
 
-Draft examples for:
+Draft complete examples for:
 
-* `activity`;
-* `session`;
-* `group`;
-* `group_membership`;
-* `role_assignment`;
-* and optional `responsibility_assignment`.
+* evidence-only Activity;
+* standards-based Activity;
+* mixed Activity;
+* local-criteria-only Activity;
+* Session;
+* Group;
+* Group Membership;
+* Role Assignment;
+* and optional Responsibility Assignment.
 
 Test them against:
 
 * seminar role rotation;
 * laboratory reassignment;
-* project membership changes;
+* project Membership changes;
 * absence;
 * late arrival;
-* and temporary subteams.
+* temporary subteams;
+* standards profile selection;
+* ordered Focus Standards;
+* and invalid or inactive standard references.
 
-### Phase 3: Definitions and generated artifacts
+### Phase 3: Definitions and generated Artifacts
 
-Draft examples for:
+Draft complete examples for:
 
-* `template_definition`;
-* `template_version`;
-* `packet_definition`;
-* `packet_instance`;
-* `artifact_instance`;
-* `artifact_page`;
-* `artifact_author`;
-* and `artifact_subject`.
+* Template Definition;
+* Template Version;
+* Packet Definition;
+* Packet Version;
+* Packet Component;
+* Packet Instance;
+* Artifact Instance;
+* Artifact Page;
+* Artifact Author;
+* and Artifact Subject.
 
 Test them against:
 
-* one student author and a different student subject;
-* one Group author;
+* one student Author and a different student Subject;
+* one Group Author;
 * one recorder acting for a Group;
 * one Artifact with several Subjects;
 * one Group Artifact with no individual student Subject;
-* and one teacher tracker spanning several Groups.
+* one teacher tracker spanning several Groups;
+* one Packet containing external module instructions;
+* and one PDS2 route per returnable Artifact Page.
 
-### Phase 4: Scan, review, and moderation
+### Phase 4: Scan, Review, Moderation, and correction
 
-Draft examples for:
+Draft complete examples for:
 
-* `scan_reference`;
-* `artifact_review`;
-* `moderation_record`;
-* and correction or supersession behavior.
+* Scan Reference;
+* Artifact Review;
+* Moderation Record;
+* Correction Record;
+* and same-type supersession.
 
 Test them against:
 
@@ -1596,65 +2570,96 @@ Test them against:
 * damaged QR codes;
 * incorrect Subjects;
 * peer evidence;
-* disputed contribution claims;
-* and rescans.
+* disputed Contribution Claims;
+* rescans;
+* and a source whose permitted use differs by Subject.
 
 ### Phase 5: Criteria and scoring
 
-Draft examples for:
+Draft complete examples for:
 
-* `criterion_set`;
-* `criterion`;
-* `scoring_scale`;
-* `score_record`;
-* and `score_evidence_link`.
+* standard-backed Criterion Set;
+* local Criterion Set;
+* mixed Criterion Set;
+* standard-backed Criterion;
+* local Criterion with alignment metadata;
+* Scoring Scale revision;
+* standard-backed Score Record;
+* local Score Record;
+* non-score disposition;
+* and Score Evidence Link.
 
 Test them against:
 
-* one score using several Artifacts;
-* one Artifact supporting several Scores;
-* individual and Group Scores using overlapping evidence;
+* one standard-backed Score using several Artifacts;
+* one Artifact supporting several standards Scores;
+* separate Criteria when one behavior relates to several standards;
+* one Group standards Score;
+* one individual standards Score supported by Group evidence;
+* local alignment that does not become a standards result;
 * insufficient evidence;
 * absence;
 * deferred scoring;
 * revised Scores;
-* and external ScoreForm or Quillan evidence.
+* and professional judgment without one controlling Artifact.
 
-### Phase 6: Optional extension concepts
+### Phase 6: External evidence and standards handoff
+
+Draft examples for:
+
+* ScoreForm result used as supporting evidence;
+* Quillan standards result used as supporting evidence;
+* External Reference unavailability;
+* Standards Result Handoff Projection;
+* current versus superseded standard-backed Scores;
+* Group versus individual standards targets;
+* and explicit non-score dispositions in the handoff.
+
+The examples must demonstrate that the future grading and reporting module can consume direct standards results without reverse-engineering generic Criteria.
+
+### Phase 7: Optional extension concepts
 
 Draft examples only after the foundation succeeds for:
 
-* `activity_marker`;
-* `work_item`;
-* `work_item_dependency`;
-* `activity_event`;
-* `contribution_claim`;
-* and `attachment`.
+* Activity Marker;
+* Work Item;
+* Work-Item Dependency;
+* Activity Event;
+* Contribution Claim;
+* and Attachment.
 
-These concepts should be added only where representative records demonstrate that generic context fields are insufficient.
-
+These concepts should be instantiated only where representative records demonstrate that generic context fields are insufficient.
 ## 21. Completion Assessment
 
-The minimum shared Concord domain has been identified.
+The minimum shared Concord domain has been identified and aligned with the current PDS2 and standards-based architecture.
 
 The model now distinguishes:
 
-* reusable definitions from generated instances;
+* reusable Definitions from immutable Versions and generated Instances;
 * Core identities from Concord-owned context;
-* roles from responsibilities;
-* assignments from contributions;
+* Core `work_id` from module semantics while establishing `activity_id = work_id`;
+* PDS2 route identity from Artifact semantics;
+* Roles from Responsibilities;
+* assignments from Contributions;
 * Artifact Authors from Artifact Subjects;
-* source scans from routed evidence references;
-* review from moderation;
-* evidence from scores;
+* source scans from routed Scan References;
+* Review from Moderation;
+* evidence from Scores;
+* standard-backed Criteria from local Criteria;
+* direct standards Scores from alignment-only metadata;
 * individual Scores from Group Scores;
-* and Concord scores from course grades.
+* non-score dispositions from low Scores;
+* Concord Scores from mastery and course Grades;
+* and Concord-owned judgments from ScoreForm- or Quillan-owned evidence.
 
 Universal concepts have been separated from optional seminar-, laboratory-, and project-oriented extensions.
 
-This document provides the foundation for:
+The foundation now supports Concord’s declared role as a predominantly standards-based collaborative-evidence module without forcing every Activity or Criterion into standards scoring.
 
-* recording formal architecture decisions;
-* identifying required Core integration changes;
-* drafting conceptual data contracts;
-* and testing representative contract examples.
+This document provides the basis for:
+
+* maintaining consistent architecture documentation;
+* testing representative contract examples;
+* validating the initial conceptual data contracts;
+* preparing the v0.1.0 foundation review;
+* and later implementing Concord without forcing the future grading and reporting module to infer standards meaning from generic records.
