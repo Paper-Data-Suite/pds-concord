@@ -305,11 +305,11 @@ For a registered Concord Activity:
 
 ```text
 work.module_id = concord
-work.class_id  = Activity.class_id
+work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-The registration should identify the Concord Activity through a Core `ModuleRecordRef` in `source_records`.
+The registration must identify the Concord Activity through a Core `ModuleRecordRef` in `source_records`.
 
 Conceptually:
 
