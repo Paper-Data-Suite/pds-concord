@@ -40,6 +40,11 @@ Numbers are never reused, even when an ADR is later superseded or deprecated.
 | [0011](0011-link-external-artifacts-without-managing-source-systems.md)    | Link External Artifacts Without Managing Source Systems       | Accepted |
 | [0012](0012-link-scoreform-and-quillan-without-duplication.md)             | Link ScoreForm and Quillan Without Duplication                | Accepted |
 | [0013](0013-keep-activity-specific-structures-optional.md)                 | Keep Activity-Specific Structures Optional                    | Accepted |
+| [0014](0014-make-standards-based-scoring-the-primary-concord-scoring-model.md) | Make Standards-Based Scoring the Primary Concord Scoring Model | Accepted |
+| [0015](0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md) | Publish Versioned Concord Academic Result Manifests Through the Core Registry | Proposed |
+
+ADR 0015 remains **Proposed** until it is explicitly accepted. Proposed ADRs may guide review and coordinated drafting, but they do not supersede accepted decisions merely by appearing in this index.
+
 
 ## Standard ADR Structure
 
@@ -134,7 +139,9 @@ A new ADR should be preferred when a change:
 * changes source-preservation requirements;
 * introduces automated interpretation;
 * changes dependency direction;
+* changes academic-work registration, publication, registry, or manifest semantics;
 * moves responsibility between Paper Data Suite modules;
+* assigns grading, Academic Period, or reporting responsibility;
 * or reverses an accepted architectural constraint.
 
 ## Editing an Accepted ADR
@@ -202,6 +209,8 @@ The ADRs are supported by:
 * [`../concord-conceptual-design-revised.md`](../concord-conceptual-design-revised.md)
 * [`../design/cross-case-requirements.md`](../design/cross-case-requirements.md)
 * [`../design/initial-concord-domain-model.md`](../design/initial-concord-domain-model.md)
+* [`../design/conceptual-data-contracts.md`](../design/conceptual-data-contracts.md)
+* [`../design/pds-core-integration-requirements.md`](../design/pds-core-integration-requirements.md)
 * [`../packet_models/socratic-seminar-packet-model.md`](../packet_models/socratic-seminar-packet-model.md)
 * [`../packet_models/science-laboratory-group-packet-model.md`](../packet_models/science-laboratory-group-packet-model.md)
 * [`../packet_models/collaborative-programming_engineering_project_packet_model.md`](../packet_models/collaborative-programming_engineering_project_packet_model.md)
@@ -214,3 +223,6 @@ When documents disagree:
 4. exploratory and packet-model documents remain supporting rationale and representative cases.
 
 Implementation convenience must not silently override an accepted ADR.
+
+ADR 0014 governs Concord’s standards-scoring semantics. ADR 0015, while Proposed, defines the reviewed publication direction connecting Concord Academic Result Manifests, Core Academic Work Registrations and Publication Records, and Meridian consumption. Its status must be updated explicitly if the maintainers accept it.
+

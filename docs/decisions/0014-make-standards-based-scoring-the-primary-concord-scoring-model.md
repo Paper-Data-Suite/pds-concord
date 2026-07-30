@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** July 22, 2026
+**Amended:** July 29, 2026 — cross-references ADR 0015, Core publication, and `pds-meridian`
 **Decision owners:** Paper Data Suite maintainers
 **Applies to:** `pds-concord`
 
@@ -14,11 +15,11 @@ Its assignment modules collect different kinds of evidence:
 * `pds-scoreform` processes machine-readable selected-response evidence;
 * `pds-quillan` supports teacher review of written-response evidence;
 * `pds-concord` supports collaborative evidence from discussions, laboratories, group projects, design activities, and other collaborative work;
-* and a future Paper Data Suite grading and reporting module will combine approved results across assignments, modules, courses, terms, and time.
+* and `pds-meridian` applies explicit grading and reporting policy to approved results across assignments, modules, courses, Academic Periods, and time.
 
-The future grading and reporting module has not yet begun development. Its architecture depends partly on the result contracts produced by Concord.
+Since this ADR was accepted, Meridian has established the downstream grading and reporting boundary, and Core has established typed Academic Work Registration and immutable publication-registry contracts. ADR 0015 defines how Concord publishes versioned Academic Result Manifests through that Core registry.
 
-Concord must therefore preserve enough standards-specific meaning for that future module to determine:
+Concord must therefore preserve enough standards-specific meaning for Meridian to determine:
 
 * which standard a teacher evaluated;
 * which student, Group, or other target received the judgment;
@@ -57,7 +58,7 @@ A Criterion may carry one or more optional standards references, but the model d
 * the Criterion is local to the Activity;
 * or the resulting Score may be treated as a direct standards result.
 
-That ambiguity would force the future grading and reporting module to infer standards meaning from generic Criterion metadata.
+That ambiguity would force Meridian to infer standards meaning from generic Criterion metadata.
 
 For example, consider this Criterion:
 
@@ -80,7 +81,7 @@ A Score of `3` against that Criterion would not reveal whether:
 * the Score was holistic and cannot be separated;
 * or the standards were merely attached for instructional alignment.
 
-The future reporting module must not guess.
+Meridian must not guess.
 
 Paper Data Suite’s existing modules demonstrate two compatible standards-integration patterns.
 
@@ -137,7 +138,7 @@ Concord therefore needs a standards architecture that:
 4. retains legitimate local collaborative Criteria;
 5. avoids forcing every Activity into standards scoring;
 6. does not make standards alignment equivalent to mastery;
-7. and provides a clean future handoff to grading and reporting.
+7. and provides a clean publication and Meridian-consumption boundary.
 
 ## Decision
 
@@ -162,7 +163,9 @@ The central standards-based scoring relationship will be:
 collaborative evidence
     -> standard-backed Criterion
     -> teacher-approved Score
-    -> future standards-based grading and reporting
+    -> Concord Academic Result Manifest revision
+    -> Core Publication Record
+    -> Meridian standards-based grading and reporting
 ```
 
 For a direct standards judgment:
@@ -199,8 +202,27 @@ Concord owns:
 * recording teacher-approved Score Records;
 * linking evidence to those Scores;
 * applying Concord Review and Moderation requirements;
-* producing Concord-specific standards-result handoff data;
+* producing immutable Concord Academic Result Manifest revisions containing standards-result and other valid Concord result projections;
 * and presenting standards-based scoring workflows to the teacher.
+
+Core additionally owns:
+
+* Academic Work Registration identity and revision;
+* immutable Publication Records;
+* publication kinds and capabilities;
+* manifest-path and digest validation;
+* publication supersession and withdrawal;
+* and the derived publication catalog.
+
+Meridian owns:
+
+* published-result eligibility;
+* standards-evidence and attempt selection;
+* proficiency calculation;
+* Grade-item and Academic Period membership;
+* Grade calculation;
+* overrides of Meridian-derived results;
+* and formal report snapshots and reports.
 
 Concord must not:
 
@@ -311,7 +333,7 @@ Rules:
 * every entry must be a durable Core `standard_id`;
 * duplicate IDs are invalid;
 * every selected standard should belong to the selected profile;
-* ordering is meaningful for teacher-facing scoring and future handoff workflows;
+* ordering is meaningful for teacher-facing scoring, publication, and Meridian workflows;
 * and a selected Focus Standard does not by itself prove that the standard was taught, practiced, assessed, demonstrated, or mastered.
 
 The Focus Standards define the Activity’s intended standards-scoring scope.
@@ -407,7 +429,7 @@ A multi-standard holistic Criterion must therefore be modeled as:
 * several separate standard-backed Criteria;
 * or another explicitly defined future composite contract.
 
-The future grading and reporting module must not split one holistic Score across several standards automatically.
+Meridian must not split one holistic Score across several standards automatically.
 
 ### Focus Standard membership
 
@@ -537,7 +559,9 @@ Whichever representation is chosen, the public contract must make the governing 
 
 A Score against a local Criterion remains a valid Concord Score.
 
-It must be identifiable as a local-criterion judgment and must not be exported or interpreted as a direct standard rating.
+It must be identifiable as a local-criterion judgment and must not be interpreted as a direct standard rating.
+
+ADR 0015 permits local Scores to appear in the broader Concord Academic Result Manifest so that an explicit conventional or hybrid Meridian policy may consider them. They remain excluded from the standards-specific projection and retain no governing `standard_id`.
 
 ### Score dispositions
 
@@ -600,7 +624,7 @@ The Scoring Scale must preserve:
 * revision identity;
 * and historical reproducibility.
 
-A future grading and reporting module must not assume that similarly numbered scales are semantically equivalent.
+Meridian must not assume that similarly numbered scales are semantically equivalent.
 
 For example:
 
@@ -622,7 +646,7 @@ External Scale B:
 4 = Advanced
 ```
 
-Cross-scale conversion, normalization, weighting, and mastery policies belong to explicit future grading and reporting contracts.
+Cross-scale conversion, normalization, weighting, and mastery policies belong to explicit, versioned Meridian contracts.
 
 ## Evidence and standards Scores
 
@@ -665,7 +689,7 @@ A standard-backed Score may target a Group when:
 
 A Group standards Score does not become an individual standards Score for every Group member.
 
-The future grading and reporting module must preserve that distinction unless a later explicit policy defines a conversion.
+Meridian must preserve that distinction unless an explicit, versioned Meridian policy defines a conversion.
 
 ### Authors and Subjects
 
@@ -825,11 +849,29 @@ ScoreForm result
     -> explicit Concord Score Record
 ```
 
-## Future grading and reporting handoff
+When Concord publishes a Score supported by ScoreForm or Quillan evidence, the manifest must preserve the originating module-qualified record lineage. Meridian may also ingest the originating producer publication directly and therefore requires that lineage to apply an explicit overlap or deduplication policy.
 
-Concord will preserve enough structured standards-result information for a future Paper Data Suite grading and reporting module to consume without reverse-engineering generic Criteria.
+## Publication and Meridian handoff
 
-A standards-result handoff must eventually make available:
+ADR 0015 operationalizes the handoff anticipated by this ADR.
+
+Concord publishes selected results as immutable, revision-addressable **Concord Academic Result Manifests** registered through Core as `academic_result_set` publications.
+
+The broader manifest may include:
+
+* standard-backed Score Records;
+* local Score Records;
+* explicit non-score dispositions;
+* Criterion definitions;
+* exact Scoring Scale revisions;
+* Score Evidence Links and module-qualified source lineage;
+* applicable Moderation state;
+* native Score supersession;
+* and current-versus-superseded projection state.
+
+The standards-specific projection defined by this ADR remains a subset of that manifest. It includes only standard-backed Scores and their governing standards.
+
+A published standards result must make available:
 
 ```text
 module_id
@@ -840,19 +882,30 @@ score_record_id
 target reference
 standard_id
 criterion_id
-scoring_scale_id
+scoring_scale_id and exact revision semantics
 score disposition
 score value when applicable
 scorer
 scored_at
-evidence-link references
+evidence lineage
 moderation state
-supersession state
+native Score supersession state
 ```
 
-The exact export schema, event structure, storage path, and inter-module interface belong to later work.
+Core records publication of the exact immutable manifest bytes, path, contract version, digest, record-set identity, and revision. Core does not interpret the standards result.
 
-This ADR does not authorize Concord to perform:
+Meridian determines:
+
+* whether the publication is eligible under a policy;
+* which standard-backed observations are selected;
+* how repeated observations and reassessment are handled;
+* whether local Scores participate in conventional or hybrid grading;
+* which Academic Period applies;
+* and how selected results contribute to proficiency, Grades, overrides, and Reports.
+
+Publication does not imply Grade inclusion, Academic Period membership, mastery, or reporting.
+
+Concord must not perform:
 
 * cross-Activity aggregation;
 * cross-module aggregation;
@@ -865,8 +918,6 @@ This ADR does not authorize Concord to perform:
 * report-card generation;
 * parent reporting;
 * or longitudinal reporting.
-
-Those responsibilities remain with the future Paper Data Suite grading and reporting module.
 
 ## No automatic mastery determination
 
@@ -888,7 +939,7 @@ A student may receive several judgments for the same standard:
 * using different evidence;
 * or using different Scoring Scale revisions.
 
-The future grading and reporting module must determine how those judgments are:
+Meridian must determine how those judgments are:
 
 * compared;
 * weighted;
@@ -946,14 +997,14 @@ For example:
 * a Group Artifact may remain Group-and-teacher visible while individual Score Records remain teacher-and-subject visible;
 * and a Moderation rationale may remain more restricted than the resulting Score.
 
-The future reporting module must not infer that access to a Score grants access to every supporting source.
+Meridian must not infer that access to a Score grants access to every supporting source.
 
 ## Consequences
 
 ### Positive consequences
 
 * Concord’s standards-based purpose becomes explicit.
-* The future grading and reporting module can consume Concord results without guessing how generic Criteria relate to standards.
+* Meridian can consume published Concord results without guessing how generic Criteria relate to standards.
 * Direct standards judgments identify exactly one governing `standard_id`.
 * Activity Focus Standards provide a clear scoring scope.
 * Standard-backed and local Criteria remain distinguishable.
@@ -964,7 +1015,7 @@ The future reporting module must not infer that access to a Score grants access 
 * Quillan, ScoreForm, and Concord can contribute different evidence forms without duplicating one another’s workflows.
 * Missing evidence and non-score dispositions remain distinct from low performance.
 * Historical standards results remain reproducible through immutable Criteria and Scoring Scale revisions.
-* Future cross-module reporting can distinguish direct standards results from contextual alignment.
+* Meridian can distinguish direct standards results from contextual alignment during cross-module grading and reporting.
 
 ### Negative consequences
 
@@ -975,7 +1026,7 @@ The future reporting module must not infer that access to a Score grants access 
 * Criterion and Score validation becomes more complex.
 * Reusable Criterion Sets must be checked against Activity Focus Standards.
 * The user interface must distinguish direct standards judgments from local criteria clearly.
-* Future exports must preserve standard identity, scale identity, target type, and contextual provenance.
+* Published manifests must preserve standard identity, scale identity, target type, and contextual provenance.
 * Cross-scale comparison remains unavailable until the grading and reporting module defines an explicit policy.
 * Existing generic points-based examples may require revision or relabeling.
 
@@ -1025,11 +1076,17 @@ Not every Activity requires Focus Standards, Criteria, or Scores.
 
 Standards-based scoring is the primary academic scoring model, not a universal record-presence requirement.
 
+### ADR 0015: Publish Versioned Concord Academic Result Manifests Through the Core Registry
+
+ADR 0015 operationalizes this ADR's downstream handoff.
+
+It preserves the standards-specific projection as a subset of a broader immutable Concord Academic Result Manifest, permits clearly identified local Scores to be published without converting them into standards ratings, and assigns publication discovery to Core and grading/reporting policy to Meridian.
+
 ## Alternatives considered
 
 ### Alternative 1: Retain generic Criteria with optional standards references
 
-Rejected because a future consumer could not determine whether a Score was:
+Rejected because Meridian or another authorized consumer could not determine whether a Score was:
 
 * a direct judgment of one standard;
 * a holistic judgment across several standards;
@@ -1114,7 +1171,7 @@ The foundational domain must support standards-based scoring without requiring m
 
 ## Required follow-up
 
-Before approving the Concord v0.1.0 foundation, the following documentation must be updated.
+When this ADR was accepted, the following documentation updates were required. ADR 0015 and the revised foundational documents have since expanded the handoff from a standards-only projection to an immutable Concord Academic Result Manifest published through Core. The remaining example and foundation-review work must validate both decisions together.
 
 ### Conceptual data contracts
 
@@ -1127,8 +1184,11 @@ Revise `docs/design/conceptual-data-contracts.md` to add or clarify:
 * exactly one governing `standard_id` for a standard-backed Criterion;
 * optional non-governing alignment references for local Criteria;
 * standards semantics for Score Records;
-* standards-result handoff requirements;
+* the standards-specific projection within the broader Concord Academic Result Manifest;
 * standards-specific validation invariants;
+* Core Academic Work Registration and Publication Record relationships;
+* manifest revision, digest binding, supersession, and withdrawal;
+* Meridian consumption and Academic Period boundaries;
 * and issue #12 representative examples.
 
 ### Initial domain model
@@ -1151,7 +1211,9 @@ Revise `docs/design/cross-case-requirements.md` to require representative suppor
 * Group standards Scores;
 * individual standards Scores supported by Group or multi-subject evidence;
 * non-score dispositions by standard;
-* and future standards-result handoff.
+* Concord Academic Result Manifest publication through Core;
+* the standards-specific projection within that manifest;
+* and Meridian consumption without inferred Grade inclusion.
 
 ### Conceptual design
 
@@ -1160,7 +1222,7 @@ Revise `docs/concord-conceptual-design-revised.md` to state explicitly that:
 * Concord’s primary academic scoring model is standards-based;
 * local collaborative Criteria remain valid;
 * Score is distinct from Grade and mastery;
-* and the future grading and reporting module will combine contextual standards results under later policies.
+* and Meridian will combine contextual standards results under explicit, versioned policies.
 
 ### Representative contract examples
 
@@ -1177,11 +1239,16 @@ Issue `#12` must include examples that demonstrate:
 9. a non-score disposition for a Focus Standard;
 10. an external ScoreForm result used as supporting evidence;
 11. an external Quillan standards result used as supporting evidence;
-12. and a local Criterion that carries optional alignment metadata but is not exported as a direct standards rating.
+12. a local Criterion that carries optional alignment metadata but is not interpreted as a direct standards rating;
+13. an immutable Concord Academic Result Manifest containing both standard-backed and clearly local Score projections;
+14. a Core Publication Record bound to the exact manifest digest;
+15. cross-producer ScoreForm or Quillan lineage sufficient for Meridian overlap policy;
+16. publication supersession or withdrawal distinct from native Score supersession; and
+17. publication that remains separate from Meridian Grade and Academic Period membership.
 
 ### Foundation review
 
-Issue `#13` must verify that the proposed contracts allow a future grading and reporting module to distinguish:
+Issue `#13` must verify that the proposed contracts allow Meridian to distinguish:
 
 * direct standard-backed Scores;
 * local Criterion Scores;
@@ -1206,6 +1273,7 @@ Issue `#13` must verify that the proposed contracts allow a future grading and r
 * [`docs/decisions/0010-exceptional-evidence-states-are-not-low-scores.md`](0010-exceptional-evidence-states-are-not-low-scores.md)
 * [`docs/decisions/0012-link-scoreform-and-quillan-without-duplication.md`](0012-link-scoreform-and-quillan-without-duplication.md)
 * [`docs/decisions/0013-keep-activity-specific-structures-optional.md`](0013-keep-activity-specific-structures-optional.md)
+* [`docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`](0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md)
 * `pds-core/docs/module_standards_integration.md`
 * `pds-core/docs/standards_contract.md`
 * `pds-quillan/docs/adr/0001-standards-based-review-model.md`

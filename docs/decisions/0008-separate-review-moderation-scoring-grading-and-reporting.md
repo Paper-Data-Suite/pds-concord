@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** July 13, 2026
+**Amended:** July 29, 2026 — cross-references ADR 0015 and names `pds-meridian`
 **Decision owners:** Paper Data Suite maintainers
 **Applies to:** `pds-concord`
 
@@ -46,6 +47,15 @@ The system must preserve these distinctions so that teachers and downstream modu
 * how another system used that judgment;
 * and what was later communicated.
 
+Subsequent suite architecture assigns the downstream responsibilities more precisely:
+
+* `pds-concord` remains authoritative for Review, Moderation, Criteria, Scoring Scales, Score Records, evidence links, and native Score supersession;
+* `pds-core` owns Academic Work Registration, immutable Publication Records, publication supersession and withdrawal, digest-bound manifest discovery, and the derived publication catalog;
+* ADR 0015 defines Concord's immutable Academic Result Manifest as the publication boundary between Concord-native results and Core discovery; and
+* `pds-meridian` owns evidence selection, standards-proficiency calculation, Grade-item membership, Academic Period membership, Grade calculation, overrides of derived results, and formal reporting.
+
+These later decisions operationalize this ADR without changing its central separation of responsibilities.
+
 ## Decision
 
 Concord will model **Review, Moderation, and Scoring as separate Concord-owned records and workflows**.
@@ -59,8 +69,10 @@ Evidence
     -> Review
     -> optional Moderation
     -> optional Score
-    -> external Grade calculation
-    -> external Report or communication
+    -> optional Concord Academic Result Manifest revision
+    -> optional Core Publication Record
+    -> optional Meridian Grade calculation
+    -> optional Meridian Report or communication
 ```
 
 This diagram represents a common progression, not a mandatory linear pipeline.
@@ -75,6 +87,8 @@ For example:
 * a teacher may record a Score using professional judgment without one controlling Artifact;
 * a formative Score may never be used in a Grade;
 * and evidence may be reported without being converted into a Grade.
+
+Manifest generation and Core publication are also optional. A saved Concord Score is not automatically registered, published, selected by Meridian, included in an Academic Period, or used in a Grade or Report.
 
 ## Evidence
 
@@ -529,7 +543,7 @@ Grading may involve:
 * applying institutional rounding;
 * or determining marking-period and course results.
 
-These operations belong to a future gradebook or reporting module or another authorized institutional system.
+These operations belong to `pds-meridian` or another authorized institutional system acting outside Concord.
 
 ### Concord’s grading boundary
 
@@ -538,7 +552,7 @@ Concord may:
 * create Criterion-level Score Records;
 * preserve optional aggregation guidance in a Scoring Scale;
 * export Scores;
-* link a Score to a future gradebook record;
+* publish a faithful Score projection through a Concord Academic Result Manifest and Core Publication Record;
 * and display contextual summaries for teacher review.
 
 Concord must not own:
@@ -669,7 +683,7 @@ Concord may also export:
 
 for another module.
 
-Formal parent-facing, report-card, transcript, or cross-course reporting remains outside Concord.
+Formal parent-facing, report-card, transcript, cross-course, and Academic Period reporting belongs to `pds-meridian` or another authorized institutional system outside Concord.
 
 ## Ownership Boundaries
 
@@ -685,22 +699,40 @@ Concord owns:
 * Score Records;
 * Score Evidence Links;
 * Scoring provenance;
+* Concord Academic Result Manifest schema, semantics, generation, and revision;
 * and Concord-specific correction and supersession history.
 
-### Future gradebook or reporting modules own
+### PDS Core owns the publication registry boundary
 
-A future gradebook or reporting module may own:
+Core owns:
 
-* Grade records;
-* Grade calculations;
-* weight configurations;
-* academic-policy application;
+* Academic Work Registration identity and revision;
+* immutable Publication Records;
+* manifest-path and digest validation;
+* publication-series supersession;
+* publication withdrawal;
+* shared publication kinds and capabilities;
+* and the derived, nonauthoritative publication catalog.
+
+Core does not interpret Concord Scores, select evidence, calculate Grades, or create formal Reports.
+
+### `pds-meridian` owns Grading and Reporting
+
+Meridian owns:
+
+* Grade-item and evidence membership;
+* attempt and reassessment selection;
+* standards-proficiency calculation;
+* Grade records and Grade calculations;
+* weight and academic-policy application;
+* Academic Period membership;
 * cross-module aggregation;
-* reporting templates;
+* overrides of Meridian-derived results;
+* reproducible report snapshots;
 * audience-specific reports;
 * parent-facing communication;
 * report-card output;
-* and downstream correction workflows.
+* and downstream correction workflows for Meridian-owned records.
 
 ### Other modules
 
@@ -714,7 +746,7 @@ Concord may reference those results as evidence.
 
 It must not reclassify them as Concord-owned Scores merely to include them in an Activity.
 
-Core owns shared identity, source-scan retention, and provenance infrastructure. Core does not own Concord’s Review, Moderation, or Scoring judgments.
+Core owns shared identity, source-scan retention, provenance infrastructure, Academic Work Registration, and publication-registry records. Core does not own Concord’s Review, Moderation, Scoring, manifest semantics, or Meridian’s grading and reporting judgments.
 
 ## Workflow Rules
 
@@ -774,12 +806,14 @@ The external result remains owned by its originating module.
 
 ```text id="y26qhm"
 Concord Score
-    -> export or reference
-    -> external Grade calculation
-    -> external Report
+    -> immutable Concord Academic Result Manifest revision
+    -> immutable Core Publication Record
+    -> Meridian evidence selection and policy
+    -> optional Meridian Grade calculation
+    -> optional Meridian Report
 ```
 
-Concord remains authoritative for its Score Record. The downstream system remains authoritative for its Grade and Report records.
+Concord remains authoritative for its Score Record and manifest semantics. Core remains authoritative for the Publication Record. Meridian remains authoritative for its imports, selection decisions, calculated results, overrides, and Report records. Publication does not imply Grade inclusion.
 
 ## Privacy
 
@@ -820,7 +854,16 @@ an earlier record.
 
 The earlier record remains available under its privacy controls.
 
-Downstream Grade and Report systems should likewise preserve their own history, but their detailed requirements are outside this ADR.
+Downstream Grade and Report systems should likewise preserve their own history.
+
+ADR 0015 further requires four histories to remain separate:
+
+* Concord native Score supersession;
+* Concord manifest revision;
+* Core Publication Record supersession or withdrawal;
+* and Meridian import, calculation, report-snapshot, and override history.
+
+A Meridian override changes a Meridian-derived result. It does not revise the underlying Concord Score. A change to the teacher-approved Concord judgment requires a new Score Record and, when republished, a new manifest and Publication Record revision.
 
 ## Consequences
 
@@ -863,6 +906,8 @@ Concord implementations must:
 * represent non-score dispositions explicitly;
 * preserve Score revision history;
 * expose durable Score references for downstream systems;
+* publish selected results only through immutable Concord Academic Result Manifests registered by Core;
+* preserve the distinction between native Score revision, manifest revision, Core publication lifecycle, and Meridian override;
 * avoid implementing course-grade policy;
 * avoid presenting operational views as formal Reports;
 * and preserve record-specific privacy.
@@ -1010,7 +1055,15 @@ Supersession must preserve history.
 
 ## Required Follow-Up
 
-Later conceptual contracts must define:
+ADR 0015 and the revised Concord conceptual contracts now define the publication boundary that this ADR intentionally left external. Later serialized and implementation contracts must preserve both the original separation and the following publication relationships:
+
+* Concord Academic Result Manifest structure and versioning;
+* Core Academic Work Registration and Publication Record references;
+* manifest digest binding, supersession, and withdrawal;
+* Meridian source-import, evidence-selection, Grade, override, and report provenance;
+* and cross-producer evidence lineage sufficient to avoid accidental double counting.
+
+The remaining record-level follow-up includes:
 
 * Artifact Review fields and statuses;
 * Review readiness and correction states;
@@ -1025,8 +1078,8 @@ Later conceptual contracts must define:
 * Score Evidence Links;
 * correction and supersession behavior;
 * privacy classifications for each record type;
-* downstream Grade references;
-* Report or export references;
+* Meridian Grade and source-import references;
+* Report, manifest, and publication references;
 * and cross-module correction behavior.
 
 Representative contract examples should test at least:
@@ -1041,7 +1094,7 @@ Representative contract examples should test at least:
 * one Group Score that does not create individual Scores;
 * one non-score disposition;
 * one revised Score;
-* one Concord Score used in an external Grade;
+* one published Concord Score selected for a Meridian Grade;
 * and one restricted evidence source summarized in a less-restricted Report.
 
 ## References
@@ -1059,9 +1112,12 @@ Representative contract examples should test at least:
 * [`docs/decisions/0005-separate-artifact-authors-and-subjects.md`](0005-separate-artifact-authors-and-subjects.md)
 * [`docs/decisions/0006-distinguish-roles-responsibilities-tasks-and-contributions.md`](0006-distinguish-roles-responsibilities-tasks-and-contributions.md)
 * [`docs/decisions/0007-preserve-source-evidence-and-history.md`](0007-preserve-source-evidence-and-history.md)
+* [`docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`](0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md)
+* [`docs/design/conceptual-data-contracts.md`](../design/conceptual-data-contracts.md)
+* [`docs/design/pds-core-integration-requirements.md`](../design/pds-core-integration-requirements.md)
 
 ## Notes
 
 This ADR establishes the conceptual and ownership boundaries among Review, Moderation, Scoring, Grading, and Reporting.
 
-It does not fully define the many-to-many relationship between evidence and Scores, which is addressed in ADR 0009. It also does not define the complete exceptional-evidence vocabulary, which is addressed in ADR 0010.
+It does not fully define the many-to-many relationship between evidence and Scores, which is addressed in ADR 0009. It also does not define the complete exceptional-evidence vocabulary, which is addressed in ADR 0010. ADR 0015 operationalizes the later publication boundary without changing this ADR's separation of Review, Moderation, Scoring, Grading, and Reporting.
