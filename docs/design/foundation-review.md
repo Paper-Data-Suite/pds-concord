@@ -39,6 +39,10 @@ Findings will be classified as:
 | REG-002 | Activity identity and Core registration | Minor clarification | Resolved | Concord registration only recommends, rather than requires, an Activity source reference. | Make the matching Activity `ModuleRecordRef` a Concord invariant |
 | REG-003 | Activity identity and Core registration | Minor clarification | Resolved | “Applicable registration revision” is less precise than Core’s current-revision publication requirement. | Require the exact current revision at publication time |
 | REG-004 | Activity identity and Core registration | No issue identified | Reviewed | Activity identity, explicit registration, revision history, and separation from grading are coherent. | None |
+| ESM-001 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | Score basis values do not fully constrain required evidence-link cardinality and rationale. | Define rules for `linked_evidence`, `professional_judgment`, and `mixed_basis` |
+| ESM-002 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | Older Evidence Reference descriptions contain relevance and Moderation semantics that belong to Score Evidence Links. | Align ADR 0009 and the initial domain model with the finalized contracts |
+| ESM-003 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | ADR 0008 describes Artifact Review too broadly as a generic routed-evidence Review. | Narrow the wording to one Artifact Instance and its routed evidence |
+| ESM-004 | Evidence, Review, Moderation, and Scoring | No issue identified | Reviewed | Evidence, Review, Moderation, Score, lineage, correction, publication, and grading remain coherently separated. | None |
 
 ## 4. Review Areas
 
@@ -490,3 +494,504 @@ No-issue findings: 1
 The Activity identity and Academic Work Registration architecture is suitable for continued foundation review.
 
 The three open findings require wording and producer-invariant corrections, not a redesign of Activity identity, Core registration, or the representative examples.
+
+## 7. Evidence, Review, Moderation, and Scoring Review
+
+### 7.1 Review Question
+
+Does the Concord foundation preserve defensible boundaries among evidence, Artifact Review, Moderation, Score Records, Score Evidence Links, non-score dispositions, corrections, publication history, and downstream Meridian results?
+
+### 7.2 Evidence Independence
+
+The foundation correctly treats evidence as a role played by several record types rather than as one universal record.
+
+Permitted evidence sources include:
+
+* Artifact Instances and Pages;
+* Attachments;
+* Contribution Claims;
+* Activity Events;
+* teacher observations and rationales;
+* ScoreForm results;
+* Quillan responses;
+* and authorized external records.
+
+A typed Evidence Reference identifies a source without:
+
+* copying it;
+* transferring ownership;
+* interpreting its meaning automatically;
+* creating a Score;
+* or authorizing consequential use.
+
+Evidence may exist without:
+
+* Review;
+* Moderation;
+* a Score;
+* academic registration;
+* publication;
+* Grade inclusion;
+* or reporting inclusion.
+
+The representative evidence-only archive demonstrates reviewed and routed evidence without Criteria, Scores, registration, or publication.
+
+### 7.3 Artifact Review Boundary
+
+Artifact Review correctly concerns administrative and evidentiary readiness.
+
+It may determine:
+
+* readability;
+* completeness;
+* filing;
+* Author and Subject attribution;
+* privacy;
+* relevance;
+* correction needs;
+* Moderation requirements;
+* and readiness for possible scoring consideration.
+
+Artifact Review does not determine:
+
+* performance;
+* Criterion satisfaction;
+* evidence fairness;
+* Score target;
+* Score value;
+* Grade eligibility;
+* or reporting treatment.
+
+A Review outcome such as `ready` means only that evidence may be considered. It does not create, recommend, or populate a Score.
+
+Later Reviews preserve earlier Review history and may supplement, correct, or supersede prior judgments without modifying the retained source.
+
+### 7.4 Moderation Boundary
+
+Moderation correctly evaluates whether and how evidence may be used consequentially.
+
+Moderation may assess:
+
+* reliability;
+* fairness;
+* credibility;
+* relevance;
+* conflicting accounts;
+* subject-specific applicability;
+* qualification;
+* and permissible scoring use.
+
+Moderation does not select:
+
+* a Criterion;
+* a Score target;
+* a governing standard;
+* a Scoring Scale;
+* a Score value;
+* or a Grade consequence.
+
+The following remain evidence-use decisions rather than performance levels:
+
+```text
+accepted
+accepted_with_qualification
+insufficient
+disputed
+rejected
+not_used_for_scoring
+```
+
+Evidence requiring Moderation cannot actively support a consequential Score until an applicable Moderation Record permits the represented use.
+
+Rejected evidence may remain preserved historically, but it must not remain an active supporting link for a consequential Score.
+
+### 7.5 Score Boundary
+
+A Score Record remains one teacher-approved judgment about:
+
+* exactly one Criterion;
+* exactly one explicit target;
+* one exact Scoring Scale revision;
+* and one defined Activity context.
+
+A Score remains distinct from:
+
+* its evidence;
+* Artifact Author;
+* Artifact Subject;
+* scorer;
+* Group Membership;
+* Review;
+* Moderation;
+* manifest projection;
+* Core publication;
+* Meridian-derived result;
+* proficiency;
+* and Grade.
+
+Review readiness and Moderation acceptance do not create a Score.
+
+Group evidence may support an individual Score only when:
+
+* the evidence is relevant to that individual;
+* required Moderation permits the use;
+* the teacher makes a deliberate individual judgment;
+* and the rationale or Score Evidence Link explains the individual relevance.
+
+A Group Score never creates member Scores automatically.
+
+### 7.6 Evidence-to-Score Lineage
+
+The many-to-many evidence relationship is appropriate.
+
+```text
+one Score
+    -> zero or more deliberate Score Evidence Links
+
+one evidence source
+    -> zero or more distinct Scores
+```
+
+A Score Evidence Link preserves the specific claim that one source was deliberately considered in one criterion-level judgment.
+
+The link may preserve:
+
+* an evidence locator;
+* Subject context;
+* relevance description;
+* significance;
+* applicable Moderation Record;
+* lifecycle;
+* provenance;
+* and supersession.
+
+Link count must not determine Score value or be treated as proof of independent corroboration.
+
+Overlapping provenance layers should not receive redundant links unless each layer has an independent evidentiary purpose.
+
+### 7.7 Non-Score Dispositions
+
+The foundation correctly distinguishes evidence state, contextual exception, and Score disposition.
+
+The initial Score dispositions are:
+
+```text
+scored
+insufficient_evidence
+absent
+excused
+not_observed
+not_applicable
+deferred
+```
+
+When `disposition = scored`:
+
+* a valid value from the exact Scoring Scale revision is required.
+
+When `disposition != scored`:
+
+* `value` is forbidden;
+* zero must not be inferred;
+* the lowest scale level must not be inferred;
+* and the explicit disposition must be preserved downstream.
+
+Absence of evidence remains distinct from affirmative evidence supporting a negative judgment.
+
+Even affirmative negative evidence does not generate a Score automatically; the teacher must still apply the Criterion, context, Moderation state, and exact Scoring Scale deliberately.
+
+### 7.8 Historical Separation
+
+The following histories remain correctly separate:
+
+```text
+source and routing history
+Artifact Review history
+Moderation history
+Score Evidence Link history
+native Score supersession
+manifest revision
+Core publication supersession or withdrawal
+Meridian import, calculation, and override history
+```
+
+A later Review or Moderation decision does not silently rewrite an earlier Score.
+
+A changed teacher-approved judgment requires a new or superseding Score Record.
+
+A Meridian policy change or override does not revise the Concord Score.
+
+### 7.9 Representative-Example Assessment
+
+The seminar, laboratory, and project examples collectively demonstrate:
+
+* evidence remaining distinct from Review and Score;
+* normal teacher-authored evidence without unnecessary Moderation;
+* peer and Contribution Claim evidence requiring Moderation;
+* accepted-with-qualification use;
+* rejected or insufficient evidence without negative scoring;
+* one source supporting several Scores;
+* one Score using several sources;
+* Group evidence supporting individual judgment only through explicit teacher action;
+* Group Scores that do not propagate to members;
+* `insufficient_evidence`, `absent`, and `deferred` dispositions without values;
+* native Score supersession;
+* ScoreForm and Quillan evidence lineage;
+* and corrections that preserve prior records.
+
+No representative example contradicts the intended evidence, Review, Moderation, or scoring architecture.
+
+### 7.10 Findings
+
+#### ESM-001 — Score basis does not fully constrain evidence-link cardinality
+
+| Field                        | Value                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                         | Scoring and evidence lineage                                                                                                                                                                                                                                                                                                         |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                  |
+| Status                       | Open                                                                                                                                                                                                                                                                                                                                 |
+| Finding                      | The contracts define `linked_evidence`, `professional_judgment`, and `mixed_basis`, but they do not fully state which basis values require Score Evidence Links. As written, a `linked_evidence` Score could contain zero links, or a `mixed_basis` Score could omit the rationale representing the professional-judgment component. |
+| Required action              | Require at least one active Score Evidence Link for `linked_evidence` and `mixed_basis`; require rationale for `mixed_basis`; and require a zero-link Score to use `professional_judgment`.                                                                                                                                          |
+| Architecture change required | No                                                                                                                                                                                                                                                                                                                                   |
+| Example changes required     | No; the current examples already follow the intended rules                                                                                                                                                                                                                                                                           |
+
+##### Exact corrections
+
+In `docs/decisions/0009-many-to-many-evidence-to-score-relationships.md`, replace lines 93–99:
+
+> A Score Record may have:
+>
+> * no Score Evidence Links;
+> * one Score Evidence Link;
+> * or several Score Evidence Links.
+>
+> The number of links does not change the Score Record’s core identity.
+
+with:
+
+```markdown
+A Score Record may have:
+
+- no Score Evidence Links only when `basis = professional_judgment`;
+- one or more Score Evidence Links when `basis = linked_evidence`;
+- or one or more Score Evidence Links when `basis = mixed_basis`.
+
+A `mixed_basis` Score must also preserve a rationale for the professional-judgment component.
+
+The number of links does not change the Score Record’s core identity or determine its value.
+```
+
+In `docs/design/conceptual-data-contracts.md`, immediately after lines 2342–2346:
+
+> When `basis = professional_judgment` and there are no Score Evidence Links:
+>
+> * `rationale` is required;
+> * scorer provenance is required;
+> * and the Activity context must be explicit.
+
+add:
+
+```markdown
+When `basis = linked_evidence`:
+
+- at least one active Score Evidence Link is required;
+- and `rationale` is optional unless required by workflow policy.
+
+When `basis = mixed_basis`:
+
+- at least one active Score Evidence Link is required;
+- and `rationale` is required to preserve the professional-judgment component.
+
+A Score with zero Score Evidence Links must use `basis = professional_judgment`.
+```
+
+In `docs/design/initial-concord-domain-model.md`, replace lines 1878–1884:
+
+> A teacher may enter a Score through professional judgment without one controlling Artifact.
+>
+> When no formal Score Evidence Link exists:
+>
+> * rationale is required;
+> * scorer provenance is required;
+> * and the Activity context must be explicit.
+
+with:
+
+```markdown
+A teacher may enter a Score through professional judgment without one controlling Artifact.
+
+When `basis = professional_judgment` and no formal Score Evidence Link exists:
+
+- rationale is required;
+- scorer provenance is required;
+- and the Activity context must be explicit.
+
+When `basis = linked_evidence`:
+
+- at least one active Score Evidence Link is required.
+
+When `basis = mixed_basis`:
+
+- at least one active Score Evidence Link is required;
+- and rationale is required to preserve the professional-judgment component.
+
+A Score with zero Score Evidence Links must use `basis = professional_judgment`.
+```
+
+#### ESM-002 — Older Evidence Reference descriptions contain Score Evidence Link semantics
+
+| Field                        | Value                                                                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                         | Evidence references and Score Evidence Links                                                                                                                                                                                                                             |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                                      |
+| Status                       | Open                                                                                                                                                                                                                                                                     |
+| Finding                      | ADR 0009 and the initial domain model place relevance description or applicable Moderation state on the Evidence Reference. The finalized contract correctly places deliberate relevance, significance, and the applicable Moderation Record on the Score Evidence Link. |
+| Required action              | Align the older descriptions with the finalized Evidence Reference and Score Evidence Link contracts.                                                                                                                                                                    |
+| Architecture change required | No                                                                                                                                                                                                                                                                       |
+| Example changes required     | No                                                                                                                                                                                                                                                                       |
+
+##### Exact corrections
+
+In `docs/decisions/0009-many-to-many-evidence-to-score-relationships.md`, replace lines 148–156:
+
+> A typed Evidence Reference should identify:
+>
+> * evidence source type;
+> * owning module where applicable;
+> * durable source identifier;
+> * optional page or evidence location;
+> * optional Subject context;
+> * optional relevance description;
+> * and applicable Moderation state.
+
+with:
+
+```markdown
+A typed Evidence Reference should identify:
+
+- evidence source type;
+- owning system;
+- durable source identifier;
+- optional public contract version;
+- optional exact source-publication reference;
+- optional source locator;
+- optional Subject context;
+- and optional Moderation requirement.
+
+Relevance description, significance, and the applicable Moderation Record belong to the Score Evidence Link rather than the Evidence Reference.
+```
+
+In the same ADR, replace lines 164–174:
+
+> It should be capable of recording:
+>
+> * durable `score_evidence_link_id`;
+> * parent `score_record_id`;
+> * typed Evidence Reference;
+> * optional evidence locator;
+> * relevance or use description;
+> * optional significance note;
+> * applicable Moderation status or decision reference;
+> * creation provenance;
+> * and correction or supersession history where required.
+
+with:
+
+```markdown
+It should be capable of recording:
+
+- durable `score_evidence_link_id`;
+- parent `score_record_id`;
+- typed Evidence Reference;
+- optional evidence locator;
+- optional Subject context;
+- required relevance or use description;
+- optional significance note;
+- applicable Moderation Record reference where required;
+- lifecycle status;
+- creation provenance;
+- and correction or supersession history where required.
+```
+
+In `docs/design/initial-concord-domain-model.md`, replace lines 1348–1357:
+
+> An Evidence Reference should identify:
+>
+> * evidence source kind;
+> * owning system;
+> * durable source identifier;
+> * optional public contract version;
+> * optional page or source location;
+> * optional Subject context;
+> * optional relevance note;
+> * and optional Moderation requirement.
+
+with:
+
+```markdown
+An Evidence Reference should identify:
+
+- evidence source kind;
+- owning system;
+- durable source identifier;
+- optional public contract version;
+- optional exact source-publication reference;
+- optional page or source location;
+- optional Subject context;
+- and optional Moderation requirement.
+
+Relevance description and the applicable Moderation Record belong to the Score Evidence Link for a particular evidence use.
+```
+
+#### ESM-003 — ADR 0008 describes Artifact Review as though it were a generic review record
+
+| Field                        | Value                                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Review scope                                                                                                                                                                                                                                                                                               |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                                                                        |
+| Status                       | Open                                                                                                                                                                                                                                                                                                       |
+| Finding                      | ADR 0008 says a Review may examine an Artifact Instance “or other routed evidence,” while the finalized contract defines Artifact Review specifically for one Artifact Instance and its routed evidence. Other source types retain source-owned review state or undergo Concord Moderation as appropriate. |
+| Required action              | Narrow the ADR wording to the finalized Artifact Review target.                                                                                                                                                                                                                                            |
+| Architecture change required | No                                                                                                                                                                                                                                                                                                         |
+| Example changes required     | No                                                                                                                                                                                                                                                                                                         |
+
+##### Exact correction
+
+In `docs/decisions/0008-separate-review-moderation-scoring-grading-and-reporting.md`, replace lines 129–131:
+
+> A Review records a human examination of an Artifact Instance or other routed evidence.
+>
+> Review determines whether the evidence is administratively and evidentially ready for possible use.
+
+with:
+
+```markdown
+An Artifact Review records a human examination of one Artifact Instance and its available routed evidence.
+
+Other evidence sources retain their owning record’s review or validation state and may undergo Concord Moderation when consequential use requires it.
+
+Artifact Review determines whether the Artifact and its routed evidence are administratively and evidentially ready for possible use.
+```
+
+#### ESM-004 — Evidence, Review, Moderation, and Scoring architecture is coherent
+
+| Field           | Value                                                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Evidence, Review, Moderation, and Scoring                                                                                                                                                                                                                                                                                                                   |
+| Severity        | No issue identified                                                                                                                                                                                                                                                                                                                                         |
+| Status          | Reviewed                                                                                                                                                                                                                                                                                                                                                    |
+| Finding         | The foundation consistently separates source evidence, administrative Review, consequential-use Moderation, criterion-level Scoring, evidence lineage, non-score dispositions, native correction, publication, and downstream grading. The representative cases support the architecture without introducing contradictory ownership or automatic judgment. |
+| Required action | None beyond ESM-001 through ESM-003.                                                                                                                                                                                                                                                                                                                        |
+
+### 7.11 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+No-issue findings: 1
+```
+
+The evidence, Review, Moderation, and Scoring foundation is suitable for continued review.
+
+The three open findings tighten existing contracts. They do not require new foundational entities, a new ADR, changes to Core, changes to Meridian, or revisions to the representative records.

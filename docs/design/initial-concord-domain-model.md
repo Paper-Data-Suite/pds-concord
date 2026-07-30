@@ -748,11 +748,13 @@ A registered Concord Activity uses:
 
 ```text
 work.module_id = concord
-work.class_id  = Activity.class_id
+work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-and identifies the Activity through a Concord `ModuleRecordRef`.
+and must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`.
+
+Additional source records may be included when justified.
 
 Core registration `academic_intent` remains distinct from Activity `scoring_orientation`.
 
@@ -760,7 +762,7 @@ Core registration `academic_intent` remains distinct from Activity `scoring_orie
 
 An Activity may have zero or many immutable Concord Academic Result Manifest revisions.
 
-An academic-result manifest requires an applicable Core Academic Work Registration revision before Core publication.
+An academic-result publication must reference the exact current Core Academic Work Registration revision at publication time. Later registration revisions do not alter the revision preserved by an existing Publication Record.
 
 A manifest may include standard-backed Scores, local Scores, explicit non-score dispositions, native history, and evidence lineage.
 
@@ -1971,7 +1973,7 @@ The initial manifest series is scoped to one `ModuleWorkRef`:
 
 ```text
 module_id = concord
-class_id  = Activity.class_id
+class_id  = Activity.class_reference.record_id
 work_id   = Activity.activity_id
 ```
 
