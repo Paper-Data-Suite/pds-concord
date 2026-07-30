@@ -3,48 +3,79 @@
 **Status:** Draft for foundation review  
 **Project:** Paper Data Suite  
 **Module:** `pds-concord`  
-**Date:** July 23, 2026  
-**Revision:** 3 — aligned with `pds-core` 0.5/PDS2 and ADR 0014
+**Date:** July 29, 2026  
+**Revision:** 4 — aligned with PDS2, ADRs 0014–0015, Core academic publication architecture, and Meridian
 
 ## 1. Purpose
 
-`pds-concord` is a Paper Data Suite module for creating, organizing, printing, scanning, filing, reviewing, moderating, and scoring paper artifacts used during collaborative classroom activities.
+`pds-concord` is a Paper Data Suite module for creating, organizing, printing, scanning, filing, reviewing, moderating, scoring, and publishing structured evidence from collaborative classroom activities.
 
-The module exists because collaborative learning produces evidence that is often difficult to preserve. A teacher cannot observe every Group continuously, and important evidence may be distributed across discussion notes, shared organizers, peer observations, contribution records, teacher trackers, attached project work, and scoring forms.
+The module exists because collaborative learning produces evidence that is difficult to preserve consistently. A teacher cannot observe every Group continuously, and important evidence may be distributed across discussion notes, shared organizers, peer observations, contribution records, teacher trackers, attached project work, scoring forms, and related records owned by other modules.
 
-Concord provides a paper-first workflow for turning those temporary classroom records into organized, reviewable evidence and teacher-approved judgments.
+Concord provides a paper-first workflow for turning those temporary classroom records into:
+
+- organized, reviewable evidence;
+- explicit Review and Moderation decisions;
+- criterion-level teacher-approved judgments;
+- and versioned, immutable academic-result publications suitable for authorized downstream use.
 
 Paper Data Suite is predominantly standards-based. Concord therefore uses standards-based scoring as its primary academic scoring model while retaining legitimate local Criteria for collaborative procedures, roles, responsibilities, and Activity-specific expectations.
 
 Concord is not a lesson-planning system. It begins after the teacher has already decided what Activity students will complete, what evidence would be useful, and—when the Activity is intended to produce academic judgments—which standards the Activity will evaluate.
 
-This document defines Concord’s conceptual scope and architecture. More detailed record-level requirements are governed by:
+Concord is also not the grading or reporting authority. `pds-meridian` applies explicit, versioned policy to determine whether and how authorized producer results contribute to standards proficiency, Grade items, Academic Period calculations, cumulative Grades, and formal reports.
 
+This document defines Concord’s conceptual scope and architecture. More detailed requirements are governed by:
+
+- `docs/design/cross-case-requirements.md`;
 - `docs/design/initial-concord-domain-model.md`;
 - `docs/design/conceptual-data-contracts.md`;
-- the accepted Concord ADRs, including ADR 0014;
-- and the released `pds-core` 0.5/PDS2 contracts.
+- `docs/design/pds-core-integration-requirements.md`;
+- the accepted Concord ADRs, including ADR 0014 and ADR 0015;
+- the released `pds-core` 0.5/PDS2 contracts;
+- the accepted Core Academic Period and publication-registry architecture present in Core mainline development;
+- and the accepted Meridian grading and reporting ADRs.
+
+The released Core package remains the runtime compatibility baseline until the newer registry APIs are released or explicitly stabilized. The newer accepted Core architecture nevertheless governs conceptual planning for Academic Work Registration, Publication Records, publication supersession and withdrawal, the derived publication catalog, and Academic Period identity.
 
 When this document conflicts with an accepted ADR or a later finalized conceptual contract, the accepted ADR or later contract governs.
 
 ## 2. Core Definition
 
-> Concord is a paper-based collaborative-evidence and standards-scoring system.
+> Concord is a paper-based collaborative-evidence, criterion-scoring, and academic-result publication system.
 
 It helps teachers create and manage scannable paper templates that document what happened during discussions, seminars, laboratories, projects, design activities, and other collaborative work.
 
 The retained source scan remains the canonical evidence record. Concord may attach metadata, Review decisions, Moderation decisions, evidence links, and teacher-approved Scores to that source, but it does not attempt to interpret handwriting, transcribe discussion, infer student behavior, or assign Scores automatically.
 
-For academic scoring, Concord normally organizes judgment through:
+For native academic scoring, Concord normally organizes judgment through:
 
 ```text
 collaborative evidence
     -> standard-backed Criterion
-    -> teacher-approved Score
-    -> future standards-based grading and reporting
+    -> teacher-approved Concord Score
 ```
 
 Concord also supports local Criteria when an Activity needs to record or score an expectation that is not a direct standards judgment.
+
+For cross-module use, the conceptual publication path is:
+
+```text
+Concord Activity
+    -> optional Core Academic Work Registration
+    -> Concord canonical records
+    -> immutable Concord Academic Result Manifest revision
+    -> immutable Core Publication Record
+    -> Core publication discovery
+    -> Meridian import and source snapshot
+    -> Meridian grading, proficiency, Academic Period, and reporting policy
+```
+
+The central ownership rule is:
+
+> Concord creates contextual teacher judgments. Core registers exact producer publications. Meridian applies grading and reporting policy.
+
+Routing, academic registration, publication, grading, and reporting are separate domains. A route does not create a publication. A publication does not create a Grade item. A Grade or report does not rewrite the Concord source records from which it was derived.
 
 ## 3. Scope
 
@@ -66,12 +97,31 @@ Concord is responsible for:
 - defining standard-backed and local Criteria;
 - recording criterion-level teacher-approved Scores;
 - distinguishing individual, Group, Artifact, Session, Activity, and component targets;
-- recording who completed, observed, reviewed, moderated, corrected, or scored a record;
+- recording who completed, observed, reviewed, moderated, corrected, generated, or scored a record;
 - linking Concord evidence to related Paper Data Suite records;
-- preserving standards identity, scale identity, evidence provenance, and supersession history;
-- making approved standard-backed Scores available through a future standards-result handoff contract;
-- making local Scores and evidence references distinguishable from direct standards results;
+- preserving standards identity, exact scale identity, evidence provenance, and native supersession history;
+- explicitly registering selected Activities as academic work through Core when cross-module academic use is intended;
+- generating immutable, revision-addressable Concord Academic Result Manifests;
+- publishing those manifests through Core as `academic_result_set` publications;
+- projecting both standard-backed and local Scores while preserving their distinct semantics;
+- preserving explicit non-score dispositions without converting them to zero;
+- exposing cross-producer evidence lineage when ScoreForm, Quillan, or another source contributes to a Concord judgment;
+- preserving applicable Moderation state and permitted-use restrictions in the publication projection;
+- creating new manifest revisions when the published projection changes materially;
+- supporting Core publication supersession and withdrawal without mutating published bytes;
 - and supporting paper-first, local-first, and offline classroom workflows.
+
+Concord’s scope ends before Meridian performs:
+
+- source eligibility and selection;
+- cross-publication overlap handling;
+- standards-proficiency calculation;
+- Grade-item membership;
+- Academic Period membership;
+- conventional or hybrid Grade calculation;
+- teacher overrides of Meridian-derived results;
+- report snapshot creation;
+- or formal report composition and delivery.
 
 ## 4. Non-Goals
 
@@ -82,7 +132,7 @@ Concord does not:
 - recognize or interpret handwriting;
 - evaluate extended written responses;
 - replace `pds-quillan`;
-- reimplement PDS Core workspace, roster, identifier, PDS2, route-registration, source-retention, dispatch, or standards infrastructure;
+- reimplement PDS Core workspace, roster, identifier, PDS2, route-registration, source-retention, dispatch, standards, Academic Period, registration, or publication-registry infrastructure;
 - create a competing standards library or standards-profile system;
 - transcribe audio or video;
 - create automated or AI-generated records of classroom discussion;
@@ -92,10 +142,20 @@ Concord does not:
 - convert ScoreForm or Quillan results into Concord Scores automatically;
 - require every Activity to select standards or produce Scores;
 - force every useful collaborative Criterion to be a standard;
+- register every Activity as academic work automatically;
+- publish every saved Score automatically as an architectural requirement;
+- treat a route registration or successful scan as a result publication;
+- treat publication as automatic Grade-item or standards-evidence inclusion;
+- treat a Core Publication Record as a copy of the Concord result set;
+- mutate an immutable published manifest;
+- reuse one manifest revision for different bytes;
+- calculate manifest current state from filenames or modification times;
+- assign authoritative Academic Period membership from Activity, Session, evidence, or Score dates;
 - plan lessons or design units;
 - calculate marking-period or course Grades;
 - aggregate results across Activities, modules, courses, terms, or years;
 - normalize or convert Scoring Scales automatically;
+- create Meridian evidence-selection, weighting, reassessment, conversion, or override policy;
 - generate report cards, parent reports, or longitudinal standards reports;
 - manage formal safety, disciplinary, medical, disability, or counseling records;
 - infer engagement, leadership, collaboration, or understanding from behavior alone;
@@ -106,7 +166,7 @@ Concord does not:
 
 ### 5.1 `pds-core`
 
-PDS Core owns shared infrastructure used across Paper Data Suite modules. Concord consumes that infrastructure rather than creating parallel workspace, identity, routing, source-retention, or standards systems.
+PDS Core owns shared infrastructure used across Paper Data Suite modules. Concord consumes that infrastructure rather than creating parallel workspace, identity, routing, source-retention, standards, Academic Period, registration, or publication systems.
 
 The dependency direction is:
 
@@ -114,7 +174,7 @@ The dependency direction is:
 pds-concord -> pds-core
 ```
 
-Concord does not depend directly on ScoreForm or Quillan merely to access shared behavior. Cross-module relationships use public module-qualified identifiers and contracts.
+Concord does not depend directly on ScoreForm, Quillan, or Meridian merely to access shared behavior. Cross-module relationships use public module-qualified identifiers, Core registry records, documented producer contracts, and optional adapters.
 
 PDS Core responsibilities relevant to Concord include:
 
@@ -132,6 +192,14 @@ PDS Core responsibilities relevant to Concord include:
 - owning the shared standards library;
 - owning standards profiles and durable `standard_id` and `profile_id` references;
 - validating standards and profile membership at workflow boundaries;
+- owning shared Academic Period calendars and durable `school_year + period_id` references;
+- owning Academic Work Registration identity and revision;
+- owning Publication Record identity and schema versioning;
+- controlling shared publication-kind and capability vocabularies;
+- validating manifest paths and SHA-256 digests;
+- enforcing publication idempotency, supersession, and withdrawal rules;
+- maintaining canonical registry records;
+- maintaining a rebuildable, nonauthoritative publication catalog;
 - and exposing shared contract-version information.
 
 Concord owns:
@@ -145,11 +213,15 @@ Concord owns:
 - generated Packet, Artifact, and Artifact Page records;
 - Artifact Authors and Artifact Subjects;
 - Concord-specific Scan References;
-- Review, Moderation, correction, and supersession behavior;
+- Review, Moderation, correction, and native supersession behavior;
 - standard-backed and local Criteria;
 - Concord Scoring Scales and Score Records;
 - Score Evidence Links;
-- Concord-specific standards-result handoff projections;
+- the public Concord Academic Result Manifest contract;
+- manifest generation and native validation;
+- stable producer-owned `record_set_id` assignment;
+- manifest record-set revision assignment;
+- deciding when a new manifest revision is required;
 - and Concord’s teacher-facing workflow and interface.
 
 #### PDS2 work identity
@@ -212,6 +284,44 @@ PDS2 locator
 
 The QR code identifies the expected physical route. It does not encode the complete semantic graph.
 
+#### Academic Work Registration
+
+A Concord Activity is not automatically registered as academic work.
+
+When the teacher deliberately registers an Activity, Core records a revisioned relationship equivalent to:
+
+```text
+ModuleWorkRef
+    module_id: concord
+    class_id: <Activity class_id>
+    work_id: <activity_id>
+
+source record
+    module_id: concord
+    record_kind: activity
+    record_id: <activity_id>
+```
+
+Core’s registration `academic_intent` is distinct from Concord’s scoring orientation and Meridian’s Grade-item membership decision.
+
+#### Publication Record
+
+Concord stores immutable manifest revisions beneath the exact Activity work root. Core exclusively creates the Publication Record that binds:
+
+- the producing `ModuleWorkRef`;
+- the Concord Activity source reference;
+- `publication_kind: academic_result_set`;
+- truthful shared capabilities;
+- producer `record_set_id` and `record_set_revision`;
+- manifest contract version;
+- safe workspace-relative path;
+- SHA-256 digest;
+- publication time;
+- applicable Academic Work Registration revision;
+- and optional predecessor Publication Record.
+
+Core does not copy Score arrays into its registry and does not interpret them as Grades.
+
 ### 5.2 `pds-scoreform`
 
 ScoreForm owns machine-readable selected-response and OMR workflows.
@@ -250,7 +360,10 @@ ScoreForm result
     -> Concord Evidence Reference
     -> Concord Score Evidence Link
     -> explicit Concord Score Record
+    -> Concord manifest lineage projection
 ```
+
+The lineage projection is necessary because Meridian may also import the originating ScoreForm publication directly. Meridian must be able to identify the relationship and apply an explicit overlap policy rather than assume that the two results are independent.
 
 ### 5.3 `pds-quillan`
 
@@ -290,7 +403,10 @@ Quillan record
     -> Concord Evidence Reference
     -> Concord Score Evidence Link
     -> explicit Concord Score Record
+    -> Concord manifest lineage projection
 ```
+
+The external record remains Quillan-owned. Meridian may use the lineage to avoid undocumented double-counting when it also imports Quillan directly.
 
 ### 5.4 Future lesson-planning module
 
@@ -322,39 +438,64 @@ A planning module may later propose:
 
 Concord remains capable of operating independently.
 
-### 5.5 Future grading and reporting module
+### 5.5 `pds-meridian`
 
-A future Paper Data Suite grading and reporting module may combine:
+Meridian is Paper Data Suite’s policy-driven grading and reporting module.
 
-- Concord standard-backed Scores;
-- Concord local Scores under an explicit policy;
-- ScoreForm results;
-- Quillan standards results;
-- teacher-entered results;
-- project results;
-- Scoring Scale semantics;
-- grading policies;
-- and reporting policies.
+The dependency direction is:
 
-Concord records contextual evidence and teacher-approved judgments. It does not determine final Grades, mastery, growth, or longitudinal standards status.
+```text
+pds-meridian -> pds-core
+```
 
-A future standards-result handoff from Concord must make the following meaning available without reverse-engineering generic Criterion metadata:
+Meridian does not need a private runtime dependency on Concord to discover a Concord publication. It consumes:
 
-- module, class, and Activity identity;
-- optional Session identity;
-- Score Record identity;
-- target identity and target kind;
-- governing `standard_id` for a standard-backed Score;
-- Criterion identity;
-- exact Scoring Scale revision;
-- Score disposition;
-- Score value when applicable;
-- scorer and scoring time;
-- evidence-link references;
-- Moderation state;
-- and supersession state.
+- Core Academic Work Registrations;
+- Core Publication Records;
+- exact immutable producer manifest revisions;
+- public producer manifest contracts;
+- and optional compatibility adapters.
 
-Local Scores must remain distinguishable from direct standards results.
+Meridian owns:
+
+- source subscriptions and publication selection;
+- exact imported-source revision tracking;
+- Grade-item membership;
+- standards-evidence eligibility;
+- evidence and attempt selection;
+- reassessment policy;
+- cross-producer overlap handling;
+- standards-proficiency calculation;
+- conventional, standards-based, and hybrid grading policies;
+- weighting, categories, minimum-evidence rules, and rounding;
+- Academic Period membership;
+- assignment, period, and cumulative Grades;
+- teacher overrides of Meridian-derived results;
+- reproducible calculation and report snapshots;
+- audience-specific reports;
+- and formal reporting provenance.
+
+Meridian must preserve producer-native meaning. It must not:
+
+- mutate Concord records or manifest bytes;
+- reinterpret a local Score as a direct standards rating;
+- infer individual Scores from Group Scores;
+- convert a non-score disposition to zero without explicit policy;
+- assume the highest or newest Score always governs;
+- silently replace one imported publication revision with another;
+- or treat publication as automatic Grade inclusion.
+
+The governing path is:
+
+```text
+Concord immutable manifest revision
+    -> Core Publication Record
+    -> Meridian exact source import
+    -> explicit Meridian selection and calculation policy
+    -> Meridian-derived proficiency, Grade, or report
+```
+
+A later Concord publication does not rewrite an earlier Meridian calculation or report snapshot that cited the prior Publication Record and digest.
 
 ## 6. Design Principles
 
@@ -386,7 +527,7 @@ Metadata, notes, derived images, Reviews, Moderation Records, evidence links, an
 
 ### 6.4 Clear module boundaries
 
-Concord must not duplicate OMR, written-response evaluation, lesson planning, grading, reporting, identity, standards-library, or PDS2 infrastructure owned elsewhere.
+Concord must not duplicate OMR, written-response evaluation, lesson planning, grading, reporting, identity, standards-library, Academic Period, registration, publication-registry, or PDS2 infrastructure owned elsewhere.
 
 ### 6.5 Predominantly standards-based, not standards-exclusive
 
@@ -445,7 +586,27 @@ Teachers should be able to select or adapt:
 - local Criteria that capture legitimate non-standard expectations;
 - and Scoring Scales appropriate to the judgment.
 
-### 6.9 Separate evidence, Review, Moderation, Score, Grade, and report
+### 6.9 Separate routing, registration, publication, grading, and reporting
+
+These domains answer different questions:
+
+| Domain | Primary question |
+| --- | --- |
+| PDS2 routing | Which expected physical page record does this locator identify? |
+| Academic Work Registration | Which module work unit is deliberately registered for an academic purpose? |
+| Result publication | Which exact immutable producer manifest revision is available for compatible use? |
+| Meridian grading | Which eligible source results participate in which calculation under which policy? |
+| Meridian reporting | Which source and derived results are communicated to which audience in which snapshot? |
+
+A route may exist without registration or publication.
+
+An Activity may be registered without any publication.
+
+A publication may exist for work that generated no paper pages.
+
+A publication does not imply Grade-item membership.
+
+### 6.10 Separate evidence, Review, Moderation, Score, Grade, and report
 
 These are distinct concepts:
 
@@ -453,14 +614,75 @@ These are distinct concepts:
 - **Review:** a human determination of filing, readability, attribution, relevance, completeness, privacy, and readiness;
 - **Moderation:** a human determination of whether and how evidence may be used consequentially;
 - **Score:** one teacher-approved judgment about one Criterion for one target;
-- **Grade:** a broader academic calculation that may combine many judgments;
-- **Report:** a presentation or communication of selected results.
+- **Grade:** a Meridian-owned academic result created under explicit policy;
+- **Report:** a Meridian-owned presentation or communication of selected source and derived results.
 
-Concord handles evidence, Review, Moderation, and Scoring. Grade calculation and cross-Activity or cross-module reporting belong elsewhere.
+Concord handles evidence, Review, Moderation, and Scoring. Meridian handles grading and formal reporting.
 
-### 6.10 Provenance
+### 6.11 Publish immutable producer projections
 
-Every Artifact and Score should preserve enough context to answer:
+A published Concord result set is an immutable, revision-addressable projection of Concord-owned records.
+
+The canonical Core Publication Record must bind exact bytes through a safe path and SHA-256 digest.
+
+A mutable convenience file such as `latest.json` may exist, but it must not be the sole canonical publication target.
+
+### 6.12 Publication is not Grade inclusion
+
+A Concord publication may contain:
+
+- formative results;
+- diagnostic results;
+- practice results;
+- feedback-only results;
+- reporting-only results;
+- summative results;
+- standard-backed Scores;
+- local Scores;
+- and explicit non-score dispositions.
+
+Meridian determines eligibility and use. Concord must not encode an assumed Grade outcome in the publication merely because the result is numeric or standards-backed.
+
+### 6.13 Preserve producer meaning and cross-producer lineage
+
+The Concord manifest must preserve:
+
+- standard-backed versus local classification;
+- exact target kind;
+- exact Criterion and scale revision;
+- non-score dispositions;
+- native Score supersession;
+- evidence lineage;
+- and required Moderation state.
+
+When a Concord Score uses ScoreForm or Quillan evidence, the source relationship must remain visible so Meridian can apply an explicit overlap policy.
+
+### 6.14 Separate revision and override histories
+
+The following histories remain distinct:
+
+```text
+Concord Score supersession
+Concord manifest record-set revision
+Core Publication Record supersession or withdrawal
+Meridian imported-source revision
+Meridian calculation or report snapshot revision
+Meridian override history
+```
+
+One history must not be inferred from another.
+
+### 6.15 Academic Period membership belongs to Meridian
+
+Core owns the Academic Period calendar and durable period identity.
+
+Concord preserves Activity, Session, evidence, Review, Moderation, and Score dates. Those dates do not universally determine period membership.
+
+Meridian applies explicit policy to associate eligible results or Grade items with Core-owned Academic Periods.
+
+### 6.16 Provenance
+
+Every Artifact, Score, manifest, and publication relationship should preserve enough context to answer:
 
 - who completed or represented it;
 - whom or what it concerns;
@@ -469,29 +691,31 @@ Every Artifact and Score should preserve enough context to answer:
 - which Template and Packet revisions were used;
 - which standard and Criterion governed a direct standards Score;
 - which Scoring Scale revision governed the value;
-- who reviewed, moderated, corrected, or scored it;
+- who reviewed, moderated, corrected, generated, or scored it;
 - which evidence was deliberately used;
+- which immutable manifest revision projected it;
+- which Core Publication Record bound that manifest;
 - and when those actions occurred.
 
-### 6.11 Historical preservation
+### 6.17 Historical preservation
 
-Printed, distributed, scanned, reviewed, moderated, scored, exported, or reported records must not be silently rewritten in ways that change their historical meaning.
+Printed, distributed, scanned, reviewed, moderated, scored, exported, published, imported, calculated, or reported records must not be silently rewritten in ways that change their historical meaning.
 
 Corrections and replacements preserve the earlier record and identify the superseding record.
 
-### 6.12 Minimal classroom burden
+### 6.18 Minimal classroom burden
 
 Evidence collection should not interfere with the collaboration being documented.
 
 Forms should be as short and focused as the Activity permits. A standards-based architecture does not require printing full standard text on every page or asking students to complete administrative metadata that Concord can resolve from linked records.
 
-### 6.13 Privacy by default
+### 6.19 Privacy by default
 
-Peer observations, contribution disputes, Moderation rationales, and teacher judgments may be sensitive.
+Peer observations, contribution disputes, Moderation rationales, teacher judgments, and academic-result manifests may be sensitive.
 
-Concord should avoid public rankings and should support record-specific restricted visibility.
+Concord should avoid public rankings and should support record-specific restricted visibility and privacy-minimized publication projections.
 
-### 6.14 Local-first
+### 6.20 Local-first
 
 Concord should work within the Paper Data Suite local workspace model and should not require third-party cloud processing.
 
@@ -561,7 +785,7 @@ An Activity’s ordered `focus_standard_ids`:
 
 - define intended standards-scoring scope;
 - belong to the selected Core standards profile;
-- are ordered for teacher-facing workflow and later handoff;
+- are ordered for teacher-facing scoring, publication, and downstream interpretation;
 - and do not by themselves create standards evidence or Scores.
 
 ### 7.4 Session
@@ -851,15 +1075,214 @@ One Score may use several evidence sources. One evidence source may support seve
 
 Evidence reuse does not make the resulting Scores equivalent.
 
-### 7.28 Standards Result Handoff Projection
+### 7.28 Concord Academic Result Manifest
 
-A **Standards Result Handoff Projection** is a future derived interoperability view of a canonical standard-backed Concord Score Record.
+A **Concord Academic Result Manifest** is one immutable, revision-addressable, Concord-owned publication projection for one registered Activity work context.
 
-It makes standards meaning available to the future grading and reporting module without changing ownership of the Score Record.
+It is scoped to exactly one:
 
-It does not perform aggregation, weighting, scale conversion, mastery determination, or Grade calculation.
+```text
+ModuleWorkRef
+    module_id: concord
+    class_id: <Core class_id>
+    work_id: <activity_id>
+```
 
-### 7.29 External Reference
+The manifest may expose:
+
+- Activity context;
+- Criterion projections;
+- exact Scoring Scale projections;
+- standard-backed Score projections;
+- local Score projections;
+- non-score dispositions;
+- native Score supersession state;
+- Score Evidence Link and evidence-lineage projections;
+- Moderation state;
+- and publication-generation provenance.
+
+The manifest does not replace Concord’s canonical records. It is the authoritative published projection for the exact record-set revision and bytes identified by the associated Core Publication Record.
+
+### 7.29 Activity Result Projection
+
+An **Activity Result Projection** supplies the minimum Activity context needed to interpret one published result set without copying the complete Activity record.
+
+It preserves:
+
+- `activity_id`;
+- Core class identity;
+- title snapshot;
+- scoring orientation;
+- standards profile when applicable;
+- and ordered Focus Standard IDs when applicable.
+
+The title is a display snapshot, not identity.
+
+### 7.30 Criterion Projection
+
+A **Criterion Projection** makes the exact immutable Criterion meaning required by an included Score available to an authorized consumer.
+
+It preserves:
+
+- `criterion_id`;
+- Criterion Set revision where applicable;
+- Criterion kind;
+- definition or public definition reference;
+- supported target kinds;
+- exactly one governing `standard_id` when standard-backed;
+- and optional non-governing alignment references when local.
+
+A local Criterion remains local in every projection.
+
+### 7.31 Scoring Scale Projection
+
+A **Scoring Scale Projection** exposes the exact immutable scale revision required to interpret an included Score.
+
+It preserves, as applicable:
+
+- `scoring_scale_id`;
+- lineage ID;
+- revision;
+- scale type;
+- ordered levels;
+- machine values;
+- display labels;
+- descriptions or meanings;
+- and lifecycle state.
+
+A bare scale ID is insufficient when Meridian cannot otherwise resolve the public scale contract independently.
+
+### 7.32 Score Projection
+
+A **Score Projection** exposes one native Concord Score Record without converting it into a Grade or proficiency result.
+
+It preserves:
+
+- Score identity;
+- Activity and optional Session context;
+- typed target;
+- Criterion identity;
+- standard-backed or local classification;
+- governing standard when applicable;
+- exact scale revision;
+- disposition;
+- value only when scored;
+- basis;
+- scorer provenance;
+- scoring time;
+- required Moderation state;
+- current or superseded state;
+- and native predecessor where applicable.
+
+Standard-backed and local Score projections may coexist in one manifest.
+
+### 7.33 Evidence Lineage Projection
+
+An **Evidence Lineage Projection** makes the deliberate source relationships behind a published Score visible without copying the complete evidence.
+
+It may preserve:
+
+- Score Evidence Link identity;
+- source owner and public record reference;
+- source evidence kind;
+- optional locator;
+- optional Subject context;
+- relevance description;
+- significance;
+- applicable Moderation Record;
+- and optional Core source Publication Record identity when known.
+
+This projection allows Meridian to identify when a Concord Score incorporates evidence from a ScoreForm or Quillan result that Meridian may also import directly.
+
+### 7.34 Moderation Projection
+
+A **Moderation Projection** exposes the minimum structured state needed to determine whether evidence requiring Moderation was permitted for the Score’s use.
+
+It may preserve:
+
+- Moderation Record identity;
+- outcome;
+- permitted use;
+- qualification when materially necessary;
+- and whether the requirement is complete.
+
+It does not ordinarily copy unrestricted sensitive rationale.
+
+### 7.35 Standards Result Projection
+
+A **Standards Result Projection** is the standards-specific subset of the broader Concord Academic Result Manifest.
+
+It includes only standard-backed Scores and preserves:
+
+- governing standard;
+- target;
+- Criterion;
+- exact scale;
+- disposition;
+- value when scored;
+- evidence lineage;
+- Moderation state;
+- and native supersession state.
+
+It does not include local Scores as direct standards results and does not calculate proficiency, mastery, Grades, averages, growth, or cross-scale normalization.
+
+### 7.36 Core Academic Work Registration Relationship
+
+A **Core Academic Work Registration Relationship** records that one Concord Activity has been explicitly registered through Core for an academic purpose.
+
+It is distinct from:
+
+- Activity scoring orientation;
+- existence of Score Records;
+- publication;
+- and Meridian Grade-item membership.
+
+The relationship preserves the exact `ModuleWorkRef`, source Activity reference, Core-controlled academic intent, registration revision, producer contract version, lifecycle, and provenance.
+
+### 7.37 Core Publication Record Relationship
+
+A **Core Publication Record Relationship** identifies the immutable Core registry record that binds one exact Concord manifest revision.
+
+The Core record preserves:
+
+- publication ID;
+- producing work reference;
+- source Activity reference;
+- publication kind;
+- shared capabilities;
+- record-set identity and revision;
+- manifest contract version;
+- safe manifest path;
+- SHA-256 digest;
+- publication time;
+- registration revision;
+- and optional predecessor Publication Record.
+
+Core does not copy the Score projections into the Publication Record.
+
+### 7.38 Publication Withdrawal
+
+A **Publication Withdrawal** is a Core-owned immutable lifecycle event indicating that consumers should not newly rely on a Publication Record as current usable data.
+
+Withdrawal does not delete:
+
+- the Publication Record;
+- the manifest;
+- Concord-native records;
+- prior Meridian imports;
+- or historical reports.
+
+Corrected usable data requires a new manifest revision and new Publication Record.
+
+### 7.39 Meridian Source Import
+
+A **Meridian Source Import** is a Meridian-owned record or snapshot that preserves the exact Core Publication Record and manifest digest consumed for one grading or reporting context.
+
+It is not owned by Concord and is not a Concord source-of-truth record.
+
+Meridian may later refresh to a superseding publication deliberately. It must preserve earlier source imports used by historical calculations or reports.
+
+### 7.40 External Reference
 
 An **External Reference** is a Concord-owned relationship to a record owned by another module or external system.
 
@@ -870,7 +1293,9 @@ Examples include:
 - external project Artifact;
 - source-control record;
 - cloud document;
-- or future grading and reporting record.
+- Core Academic Work Registration;
+- Core Publication Record;
+- or Meridian source, Grade-item, calculation, or report record.
 
 The external owner remains authoritative.
 
@@ -1173,7 +1598,7 @@ Collaborative Project Packet
 
 Source code, CAD files, and repository history remain externally owned evidence.
 
-## 11. Artifact Lifecycle
+## 11. Artifact, Scoring, and Publication Lifecycle
 
 The conceptual lifecycle is:
 
@@ -1206,21 +1631,31 @@ Moderate evidence where required
         ↓
 Record teacher-approved Scores when configured
         ↓
-Project standards results or expose local Scores appropriately
+Optionally register Activity as Core academic work
         ↓
-Retain or archive according to policy
+Generate immutable Concord Academic Result Manifest revision
+        ↓
+Core validates and creates immutable Publication Record
+        ↓
+Meridian deliberately imports and selects eligible results
+        ↓
+Meridian calculates proficiency, Grades, or reports under policy
+        ↓
+Retain, supersede, withdraw, or archive according to the applicable record lifecycle
 ```
 
 Not every Activity or Artifact passes through every step.
 
 Examples:
 
-- an evidence-only Activity stops before scoring;
+- an evidence-only Activity may stop before scoring and may never register or publish;
 - a non-returned scaffold stops after distribution;
 - a missing Artifact never reaches Scan Review;
 - a peer observation may require Moderation;
 - a teacher tracker may move directly from Review to scoring use;
-- and a local-criteria-only Activity produces no direct standards-result projection.
+- a local-criteria-only Activity may publish local Scores without creating direct standards results;
+- a registered Activity may have no publication yet;
+- and a published Activity may still contribute to no Meridian Grade calculation.
 
 ### 11.1 Select
 
@@ -1274,7 +1709,7 @@ Core resolves the PDS2 locator to an Artifact Page registration and dispatches t
 
 Concord creates a Scan Reference linking the routed source page to that Artifact Page.
 
-This stage identifies the page. It does not interpret handwritten content.
+This stage identifies the page. It does not interpret handwritten content and does not publish results.
 
 ### 11.7 Review
 
@@ -1299,15 +1734,75 @@ The authorized scorer records one criterion-level judgment for one target using 
 
 For a standard-backed Score, the governing standard is unambiguous through the immutable standard-backed Criterion and the Score contract.
 
-For a local Score, the record remains explicitly local and is not projected as a direct standards result.
+For a local Score, the record remains explicitly local and is not a direct standards result.
 
-### 11.10 Handoff or link
+### 11.10 Register academic work
 
-Concord makes approved records available to other modules through explicit contracts:
+When downstream academic use is intended, an authorized workflow may create or revise a Core Academic Work Registration for the Activity.
 
-- standard-backed Scores through a future Standards Result Handoff Projection;
-- local Scores as local Criterion judgments;
-- and evidence through module-qualified references.
+Registration is explicit. Saving a Score, selecting Focus Standards, completing an Activity, or publishing a manifest must not silently fabricate registration.
+
+The registration identifies broad academic intent. It does not determine Meridian Grade-item membership.
+
+### 11.11 Generate the manifest
+
+Concord selects the exact publishable native state and writes a new immutable, revision-addressed Concord Academic Result Manifest beneath the Activity work root.
+
+The manifest must validate under the public Concord manifest contract before publication is requested.
+
+### 11.12 Publish through Core
+
+Core validates:
+
+- the Academic Work Registration relationship;
+- the shared publication envelope;
+- safe work-scoped manifest path;
+- manifest existence;
+- exact SHA-256 digest;
+- record-set identity and revision;
+- predecessor relationship;
+- and publication idempotency.
+
+Core then exclusively creates the immutable Publication Record and updates or later repairs its derived catalog.
+
+The presence of an unregistered manifest file does not mean publication succeeded.
+
+### 11.13 Import into Meridian
+
+Meridian discovers compatible publications through Core and deliberately imports one exact Publication Record and manifest revision.
+
+Meridian preserves the publication ID, digest, manifest contract version, record-set revision, registration revision, and import provenance.
+
+### 11.14 Apply Meridian policy
+
+Meridian determines:
+
+- publication eligibility;
+- Score eligibility;
+- standards-evidence eligibility;
+- overlap handling;
+- reassessment and repeated-observation selection;
+- Grade-item membership;
+- Academic Period membership;
+- scale mapping;
+- proficiency or Grade calculation;
+- and report inclusion.
+
+These decisions do not mutate the Concord Score or publication.
+
+### 11.15 Revise or withdraw
+
+A material change to the published Concord projection requires:
+
+```text
+new Concord manifest revision
+    -> new Core Publication Record
+    -> explicit publication supersession where applicable
+```
+
+A publication that should not be newly relied upon may be withdrawn through Core.
+
+A Concord Score revision, manifest revision, Publication Record supersession, Meridian source refresh, and Meridian override remain separate actions.
 
 ## 12. PDS2 QR and Identification Design
 
@@ -1752,11 +2247,31 @@ Target: Group
 
 This is a valid Concord Score but not a direct standards rating.
 
-### 15.11 Standards-result handoff
+### 15.11 Concord Academic Result Manifest
 
-A future grading and reporting module must be able to identify a standard-backed Concord result without guessing from display text or plural alignment metadata.
+The Concord Academic Result Manifest is the public producer contract through which selected Concord Scores become available for compatible cross-module use.
 
-A standards-result handoff should expose:
+One manifest is scoped to one registered Activity work context and one producer-owned record-set revision.
+
+It may include:
+
+- standard-backed Scores;
+- local Scores;
+- explicit non-score dispositions;
+- exact Criteria;
+- exact Scoring Scale revisions;
+- evidence lineage;
+- Moderation state;
+- native Score supersession;
+- and Activity context.
+
+The manifest is not a Grade ledger and is not limited to results that Meridian will ultimately select.
+
+### 15.12 Standards result subset
+
+A standards-specific view of the manifest exposes only standard-backed Scores as direct standards results.
+
+It preserves:
 
 ```text
 module_id
@@ -1772,14 +2287,57 @@ score disposition
 score value when applicable
 scorer
 scored_at
-evidence-link references
+evidence lineage
 moderation state
-supersession state
+native supersession state
 ```
 
-The exact file, event, API, or storage contract remains later work.
+This subset does not calculate proficiency, mastery, Grades, weights, averages, growth, or cross-scale normalization.
 
-### 15.12 Score is not Grade or mastery
+### 15.13 Local Score publication
+
+Local Scores may be included in the broader manifest.
+
+They remain:
+
+```text
+score_kind: local
+standard_id: absent
+```
+
+Optional standards alignment on the local Criterion remains non-governing.
+
+Meridian may consider a local Score only under an explicit conventional or hybrid policy. It must not present the Score as direct standards evidence.
+
+### 15.14 Publication capabilities
+
+A Core Publication Record for a Concord academic-result manifest may truthfully advertise shared capabilities such as:
+
+```text
+criterion_scores
+standards_ratings
+moderated_scores
+```
+
+Capability declaration aids discovery. It does not guarantee that every target has every type of result, authorize access, or establish Grade eligibility.
+
+`standards_ratings` must not be declared solely because the Activity selected Focus Standards or local alignment metadata.
+
+### 15.15 Cross-producer lineage and overlap
+
+When a published Concord Score uses a ScoreForm or Quillan record as evidence, the manifest preserves the source-module relationship.
+
+Meridian may also import the originating publication directly. It must therefore apply an explicit policy to determine whether the records are:
+
+- both used;
+- treated as related observations;
+- one used as corroboration;
+- one excluded;
+- or otherwise handled.
+
+Different producing modules do not prove independent evidence.
+
+### 15.16 Score is not Grade, mastery, or period membership
 
 A standard-backed Concord Score is one contextual teacher judgment.
 
@@ -1790,9 +2348,19 @@ It does not automatically establish:
 - marking-period performance;
 - course-level attainment;
 - growth;
+- Grade-item membership;
+- Academic Period membership;
 - or a Grade.
 
-The future grading and reporting module will define how contextual judgments are compared, weighted, combined, normalized, superseded, summarized, and reported.
+Meridian defines how authorized contextual judgments are selected, compared, weighted, combined, normalized, superseded for calculation, summarized, or reported.
+
+### 15.17 Native revision and Meridian override
+
+When the underlying teacher-approved Criterion judgment changes, Concord creates a new Score Record that supersedes the earlier Score. A material publication change then requires a new manifest revision and Publication Record.
+
+When the Concord Score remains valid but a derived proficiency or Grade requires an authorized exception, Meridian records an override under its own contract.
+
+A Meridian override must not rewrite the Concord Score, manifest, or Core Publication Record.
 
 ## 16. Privacy and Access
 
@@ -1807,7 +2375,9 @@ The following may require restricted visibility:
 - individual Score Records;
 - evidence links;
 - correction records;
-- and exception records.
+- exception records;
+- Concord Academic Result Manifests;
+- and publication-related diagnostics.
 
 ### 16.2 Record-specific privacy
 
@@ -1830,25 +2400,120 @@ Peer- and teacher-generated evidence should be private by default unless the tea
 
 ### 16.4 Public repository data
 
-All examples, fixtures, screenshots, tests, and sample packets in the public repository must use synthetic students, classes, Activities, standards selections, and Scores.
+All examples, fixtures, screenshots, tests, manifests, registry records, and sample packets in the public repository must use synthetic students, classes, Activities, standards selections, Scores, registrations, and publications.
 
 ### 16.5 Data minimization
 
-QR payloads and records should contain only the identifiers and context required by their contracts.
+QR payloads, Core registry records, and Concord manifests should contain only the identifiers and context required by their contracts.
 
-Sensitive medical, disability, disciplinary, or counseling details must not be copied into Concord merely to explain a restriction or disposition.
+Sensitive medical, disability, disciplinary, counseling, family, or unrelated intervention details must not be copied into Concord merely to explain a restriction or disposition.
+
+### 16.6 Registry discoverability is not authorization
+
+A Core Publication Record establishes that one exact producer manifest revision exists and can be discovered by compatible consumers.
+
+It does not authorize every installed module, user, report, or audience to inspect the manifest contents.
+
+### 16.7 Manifest minimization
+
+A Concord Academic Result Manifest should ordinarily avoid embedding:
+
+- source scans;
+- complete student writing;
+- complete peer comments;
+- unrestricted teacher notes;
+- full Artifact contents;
+- detailed Moderation narratives;
+- student names;
+- or unrelated Activity records.
+
+It should expose durable references and the minimum structured state required for result interpretation, lineage, Moderation, and downstream policy.
+
+### 16.8 Report privacy remains Meridian-owned
+
+Meridian determines audience-specific report selection, redaction, explanation, and snapshot policy.
+
+Concord’s publication privacy and source restrictions remain applicable. Meridian report access does not transfer ownership or broaden access to restricted Concord evidence automatically.
 
 ## 17. Integration Model
 
-Concord depends on PDS Core for suite-level infrastructure and references sibling-module records through public identifiers rather than package dependencies.
+Concord depends on PDS Core for suite-level infrastructure and references sibling-module records through public identifiers rather than private package dependencies.
 
 ```text
-pds-concord -> pds-core
+pds-scoreform -> pds-core
+pds-quillan   -> pds-core
+pds-concord   -> pds-core
+pds-meridian  -> pds-core
+
 pds-concord -/-> pds-scoreform
 pds-concord -/-> pds-quillan
+pds-concord -/-> pds-meridian
+pds-meridian -/-> pds-concord private implementation
 ```
 
-### 17.1 Shared Core concepts
+The complete integration model contains four independent paths.
+
+```mermaid
+flowchart LR
+    PAGE[Printed Artifact Page] --> ROUTE[Core PDS2 Route Registration]
+    ROUTE --> EVIDENCE[Concord Evidence, Review, and Moderation]
+    EVIDENCE --> SCORE[Concord Score Records]
+    ACTIVITY[Concord Activity] --> REG[Core Academic Work Registration]
+    SCORE --> MANIFEST[Immutable Concord Academic Result Manifest]
+    REG --> PUB[Core Publication Record]
+    MANIFEST --> PUB
+    PUB --> IMPORT[Meridian Exact Source Import]
+    IMPORT --> POLICY[Meridian Selection and Grading Policy]
+    POLICY --> RESULT[Proficiency, Grade, or Report Snapshot]
+```
+
+The diagram does not imply that every routed page produces a Score, every Activity is registered, every Score is published, or every publication enters a Grade.
+
+### 17.1 Physical-page routing
+
+```text
+PDS2 QR
+    -> Core Route Registration
+    -> Concord Artifact Page
+    -> Concord Scan Reference
+    -> Review, Moderation, and optional Scoring
+```
+
+Routing identifies a physical page. It does not register academic work or publish results.
+
+### 17.2 Academic Work Registration
+
+```text
+Concord Activity
+    -> explicit Core Academic Work Registration revision
+```
+
+Registration identifies the work and broad academic intent. It does not create Scores, publications, Grade items, or Academic Period membership.
+
+### 17.3 Academic-result publication
+
+```text
+Concord canonical records
+    -> immutable Concord Academic Result Manifest revision
+    -> Core Publication Record
+    -> Core publication catalog
+```
+
+The manifest remains Concord-owned. The Publication Record remains Core-owned. The catalog is derived and nonauthoritative.
+
+### 17.4 Meridian consumption
+
+```text
+Core Publication Record
+    -> Meridian exact source import
+    -> Meridian source eligibility and selection
+    -> Meridian proficiency or Grade calculation
+    -> Meridian report snapshot
+```
+
+Meridian preserves the exact publication identity and digest used by every reproducible calculation or report.
+
+### 17.5 Shared Core concepts
 
 Shared PDS Core concepts include:
 
@@ -1865,9 +2530,15 @@ Shared PDS Core concepts include:
 - standards library;
 - standards profile;
 - durable standard identity;
+- Academic Period calendar and references;
+- Academic Work Registration;
+- Publication Record;
+- publication kind and capability vocabulary;
+- publication supersession and withdrawal;
+- derived publication catalog;
 - and shared contract versions.
 
-### 17.2 ScoreForm integration
+### 17.6 ScoreForm integration
 
 Concord may reference a ScoreForm assignment or result as:
 
@@ -1878,7 +2549,9 @@ Concord may reference a ScoreForm assignment or result as:
 
 The actual form generation, scanning, OMR extraction, correctness determination, and ScoreForm result remain ScoreForm responsibilities.
 
-### 17.3 Quillan integration
+A Concord manifest preserves source lineage when a ScoreForm record supports a published Concord Score.
+
+### 17.7 Quillan integration
 
 Concord may reference a Quillan assignment, response, or standards result as:
 
@@ -1891,26 +2564,54 @@ Concord may reference a Quillan assignment, response, or standards result as:
 
 The written-response workflow and Quillan result remain Quillan responsibilities.
 
-### 17.4 Future planning integration
+A Concord manifest preserves source lineage when a Quillan record supports a published Concord Score.
+
+### 17.8 Future planning integration
 
 A future planning module may supply Activity configuration recommendations, including standards and packet selections.
 
 Concord remains authoritative for the Concord Activity record and should still function independently.
 
-### 17.5 Future grading and reporting integration
+### 17.9 Meridian integration
 
-A future grading and reporting module may consume:
+Meridian may consume:
 
 - standard-backed Concord Score projections;
 - local Concord Scores under an explicit policy;
-- ScoreForm and Quillan results;
+- ScoreForm and Quillan publications;
 - Activity metadata;
 - Group and individual distinctions;
 - exact scale semantics;
-- evidence references;
-- and supersession state.
+- evidence lineage;
+- Moderation state;
+- non-score dispositions;
+- and native supersession state.
 
-The downstream module must not treat standards selection, local alignment, or evidence presence as a direct standards Score.
+Meridian must not treat standards selection, local alignment, evidence presence, a capability declaration, or publication itself as a direct standards Score or automatic Grade input.
+
+### 17.10 Academic Period integration
+
+Core owns canonical Academic Period definitions and calendar revisions.
+
+Concord preserves native dates but does not assign authoritative period membership.
+
+Meridian associates eligible evidence or Grade items with Academic Periods under explicit, versioned policy.
+
+### 17.11 Compatibility
+
+Routing compatibility and publication compatibility are separate.
+
+A Concord installation may support PDS2 routing while not yet supporting the newer Core publication APIs.
+
+Runtime publication implementation must declare supported:
+
+- Core package versions;
+- Academic Work Registration schema versions;
+- Publication Record schema versions;
+- Concord manifest contract versions;
+- and shared publication capabilities.
+
+Conceptual adoption of ADR 0015 does not justify claiming runtime compatibility with unreleased Core APIs.
 
 ## 18. Representative Use Cases
 
@@ -1925,21 +2626,21 @@ The Activity selects:
 - standard-backed Criteria for those Focus Standards;
 - and one teacher-approved Scoring Scale revision.
 
-Students complete:
-
-- a discussion map;
-- and peer observation forms.
-
-The teacher completes:
-
-- a roaming Focus Standards observation tracker;
-- and a standards-based scoring rubric.
+Students complete a discussion map and peer observation forms. The teacher completes a roaming Focus Standards observation tracker and standards-based scoring rubric.
 
 The pages are scanned, retained by Core, resolved through PDS2, and filed by Artifact Page.
 
 The teacher Reviews the Artifacts, moderates peer evidence, and creates separate standard-backed Scores for each directly evaluated Focus Standard.
 
 An optional Quillan reflection may support one or more Scores through explicit evidence links, but it does not determine them automatically.
+
+When downstream academic use is intended:
+
+1. the Activity receives an explicit Core Academic Work Registration;
+2. Concord generates an immutable manifest revision containing the standard-backed Scores, exact Criteria and scales, non-score dispositions, evidence lineage, and Moderation state;
+3. Core creates an `academic_result_set` Publication Record;
+4. Meridian imports the exact publication;
+5. and Meridian selects eligible observations under policy without treating publication as automatic proficiency or Grade inclusion.
 
 ### 18.2 Mixed science laboratory
 
@@ -1954,9 +2655,7 @@ The packet contains:
 - teacher observation sheet;
 - and mixed scoring rubric.
 
-The Activity selects a science or engineering Focus Standard and defines a standard-backed Criterion for evaluating evidence or constraints.
-
-It also defines a local equipment-check Criterion.
+The Activity selects a science or engineering Focus Standard and defines a standard-backed Criterion for evaluating evidence or constraints. It also defines a local equipment-check Criterion.
 
 The teacher may create:
 
@@ -1964,6 +2663,8 @@ The teacher may create:
 - and a local Group Score for the equipment check.
 
 An individual ScoreForm concept check may be linked as supporting evidence, but Concord does not convert it automatically into the Group or individual Concord Score.
+
+The published manifest may include both Scores. The standard-backed Score enters the standards-result subset. The local Score remains available only as a local Criterion judgment. Meridian decides whether the local Score participates in any conventional or hybrid Grade policy.
 
 ### 18.3 Standards-based collaborative programming task
 
@@ -1981,11 +2682,11 @@ The teacher generates:
 
 Source code and repository history remain external evidence.
 
-A standard-backed Criterion may evaluate documentation, testing, iterative improvement, or collaborative program development under one governing standard.
-
-A local Criterion may evaluate a school-specific handoff protocol.
+A standard-backed Criterion may evaluate documentation, testing, iterative improvement, or collaborative program development under one governing standard. A local Criterion may evaluate a school-specific handoff protocol.
 
 The teacher may use Group evidence to support an individual Score only through an explicit individual judgment and relevance explanation.
+
+The manifest preserves the external source references, Concord evidence links, target identity, exact Criteria and scales, and any required Moderation state. Meridian can identify related producer evidence rather than assume that every module result is independent.
 
 ### 18.4 Evidence-only peer-review workshop
 
@@ -1997,6 +2698,8 @@ The completed forms are scanned, filed, and available as evidence for a later Qu
 
 Concord creates no Scores for the Activity.
 
+The Activity is not automatically registered or published merely because evidence exists. A later evidence-reporting contract would require a separate architectural decision.
+
 ### 18.5 Attached poster or chart paper
 
 A Group creates work on a large sheet that is not a normal Concord Template.
@@ -2007,86 +2710,156 @@ The teacher may use the attached work as evidence for several separate standard-
 
 The shared source does not force those Scores to have the same target, standard, Criterion, or value.
 
+A manifest publishes references and lineage rather than copying the full poster image unnecessarily.
+
+### 18.6 Revised Score and publication history
+
+A teacher later determines that one published Score targeted the wrong student.
+
+The correction path is:
+
+```text
+original Concord Score remains preserved
+    -> corrected Concord Score supersedes it
+    -> new Concord manifest revision projects the corrected state
+    -> new Core Publication Record supersedes the earlier publication
+    -> Meridian may deliberately refresh to the new publication
+```
+
+An earlier Meridian report snapshot remains reproducible against the original Publication Record and digest.
+
+### 18.7 Meridian override without Concord revision
+
+A Concord Score remains educationally correct, but a teacher grants a Meridian Grade exception under an authorized policy.
+
+Meridian records the override, rationale, actor, time, scope, calculated value, and replacement value.
+
+The Concord Score, manifest, and Core Publication Record remain unchanged.
+
 ## 19. Initial Product Decisions
 
 The following decisions are accepted for the conceptual design phase:
 
-1. Concord is a paper-based collaborative-evidence and standards-scoring system.
+1. Concord is a paper-based collaborative-evidence, criterion-scoring, and academic-result publication system.
 2. Concord begins after Activity planning.
 3. Concord generates Templates and Packets, not lesson plans.
-4. Concord depends on PDS Core for shared workspace, identity, identifier, PDS2, route-registration, source-retention, dispatch, standards, and contract infrastructure.
+4. Concord depends on PDS Core for shared workspace, identity, identifier, PDS2, route-registration, source-retention, dispatch, standards, Academic Period, registration, publication, and contract infrastructure.
 5. Concord must not create a separate QR grammar or duplicate PDS Core contracts.
 6. The effective PDS2 work identity is `module_id + class_id + activity_id`.
 7. For Concord, `work_id = activity_id`.
 8. A normal PDS2 Route Registration targets an existing Concord Artifact Page.
 9. PDS2 identifies a physical route, not complete Artifact semantics.
-10. Activity-specific Groups, Sessions, Memberships, Roles, Responsibilities, Artifacts, Criteria, Reviews, Moderation Records, and Scores remain Concord-owned.
-11. Core owns standards libraries, profiles, and durable standards identity.
-12. Concord’s primary academic scoring model is standards-based.
-13. Concord is not standards-exclusive.
-14. Every Activity declares one scoring orientation.
-15. Standards-based and mixed Activities select one standards profile and ordered Focus Standards.
-16. Standards selection or alignment does not create a standards Score.
-17. A standard-backed Criterion has exactly one governing standard.
-18. A local Criterion has no governing standard and may carry only non-governing alignment metadata.
-19. One direct standards Score evaluates one standard-backed Criterion for one target.
-20. A holistic multi-standard Score must not be duplicated across several standards automatically.
-21. Local Scores remain distinguishable from direct standards results.
-22. Group evidence may support an individual Score only through explicit teacher judgment.
-23. A Group Score does not create individual Scores for Group members.
-24. Missing or exceptional evidence states do not become zero or the lowest scale value automatically.
-25. Concord records contextual Scores but does not determine Grades, mastery, growth, or longitudinal proficiency.
-26. A future standards-result handoff must expose governing standards semantics without heuristic interpretation.
-27. Template Definitions and immutable Template Versions are separate.
-28. Packet Definitions and immutable Packet Versions are separate.
-29. Artifact Authors and Artifact Subjects are separate association records.
-30. Concord does not perform handwriting recognition, audio transcription, or automated behavior inference.
-31. ScoreForm owns OMR workflows and Quillan owns focused written-response workflows.
-32. External results may support Concord Scores but do not determine them automatically.
-33. Concord preserves Core-retained scans as canonical evidence.
-34. Review, Moderation, Scoring, Grading, and Reporting remain separate.
-35. Student-generated evidence requires provenance and may require teacher Moderation.
-36. Peer evidence is private by default.
-37. Public repository examples use synthetic data.
-38. Concord integrates through public references rather than duplicating sibling-module capabilities.
-39. The minimum viable workflow remains useful without cloud services or student devices.
-40. Corrections, rescans, revised attributions, Moderation decisions, and Scores preserve history.
+10. Routing, academic registration, result publication, grading, and reporting are separate domains.
+11. Activity-specific Groups, Sessions, Memberships, Roles, Responsibilities, Artifacts, Criteria, Reviews, Moderation Records, Scores, and manifests remain Concord-owned.
+12. Core owns standards libraries, profiles, and durable standards identity.
+13. Core owns Academic Period calendars and durable period references.
+14. Core owns Academic Work Registration and Publication Record identity and lifecycle.
+15. Concord’s primary academic scoring model is standards-based.
+16. Concord is not standards-exclusive.
+17. Every Activity declares one scoring orientation.
+18. Standards-based and mixed Activities select one standards profile and ordered Focus Standards.
+19. Standards selection or alignment does not create a standards Score.
+20. A standard-backed Criterion has exactly one governing standard.
+21. A local Criterion has no governing standard and may carry only non-governing alignment metadata.
+22. One direct standards Score evaluates one standard-backed Criterion for one target.
+23. A holistic multi-standard Score must not be duplicated across several standards automatically.
+24. Local Scores remain distinguishable from direct standards results.
+25. Group evidence may support an individual Score only through explicit teacher judgment.
+26. A Group Score does not create individual Scores for Group members.
+27. Missing or exceptional evidence states do not become zero or the lowest scale value automatically.
+28. Concord records contextual Scores but does not determine Grades, mastery, growth, longitudinal proficiency, or Academic Period membership.
+29. A Concord Activity is not automatically registered as academic work.
+30. Activity scoring orientation, Core academic intent, and Meridian Grade-item membership are distinct decisions.
+31. Concord publishes selected results through immutable, revision-addressable Concord Academic Result Manifests.
+32. The initial publication scope is one work-scoped academic-result record-set series per registered Activity.
+33. A manifest may include both standard-backed and local Scores while preserving their different meanings.
+34. The Standards Result Projection is a subset of the broader manifest, not the complete publication contract.
+35. A published manifest preserves exact Criterion and Scoring Scale meaning needed for independent interpretation.
+36. A published manifest preserves explicit non-score dispositions without converting them to zero.
+37. A published manifest preserves evidence lineage and applicable Moderation state.
+38. Cross-producer ScoreForm and Quillan lineage remains visible when their records support a Concord Score.
+39. Core publishes Concord manifests as `academic_result_set` publications.
+40. Core Publication Records bind exact immutable manifest bytes through safe path and SHA-256 digest.
+41. Core Publication Records do not contain complete Score arrays or become a duplicate result database.
+42. Publication capabilities aid discovery but do not authorize access or establish Grade eligibility.
+43. Publication is deliberate and is not created automatically by a route, scan, Review, Score save, or Activity completion.
+44. Published manifest bytes are immutable.
+45. Changed published content requires a new record-set revision and Publication Record.
+46. Concord Score supersession and Core publication supersession are separate histories.
+47. Core publication withdrawal does not delete the manifest or Concord-native records.
+48. Meridian is Paper Data Suite’s grading and reporting module.
+49. Meridian consumes Core-governed registrations and publications without mutating producer records.
+50. Meridian owns source eligibility, evidence selection, reassessment, overlap policy, Grade-item membership, proficiency, Grades, Academic Period membership, overrides, and reports.
+51. Publication does not imply Meridian Grade inclusion.
+52. A local Score may contribute to a conventional or hybrid Grade only through explicit Meridian policy.
+53. A standard-backed Score is one contextual observation, not automatic mastery.
+54. Meridian must preserve the exact Publication Record and digest used by a calculation or report snapshot.
+55. Meridian may deliberately refresh to a superseding publication but must not silently replace the earlier imported revision.
+56. A Meridian override is distinct from a Concord Score revision.
+57. Template Definitions and immutable Template Versions are separate.
+58. Packet Definitions and immutable Packet Versions are separate.
+59. Artifact Authors and Artifact Subjects are separate association records.
+60. Concord does not perform handwriting recognition, audio transcription, or automated behavior inference.
+61. ScoreForm owns OMR workflows and Quillan owns focused written-response workflows.
+62. External results may support Concord Scores but do not determine them automatically.
+63. Concord preserves Core-retained scans as canonical evidence.
+64. Review, Moderation, Scoring, Grading, and Reporting remain separate.
+65. Student-generated evidence requires provenance and may require teacher Moderation.
+66. Peer evidence is private by default.
+67. Public repository examples use synthetic data.
+68. Concord integrates through public references and contracts rather than duplicating sibling-module capabilities.
+69. The minimum viable workflow remains useful without cloud services or student devices.
+70. Corrections, rescans, revised attributions, Moderation decisions, Scores, manifests, publications, imports, calculations, and reports preserve their respective histories.
 
 ## 20. Open Questions for Contract and Implementation Design
 
-The foundational semantics are now substantially settled. The following questions remain for representative examples, implementation contracts, or later grading and reporting work:
+The foundational semantics are substantially settled. The following questions remain for implementation contracts, Core release coordination, Meridian producer integration, or later product work:
 
-1. What exact serialized schemas and schema-version fields should implement the accepted conceptual records?
-2. Which identifier-generation helpers should Concord consume directly from Core?
-3. What exact module-qualified filesystem paths should store each Concord record family beneath the Activity work root?
-4. What human-readable fallback format should appear on route-required pages?
-5. What packet-rendering manifest should connect Packet Version, Artifact Instance, Artifact Page, and Route Registration creation atomically?
-6. Which Activity-scoring orientation should the user interface recommend by default without preventing deliberate alternatives?
-7. How should reusable standard-backed Criterion Sets declare compatibility with different standards profiles or standard editions?
-8. Should Score Records store a direct `standard_id` snapshot in addition to resolving it through the immutable Criterion?
-9. What validation behavior should apply when a historical profile or standard becomes inactive, deprecated, or temporarily unavailable?
-10. Which Scoring Scale revisions should ship as starter data?
-11. How should the interface present two standard-backed Criteria based on the same evidence without encouraging duplicate or automatic Scores?
-12. What exact workflow should record professional judgment when no formal evidence link exists?
-13. What evidence-locator conventions are practical for multi-subject teacher trackers?
-14. What exact privacy vocabulary should remain Concord-owned and what should later move to Core?
-15. What exact exported file, event, or API contract will carry the Standards Result Handoff Projection?
-16. How will the future grading and reporting module compare or combine results that use different Scoring Scale revisions?
-17. Which local Scores, if any, may contribute to Grades under later explicit policy?
-18. What is the smallest practical interface for reviewing scans, selecting evidence, and entering separate standards judgments efficiently?
-19. Which starter Criterion Sets, Template Versions, and Packet Versions should ship without turning examples into universal domain requirements?
-20. Which specialized Activity Event contracts, if any, are justified by representative records?
+1. What exact serialized schema and contract-version identifier will implement the first Concord Academic Result Manifest?
+2. Which immutable Criterion and Scoring Scale fields are embedded as snapshots, and which may be resolved through separately documented public Concord records?
+3. Which native Score lifecycle states are publishable?
+4. Does the initial manifest include all historical Scores or only the history required to interpret the projected state?
+5. What exact producer-owned `record_set_id` generation convention will Concord use?
+6. What teacher workflow creates or revises Core Academic Work Registration and selects Core `academic_intent`?
+7. Which Activity changes require a new Academic Work Registration revision?
+8. Is publication manual, prompted, policy-driven, or optionally automatic after a valid native transaction?
+9. What exact module-qualified filesystem paths store manifests beneath the Activity work root?
+10. What publication-state interface displays unpublished, current, superseded, withdrawn, incompatible, or partially cataloged results?
+11. Which shared Core publication capabilities will the first Concord producer profile advertise?
+12. What public compatibility entry point or profile advertises supported manifest contract versions?
+13. Which released Core version will first expose stable producer registration and publication APIs?
+14. How will Concord handle conceptual support for the new registry while retaining runtime compatibility with Core 0.5 until release?
+15. What exact source-reference structure will identify Concord-owned evidence in the manifest?
+16. How will known Core Publication Record identities be attached to external ScoreForm or Quillan lineage?
+17. What Meridian policy vocabulary will distinguish duplicate, derivative, corroborating, and otherwise related cross-producer evidence?
+18. How will Meridian compare or map different Concord Scoring Scale revisions without treating similarly numbered scales as equivalent?
+19. Which local Scores, if any, may contribute to conventional or hybrid Grades under explicit Meridian policy?
+20. What privacy fields and audience restrictions accompany a Concord publication?
+21. Which manifest fields are required for authorized deep links back to Concord evidence?
+22. What exact withdrawal, repair, and republish workflow will be teacher-facing?
+23. How will idempotent retries and conflicting revision reuse be tested?
+24. How will earlier Meridian calculations and report snapshots be reproduced after later Concord and publication revisions?
+25. What exact workflow should record professional judgment when no formal evidence link exists?
+26. What evidence-locator conventions are practical for multi-subject teacher trackers?
+27. What exact privacy vocabulary should remain Concord-owned and what should later move to Core?
+28. Which Scoring Scale revisions, Criterion Sets, Template Versions, and Packet Versions should ship as starter data?
+29. What is the smallest practical interface for reviewing scans, selecting evidence, entering Scores, registering work, and publishing results efficiently?
+30. Which specialized Activity Event contracts, if any, are justified by representative records?
+
+No foundational question remains about whether Concord owns Grade calculation or formal reporting. Those responsibilities belong to Meridian.
 
 ## 21. Recommended Next Step
 
-Use this revised conceptual design, ADR 0014, the revised initial domain model, and the revised conceptual data contracts to create the representative contract examples required by issue `#12`.
+The governing architecture documents now include ADR 0015, the revised conceptual data contracts, the revised domain model, the revised Core integration requirements, and the revised cross-case requirements matrix.
+
+The next work should update the remaining accepted ADR cross-references and then revise the issue `#12` representative examples against the full publication architecture.
 
 The examples should include at least:
 
 1. a standards-based Socratic seminar;
 2. a mixed science laboratory Activity;
 3. a standards-based or mixed collaborative programming or engineering project;
-4. an evidence-only Activity or component;
+4. an evidence-only Activity or component that is not automatically registered or published;
 5. a local-criteria-only judgment;
 6. an individual standards Score;
 7. a Group standards Score;
@@ -2096,14 +2869,38 @@ The examples should include at least:
 11. a ScoreForm result used as supporting evidence;
 12. a Quillan result used as supporting evidence;
 13. a local Criterion with optional alignment metadata that remains non-governing;
-14. and PDS2 routing from Artifact Page registration through Scan Reference creation.
+14. PDS2 routing from Artifact Page registration through Scan Reference creation;
+15. an explicit Core Academic Work Registration for each academic example;
+16. an immutable Concord Academic Result Manifest revision;
+17. standard-backed and local Score projections in one mixed manifest;
+18. exact Criterion and Scoring Scale projections;
+19. cross-producer evidence lineage;
+20. a Core `academic_result_set` Publication Record with path and SHA-256 binding;
+21. a manifest and Publication Record revision after native Score supersession;
+22. a withdrawn publication that preserves history;
+23. a Meridian source-import projection preserving publication ID and digest;
+24. Meridian Grade-item or standards-evidence selection that is explicit rather than inferred from publication;
+25. Academic Period membership assigned by Meridian rather than Concord dates;
+26. a Meridian override that does not rewrite the Concord Score;
+27. and a historical report or calculation that remains reproducible against an earlier publication revision.
 
-Those examples should test whether the architecture permits a future grading and reporting module to distinguish:
+Those examples should test whether the architecture allows Meridian to distinguish:
 
+- routing from publication;
+- Activity scoring orientation from Core academic intent;
+- registration from Grade membership;
 - standards selection from standards judgment;
 - standard-backed Scores from local Scores;
 - individual targets from Group targets;
 - evidence from Scores;
+- related cross-producer evidence from independent evidence;
 - current Scores from superseded Scores;
+- manifest revision from Score revision;
+- publication supersession from native supersession;
+- withdrawal from deletion;
 - non-score dispositions from low performance;
-- and Concord-owned judgments from external evidence.
+- Concord-owned judgments from Meridian-derived results;
+- and Meridian overrides from Concord corrections.
+
+The examples must use synthetic data and must not claim runtime support for unreleased Core registry APIs.
+

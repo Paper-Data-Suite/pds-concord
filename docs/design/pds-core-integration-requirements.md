@@ -1,44 +1,66 @@
 # PDS Core Integration Requirements
 
-**Status:** Accepted architecture record; implemented by the released `pds-core` 0.5/PDS2 foundation
+**Status:** Accepted integration architecture record; PDS2 is released, while Core registry and Academic Period integration remain pre-release mainline architecture
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `Paper-Data-Suite/pds-concord#10`
 **Original date:** July 13, 2026
-**Reconciled:** July 24, 2026
-**Current Core baseline:** `pds-core` 0.5.0, Python 3.11+, PDS2
+**PDS2 reconciliation:** July 24, 2026
+**Registry and Meridian reconciliation:** July 29, 2026
+**Revision:** 3 — incorporates ADR 0015, Core Academic Work Registration and Publication Records, Core Academic Periods, and Meridian ownership
+**Released Core baseline:** `pds-core` 0.5.0, Python 3.11+, PDS2
+**Post-0.5 architecture reviewed:** current `pds-core` mainline Academic Period, Academic Work Registration, Publication Record, withdrawal, and derived-catalog contracts
 
 ## 1. Purpose
 
-This document records the integration requirements that led to the released `pds-core` 0.5/PDS2 architecture and defines the continuing boundary between Core routing infrastructure and Concord-owned semantics.
+This document records the integration requirements that led to the released `pds-core` 0.5/PDS2 architecture and defines the continuing integration boundary among:
 
-The document was originally written prospectively, before PDS2 and the module-qualified work architecture were implemented. It is retained because it explains:
+* Core-owned routing and source-retention infrastructure;
+* Core-owned Academic Period, Academic Work Registration, and publication-registry infrastructure;
+* Concord-owned collaborative evidence, Review, Moderation, Criteria, Scores, and result manifests;
+* and Meridian-owned grading and reporting policy.
+
+The document was originally written prospectively, before PDS2 and module-qualified work identity were implemented. It is retained because it explains:
 
 * why the earlier student-oriented PDS1 model could not represent Concord;
-* why page routing must remain separate from Artifact Authors, Artifact Subjects, students, Groups, and Score targets;
+* why page routing must remain separate from Artifact Authors, Artifact Subjects, students, Groups, Criteria, standards, and Score targets;
 * why module work identity must be qualified by module, class, and work;
-* how retained source scans and module-owned evidence remain connected;
+* how Core-retained source scans and Concord-owned evidence remain connected;
+* why physical-page routing and reportable-data publication are separate Core domains;
+* how a Concord Activity may be explicitly registered as academic work without becoming a Grade item;
+* how Concord publishes immutable academic-result manifests without transferring result authority to Core;
+* how Meridian discovers exact published revisions without importing Concord internals;
 * and which Concord implementation obligations remain after Core supplies the shared infrastructure.
 
-The released Core 0.5 contracts now govern the shared implementation. Where this document uses historical language such as “current PDS1 contract,” “replace,” or “must introduce,” that language describes the pre-PDS2 state and the requirement that produced the current Core design. It must not be read as an instruction to re-open settled PDS2 decisions.
+The released Core 0.5 contracts govern the implemented PDS2 foundation. Core mainline now also contains accepted and substantially implemented architecture for:
 
-For current Concord domain and scoring semantics, the governing documents are:
+* school-year-qualified hierarchical Academic Period calendars;
+* revisioned Academic Work Registrations;
+* immutable Publication Records;
+* publication supersession and withdrawal;
+* exact manifest-path and SHA-256 binding;
+* idempotent producer-facing registration and publication services;
+* and a disposable, nonauthoritative registry catalog.
+
+Those post-0.5 capabilities are not assumed to be part of the released `pds-core` 0.5 public API. Concord may reconcile its architecture and examples against them now, but runtime dependency ranges and implementation claims must wait for an applicable Core release or another explicitly stabilized integration baseline.
+
+For current Concord domain, scoring, and publication semantics, the governing Concord documents are:
 
 * `docs/concord-conceptual-design-revised.md`;
 * `docs/design/cross-case-requirements.md`;
 * `docs/design/initial-concord-domain-model.md`;
 * `docs/design/conceptual-data-contracts.md`;
-* and the accepted Concord ADRs, including ADR 0014.
+* ADR 0014, which establishes standards-based scoring as Concord’s primary academic scoring model;
+* and ADR 0015, which establishes versioned Concord Academic Result Manifests published through Core.
 
-This remains an integration-architecture document. It does not define every Concord record, serialized schema, persistence service, command-line workflow, graphical workflow, grading policy, or reporting contract.
+This remains an integration-architecture document. It does not define every Concord record, final serialized manifest schema, persistence service, command-line workflow, graphical workflow, Meridian policy, or formal report contract.
 
 ---
-
 ## 2. Governing Design Sources
 
-This specification must remain consistent with the accepted Concord Architecture Decision Records and the current Concord conceptual documents.
+This specification must remain consistent with accepted Concord decisions, current Concord conceptual documents, current Core contracts, and Meridian’s accepted grading and reporting architecture.
 
-The most directly relevant decisions are:
+The most directly relevant Concord decisions are:
 
 * `docs/decisions/0001-concord-module-boundaries.md`;
 * `docs/decisions/0002-paper-first-human-reviewed-evidence.md`;
@@ -49,7 +71,8 @@ The most directly relevant decisions are:
 * `docs/decisions/0010-exceptional-evidence-states-are-not-low-scores.md`;
 * `docs/decisions/0012-link-scoreform-and-quillan-without-duplication.md`;
 * `docs/decisions/0013-keep-activity-specific-structures-optional.md`;
-* and `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`.
+* `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`;
+* and `docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`.
 
 The current Concord conceptual authorities are:
 
@@ -61,47 +84,132 @@ The current Concord conceptual authorities are:
 The relevant released Core authorities include:
 
 * `pds-core` 0.5.0;
-* the PDS2 QR and routing contracts;
-* the route-registration contract;
-* module-qualified work-path contracts;
-* active source-scan retention and provenance contracts;
-* generic routing failure and resolution schema version 2;
+* the PDS2 payload contract;
+* routing identity models;
+* deterministic module-qualified workspace contracts;
+* Route Registration persistence;
 * module-profile registration and dispatch;
-* and `pds-core/docs/module_standards_integration.md`.
+* active source-scan retention and provenance;
+* generic routing failure and resolution schema version 2;
+* Core standards contracts;
+* and Core standards module-integration guidance.
 
-The released Core contracts govern shared QR, route, path, scan, profile, and standards-reference behavior. Concord ADRs and conceptual contracts govern Concord-owned Activity, Artifact, Author, Subject, Review, Moderation, Criterion, Score, and standards-scoring semantics.
+The relevant post-0.5 Core authorities reviewed for this reconciliation include:
 
-When this historical document conflicts with the released Core 0.5 contracts, Core 0.5 governs shared infrastructure. When it conflicts with an accepted Concord ADR, the ADR governs unless a later ADR explicitly supersedes it.
+* Core ADR 0002, adopting a typed work and reportable-data publication registry;
+* Core ADR 0003, adopting a school-year-scoped hierarchical Academic Period model;
+* the `AcademicWorkRegistration` model and canonical revision storage;
+* the immutable `PublicationRecord` and `PublicationWithdrawal` models;
+* producer-facing registration and publication services;
+* canonical publication-series validation;
+* and the derived registry catalog.
+
+The relevant Meridian authorities include:
+
+* Meridian’s repository purpose and architectural boundary;
+* its accepted grading architecture;
+* and its accepted reporting architecture.
+
+Those sources establish that Meridian owns policy-driven:
+
+* evidence selection;
+* standards-proficiency calculation;
+* Grade-item membership;
+* reassessment handling;
+* conventional, standards-based, and hybrid grading;
+* Academic Period aggregation;
+* teacher overrides of derived results;
+* report composition;
+* report snapshots and provenance;
+* report subscriptions;
+* and coordination with authorized report-delivery systems.
+
+The released Core contracts govern shared QR, route, path, scan, profile, and standards-reference behavior.
+
+The current Core registry contracts govern shared registration and publication envelopes, manifest binding, publication lifecycle, and discovery. They do not define Concord-native result meaning.
+
+Concord ADRs and conceptual contracts govern Concord-owned Activity, Artifact, Author, Subject, Review, Moderation, Criterion, Score, evidence-lineage, and manifest semantics.
+
+Meridian contracts govern Grade eligibility, evidence selection, proficiency, Grade calculation, Academic Period membership, derived overrides, and formal reporting.
+
+When historical language in this document conflicts with released Core 0.5 routing contracts, the released contract governs routing.
+
+When this document conflicts with a later accepted Core registry contract, the later Core contract governs the shared registry envelope.
+
+When this document conflicts with an accepted Concord ADR, the Concord ADR governs Concord semantics unless a later ADR explicitly supersedes it.
 
 ---
-
 ## 3. Decision Summary
 
-The integration adopts the following architecture:
+The integration adopts four deliberately separate domains.
 
-1. Use the released `PDS2` page-locator contract in place of the historical student-oriented `PDS1` contract.
-2. Give every scannable returned page a durable, module-owned route identity before the page is generated.
-3. Encode only a compact route locator in the QR code.
-4. Resolve student, Group, Author, Subject, document, template, attempt, and other semantic context from a persisted route registration and module-owned records.
-5. Define a neutral module work reference consisting of:
+### 3.1 Physical-page routing
 
-   * owning module;
-   * Core class;
-   * and module-owned work identifier.
-6. Store module work beneath module-qualified class paths.
-7. Persist route registrations at deterministic Core-defined locations so routing does not require recursive directory discovery.
-8. Use a Core module-profile registry for module recognition and dispatch without hard-coding sibling-module imports into Core.
-9. Use generic route-locator and typed-target models rather than student-specific normalized route and failure models.
-10. Preserve the existing Core source-scan retention, immutability, provenance, and append-only resolution principles.
-11. Keep ScoreForm and Quillan aligned with the shared PDS2 contract rather than treating their student-oriented workflows as the universal model.
-12. Use explicit, compatible package and contract-version ranges across Core, ScoreForm, Quillan, and Concord.
+1. Use the released `PDS2` page-locator contract in place of historical PDS1 and OMR1 routing.
+2. Give every scannable returned page a durable, module-owned route identity before rendering.
+3. Encode only module, class, work, and route identity in the QR.
+4. Resolve participant, Group, Author, Subject, template, Artifact, Criterion, Score target, and other semantic context from persisted Core and module-owned records.
+5. Persist Route Registrations at deterministic Core-defined paths.
+6. Preserve Core source-scan retention, immutability, provenance, and append-only resolution behavior.
+7. Keep route dispatch separate from publication compatibility and grading/reporting compatibility.
 
-The core principle is:
+The routing principle is:
 
-> A QR code identifies an expected physical page route. It does not identify the page’s Author, Subject, scorer, score target, or student submission.
+> A QR code identifies an expected physical page route. It does not identify the page’s Author, Subject, scorer, Score target, standard, Grade item, Academic Period, or report.
+
+### 3.2 Neutral module work identity
+
+8. Use `ModuleWorkRef` as the shared identity for one module-owned top-level work context:
+
+   ```text
+   module_id + class_id + work_id
+   ```
+
+9. For Concord:
+
+   ```text
+   module_id = concord
+   work_id = activity_id
+   ```
+
+10. Store Concord work beneath the module-qualified root:
+
+    ```text
+    classes/<class_id>/modules/concord/work/<activity_id>/
+    ```
+
+11. Do not infer that a `ModuleWorkRef` is academic, graded, reportable, or assigned to an Academic Period merely because it exists.
+
+### 3.3 Academic registration and result publication
+
+12. Register a Concord Activity as academic work only through an explicit Core Academic Work Registration.
+13. Do not infer registration from Activity orientation, Focus Standards, page generation, or the existence of a Score.
+14. Keep Concord `scoring_orientation`, Core `academic_intent`, and Meridian Grade-item membership as separate decisions.
+15. Publish selected Concord results through an immutable, revision-addressable Concord Academic Result Manifest.
+16. Store each publishable manifest beneath the exact Concord Activity work root.
+17. Bind exact manifest bytes to an immutable Core Publication Record using a safe workspace-relative path and SHA-256 digest.
+18. Publish Concord result manifests as Core `publication_kind: academic_result_set`.
+19. Advertise only truthful Core-controlled capabilities such as `criterion_scores`, `standards_ratings`, and `moderated_scores`.
+20. Preserve native Score supersession separately from manifest revision and Core Publication Record supersession.
+21. Use Core withdrawal rather than mutation when a published revision should no longer be newly selected.
+22. Treat the Core catalog as derived and disposable, never as the authority for registration, publication, or manifest content.
+
+### 3.4 Meridian consumption
+
+23. Allow Meridian to discover exact Concord publications through Core without recursively crawling Concord directories or importing Concord private code.
+24. Preserve standard-backed and local Score classifications in the manifest.
+25. Publish local Scores where academically relevant without representing them as direct standards ratings.
+26. Preserve explicit non-score dispositions without converting them into zero.
+27. Preserve exact Scoring Scale revisions and meanings rather than normalizing them in Core or Concord publication.
+28. Preserve cross-producer evidence lineage so Meridian can recognize related ScoreForm, Quillan, and Concord results.
+29. Assign Grade-item membership, standards-evidence eligibility, evidence selection, reassessment, weighting, scale mapping, Academic Period membership, proficiency, Grades, overrides, and formal reporting to Meridian.
+30. Do not mutate Concord records when Meridian recalculates or overrides a derived result.
+
+The complete integration principle is:
+
+> Routing locates pages. Registration declares academic intent. Publication announces exact producer-owned result projections. Meridian applies grading and reporting policy.
 
 ---
-
 ## 4. Historical Pre-PDS2 Contract Defects
 
 This section describes the defects in the earlier PDS1-era contracts that motivated PDS2. The defects are retained as architectural rationale; they are not descriptions of the released Core 0.5 design.
@@ -222,47 +330,110 @@ At that time, Quillan also relied on a sibling-repository `mypy_path`.
 A coordinated breaking contract requires explicit dependency declarations and compatible supported Python versions.
 
 ---
-
 ## 5. Ownership Boundaries
 
 ### 5.1 Core ownership
 
-`pds-core` owns:
+`pds-core` owns shared canonical infrastructure, including:
+
+#### Routing and workspace
 
 * workspace-root resolution;
 * canonical class identity;
 * roster and student identity;
 * identifier validation;
 * module-qualified work references;
-* the shared QR grammar;
+* safe module work-root construction;
+* the shared PDS2 QR grammar;
 * QR parsing and serialization;
 * generic route-locator models;
-* generic typed module-record references;
-* route-registration schema and deterministic route-registration paths;
-* module-profile registration and dispatch interfaces;
-* safe module work-root construction;
+* typed module-record references;
+* Route Registration schema and deterministic paths;
+* route-registration lifecycle validation;
+* module-profile registration and page dispatch;
 * active source-scan retention;
-* source-scan identity and provenance value objects;
+* source-scan identity and provenance;
 * shared routing-failure metadata;
-* shared routing-resolution metadata;
-* and shared contract-version information.
+* and shared routing-resolution metadata.
 
-### 5.2 Module ownership
+#### Standards and Academic Periods
 
-Each module must own:
+* shared standards definitions and profiles;
+* durable `standard_id` and `profile_id` identity;
+* standards-library storage and module-neutral validation;
+* school-year-qualified Academic Period references;
+* revisioned Academic Period calendars;
+* period hierarchy and date validation;
+* and exact calendar-revision resolution.
 
-* the meaning of its work records;
-* its assignment, Activity, or equivalent configuration;
-* generation of module-specific page records;
-* the semantic target represented by a route registration;
-* Author and Subject relationships;
-* student relationships where applicable;
-* module-specific route validation;
-* module-specific evidence filing;
-* review, scoring, feedback, and result behavior;
-* and module-specific failure details.
+#### Academic registration and publication
 
-### 5.3 Core must not own Concord semantics
+* the Academic Work Registration envelope and canonical revision storage;
+* Academic Work Registration lifecycle and transition rules;
+* Publication Record identity and schema;
+* publication-kind vocabulary;
+* shared publication-capability vocabulary;
+* safe manifest-path validation;
+* exact SHA-256 manifest binding;
+* publication idempotency and conflict rules;
+* publication-series supersession;
+* immutable publication withdrawals;
+* canonical registration and publication retrieval;
+* and the disposable, nonauthoritative registry catalog.
+
+Core may carry typed references to Concord records and manifests without interpreting their domain meaning.
+
+### 5.2 Concord ownership
+
+Concord owns:
+
+* the meaning of a Concord Activity;
+* Activity scoring orientation and Focus Standard selection;
+* generation of Concord Artifact Page records;
+* the semantic target represented by each Concord Route Registration;
+* Artifact Authors and Subjects;
+* Group, Membership, Role, and Responsibility context;
+* Concord-specific evidence filing;
+* Review and Moderation;
+* Criteria and Scoring Scales;
+* Score Records and Score Evidence Links;
+* non-score dispositions;
+* native Score correction and supersession;
+* external evidence relationships;
+* the Concord Academic Result Manifest contract;
+* manifest generation and validation;
+* producer-owned `record_set_id` and `record_set_revision` assignment;
+* deciding when a native change warrants a new manifest revision;
+* and the educational meaning of every published manifest value.
+
+### 5.3 Meridian ownership
+
+Meridian owns:
+
+* source subscriptions and publication selection;
+* exact imported-publication tracking;
+* Grade-item membership;
+* standards-evidence eligibility;
+* evidence and attempt selection;
+* reassessment policy;
+* cross-producer overlap and deduplication policy;
+* standards-proficiency calculation;
+* conventional, standards-based, and hybrid grading policies;
+* scale mapping and conversion;
+* weighting and categories;
+* minimum-evidence rules;
+* Academic Period membership;
+* Grade calculation and Grade history;
+* teacher overrides of Meridian-derived results;
+* reproducible calculation snapshots;
+* formal report definitions and snapshots;
+* audience-specific reports;
+* report subscriptions;
+* and delivery coordination.
+
+Meridian must not mutate Concord-native records or silently replace an imported publication revision.
+
+### 5.4 Core must not own Concord or Meridian semantics
 
 Core does not define or interpret:
 
@@ -274,25 +445,30 @@ Core does not define or interpret:
 * Responsibility Assignment;
 * Packet Instance;
 * Artifact Instance;
-* Artifact Page semantics beyond generic route identity;
 * Artifact Author;
 * Artifact Subject;
 * Artifact Review;
 * Moderation Record;
 * Concord Criterion;
 * Concord Score;
-* or Score Evidence Link.
+* Score Evidence Link;
+* evidence eligibility;
+* Grade-item membership;
+* standards proficiency;
+* Grade calculation;
+* or report composition.
 
-Core may carry a typed reference to one of these records without understanding its domain meaning.
+Core validates shared envelopes and identities. It does not perform educational interpretation.
 
-### 5.4 No mandatory sibling dependencies
+### 5.5 No mandatory sibling dependencies
 
-The intended dependency direction is:
+The dependency direction is:
 
 ```text
 pds-scoreform -> pds-core
 pds-quillan   -> pds-core
 pds-concord   -> pds-core
+pds-meridian  -> pds-core
 ```
 
 The following must not be required:
@@ -300,48 +476,42 @@ The following must not be required:
 ```text
 pds-concord -> pds-scoreform
 pds-concord -> pds-quillan
-pds-scoreform -> pds-concord
-pds-quillan -> pds-concord
+pds-concord -> pds-meridian
+pds-meridian -> private Concord implementation
+pds-core -> pds-concord
+pds-core -> pds-meridian
 ```
 
 Cross-module relationships must use:
 
+* Core identities;
+* Core Publication Records;
+* public producer manifests;
 * module-qualified references;
-* public serialized contracts;
-* Core-owned shared value objects;
-* module-owned exports;
-* or optional adapters.
+* documented serialized contracts;
+* or optional adapters that preserve ownership.
 
 ---
-
 ## 6. Shared Identity Model
 
 ### 6.1 Module identifier
 
-Every module participating in Core routing must have one stable `module_id`.
+Every participating PDS module has one stable lowercase `module_id` satisfying Core identifier rules.
 
-Initial values include:
+Relevant values include:
 
 ```text
 scoreform
 quillan
 concord
+meridian
 ```
 
-A `module_id` is:
-
-* a durable machine identifier;
-* not a package import path;
-* not a display label;
-* and not inferred from a directory name.
-
-Module identifiers should be lowercase and must satisfy the Core safe-identifier contract.
+A `module_id` is a durable machine identifier, not a package import path or display label.
 
 ### 6.2 Module work reference
 
-Core provides a neutral module work reference.
-
-Conceptually:
+Core provides the neutral top-level work identity:
 
 ```text
 ModuleWorkRef
@@ -350,37 +520,36 @@ ModuleWorkRef
 └── work_id
 ```
 
-The effective identity of one module work unit is:
+The effective identity is:
 
 ```text
 module_id + class_id + work_id
 ```
 
-A bare `work_id` is not globally meaningful.
+Module mappings include:
 
-`work_id` is a routing and storage term. It does not assert that every work unit is:
+| Module | Meaning of `work_id` |
+| --- | --- |
+| ScoreForm | `assignment_id` |
+| Quillan | `assignment_id` |
+| Concord | `activity_id` |
+| Portia | Event or Support Process identity selected by its contract |
+| Future producer | Durable top-level module work identity |
 
-* a graded assignment;
-* an assessment;
-* student work;
-* or one entry in a future gradebook.
+A `ModuleWorkRef` does not assert that the work is:
 
-Module mappings are:
-
-| Module        | Meaning of `work_id`                                |
-| ------------- | --------------------------------------------------- |
-| ScoreForm     | `assignment_id`                                     |
-| Quillan       | `assignment_id`                                     |
-| Concord       | `activity_id`                                       |
-| Future module | Its durable top-level routable work-unit identifier |
-
-For Concord, using `activity_id` as `work_id` for route context does not collapse a Concord Activity into a future suite-level graded assignment. A future assignment registry may link one graded assignment to zero, one, or several module work references.
+* academic;
+* graded;
+* reportable;
+* registered;
+* published;
+* or associated with an Academic Period.
 
 ### 6.3 Route identifier
 
-Every scannable returned page must receive one durable `route_id` before the page is rendered.
+Every scannable returned page receives one durable `route_id` before rendering.
 
-A `route_id` must be:
+A route ID is:
 
 * collision-resistant;
 * non-empty;
@@ -388,77 +557,128 @@ A `route_id` must be:
 * immutable after printing;
 * non-semantic;
 * unique within its `ModuleWorkRef`;
-* and never reused for a different target.
+* and never reused for another target.
 
-Core provides shared route-ID generation under its public contract.
-
-The generated identifier should not contain:
-
-* student identity;
-* Group identity;
-* names;
-* grading categories;
-* marking periods;
-* page numbers;
-* or mutable status.
-
-A short prefix such as `rt_` may be used for diagnostics, but the identifier’s meaning must not depend on that prefix.
+It must not encode student, Group, Score, standard, Grade, Academic Period, or report semantics.
 
 ### 6.4 Module record reference
 
-Core provides a generic typed reference for module-owned records.
-
-Conceptually:
+Core provides `ModuleRecordRef`:
 
 ```text
 ModuleRecordRef
 ├── module_id
 ├── record_kind
 ├── record_id
-└── contract_version
+└── optional contract_version
 ```
 
-Examples include:
+Core validates the shape but does not interpret the producer-controlled `record_kind`.
+
+For Concord publication, an Activity reference is conceptually:
+
+```yaml
+module_id: concord
+record_kind: activity
+record_id: <activity_id>
+contract_version: <public Concord Activity contract version>
+```
+
+### 6.5 Academic Period reference
+
+Core provides a school-year-qualified Academic Period reference:
+
+```text
+AcademicPeriodRef
+├── school_year
+└── period_id
+```
+
+A bare label such as `MP1` is not a durable shared period identity.
+
+Concord does not assign authoritative Academic Period membership to Scores or publications. Meridian references Core periods when applying period policy.
+
+### 6.6 Academic Work Registration identity
+
+The identity of a Core Academic Work Registration is the complete `ModuleWorkRef`.
+
+For Concord:
 
 ```text
 module_id: concord
-record_kind: artifact_page
-record_id: artifact_page_...
+class_id: <Activity class_id>
+work_id: <Activity activity_id>
 ```
+
+Registration revisions preserve one stable work identity while allowing controlled metadata changes.
+
+The registration revision is not:
+
+* an Activity revision;
+* a Score revision;
+* a manifest revision;
+* or a Grade-item revision.
+
+### 6.7 Concord manifest record-set identity
+
+A Concord Academic Result Manifest belongs to one stable producer-owned result-set series identified by:
 
 ```text
-module_id: scoreform
-record_kind: answer_sheet_page
-record_id: answer_sheet_page_...
+ModuleWorkRef + record_set_id
 ```
+
+Each immutable revision also has:
 
 ```text
-module_id: quillan
-record_kind: response_page
-record_id: response_page_...
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest
 ```
 
-Core validates the reference shape but does not interpret `record_kind`.
+`record_set_id` must be lowercase, stable, safe, unique within the work context, and free of direct personal information.
 
-### 6.5 Distinct identities
+### 6.8 Core Publication Record identity
+
+A Core Publication Record has a Core-owned `publication_id` and binds one exact manifest revision.
+
+The following remain distinct:
+
+```text
+publication_id
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_digest
+source Score identities
+```
+
+A Core Publication Record is not the manifest and does not replace native Score identity.
+
+### 6.9 Distinct identities
 
 The following identities must remain separate:
 
 ```text
-route locator
-module work reference
-module record target
-Artifact Author
-Artifact Subject
-student submission
-evidence reference
-score target
+PDS2 route locator
+Route Registration
+ModuleWorkRef
+Academic Work Registration revision
+module-owned record reference
+Concord Activity
+Concord Score Record
+Concord manifest record-set series
+Concord manifest revision
+Core Publication Record
+Meridian imported-source record
+Meridian Grade item
+Meridian proficiency or Grade result
+Meridian report snapshot
 ```
 
-They may sometimes refer to related records, but none may be inferred universally from another.
+No identity may be inferred universally from another.
 
 ---
-
 ## 7. PDS2 QR Contract
 
 ### 7.1 New schema identifier
@@ -692,7 +912,6 @@ A valid QR code is a locator, not proof that:
 Modules must verify the persisted route registration and apply their normal Review and validation rules.
 
 ---
-
 ## 8. Route Registration Contract
 
 ### 8.1 Purpose
@@ -786,14 +1005,11 @@ They do not replace a future suite assignment registry.
 A future assignment registry will index module work references and academic organization. Route registrations operate at the generated-page level beneath those work references.
 
 ---
+## 9. Deterministic Workspace and Registry Layout
 
-## 9. Deterministic Workspace Layout
+### 9.1 Required module-qualified work root
 
-### 9.1 Required module-qualified root
-
-Core uses a module-qualified work root rather than the former unqualified shared assignment root.
-
-The preferred layout is:
+Core uses a module-qualified work root:
 
 ```text
 <PDS workspace>/
@@ -807,66 +1023,33 @@ The preferred layout is:
             <work_id>/
 ```
 
-The effective work-root identity is therefore visible in the path:
+The effective path identity is:
 
 ```text
 classes/<class_id>/modules/<module_id>/work/<work_id>/
 ```
 
-### 9.2 Route registration location
-
-Core defines deterministic route-registration lookup from a `RouteLocator`.
-
-A conceptual layout is:
+For Concord:
 
 ```text
-classes/
-  <class_id>/
-    modules/
-      <module_id>/
-        work/
-          <work_id>/
-            routes/
-              <route_id>.json
+classes/<class_id>/modules/concord/work/<activity_id>/
 ```
 
-Callers must use Core route helpers rather than constructing this path manually.
+### 9.2 Route Registration location
 
-Core may later introduce transparent sharding if a large route directory creates filesystem concerns. The public path API must insulate modules from that implementation detail.
+Core defines deterministic Route Registration lookup from a `RouteLocator`.
 
-### 9.3 Module-owned contents
-
-Below the module work root, each module owns its internal layout.
-
-Examples follow.
-
-#### ScoreForm
+Conceptually:
 
 ```text
-classes/<class_id>/modules/scoreform/work/<assignment_id>/
-  assignment.json
-  routes/
-  pages/
-  templates/
-  scans/
-  results/
-  debug/
+classes/<class_id>/modules/<module_id>/work/<work_id>/routes/<route_id>.json
 ```
 
-#### Quillan
+Callers use Core route helpers and do not construct the path manually.
 
-```text
-classes/<class_id>/modules/quillan/work/<assignment_id>/
-  assignment.json
-  routes/
-  pages/
-  templates/
-  submissions/
-  reviews/
-  feedback/
-```
+### 9.3 Concord-owned contents
 
-#### Concord
+A representative Concord work root may contain:
 
 ```text
 classes/<class_id>/modules/concord/work/<activity_id>/
@@ -880,65 +1063,98 @@ classes/<class_id>/modules/concord/work/<activity_id>/
   moderation/
   scores/
   attachments/
+  exports/
+    manifests/
+      <record_set_id>/
+        <record_set_revision>.json
 ```
 
-These examples do not establish the final module-specific layouts. They demonstrate that Core owns the safe module work root while each module owns its schema beneath it.
+This is a conceptual layout, not a final module persistence contract.
 
-### 9.4 Core path APIs
+Core owns safe construction of the work root. Concord owns the meaning and internal layout of its descendants except where a Core contract explicitly governs a shared descendant such as `routes/`.
 
-Core provides public path helpers equivalent in responsibility to:
+### 9.4 Manifest path requirements
 
-```python
-classes_dir(root)
-class_dir(root, class_id)
-class_roster_path(root, class_id)
-class_metadata_path(root, class_id)
+A published Concord manifest path must be:
 
-class_modules_dir(root, class_id)
-class_module_dir(root, class_id, module_id)
-module_work_collection_dir(root, class_id, module_id)
-module_work_dir(root, class_id, module_id, work_id)
+* workspace-relative;
+* normalized with forward slashes;
+* free of absolute, drive, empty, dot, or traversal components;
+* beneath the exact referenced Concord work root;
+* outside Core-owned registry storage;
+* revision-addressed;
+* and ending in `.json`.
 
-module_routes_dir(root, class_id, module_id, work_id)
-route_registration_path(root, locator)
+A representative path is:
+
+```text
+classes/<class_id>/modules/concord/work/<activity_id>/exports/manifests/<record_set_id>/<record_set_revision>.json
 ```
 
-Core should also provide a safe module-owned descendant helper that:
+A mutable convenience path such as:
 
-* requires a validated module work root;
-* rejects absolute paths;
-* rejects `..`;
-* prevents escape from the work root;
-* and does not imply semantic ownership of the resulting path.
-
-### 9.5 Existing assignment helpers
-
-The current universal helpers such as:
-
-```python
-assignment_dir(...)
-assignment_config_path(...)
-assignment_submissions_dir(...)
-student_submission_dir(...)
+```text
+exports/latest.json
 ```
 
-do not define the universal Core route model.
+may exist but must not be the canonical target of a Core Publication Record.
 
-Migration options include:
+### 9.5 Core-owned registry storage
 
-* removing them during the coordinated breaking release;
-* retaining them temporarily as deprecated wrappers for one documented module profile;
-* or moving student-submission helpers into Quillan and ScoreForm.
+Core stores canonical registry records outside producer work roots.
 
-No retained compatibility helper may cause Concord or future modules to adopt student-submission semantics.
+Conceptually, the registry includes separate namespaces for:
+
+```text
+Academic Work Registrations
+Publication Records
+Publication Withdrawals
+Derived catalog
+```
+
+Exact directory names, sharding, and filenames belong to Core.
+
+Producer code must use Core registry services and path APIs rather than writing registry files directly.
+
+### 9.6 Derived catalog
+
+Core may maintain:
+
+```text
+registry/catalog.sqlite
+```
+
+as a disposable discovery accelerator.
+
+The catalog:
+
+* is explicitly rebuilt from bounded canonical Core JSON records;
+* is not authoritative;
+* does not crawl producer work directories during rebuild;
+* does not open producer manifests merely to enumerate publications;
+* may be missing, stale, locked, malformed, corrupt, or deleted without invalidating canonical records;
+* and cannot create, revise, supersede, withdraw, or select a publication.
+
+### 9.7 Core path APIs
+
+Core supplies public helpers for:
+
+* class and module work roots;
+* Route Registration paths;
+* Academic Work Registration storage and retrieval;
+* Publication Record and withdrawal storage and retrieval;
+* and safe producer manifest-path validation.
+
+Modules must not bypass those helpers through unvalidated string concatenation.
 
 ---
+## 10. Shared Core Models Relevant to Concord
 
-## 10. Normalized Core Models
+Core separates routing identity, academic registration, publication identity, and Academic Period identity through explicit public models.
 
-Core separates locator, registration, target, and resolution through explicit public models.
+Representative conceptual models follow. Exact implementation classes and field types remain governed by Core.
 
-Representative conceptual models follow.
+### 10.1 Routing models
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -971,136 +1187,348 @@ class RouteRegistration:
     schema_version: str
     locator: RouteLocator
     target: ModuleRecordRef
-    created_at: str
+    created_at: datetime
     status: str
     human_fallback: str
     module_details: Mapping[str, JsonValue]
 ```
 
+A shared route resolution does not universally contain student, submission, Author, Subject, standard, Score, Grade, or Academic Period fields.
+
+### 10.2 Academic Period models
+
+Conceptually:
+
 ```python
 @dataclass(frozen=True, slots=True)
-class RouteResolution:
-    locator: RouteLocator
-    registration: RouteRegistration
-    class_root: Path
-    module_root: Path
-    work_root: Path
+class AcademicPeriodRef:
+    school_year: str
+    period_id: str
 ```
 
-A shared `RouteResolution` must not universally contain:
+```python
+@dataclass(frozen=True, slots=True)
+class AcademicPeriod:
+    period_id: str
+    period_type: str
+    label: str
+    start_date: date
+    end_date: date
+    parent_period_id: str | None
+    sequence: int
+    lifecycle: str
+```
 
-* `student_id`;
-* `submission_dir`;
-* Artifact Subjects;
-* or a scoring target.
+Core owns period identity and calendar revisions. Meridian owns Grade-item and result membership in those periods.
 
-A module may derive those values after it receives the resolution.
+### 10.3 Academic Work Registration
+
+Core’s implemented registration model conceptually contains:
+
+```python
+@dataclass(frozen=True, slots=True)
+class AcademicWorkRegistration:
+    schema_version: str
+    record_type: Literal["academic_work_registration"]
+    work: ModuleWorkRef
+    registration_revision: int
+    producer_contract_version: str
+    title: str
+    work_kind: str
+    academic_intent: str
+    lifecycle: str
+    created_at: datetime
+    updated_at: datetime
+    source_records: tuple[ModuleRecordRef, ...]
+```
+
+Core controls the initial `academic_intent` vocabulary:
+
+```text
+formative
+summative
+diagnostic
+practice
+feedback_only
+reporting_only
+```
+
+Core controls registration lifecycle values:
+
+```text
+planned
+active
+closed
+cancelled
+```
+
+Registration does not publish results, create a Grade item, or assign an Academic Period.
+
+### 10.4 Publication Record
+
+Core’s implemented Publication Record conceptually contains:
+
+```python
+@dataclass(frozen=True, slots=True)
+class PublicationRecord:
+    schema_version: str
+    record_type: Literal["publication_record"]
+    publication_id: str
+    work: ModuleWorkRef
+    source_record: ModuleRecordRef | None
+    publication_kind: str
+    capabilities: tuple[str, ...]
+    record_set_id: str
+    record_set_revision: int
+    manifest_contract_version: str
+    manifest_path: str
+    manifest_digest_algorithm: Literal["sha256"]
+    manifest_digest: str
+    published_at: datetime
+    academic_work_registration_revision: int | None
+    supersedes_publication_id: str | None
+```
+
+Initial Core publication kinds are:
+
+```text
+academic_result_set
+intervention_record_set
+```
+
+A Concord Academic Result Manifest uses:
+
+```text
+academic_result_set
+```
+
+and requires an applicable Academic Work Registration revision.
+
+### 10.5 Publication Withdrawal
+
+Core represents withdrawal as a separate immutable record:
+
+```python
+@dataclass(frozen=True, slots=True)
+class PublicationWithdrawal:
+    schema_version: str
+    record_type: Literal["publication_withdrawal"]
+    publication_id: str
+    withdrawn_at: datetime
+    reason: str
+```
+
+Withdrawal does not delete or mutate the Publication Record, manifest, or native Concord records.
+
+### 10.6 Authority rules
+
+Core validates exact shared shapes and relationships.
+
+Concord validates:
+
+* Activity state;
+* manifest body;
+* Score and Criterion semantics;
+* evidence lineage;
+* Moderation requirements;
+* and whether native changes require a new manifest revision.
+
+Meridian validates:
+
+* supported manifest contracts and capabilities;
+* source eligibility;
+* policy applicability;
+* Grade-item and Academic Period membership;
+* and derived calculations.
 
 ---
+## 11. Module Profiles, Dispatch, and Publication Compatibility
 
-## 11. Module Profiles and Dispatch
+### 11.1 Routing profile requirement
 
-### 11.1 Requirement
+Core recognizes installed modules for PDS2 page dispatch through a routing-oriented module profile.
 
-Core recognizes installed PDS modules without importing their private implementations or treating a closed allow-list as the public extension model.
-
-Core defines a public module-profile interface.
-
-A profile should provide at least:
+A routing profile provides at least:
 
 * stable `module_id`;
-* supported Core contract range;
-* supported route-registration contract range;
-* route-registration validation hook where required;
-* module work-root conventions;
-* and module route-handling or dispatch integration.
+* supported Core routing contract range;
+* supported Route Registration contract range;
+* optional registration validation hooks;
+* and page dispatch integration.
 
-### 11.2 Registration mechanisms
+Core does not derive import paths from arbitrary QR module values.
 
-The implementation may support one or more of:
+### 11.2 Routing registration mechanisms
+
+Core may support:
 
 * explicit application registration;
-* Python package entry points;
-* a workspace module registry;
+* Python entry points;
 * or another documented discovery mechanism.
 
-The selected mechanism must ensure that:
+Unsupported or incompatible modules fail explicitly.
 
-* Core does not depend on Concord, ScoreForm, or Quillan;
-* modules can be installed independently;
-* unsupported modules fail explicitly;
-* mixed-module scans can be dispatched;
-* and module identity is not accepted merely because an arbitrary string appears in a QR.
+### 11.3 Publication compatibility is separate
 
-### 11.3 Core validation versus module validation
+Routing compatibility does not imply publication compatibility.
+
+The questions are different:
+
+```text
+Routing profile:
+Can this installed module receive a resolved physical page?
+```
+
+```text
+Publication producer compatibility:
+Can this module publish this publication kind, manifest contract, and capability set?
+```
+
+```text
+Meridian consumer compatibility:
+Can Meridian import and interpret this exact producer manifest contract under an authorized policy?
+```
+
+Core’s current routing `ModuleProfile` must not be silently expanded to mean all three.
+
+A later public producer-compatibility profile may advertise:
+
+* supported publication kinds;
+* supported manifest contract versions;
+* supported shared capabilities;
+* and producer-specific compatibility information.
+
+It may use a dedicated entry point or another Core-defined interface.
+
+### 11.4 Core validation versus module validation
 
 Core validates:
 
 * PDS2 grammar;
 * shared identifiers;
-* payload length;
-* deterministic route-registration path;
-* exact locator match;
-* route-registration schema;
-* target-reference structure;
-* and module-profile availability.
+* deterministic paths;
+* exact locator matching;
+* Route Registration shape;
+* Academic Work Registration shape and transitions;
+* Publication Record envelope;
+* safe manifest path;
+* SHA-256 digest;
+* publication idempotency;
+* supersession series;
+* withdrawal relationship;
+* and catalog reconstruction from canonical records.
 
-The module validates:
+Concord validates:
 
-* target existence;
-* target type;
-* target lifecycle;
-* expected page state;
-* assignment or Activity semantics;
-* student or Group relationships;
-* document completeness;
-* and module-specific evidence-writing rules.
+* native target existence and lifecycle;
+* Activity and Artifact semantics;
+* standards and Criterion relationships;
+* Score values and dispositions;
+* Moderation completeness;
+* manifest body and lineage;
+* and manifest revision necessity.
 
-### 11.4 Exact-match requirement
+Meridian validates:
 
-A route registration loaded from disk must match every locator field in the QR:
+* consumer support for the manifest contract;
+* policy compatibility;
+* source authorization;
+* and derived-result rules.
 
-* schema;
-* module;
-* class;
-* work;
-* and route ID.
+### 11.5 Offline canonical validation
 
-A registration found at the expected path but containing mismatched identity is a route-integrity failure, not a successful route.
+Core must be able to validate canonical registration and Publication Record envelopes without importing Concord or Meridian.
+
+A producer-specific adapter may provide richer compatibility checks, labels, or opening behavior, but it does not transfer manifest authority to Core.
 
 ---
+## 12. Integration Workflows
 
-## 12. Routing Workflow
+### 12.1 Successful PDS2 routing workflow
 
-The standard successful workflow should be:
-
-1. The module creates its assignment, Activity, or equivalent work record.
-2. The module creates one durable page record for each expected returned page.
-3. The module creates and persists a Core route registration for each page.
-4. The module renders the canonical `PDS2` QR from the route locator.
+1. Concord creates an Activity.
+2. Concord creates one durable Artifact Page for each expected returned physical page.
+3. Concord creates and persists a Core Route Registration targeting each page.
+4. Concord renders the canonical PDS2 QR from the Route Locator.
 5. The page is printed and used.
-6. A source file is selected for intake.
-7. Core retains an immutable source copy before module-specific processing.
-8. The scan processor extracts one source page and decodes its QR.
-9. Core parses and validates the `PDS2` locator.
-10. Core resolves the module profile.
-11. Core calculates the deterministic route-registration path.
-12. Core loads and validates the route registration.
-13. Core confirms exact locator consistency.
-14. The owning module receives:
+6. Core retains an immutable source copy before module-specific processing.
+7. Core decodes and validates the PDS2 locator.
+8. Core resolves the routing module profile.
+9. Core loads and validates the deterministic Route Registration.
+10. Core confirms exact locator consistency.
+11. Concord receives the resolved route and Core source-page provenance.
+12. Concord validates the Artifact Page and creates a Scan Reference or other routed evidence relationship.
+13. Review, Moderation, and Scoring occur under Concord rules.
 
-    * the resolved route;
-    * a Core source-scan reference;
-    * source page number;
-    * and processing context.
-15. The module resolves the target page record and writes or links its routed evidence.
-16. The module records provenance from its evidence back to the Core-retained source.
-17. Review, moderation, scoring, or feedback occurs under module rules.
+Core does not infer Author, Subject, Score target, standard, or Grade membership from the route.
 
-At no point does Core infer an Author or Subject from the route locator.
+### 12.2 Academic Work Registration workflow
+
+1. A Concord Activity and its module work root already exist.
+2. An authorized workflow explicitly selects academic registration.
+3. Concord supplies the complete `ModuleWorkRef` and Activity `ModuleRecordRef`.
+4. Concord supplies teacher-readable metadata, `work_kind`, `academic_intent`, and lifecycle.
+5. Core validates the exact registration request.
+6. Core creates revision 1 or an explicit later revision under expected-revision protection.
+7. Core preserves prior registration revisions and selects the new current revision.
+8. Registration remains distinct from publication and Meridian Grade-item membership.
+
+### 12.3 Concord manifest generation workflow
+
+1. Concord validates canonical Activity, Criterion, Scale, Score, evidence-link, and Moderation records.
+2. Concord selects the exact publishable result-set projection.
+3. Concord assigns a stable `record_set_id` and a new positive `record_set_revision`.
+4. Concord generates the complete manifest bytes under a supported Concord manifest contract.
+5. Concord validates the manifest body.
+6. Concord writes the manifest exclusively to a new revision-addressed path beneath the Activity work root.
+7. Concord durably closes the manifest.
+8. Published bytes are never rewritten.
+
+### 12.4 Core publication workflow
+
+1. Concord submits the exact manifest path, manifest contract version, publication kind, capabilities, record-set identity, revision, source Activity reference, and applicable registration revision.
+2. Core validates the shared publication envelope.
+3. Core verifies that the path is safe, workspace-relative, work-scoped, and present.
+4. Core calculates or verifies the SHA-256 digest.
+5. Core reconciles exact replay idempotently.
+6. Core rejects contradictory reuse of the same logical revision.
+7. Core exclusively creates the immutable Publication Record.
+8. Core updates the derived catalog or reports canonical success with catalog partial failure.
+9. Concord displays or records the resulting publication state.
+
+The presence of an unpublished manifest file does not imply successful publication.
+
+### 12.5 Meridian import workflow
+
+1. Meridian queries canonical or derived Core discovery surfaces.
+2. Meridian selects a compatible, authorized, nonwithdrawn Publication Record.
+3. Meridian preserves the exact Core `publication_id`, digest, manifest contract version, record-set identity, revision, and registration revision.
+4. Meridian loads the exact manifest bytes and verifies digest compatibility.
+5. Meridian interprets the manifest through the public Concord contract or compatible adapter.
+6. Meridian applies explicit source-selection, standards-evidence, Grade-item, reassessment, Academic Period, and grading policy.
+7. Meridian creates reproducible derived results and report snapshots without modifying Concord or Core records.
+
+### 12.6 Correction and replacement workflow
+
+A native Concord judgment change requires:
+
+```text
+new or superseding Concord Score
+    -> new manifest revision
+    -> new Core Publication Record
+```
+
+A publication defect requiring immediate removal may require:
+
+```text
+Core Publication Withdrawal
+    -> later corrected manifest revision
+    -> new Core Publication Record
+```
+
+A Meridian-only policy or override change requires no Concord Score or manifest mutation.
 
 ---
-
 ## 13. Source-Scan Retention and Provenance
 
 ### 13.1 Preserve the existing source-retention model
@@ -1194,7 +1622,6 @@ Corrections belong in:
 * or other append-only historical records.
 
 ---
-
 ## 14. Routing Failure Metadata Version 2
 
 ### 14.1 Generalized identity
@@ -1318,7 +1745,6 @@ Re-routing must preserve:
 * and the final module evidence relationship.
 
 ---
-
 ## 15. ScoreForm Migration Requirements
 
 ScoreForm must migrate from student-bearing QR payloads to route registrations.
@@ -1384,7 +1810,6 @@ ScoreForm must stop generating `OMR1` and `PDS1` after migration.
 Legacy parsing may remain only if deliberately retained as a clearly separated legacy adapter. It must not define the normalized Core model or be enabled merely because the earlier implementation existed.
 
 ---
-
 ## 16. Quillan Migration Requirements
 
 Quillan must migrate from student-bearing response QRs to route registrations.
@@ -1433,30 +1858,31 @@ Student submission directories may remain inside that Quillan-owned root.
 They must not remain the universal Core destination.
 
 ---
-
 ## 17. Concord Integration Requirements
 
 ### 17.1 Work identity
 
-For Concord routing:
+For Concord:
 
 ```text
+module_id = concord
 work_id = activity_id
 ```
 
-This identifies the Concord Activity as the top-level module work context.
+The Activity is the top-level module work context for routing, academic registration, and work-scoped publication.
 
-An optional future suite assignment reference remains separate.
+This does not make every Activity academic, graded, registered, or published.
 
 ### 17.2 Route target
 
-Every evidence-bearing returned Artifact Page must have:
+Every evidence-bearing returned Artifact Page has:
 
 * durable `artifact_page_id`;
-* durable route registration;
-* and PDS2 locator.
+* one immutable `route_id` when routing is required;
+* a persisted Core Route Registration;
+* and a PDS2 locator.
 
-The route registration should normally target:
+The normal target is:
 
 ```text
 module_id: concord
@@ -1464,149 +1890,242 @@ record_kind: artifact_page
 record_id: <artifact_page_id>
 ```
 
-The `route_id` may equal the `artifact_page_id` if the implementation deliberately adopts that identity rule, but Core must not require all modules to use their domain page ID as the route ID.
-
 ### 17.3 Semantic resolution
 
-After resolving the Artifact Page, Concord obtains its broader context through Concord records:
+Concord resolves broader context through native records:
 
 ```text
 Artifact Page
     -> Artifact Instance
-    -> Packet Instance where applicable
+    -> optional Packet Instance
     -> Activity
-    -> Session or Group context where applicable
+    -> optional Session, Group, Marker, Work Item, or Event context
     -> Authors
     -> Subjects
 ```
 
 The QR does not contain this graph.
 
-### 17.4 Required supported cases
+### 17.4 Required routing cases
 
-The contract must support:
+The routing contract must support:
 
-#### Peer observation
-
-```text
-route target: Artifact Page
-Author: student observer
-Subject: observed student
-Context: Group and Session
-```
-
-#### Discussion map
-
-```text
-route target: Artifact Page
-Author: mapper, several mappers, teacher, or unresolved
-Subjects: Group and Session
-student Subject: not required
-```
-
-#### Teacher tracker
-
-```text
-route target: one Artifact Page
-Author: teacher
-Subjects: several students, one or several Groups, or both
-```
-
-The tracker remains one Artifact. Its source page must not be duplicated into fabricated student routes.
-
-#### Group Artifact
-
-```text
-route target: Artifact Page
-Authors: collective Group, recorder, named contributors, or unresolved
-Subjects: Group and Session
-```
-
-#### Activity-, Session-, or Event-scoped Artifact
-
-```text
-route target: Artifact Page
-student Subject: not required
-```
-
-#### Unresolved attribution
-
-A generated or scanned page may route successfully even when:
-
-* its Author is unresolved;
-* its Subjects are unresolved;
-* attribution requires Review;
-* or the physical recorder differs from the intended Author.
+* peer observation with different Author and Subject;
+* Group discussion map with no student Subject;
+* teacher-authored multi-subject tracker;
+* Group Artifact with collective or multiple Authors;
+* Activity-, Session-, Work Item-, Marker-, or Event-scoped Artifact;
+* unresolved attribution;
+* continuation pages;
+* non-returned instructional pages with no route;
+* duplicate scans;
+* misroute correction;
+* rescans;
+* and mixed-module source batches.
 
 ### 17.5 Scan Reference
 
-A successful Concord route must create or support creation of a Concord Scan Reference linking:
+A successful Concord route creates or supports a Concord Scan Reference linking:
 
-* `artifact_page_id`;
+* Artifact Page;
 * Core source-scan identity;
-* source page number;
+* source-page index;
 * routed derivative where applicable;
-* routing state;
-* readability state;
-* filing state;
+* routing, readability, filing, and review state;
+* preferred-source state;
+* provenance;
 * and supersession history.
-
 
 ### 17.6 Standards integration boundary
 
-Core owns shared standards infrastructure:
+Core owns shared standards identity and profiles.
 
-* standards libraries;
-* standards profiles;
-* durable `standard_id` and `profile_id` values;
-* module-neutral reference validation;
-* and shared display metadata.
-
-Concord owns the meaning and use of those references within Concord:
+Concord owns:
 
 * Activity `standards_profile_id`;
-* ordered Activity `focus_standard_ids`;
+* ordered `focus_standard_ids`;
 * Activity scoring orientation;
 * standard-backed and local Criterion classification;
-* the rule that one standard-backed Criterion has exactly one governing `standard_id`;
-* teacher-approved standard-backed Scores;
-* evidence links supporting those Scores;
-* and Concord-specific standards-result handoff data.
+* exactly one governing `standard_id` for a standard-backed Criterion;
+* teacher-approved standard-backed and local Scores;
+* and the standards-specific subset of the Concord manifest.
 
-Standards identity does not belong in the PDS2 QR, Route Locator, or generic Route Registration. Routing resolves an expected physical Artifact Page. Concord then resolves the Activity, Criterion, Score target, and governing standard from Concord-owned records.
+Standards identity does not belong in PDS2 or generic Route Registrations.
 
-Core must not infer that:
+### 17.7 Explicit Academic Work Registration
 
-* selecting a standard is a Score;
-* aligning evidence to a standard establishes mastery;
-* one Score applies to several standards;
-* a local Criterion is a direct standards result;
-* or a Concord standards Score is a course Grade.
+A Concord Activity may be registered only through an explicit Core Academic Work Registration.
 
-The future grading and reporting module may consume Concord standards results through explicit module-owned exports or public contracts. It must not reconstruct standards meaning from QR payloads or generic routing metadata.
+The registration uses:
 
+```text
+work.module_id = concord
+work.class_id = Activity.class_id
+work.work_id = Activity.activity_id
+```
+
+and should include the Activity as a source `ModuleRecordRef`.
+
+The initial Concord work kind is conceptually:
+
+```text
+collaborative_activity
+```
+
+The registration’s Core `academic_intent` remains distinct from Concord `scoring_orientation`.
+
+None of the following creates registration automatically:
+
+* Activity creation;
+* standards configuration;
+* Score creation;
+* page generation;
+* route creation;
+* or manifest generation.
+
+### 17.8 Concord Academic Result Manifest
+
+Concord owns an immutable, revision-addressable Academic Result Manifest for selected results from one registered Activity.
+
+The manifest must expose enough information to interpret included results, including:
+
+* manifest contract version;
+* record-set identity and revision;
+* `ModuleWorkRef`;
+* source Activity reference;
+* generation time and provenance;
+* Activity scoring context;
+* exact Criterion projections;
+* exact Scoring Scale projections;
+* standard-backed and local Score projections;
+* non-score dispositions;
+* native Score supersession;
+* Score Evidence Link or equivalent lineage projections;
+* minimum required Moderation state;
+* and a direct standards-result subset.
+
+The manifest must not calculate mastery, Grades, weighting, Academic Period membership, or formal reports.
+
+### 17.9 Standard-backed and local result publication
+
+A single Concord manifest may include:
+
+* standard-backed Scores;
+* local Scores;
+* standard-backed non-score dispositions;
+* local non-score dispositions;
+* and their separate Criteria and scale semantics.
+
+Only standard-backed Scores appear in the direct standards-result subset.
+
+A local Score may later participate in conventional or hybrid grading only through explicit Meridian policy.
+
+### 17.10 Evidence lineage and cross-producer overlap
+
+When a Concord Score uses ScoreForm, Quillan, or another external producer result, the manifest must preserve module-qualified source lineage.
+
+When an exact source Core Publication Record is known, the lineage may also preserve that publication identity.
+
+This allows Meridian to recognize that:
+
+```text
+external producer result
+    -> Concord evidence use
+    -> Concord teacher-approved Score
+```
+
+and apply an explicit overlap or deduplication policy.
+
+Concord does not decide that Meridian must always use or exclude either record.
+
+### 17.11 Manifest publication through Core
+
+Concord publishes through Core as:
+
+```text
+publication_kind: academic_result_set
+```
+
+with truthful capabilities such as:
+
+```text
+criterion_scores
+standards_ratings
+moderated_scores
+```
+
+The Publication Record identifies the Activity as its optional source record and references the applicable Academic Work Registration revision.
+
+### 17.12 Native versus publication history
+
+These are separate:
+
+```text
+Score Record supersession
+manifest record-set revision
+Core Publication Record supersession
+Core Publication Withdrawal
+Meridian import and calculation history
+```
+
+No layer may infer one history solely from another.
+
+### 17.13 Meridian boundary
+
+Meridian owns:
+
+* selection of Concord publications;
+* selection of eligible Scores;
+* direct standards-evidence eligibility;
+* local Score use in conventional or hybrid policies;
+* cross-producer overlap handling;
+* scale mapping;
+* repeated-observation and reassessment policy;
+* Academic Period membership;
+* proficiency and Grade calculation;
+* overrides of derived results;
+* and formal reports.
+
+Concord must not duplicate those policies inside the manifest.
+
+### 17.14 Academic Period boundary
+
+Concord preserves native Activity, Session, evidence, Review, Moderation, and scoring dates.
+
+It does not assign authoritative Academic Period membership from those dates.
+
+The initial manifest does not require an `academic_period_id`.
+
+Meridian uses exact Core Academic Period calendar revisions when assigning Grade items or results to periods.
 
 ---
-
 ## 18. Versioning and Package Requirements
 
-### 18.1 Current Core baseline
+### 18.1 Released routing baseline
 
-The architecture described by this document is implemented by:
+The released baseline remains:
 
 ```text
 pds-core 0.5.0
 Python >= 3.11
 QR schema: PDS2
-route-registration contract: 1
+Route Registration contract: 1
 routing failure/resolution contract: 2
 ```
 
-The earlier recommendation to publish `pds-core 0.2.0` was a pre-implementation planning target and is historical. It is not the current compatibility baseline.
+### 18.2 Post-0.5 registry architecture
 
-### 18.2 Concord dependency range
+Core mainline now contains newer registration, publication, catalog, and Academic Period architecture.
 
-The initial Concord implementation should declare:
+Until Core publishes an applicable release or explicitly stabilizes those producer-facing APIs, Concord must not:
+
+* claim that `pds-core` 0.5 implements them;
+* import unreleased APIs under a production compatibility claim;
+* or widen its dependency range without coordinated verification.
+
+### 18.3 Current Concord dependency range
+
+For the released PDS2-only foundation, Concord may declare:
 
 ```toml
 dependencies = [
@@ -1614,9 +2133,26 @@ dependencies = [
 ]
 ```
 
-The dependency must be machine-verifiable. Concord must not depend on an undeclared sibling checkout or local type-checking path.
+Runtime publication implementation will require a later compatible Core range determined by the release that includes the registry contracts.
 
-### 18.3 Sibling-module independence
+### 18.4 Contract axes
+
+Compatibility declarations must distinguish:
+
+* Core package version;
+* PDS2 schema;
+* Route Registration schema;
+* routing failure and resolution schemas;
+* Academic Period schema and calendar-revision contract;
+* Academic Work Registration schema;
+* Core Publication Record and withdrawal schemas;
+* Concord Activity public contract version;
+* Concord Academic Result Manifest contract version;
+* and supported shared publication capabilities.
+
+Changing one axis does not automatically change every other axis.
+
+### 18.5 Sibling-module independence
 
 The supported dependency direction remains:
 
@@ -1624,396 +2160,554 @@ The supported dependency direction remains:
 pds-scoreform -> pds-core
 pds-quillan   -> pds-core
 pds-concord   -> pds-core
+pds-meridian  -> pds-core
 ```
 
-Concord must not require ScoreForm or Quillan as runtime dependencies merely to resolve shared identities, standards, paths, QRs, retained scans, or routes.
+Cross-module interpretation relies on public serialized contracts or optional adapters, not sibling private imports.
 
-Cross-module relationships use public serialized contracts, module-qualified references, module-owned exports, or optional adapters.
+### 18.6 Python alignment
 
-### 18.4 Python alignment
+Every consuming module must declare and test a Python range compatible with its selected Core release and must resolve imports through installed dependencies rather than sibling checkout paths.
 
-PDS Core 0.5 requires Python 3.11 or newer.
+### 18.7 Explicit incompatibility
 
-A consuming module must declare a Python range compatible with its selected Core range and must verify that runtime imports and type checking resolve through installed dependencies rather than sibling paths.
+Unsupported package versions, schema versions, manifest contracts, publication kinds, capabilities, or producer adapters must fail explicitly.
 
-### 18.5 Contract compatibility
-
-Module profiles and public adapters must declare compatible ranges for:
-
-* Core package version;
-* QR schema;
-* route-registration schema;
-* routing failure and resolution schemas;
-* and any public module-record contract they consume.
-
-Incompatibility must fail explicitly rather than being ignored.
+A routing-compatible Concord installation may still be publication-incompatible with a particular Core or Meridian version.
 
 ---
+## 19. Core Registry, Academic Period, and Meridian Compatibility
 
-## 19. Future Suite Assignment Registry Compatibility
+The earlier version of this document anticipated a future suite assignment registry. Core has now adopted a more precise architecture based on neutral work registration and typed manifest publication.
 
-A future grading and reporting module will require efficient discovery of assignments and other reportable work without recursively traversing every module’s directory tree.
+### 19.1 Academic Work Registration replaces inferred assignment discovery
 
-This integration must therefore support, but not implement fully, a future suite assignment registry.
+A Core Academic Work Registration declares that an existing `ModuleWorkRef` may participate in academic grading or reporting.
 
-### 19.1 Registry identity
+It does not duplicate the complete Concord Activity and does not determine:
 
-The future registry should reference module work through:
+* Grade inclusion;
+* weight;
+* category;
+* point value;
+* standards proficiency;
+* Academic Period membership;
+* lateness;
+* reassessment;
+* mastery;
+* or report audience.
+
+### 19.2 Publication Record replaces recursive producer crawling
+
+Meridian discovers deliberately published results through Core Publication Records.
+
+It must not normally:
+
+* recursively scan Concord work roots;
+* infer reportable files from names;
+* depend on mutable `latest.json` files;
+* or import Concord private storage code.
+
+The absence of a Core Publication Record means that Core does not consider a manifest published, even if a familiar file exists.
+
+### 19.3 Producer manifest remains authoritative
+
+The Concord manifest remains authoritative for the exact result projection and producer-specific meaning.
+
+Core remains authoritative for:
+
+* registration existence and revision;
+* publication existence and identity;
+* manifest path and digest binding;
+* publication supersession;
+* withdrawal;
+* and shared discovery metadata.
+
+The derived catalog is not authoritative for either layer.
+
+### 19.4 Academic Period architecture
+
+Core owns school-year-scoped hierarchical Academic Period calendars.
+
+The complete period reference is:
 
 ```text
-module_id + class_id + work_id
+school_year + period_id
 ```
 
-That identity is already established by `ModuleWorkRef`.
+Core period types may include:
 
-### 19.2 Registry versus module authority
+```text
+marking_period
+semester
+quarter
+trimester
+progress_window
+custom
+```
 
-The registry may contain shared discovery metadata such as:
+Core does not assign Grade items or results to periods.
 
-* title;
-* owning module;
-* class;
-* academic periods;
-* assessment classification;
-* status;
-* canonical module record;
-* dates;
-* and reporting eligibility.
+### 19.5 Meridian period membership
 
-The owning module must remain authoritative for its complete assignment, Activity, or work definition.
+Meridian owns the policy that associates:
 
-### 19.3 Academic periods
+* registered work;
+* selected publications;
+* Grade items;
+* evidence;
+* proficiency calculations;
+* Grade calculations;
+* and report snapshots
 
-The future registry must be capable of relating work to configurable institutional periods such as:
+with exact Core Academic Period references and calendar revisions.
 
-* school years;
-* semesters;
-* trimesters;
-* quarters;
-* marking periods;
-* terms;
-* blocks;
-* modules;
-* summer sessions;
-* midterm examination periods;
-* final examination periods;
-* and locally defined divisions.
+Native Concord dates remain contextual evidence and chronology. They do not universally determine period membership.
 
-Academic-period identity must not be encoded in PDS2 QR payloads.
+### 19.6 Assessment and academic intent
 
-### 19.4 Assessment classification
+Core registration `academic_intent` remains broad producer-facing metadata.
 
-Assessment classification must remain separate from academic-period placement.
+Meridian may define richer Grade-item classifications and policies without changing PDS2, the Activity record, or the Core registration envelope.
 
-Examples include:
+### 19.7 No cross-work producer publication in the initial contract
 
-* practice;
-* homework;
-* quiz;
-* test;
-* unit exam;
-* benchmark;
-* diagnostic;
-* midterm exam;
-* final exam;
-* project;
-* laboratory;
-* presentation;
-* seminar;
-* and writing assignment.
+The initial Core publication contract scopes one Publication Record to exactly one `ModuleWorkRef`.
 
-These classifications do not belong in the QR.
+A Concord publication therefore represents one Activity work context.
 
-### 19.5 Non-goal for this issue
+Cross-Activity, class-wide, course-wide, or school-year aggregate publications require a later architectural decision. Meridian may aggregate several work-scoped publications under its own contracts.
 
-This issue does not define:
+### 19.8 Registry privacy boundary
 
-* the final assignment-registry schema;
-* academic-period schemas;
-* category or assignment weights;
-* grade aggregation;
-* dropped-score rules;
-* exemptions;
-* report-card calculation;
-* or transcript reporting.
+Core registry records and catalog rows must remain metadata-minimized.
 
-It requires only that the new Core identity and path architecture not obstruct that future work.
+They must not embed:
+
+* student result arrays;
+* Score values;
+* student writing;
+* peer comments;
+* private Review notes;
+* detailed Moderation rationale;
+* or full manifest bodies.
+
+Discoverability is not authorization.
 
 ---
+## 20. Security, Privacy, Integrity, and Robustness Requirements
 
-## 20. Security, Privacy, and Robustness Requirements
+### 20.1 Routing requirements
 
 The implementation must:
 
-* validate all path-bearing identifiers before path construction;
-* reject path separators and traversal components;
-* never accept a destination path from the QR;
-* never create a target record solely because a QR names it;
-* require a persisted route registration;
+* validate all path-bearing identifiers;
+* reject separators and traversal components;
+* never accept a destination path from a QR;
+* never create a target solely because a QR names it;
+* require a persisted Route Registration;
 * confirm exact locator consistency;
-* prevent route IDs from being silently repointed;
-* retain the source before module processing;
-* avoid student names and unnecessary personal information in QR payloads;
+* prevent route IDs from being repointed;
+* retain source bytes before module processing;
+* avoid direct PII in QR payloads;
 * treat QR data as untrusted input;
 * impose payload-length limits;
 * reject duplicate and unknown fields;
 * preserve failures and resolutions;
-* and prevent module-owned writes from escaping the module work root.
+* and prevent module writes from escaping the work root.
 
-A QR checksum or cryptographic signature is not required initially.
+### 20.2 Registration requirements
 
-QR error correction already addresses ordinary scan corruption, while route-registration validation addresses semantic integrity. A future signed-payload schema may be introduced if a concrete threat model requires it.
+Academic Work Registration services must:
+
+* require an existing producer work root for initial registration;
+* preserve stable `ModuleWorkRef` identity;
+* use positive service-owned revisions;
+* use offset-aware timestamps;
+* preserve initial `created_at` across revisions;
+* prevent stale expected-revision writes;
+* preserve all historical revisions;
+* and reject contradictory or orphaned revision state.
+
+### 20.3 Manifest requirements
+
+Concord must:
+
+* validate native records before projection;
+* generate complete deterministic JSON under a versioned public contract;
+* store manifests beneath the exact Activity work root;
+* use exclusive revision-addressed creation;
+* never rewrite published bytes;
+* avoid direct PII in record-set IDs and paths;
+* minimize sensitive evidence and Moderation content;
+* preserve typed source lineage;
+* and keep credentials and access tokens out of locators and manifests.
+
+### 20.4 Publication requirements
+
+Core publication must:
+
+* validate publication kind and capabilities;
+* require registration for `academic_result_set`;
+* verify safe work-scoped manifest paths;
+* calculate or verify exact SHA-256 digest;
+* create immutable Publication Records exclusively;
+* reconcile exact replay without duplication;
+* reject contradictory logical-revision reuse;
+* preserve one unbranched publication series;
+* prevent multiple competing current heads;
+* preserve immutable withdrawals;
+* and treat catalog failure as derived-state failure rather than canonical publication failure.
+
+### 20.5 Consumer requirements
+
+Meridian must:
+
+* verify supported publication and manifest contracts;
+* preserve exact source publication identity and digest;
+* refuse silent source-revision replacement;
+* respect publication withdrawal for new selection;
+* preserve older calculations against their original sources;
+* maintain authorization boundaries;
+* preserve producer-native non-score states;
+* and avoid assuming that cross-producer results are independent when lineage shows a relationship.
+
+### 20.6 Privacy requirements
+
+Publication establishes discoverability, not authorization.
+
+Access to a Concord Score does not imply access to:
+
+* source scans;
+* full Artifacts;
+* peer observations;
+* restricted Review notes;
+* or detailed Moderation rationale.
+
+Core registry metadata, Concord manifest contents, Meridian calculations, and report snapshots each require their own minimized and purpose-appropriate access rules.
 
 ---
-
 ## 21. Testing Requirements
 
-This section preserves the required behavioral coverage identified by the original integration specification. Core 0.5 supplies the shared PDS2 foundation; each repository must verify its own current test coverage. Concord-specific cases remain acceptance requirements for later Concord implementation and are not satisfied merely because Core can parse or dispatch PDS2 routes.
+### 21.1 PDS2 and Route Registration tests
 
+Core and Concord tests must retain coverage for:
 
-### 21.1 Core parser tests
-
-Core tests must cover:
-
-* canonical PDS2 serialization;
+* canonical serialization and round trips;
 * field-order independence;
-* missing fields;
-* duplicate fields;
-* unknown fields;
-* empty keys;
-* empty values;
-* unsafe identifiers;
-* oversized payloads;
-* unsupported schemas;
-* and exact round trips.
-
-### 21.2 Route-registration tests
-
-Tests must cover:
-
-* registration creation before rendering;
-* deterministic lookup;
+* missing, duplicate, unknown, empty, unsafe, and oversized payloads;
+* deterministic Route Registration lookup;
 * exact locator matching;
-* missing registration;
-* malformed registration;
+* missing and malformed registrations;
 * target mismatch;
-* inactive route;
-* superseded route;
+* inactive and superseded routes;
 * route-ID non-reuse;
-* and safe path containment.
+* safe path containment;
+* mixed-module dispatch;
+* and source provenance.
 
-### 21.3 Module-profile tests
-
-Tests must cover:
-
-* ScoreForm profile discovery;
-* Quillan profile discovery;
-* Concord profile discovery;
-* unsupported module;
-* incompatible profile;
-* and mixed-module dispatch.
-
-### 21.4 ScoreForm acceptance cases
-
-Tests must demonstrate:
-
-* one-page student answer sheet;
-* multi-page answer sheet;
-* unique route per physical page;
-* student resolved from the page record;
-* duplicate scan;
-* page conflict;
-* same `work_id` existing in another module without collision;
-* source provenance;
-* and result generation after PDS2 routing.
-
-### 21.5 Quillan acceptance cases
-
-Tests must demonstrate:
-
-* first response page;
-* continuation page;
-* student submission resolution;
-* page-order assembly;
-* duplicate page;
-* missing page;
-* same `work_id` existing in another module;
-* source provenance;
-* and review workflow after PDS2 routing.
-
-### 21.6 Concord acceptance cases
+### 21.2 Concord routing acceptance cases
 
 Tests must demonstrate:
 
 * peer observation with different Author and Subject;
-* Group-scoped discussion map with no student Subject;
-* teacher-authored multi-subject tracker;
-* Group Artifact with collective or multiple Authors;
-* Session-scoped Artifact;
-* Activity-scoped Artifact;
-* Activity Event Artifact;
-* Artifact with unresolved Subjects;
-* Artifact continuation pages;
-* one mixed source scan containing pages from several modules;
-* corrected routing without source modification;
-* and one source page producing one Concord Scan Reference to an Artifact Page.
+* Group map with no student Subject;
+* teacher multi-subject tracker;
+* collective Group Artifact;
+* Activity-, Session-, Event-, Marker-, and Work Item-scoped pages;
+* unresolved attribution;
+* continuation pages;
+* non-returned instructional pages without routes;
+* duplicate scan;
+* rescan;
+* misroute and correction;
+* mixed-module source scan;
+* and one source page producing one valid Concord Scan Reference.
 
-### 21.7 Cross-module collision tests
+### 21.3 Academic Work Registration tests
 
-The following must coexist safely:
+Tests must cover:
 
-```text
-scoreform / english10_p3 / project_check
-quillan   / english10_p3 / project_check
-concord   / english10_p3 / project_check
-```
+* explicit initial registration for an existing Concord Activity work root;
+* no automatic registration on Activity or Score creation;
+* all supported Core academic intents;
+* planned, active, closed, and cancelled lifecycle;
+* idempotent exact initial request where the Core service permits it;
+* metadata revision under expected-current-revision protection;
+* stale revision conflict;
+* identity mutation rejection;
+* duplicate source-reference rejection;
+* source-record module mismatch;
+* and preservation of registration history.
 
-Each must have:
+### 21.4 Manifest contract tests
 
-* a distinct module work root;
-* distinct configuration;
-* distinct route registrations;
-* and no shared unqualified `assignment.json`.
+Concord tests must cover:
+
+* standard-backed-only manifest;
+* mixed standard-backed and local manifest;
+* local-criteria-only manifest;
+* explicit non-score dispositions without `value`;
+* exact Criterion and Scoring Scale projections;
+* Group and individual target preservation;
+* native Score supersession;
+* active versus historical Score state;
+* professional judgment without one controlling Artifact;
+* evidence lineage to Concord sources;
+* evidence lineage to ScoreForm and Quillan;
+* optional exact source Publication Record identity;
+* required Moderation projection;
+* qualified Moderation;
+* rejected evidence excluded from active support;
+* privacy minimization;
+* deterministic serialization;
+* and invalid manifest rejection.
+
+### 21.5 Manifest storage tests
+
+Tests must cover:
+
+* safe work-scoped path;
+* exclusive revision creation;
+* immutable published bytes;
+* absent or mutable convenience path not used for publication;
+* path traversal rejection;
+* path outside work root rejection;
+* non-JSON path rejection;
+* and record-set ID free of direct PII.
+
+### 21.6 Publication Record tests
+
+Core and integration tests must cover:
+
+* first `academic_result_set` publication;
+* required registration revision;
+* truthful capability validation;
+* exact SHA-256 binding;
+* exact replay idempotency;
+* contradictory revision reuse conflict;
+* later manifest publication superseding the current head;
+* wrong predecessor rejection;
+* branch and cycle rejection;
+* publication withdrawal;
+* withdrawal before publication rejection;
+* replay never restoring a withdrawal;
+* catalog rebuild from canonical records;
+* missing or corrupt catalog not invalidating canonical records;
+* and catalog update failure reported as partial success.
+
+### 21.7 Meridian compatibility fixtures
+
+Cross-repository fixtures should demonstrate:
+
+* Meridian discovering a Concord publication by kind and capability;
+* preserving publication ID and digest;
+* importing a supported manifest revision;
+* rejecting an unsupported manifest contract;
+* keeping standard-backed and local Scores distinct;
+* preserving non-score dispositions;
+* mapping exact scales only under explicit policy;
+* selecting repeated standards observations under explicit policy;
+* assigning results to exact Core Academic Period references;
+* recognizing a Concord Score derived from a ScoreForm or Quillan source;
+* applying an explicit overlap policy;
+* recalculating without mutating Concord;
+* preserving a prior calculation against an older publication;
+* and creating a report snapshot with exact source provenance.
 
 ### 21.8 End-to-end release gate
 
-Before the next school year, the coordinated versions must pass:
+Before claiming integrated release readiness, coordinated versions must pass:
 
-* all Core tests;
-* all ScoreForm tests;
-* all Quillan tests;
-* all Concord integration tests;
+* all applicable Core routing tests;
+* all Core registry and Academic Period tests;
+* Concord routing and native-domain tests;
+* Concord manifest contract tests;
+* Core publication integration tests;
+* Meridian producer-consumption fixtures;
 * one mixed-module scan test;
-* package installation in a clean Python 3.11 environment;
-* and command-line smoke tests without sibling repository path assumptions.
+* one cross-producer evidence-lineage test;
+* clean installation in the declared Python environment;
+* and command-line smoke tests without sibling checkout assumptions.
 
 ---
-
 ## 22. Explicit Non-Goals
 
 This integration does not:
 
-* implement the full Concord domain model;
-* implement Concord Review, Moderation, or Scoring;
-* make Core understand Artifact Authors or Subjects;
-* define a universal gradebook;
-* define the final assignment registry;
-* define academic-period calculation;
-* define assessment weighting;
-* add OCR or handwriting interpretation;
-* automate collaborative-performance judgment;
-* make Group evidence produce individual scores automatically;
-* define external cloud-document storage;
-* replace module-owned assignment or Activity schemas;
-* or require all PDS modules to use identical internal storage beneath their work roots.
+* make Core understand Concord Authors, Subjects, Review, Moderation, Criteria, Scores, or evidence meaning;
+* make Concord a Gradebook or formal reporting module;
+* make Meridian authoritative for Concord-native Scores;
+* make a Route Registration an Academic Work Registration;
+* make an Academic Work Registration a Grade item;
+* make a Publication Record a Grade or report;
+* make publication imply Grade inclusion;
+* infer Academic Period membership from native dates;
+* define one universal producer result schema;
+* normalize all Scoring Scales in Core;
+* make local Scores direct standards ratings;
+* make Group Scores individual Scores;
+* convert non-score dispositions into zero;
+* publish raw source scans or full evidence through the Core registry;
+* implement institution-wide authorization;
+* define a universal grading formula;
+* define one universal four-level proficiency scale;
+* prescribe Meridian evidence-selection or reassessment policy;
+* define cross-Activity producer manifests in the initial contract;
+* add standards, Grades, Academic Periods, or report metadata to PDS2;
+* require Concord to import Meridian;
+* or require Meridian to import Concord private code.
 
 ---
-
 ## 23. Implementation Status and Remaining Work
 
-The original version of this section listed implementation issues that were required to produce PDS2. The shared Core architecture has since been released. The list below distinguishes settled Core capability from remaining module-owned work.
+### 23.1 Released Core PDS2 foundation
 
-### 23.1 Implemented Core foundation
+Core 0.5 provides:
 
-The released Core 0.5 baseline provides the architectural capabilities required by this document:
-
-1. PDS2 page-locator parsing and serialization.
-2. `ModuleWorkRef`, `RouteLocator`, `ModuleRecordRef`, `RouteRegistration`, and route-resolution contracts.
+1. PDS2 parsing and serialization.
+2. `ModuleWorkRef`, `RouteLocator`, `ModuleRecordRef`, `RouteRegistration`, and route resolution.
 3. route-ID generation and validation.
-4. module-qualified class/work path helpers.
-5. deterministic route-registration storage and validation.
-6. module-profile registration and generic dispatch.
-7. generic routing failure and resolution schema version 2.
+4. module-qualified work-path helpers.
+5. deterministic Route Registration storage and validation.
+6. module-profile registration and generic page dispatch.
+7. routing failure and resolution schema version 2.
 8. source-scan retention and provenance.
-9. package and contract-version boundaries suitable for independent modules.
-10. shared standards libraries, profiles, durable standards IDs, and module-neutral validation.
+9. shared standards libraries, profiles, identifiers, and validation.
+10. package and contract boundaries suitable for independently installed modules.
 
-The earlier requirement to publish `pds-core 0.2.0` is superseded by the released `pds-core` 0.5.0 baseline.
+### 23.2 Core post-0.5 mainline architecture
 
-### 23.2 ScoreForm and Quillan
+Core mainline contains substantial implementation for:
 
-ScoreForm and Quillan remain responsible for their own current PDS2 page records, route registrations, scanning workflows, package dependencies, and result contracts.
+1. revisioned Academic Period calendars and exact references;
+2. revisioned Academic Work Registrations;
+3. producer-facing registration services;
+4. immutable Publication Records;
+5. publication supersession and withdrawal;
+6. producer-facing publication services and digest calculation;
+7. canonical registry retrieval;
+8. and a disposable SQLite discovery catalog.
 
-This Concord document does not serve as the current implementation tracker for those repositories. Their repositories and issues govern any remaining migration or maintenance work.
+These capabilities require release/version confirmation before Concord claims runtime support.
 
-### 23.3 Remaining Concord implementation work
+### 23.3 Completed Concord architecture work
 
-Later Concord implementation issues must:
+Concord has now established:
 
-1. declare `pds-core>=0.5,<0.6`;
-2. register the Concord module profile;
-3. use `activity_id` as the Concord routing `work_id`;
-4. create Artifact Page records before rendering;
-5. create route registrations for returned Artifact Pages;
-6. generate PDS2 QR codes through Core;
-7. resolve routes to Artifact Pages through a side-effect-free route handler;
-8. create Concord Scan References through a separate persistence service after successful dispatch;
-9. integrate routing results with filing and Review;
-10. preserve Core source-page provenance;
-11. test student, Group, Session, Activity, Event, unresolved-attribution, and multi-subject cases;
-12. implement Activity standards configuration and standard-backed/local Criterion semantics under ADR 0014;
-13. preserve direct standards-result meaning without placing standards data in QRs or generic route records;
-14. and expose future reporting handoff data through Concord-owned contracts rather than Core routing metadata.
+* ADR 0015;
+* the Concord Academic Result Manifest conceptual contract;
+* Core Academic Work Registration and Publication Record relationships;
+* standard-backed and local result publication semantics;
+* cross-producer evidence lineage;
+* manifest and publication revision distinctions;
+* withdrawal semantics;
+* and Meridian ownership boundaries.
 
-### 23.4 Future suite assignment and reporting work
+### 23.4 Remaining Concord documentation work
 
-A separate future design effort remains responsible for:
+Concord must still reconcile:
 
-* module-work discovery;
-* academic-period hierarchy;
-* assessment classification;
-* reporting eligibility;
-* rebuildable indexes;
-* stale-entry detection;
-* standards-result aggregation;
-* grading policy;
-* and reporting consumption.
+* cross-case requirements;
+* the high-level conceptual design;
+* cross-references in ADRs 0008 and 0014;
+* representative-example notation;
+* seminar, laboratory, and project examples;
+* and cross-example validation.
 
-That future work must reference module work through:
+### 23.5 Remaining Concord implementation work
 
-```text
-module_id + class_id + work_id
-```
+Later implementation issues must:
 
-It must not change the PDS2 QR grammar to carry grading, standards, academic-period, or reporting metadata.
+1. declare the released Core range supporting the required registry APIs;
+2. register the Concord routing profile;
+3. create Artifact Pages before rendering;
+4. create PDS2 Route Registrations;
+5. create Scan References after successful dispatch;
+6. implement explicit Academic Work Registration workflows;
+7. define and version the serialized Concord Academic Result Manifest;
+8. implement deterministic manifest generation and validation;
+9. implement immutable revision-addressed manifest storage;
+10. publish through Core’s producer-facing services;
+11. display publication, supersession, withdrawal, and partial-success states;
+12. expose producer publication compatibility metadata;
+13. test Meridian-compatible fixtures;
+14. and preserve all native/publication/consumer histories independently.
+
+### 23.6 Meridian implementation dependency
+
+Meridian remains in early architecture and documentation development.
+
+Concord must not freeze unsupported assumptions about:
+
+* final Meridian policy schemas;
+* final producer adapter APIs;
+* exact Grade-item contracts;
+* or report snapshot serialization.
+
+The Concord manifest should expose faithful native meaning and the information already required by accepted Core and Meridian architecture while leaving policy decisions to Meridian.
 
 ---
-
 ## 24. Architectural Acceptance Criteria
 
-The shared architecture represented by this document is satisfied when the following conditions hold. Core-level conditions are governed by the released Core contracts; module-level readiness must be verified in each consuming repository.
+The reconciled integration architecture is satisfied when all applicable conditions hold.
 
+### Routing and source evidence
 
+1. PDS2 remains the active generated QR format.
+2. Every expected returned page has durable route identity and a persisted Route Registration.
+3. The PDS2 QR contains only module, class, work, and route identity.
+4. Authors, Subjects, Groups, templates, Criteria, standards, and Score targets resolve from module records.
+5. Route Registrations are found deterministically.
+6. Route IDs are immutable and never silently repointed.
+7. Module work roots are qualified by module.
+8. Concord can route pages with no student Subject.
+9. Multi-subject and unresolved-attribution pages route correctly.
+10. Retained source scans remain canonical and every routed page remains traceable to source identity and source page.
 
-1. Core no longer requires `student_id` in its universal QR or normalized route model.
-2. Core no longer treats student submission directories as the universal route destination.
-3. PDS2 is the active generated QR format for ScoreForm, Quillan, and Concord.
-4. Every expected returned page has durable route identity and a persisted registration.
-5. The PDS2 QR contains only module, class, work, and route identity.
-6. Authors, Subjects, students, Groups, templates, and page semantics are resolved from module records.
-7. route registrations are found deterministically without recursive directory traversal.
-8. route IDs are immutable and never silently repointed.
-9. module work roots are qualified by module.
-10. ScoreForm, Quillan, and Concord can use the same `work_id` in the same class without collision.
-11. Core can dispatch mixed-module scans without importing sibling private code.
-12. generic failure metadata supports student and non-student routes.
-13. retained source scans remain canonical and immutable.
-14. all routed evidence remains traceable to its source scan and source page.
-15. every consuming module declares a compatible Core package dependency.
-16. every consuming module declares and tests a Python version compatible with its selected Core range.
-17. Concord routes valid pages with no student Subject.
-18. one teacher tracker can route as one Artifact while retaining several Subjects.
-19. unresolved Author or Subject status does not prevent correct page routing.
-20. the resulting identity model can be indexed later by a suite assignment registry without changing the QR contract.
-21. Core standards libraries and profiles remain separate from Concord-owned standards-scoring semantics.
-22. no standard, Criterion, Score target, rating, mastery state, Grade, or reporting category is encoded in PDS2 or generic Route Registration.
-23. a future reporting module can consume Concord standards results from Concord-owned records without reverse-engineering generic routing metadata.
+### Registration and publication
+
+11. A Concord Activity is not automatically registered as academic work.
+12. Explicit Academic Work Registration uses `concord + class_id + activity_id`.
+13. Registration preserves revision history and does not create a Grade item or Academic Period membership.
+14. Concord defines a versioned public Academic Result Manifest.
+15. Published manifests are immutable, revision-addressed, and beneath the exact Activity work root.
+16. Standard-backed and local Scores remain separately classified.
+17. Non-score dispositions remain explicit and omit `value`.
+18. Exact Criterion and Scoring Scale revisions remain reproducible.
+19. Cross-producer evidence lineage remains visible.
+20. Required Moderation state is sufficient to validate consequential evidence use.
+21. Core publishes the manifest as `academic_result_set` with truthful capabilities.
+22. Core binds exact bytes by SHA-256 and safe path.
+23. Exact replay is idempotent; contradictory revision reuse fails.
+24. Native Score supersession, manifest revision, Publication Record supersession, and withdrawal remain distinct.
+25. The catalog remains derived and nonauthoritative.
+
+### Meridian boundary
+
+26. Meridian can discover and import exact Concord publications without crawling work directories or importing Concord private code.
+27. Publication does not imply Grade-item membership or standards-evidence selection.
+28. Meridian preserves standard-backed versus local semantics.
+29. Meridian preserves Group versus individual targets.
+30. Meridian does not convert non-score dispositions into zero without explicit policy.
+31. Meridian recognizes cross-producer lineage and applies explicit overlap policy.
+32. Meridian uses exact Core Academic Period references and calendar revisions.
+33. Meridian calculations, overrides, and reports do not mutate Concord or Core records.
+34. Historical Meridian calculations and report snapshots retain their exact source publication identities and policy provenance.
+
+### Compatibility and release
+
+35. Routing compatibility and publication compatibility are declared separately.
+36. Every module declares compatible Core and Python versions.
+37. Unsupported schema, manifest, capability, or adapter versions fail explicitly.
+38. Concord does not claim runtime registry support against unreleased Core APIs.
+39. Cross-repository fixtures validate Concord publication and Meridian consumption.
+40. No standard, Criterion, Score, Grade, Academic Period, or report semantics are placed in PDS2 or generic Route Registration metadata.
 
 ---
-
 ## 25. Final Architectural Rule
 
-The shared Paper Data Suite QR and routing model is:
+The shared physical-page routing model is:
 
 ```text
 PDS2 QR
@@ -2021,7 +2715,7 @@ PDS2 QR
     -> persisted Core RouteRegistration
     -> typed module-owned page target
     -> module-owned semantic records
-    -> module-owned evidence, Review, Scoring, or reporting workflow
+    -> module-owned evidence workflow
 ```
 
 It is not:
@@ -2032,24 +2726,42 @@ QR
     -> universal student submission directory
 ```
 
-This distinction is required for Concord and provides the cleaner long-term contract for ScoreForm, Quillan, and future paper-processing modules.
-
-The corresponding standards boundary is:
+The shared academic-registration and publication model is:
 
 ```text
-Core standard/profile identity
-    -> Concord Activity Focus Standards
-    -> Concord standard-backed Criterion
-    -> teacher-approved Concord Score
-    -> future Concord-owned standards-result handoff
+Concord Activity as ModuleWorkRef
+    -> explicit Core Academic Work Registration
+    -> Concord canonical results
+    -> immutable Concord Academic Result Manifest revision
+    -> immutable Core Publication Record
+    -> Core discovery
 ```
 
 It is not:
 
 ```text
-PDS2 QR or Route Registration
-    -> inferred standard
-    -> inferred mastery or Grade
+Activity or Score exists
+    -> automatically graded or published
 ```
 
-Routing identifies the physical page. Concord-owned records identify the evidence, target, Criterion, governing standard, and teacher judgment.
+The grading and reporting model is:
+
+```text
+Core Publication Record
+    -> exact Concord manifest import
+    -> Meridian policy
+    -> selected evidence
+    -> proficiency or Grade
+    -> formal report snapshot
+```
+
+It is not:
+
+```text
+Core or Concord publication
+    -> inferred mastery, Grade, Academic Period, or report
+```
+
+The final boundary is:
+
+> Routing locates the physical page. Concord owns the contextual evidence and teacher judgment. Core registers work and publishes exact producer projections. Meridian owns grading and reporting policy.
