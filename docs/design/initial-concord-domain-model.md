@@ -733,10 +733,12 @@ For `standards_based` and `mixed` Activities:
 * `focus_standard_ids` is nonempty;
 * duplicate Focus Standard IDs are invalid;
 * order is meaningful for teacher-facing scoring and publication;
-* each Focus Standard should belong to the selected profile;
+* each Focus Standard must belong to the selected profile when the Activity is configured or revalidated;
 * and missing, inactive, or deprecated references must be reported without silently mutating the Activity.
 
 Selecting a Focus Standard does not create a Score, a publication, or a Meridian proficiency result.
+
+When a Criterion Set declares Core standards-profile context, every standard-backed Criterion in that Set must govern a standard belonging to that profile.
 
 #### Academic registration
 
@@ -1349,14 +1351,16 @@ The domain therefore uses a typed **Evidence Reference** rather than requiring e
 
 An Evidence Reference should identify:
 
-* evidence source kind;
-* owning system;
-* durable source identifier;
-* optional public contract version;
-* optional page or source location;
-* optional Subject context;
-* optional relevance note;
-* and optional Moderation requirement.
+- evidence source kind;
+- owning system;
+- durable source identifier;
+- optional public contract version;
+- optional exact source-publication reference;
+- optional page or source location;
+- optional Subject context;
+- and optional Moderation requirement.
+
+Relevance description and the applicable Moderation Record belong to the Score Evidence Link for a particular evidence use.
 
 Evidence ownership remains with the source record’s owner.
 
@@ -1609,7 +1613,7 @@ A `mixed` Criterion Set may contain both.
 * One Criterion Set contains one or more Criteria.
 * One Activity may select zero or many Criterion Sets.
 * One Criterion Set revision may be selected by zero or many Activities.
-* A Criterion Set becomes immutable once selected by an Activity that produces Scores.
+* Once a Criterion Set revision is selected by an Activity, its Criterion membership, order, and member Criterion scoring semantics are immutable.
 * Changes to Criterion membership, order, definition, governing standards, target applicability, classification, or scoring meaning require a new revision.
 * Historical Scores retain the exact referenced Criterion and Set revision.
 * Selecting a Criterion Set does not create Scores.
@@ -1748,6 +1752,8 @@ Changes require a new Scoring Scale revision.
 
 A Meridian grading and reporting module must not assume that similarly numbered scales are semantically equivalent.
 
+Each Scoring Scale revision must contain at least one level. Machine values must be unique within the revision, and ordering must be deterministic and duplicate-free when the Scale type uses ordering. A scored value must resolve to exactly one level.
+
 ### 10.5 Score Record
 
 A **Score Record** is one teacher-approved judgment about one Criterion for one target.
@@ -1879,11 +1885,22 @@ mixed_basis
 
 A teacher may enter a Score through professional judgment without one controlling Artifact.
 
-When no formal Score Evidence Link exists:
+When `basis = professional_judgment` and no formal Score Evidence Link exists:
 
-* rationale is required;
-* scorer provenance is required;
-* and the Activity context must be explicit.
+- rationale is required;
+- scorer provenance is required;
+- and the Activity context must be explicit.
+
+When `basis = linked_evidence`:
+
+- at least one active Score Evidence Link is required.
+
+When `basis = mixed_basis`:
+
+- at least one active Score Evidence Link is required;
+- and rationale is required to preserve the professional-judgment component.
+
+A Score with zero Score Evidence Links must use `basis = professional_judgment`.
 
 #### Individual Scores and Group evidence
 

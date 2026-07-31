@@ -1223,7 +1223,8 @@ Cancellation may occur from a non-archived state.
 * `standards_based` and `mixed` Activities require one valid `standards_profile_id` and a nonempty ordered `focus_standard_ids` collection.
 * `evidence_only` and `local_criteria_only` Activities do not require standards configuration.
 * Duplicate Focus Standard IDs are invalid.
-* Focus Standards should belong to the selected profile.
+* Every Focus Standard must belong to the selected profile when the Activity is configured or revalidated.
+* Later profile-membership changes, inactivity, or deprecation do not rewrite historical Activity, Criterion, or Score records.
 * Selecting a Focus Standard does not create a Score or establish mastery.
 * A standard-backed Criterion used by the Activity must govern one of the Activity’s Focus Standards.
 * An Activity is not automatically a graded assignment.
@@ -2084,8 +2085,8 @@ mixed
 * A `standard_backed` Set contains only standard-backed Criteria.
 * A `local` Set contains only local Criteria.
 * A `mixed` Set may contain both kinds.
-* When `standards_profile_id` is present, each standard-backed Criterion should govern a standard in that profile.
-* A Criterion Set becomes immutable once selected by an Activity that produces Scores.
+* When `standards_profile_id` is present, each standard-backed Criterion must govern a standard in that profile.
+* Once a Criterion Set revision is selected by an Activity, its Criterion membership, order, and member Criterion scoring semantics are immutable.
 * Changes to Criterion membership, order, definitions, governing standards, target applicability, classification, or scoring meaning require a new revision.
 * Historical Scores retain the exact referenced Criterion and Set revision.
 * Selecting a Criterion Set does not create Scores.
@@ -2178,7 +2179,7 @@ A downstream module must not duplicate, split, average, or apportion one holisti
 * A local Criterion has no governing `standard_id`.
 * `alignment_standard_ids` on a local Criterion do not create direct standards semantics.
 * A standard-backed Criterion used by an Activity must govern one of that Activity’s Focus Standards.
-* A Criterion used by a Score is immutable.
+* A Criterion’s classification, governing or aligned standards, definition, target applicability, and scoring interpretation become immutable when its parent Criterion Set revision is selected by an Activity.
 * A change to `criterion_kind`, governing standard, definition, target applicability, or scoring interpretation creates a new Criterion identity in a new or revised Criterion Set.
 * Target-kind constraints must be validated.
 * One Score Record evaluates exactly one Criterion.
@@ -2210,13 +2211,13 @@ Concord does not impose one universal standards-rating scale.
 | `created_provenance` | Required | Creation provenance |
 | `supersedes_scoring_scale_id` | Optional | Earlier revision |
 
-Each level should define:
+Each level must define:
 
-* machine value;
-* display label;
-* meaning;
-* ordering where applicable;
-* and optional description.
+* a machine value unique within the Scoring Scale revision;
+* a display label;
+* a meaning;
+* ordering when required by the `scale_type`;
+* and an optional description.
 
 ### Invariants
 
@@ -2226,6 +2227,10 @@ Each level should define:
 * Two scales are not semantically equivalent merely because they use the same numeric values or number of levels.
 * Aggregation guidance does not perform cross-scale normalization, mastery determination, or course-grade calculation.
 * Meridian must use an explicit, versioned policy before comparing, mapping, or combining different scale revisions.
+* A Scoring Scale revision contains at least one level.
+* Each machine value is unique within the exact Scale revision.
+* A scored value resolves to exactly one level.
+* Ordering, when present, is deterministic and contains no duplicate positions.
 
 ## 13.4 Score Record
 
@@ -2344,6 +2349,18 @@ When `basis = professional_judgment` and there are no Score Evidence Links:
 * `rationale` is required;
 * scorer provenance is required;
 * and the Activity context must be explicit.
+
+When `basis = linked_evidence`:
+
+- at least one active Score Evidence Link is required;
+- and `rationale` is optional unless required by workflow policy.
+
+When `basis = mixed_basis`:
+
+- at least one active Score Evidence Link is required;
+- and `rationale` is required to preserve the professional-judgment component.
+
+A Score with zero Score Evidence Links must use `basis = professional_judgment`.
 
 When `score_kind = standard_backed`:
 
@@ -2646,10 +2663,10 @@ A bare scale ID without resolvable semantics is insufficient for independent dow
 
 Each projected level must preserve, as applicable:
 
-* machine value;
+* the unique machine value from the native Scale revision;
 * display label;
 * meaning;
-* ordering;
+* exact ordering;
 * and description.
 
 ### Invariants
@@ -2659,6 +2676,8 @@ Each projected level must preserve, as applicable:
 * Concord does not normalize a scale to percentage, points, letter Grade, or universal proficiency.
 * Meridian may map a scale only through explicit, versioned policy.
 * Aggregation guidance is not a Grade calculation.
+* Projected machine values remain unique within the projected Scale revision.
+* A projected scored value resolves to exactly one projected level.
 
 ## 13.10 Manifest Score Projection
 

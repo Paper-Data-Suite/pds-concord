@@ -81,20 +81,15 @@ It does not:
 
 ## Score Record
 
-A Score Record remains one teacher-approved judgment about:
-
-* exactly one Criterion;
-* for exactly one target;
-* using one exact Scoring Scale revision;
-* in one Activity context.
-
 A Score Record may have:
 
-* no Score Evidence Links;
-* one Score Evidence Link;
-* or several Score Evidence Links.
+- no Score Evidence Links only when `basis = professional_judgment`;
+- one or more Score Evidence Links when `basis = linked_evidence`;
+- or one or more Score Evidence Links when `basis = mixed_basis`.
 
-The number of links does not change the Score Record’s core identity.
+A `mixed_basis` Score must also preserve a rationale for the professional-judgment component.
+
+The number of links does not change the Score Record’s core identity or determine its value.
 
 For example:
 
@@ -145,13 +140,16 @@ A Score Evidence Link therefore uses a typed Evidence Reference rather than requ
 
 A typed Evidence Reference should identify:
 
-* evidence source type;
-* owning module where applicable;
-* durable source identifier;
-* optional page or evidence location;
-* optional Subject context;
-* optional relevance description;
-* and applicable Moderation state.
+- evidence source type;
+- owning system;
+- durable source identifier;
+- optional public contract version;
+- optional exact source-publication reference;
+- optional source locator;
+- optional Subject context;
+- and optional Moderation requirement.
+
+Relevance description, significance, and the applicable Moderation Record belong to the Score Evidence Link rather than the Evidence Reference.
 
 The evidence source remains owned by its original Concord concept, Paper Data Suite module, or authorized external system.
 
@@ -161,15 +159,17 @@ Each Score Evidence Link should have its own durable identity.
 
 It should be capable of recording:
 
-* durable `score_evidence_link_id`;
-* parent `score_record_id`;
-* typed Evidence Reference;
-* optional evidence locator;
-* relevance or use description;
-* optional significance note;
-* applicable Moderation status or decision reference;
-* creation provenance;
-* and correction or supersession history where required.
+- durable `score_evidence_link_id`;
+- parent `score_record_id`;
+- typed Evidence Reference;
+- optional evidence locator;
+- optional Subject context;
+- required relevance or use description;
+- optional significance note;
+- applicable Moderation Record reference where required;
+- lifecycle status;
+- creation provenance;
+- and correction or supersession history where required.
 
 ### Link identity
 

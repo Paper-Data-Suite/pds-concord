@@ -39,10 +39,14 @@ Findings will be classified as:
 | REG-002 | Activity identity and Core registration | Minor clarification | Resolved | Concord registration only recommends, rather than requires, an Activity source reference. | Make the matching Activity `ModuleRecordRef` a Concord invariant |
 | REG-003 | Activity identity and Core registration | Minor clarification | Resolved | “Applicable registration revision” is less precise than Core’s current-revision publication requirement. | Require the exact current revision at publication time |
 | REG-004 | Activity identity and Core registration | No issue identified | Reviewed | Activity identity, explicit registration, revision history, and separation from grading are coherent. | None |
-| ESM-001 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | Score basis values do not fully constrain required evidence-link cardinality and rationale. | Define rules for `linked_evidence`, `professional_judgment`, and `mixed_basis` |
-| ESM-002 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | Older Evidence Reference descriptions contain relevance and Moderation semantics that belong to Score Evidence Links. | Align ADR 0009 and the initial domain model with the finalized contracts |
-| ESM-003 | Evidence, Review, Moderation, and Scoring | Minor clarification | Open | ADR 0008 describes Artifact Review too broadly as a generic routed-evidence Review. | Narrow the wording to one Artifact Instance and its routed evidence |
+| ESM-001 | Evidence, Review, Moderation, and Scoring | Minor clarification | Resolved | Score basis values do not fully constrain required evidence-link cardinality and rationale. | Define rules for `linked_evidence`, `professional_judgment`, and `mixed_basis` |
+| ESM-002 | Evidence, Review, Moderation, and Scoring | Minor clarification | Resolved | Older Evidence Reference descriptions contain relevance and Moderation semantics that belong to Score Evidence Links. | Align ADR 0009 and the initial domain model with the finalized contracts |
+| ESM-003 | Evidence, Review, Moderation, and Scoring | Minor clarification | Resolved | ADR 0008 describes Artifact Review too broadly as a generic routed-evidence Review. | Narrow the wording to one Artifact Instance and its routed evidence |
 | ESM-004 | Evidence, Review, Moderation, and Scoring | No issue identified | Reviewed | Evidence, Review, Moderation, Score, lineage, correction, publication, and grading remain coherently separated. | None |
+| CSS-001 | Criteria, Scales, and Score semantics | Minor clarification | Resolved | Standards-profile membership is stated as advisory rather than required validation. | Make Focus Standard and profile-bound Criterion membership mandatory at configuration and validation boundaries |
+| CSS-002 | Criteria, Scales, and Score semantics | Minor clarification | Resolved | Criterion Set and Criterion immutability begins too late and is described inconsistently. | Make scoring semantics immutable when a Criterion Set revision is selected by an Activity |
+| CSS-003 | Criteria, Scales, and Score semantics | Minor clarification | Resolved | Scoring Scale levels lack explicit machine-value uniqueness and deterministic-ordering invariants. | Require unique values, unambiguous ordering, and one-level resolution |
+| CSS-004 | Criteria, Scales, and Score semantics | No issue identified | Reviewed | Standard/local classification, one-standard semantics, exact Scale interpretation, target distinctions, and the Meridian boundary are coherent. | None |
 
 ## 4. Review Areas
 
@@ -995,3 +999,494 @@ No-issue findings: 1
 The evidence, Review, Moderation, and Scoring foundation is suitable for continued review.
 
 The three open findings tighten existing contracts. They do not require new foundational entities, a new ADR, changes to Core, changes to Meridian, or revisions to the representative records.
+
+## 8. Criteria, Scoring Scales, and Score Semantics Review
+
+### 8.1 Review Question
+
+Do Concord’s Criterion, Criterion Set, Scoring Scale, and Score contracts preserve unambiguous standards meaning, exact historical interpretation, valid target semantics, and a clear boundary between contextual producer judgments and Meridian-owned proficiency or Grade calculations?
+
+### 8.2 Standards Profile and Focus Standard Relationship
+
+A `standards_based` or `mixed` Activity uses:
+
+```text
+one Core standards_profile_id
+    -> one or more ordered focus_standard_ids
+    -> one or more standard-backed Criteria
+    -> teacher-approved standard-backed Scores
+```
+
+Core owns:
+
+* standard identity;
+* profile identity;
+* profile membership;
+* active, inactive, and deprecated status;
+* and module-neutral validation.
+
+Concord owns:
+
+* the selection of Focus Standards;
+* Activity-specific Criterion definitions;
+* Criterion classification;
+* Score targets;
+* exact Scoring Scale selection;
+* and the resulting teacher-approved contextual judgment.
+
+The selected profile is not merely display context. At Activity configuration and validation boundaries, every selected Focus Standard must belong to that profile.
+
+A later change to Core profile membership or standard lifecycle must not silently rewrite historical Concord records.
+
+### 8.3 Criterion Classification
+
+Every scoring Criterion is classified as:
+
+```text
+standard_backed
+local
+```
+
+A standard-backed Criterion:
+
+* has exactly one governing `standard_id`;
+* defines how that standard is judged in the Activity context;
+* must govern one of the Activity’s ordered Focus Standards;
+* and may produce a direct contextual standards Score.
+
+A local Criterion:
+
+* has no governing `standard_id`;
+* may carry non-governing alignment metadata;
+* and must not produce a direct standards result.
+
+The architecture correctly rejects using one holistic Score as several standards ratings.
+
+When one behavior relates directly to several standards, Concord ordinarily creates separate standard-backed Criteria and separate Score Records. A genuinely holistic Criterion remains local unless a later explicit composite contract is established.
+
+### 8.4 Criterion Set and Criterion Immutability
+
+Criterion Set revisions preserve:
+
+* ordered Criterion membership;
+* Criterion classification;
+* governing standards;
+* target applicability;
+* definitions;
+* and scoring interpretation.
+
+Once a Criterion Set revision is selected by an Activity, those scoring semantics must not change in place.
+
+A teacher-facing interface may edit an unselected draft configuration, but an Activity must not continue to reference the same Criterion Set and Criterion identities after their academic meaning changes.
+
+Changes to:
+
+* Criterion membership;
+* order;
+* classification;
+* governing or aligned standards;
+* definition;
+* target applicability;
+* or scoring interpretation
+
+require a new Criterion Set revision and new Criterion identities for the changed Criteria.
+
+Historical Scores continue to reference the exact Criterion and Criterion Set revision used for the original judgment.
+
+### 8.5 Scoring Scale Semantics
+
+A Scoring Scale is one exact immutable revision of the values and meanings available to Score Records.
+
+It preserves:
+
+* scale identity;
+* lineage;
+* revision;
+* scale type;
+* permitted machine values;
+* display labels;
+* meanings;
+* ordering where applicable;
+* and optional nonbinding aggregation guidance.
+
+Every machine value must resolve to exactly one level within the Scale revision.
+
+Two Scales are not equivalent merely because they:
+
+* contain the same number of levels;
+* use the same numeric values;
+* use similar labels;
+* or appear in the same order.
+
+For example:
+
+```text
+1 = Developing
+2 = Approaching
+3 = Meeting
+4 = Exceeding
+```
+
+is not automatically equivalent to:
+
+```text
+1 = Beginning
+2 = Developing
+3 = Proficient
+4 = Advanced
+```
+
+Scale mapping, normalization, weighting, and proficiency interpretation remain explicit, versioned Meridian policy.
+
+### 8.6 Score Semantics
+
+A Score Record remains one teacher-approved judgment about:
+
+* exactly one Criterion;
+* exactly one target;
+* one exact Scoring Scale revision;
+* and one defined Activity context.
+
+For a standard-backed Score:
+
+```text
+Score
+    -> standard-backed Criterion
+    -> exactly one governing standard_id
+    -> exactly one target
+    -> exactly one Scoring Scale revision
+```
+
+The direct `standard_id` on the Score is a deliberate historical and interoperability field. It must match the immutable referenced Criterion.
+
+For a local Score:
+
+```text
+score_kind: local
+standard_id: absent
+```
+
+Optional Criterion alignment does not convert that Score into a direct standards result.
+
+### 8.7 Target Compatibility
+
+The Score target must be explicitly permitted by the selected Criterion.
+
+An individual Score may use relevant Group or multi-subject evidence, but it remains an individual teacher judgment.
+
+A Group Score:
+
+* does not create individual Score Records;
+* does not copy its value to Group members;
+* does not establish equal contribution;
+* and does not become individual standards evidence automatically.
+
+A standard-backed Group Score is valid only when:
+
+* the governing standard supports the represented Group-level judgment;
+* the Criterion permits a `concord_group` target;
+* and the teacher deliberately selects the Group.
+
+The Group target remains visible downstream. Meridian must not silently reinterpret it as a student-target result.
+
+### 8.8 Contextual Score Versus Proficiency
+
+A standard-backed Concord Score is one contextual observation.
+
+It is not automatically:
+
+* mastery;
+* final proficiency;
+* course-level attainment;
+* marking-period performance;
+* Grade-item membership;
+* an Academic Period result;
+* or a course Grade.
+
+Several judgments concerning the same standard may differ by:
+
+* Activity;
+* Session;
+* target;
+* producer module;
+* evidence;
+* Criterion definition;
+* or Scoring Scale revision.
+
+Meridian determines which observations are eligible and how they are selected, mapped, combined, excluded, or reported under an explicit policy.
+
+### 8.9 Representative-Example Assessment
+
+The seminar, laboratory, and project examples collectively demonstrate:
+
+* standard-backed Criteria with exactly one governing standard;
+* local Criteria with no governing standard;
+* non-governing local alignment;
+* exact Criterion and Scale projections;
+* individual standards Scores;
+* Group standards Scores;
+* Group evidence supporting individual judgment only through explicit teacher action;
+* standard-backed and local Scores coexisting without semantic merging;
+* distinct standards and local Scales;
+* non-score dispositions without values;
+* and contextual Scores that are not presented as proficiency or Grades.
+
+No representative example requires a new scoring entity or contradicts the intended Criterion, Scale, target, or Score architecture.
+
+### 8.10 Findings
+
+#### CSS-001 — Standards-profile membership is stated as advisory
+
+| Field                            | Value                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Standards profile and Focus Standard validation                                                                                                                                                                                                                                                                                                     |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                                                 |
+| Status                           | Open                                                                                                                                                                                                                                                                                                                                                |
+| Finding                          | Several governing documents say that selected Focus Standards or profile-bound Criteria “should” belong to the selected standards profile. Core owns profile-membership validation, and the Activity contract describes the profile as the source of the Focus Standards. Membership must therefore be a validation requirement rather than advice. |
+| Required action                  | Replace advisory profile-membership language with mandatory validation language while preserving historical records when later Core profile or lifecycle state changes.                                                                                                                                                                             |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                                                                                  |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                                                                                  |
+| Example changes required         | No                                                                                                                                                                                                                                                                                                                                                  |
+
+##### Exact corrections
+
+In `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`, line 335, replace:
+
+> `* every selected standard should belong to the selected profile;`
+
+with:
+
+```markdown
+* every selected standard must belong to the selected profile when the Activity is configured or revalidated;
+```
+
+After the Focus Standard rules, add:
+
+```markdown
+Later profile-membership changes, inactivity, or deprecation must be reported explicitly without mutating historical Activity, Criterion, or Score records.
+```
+
+In `docs/design/conceptual-data-contracts.md`, line 1226, replace:
+
+> `* Focus Standards should belong to the selected profile.`
+
+with:
+
+```markdown
+* Every Focus Standard must belong to the selected profile when the Activity is configured or revalidated.
+* Later profile-membership changes, inactivity, or deprecation do not rewrite historical Activity, Criterion, or Score records.
+```
+
+In the same document, line 2087, replace:
+
+> `* When standards_profile_id is present, each standard-backed Criterion should govern a standard in that profile.`
+
+with:
+
+```markdown
+* When `standards_profile_id` is present, each standard-backed Criterion must govern a standard in that profile.
+```
+
+In `docs/design/initial-concord-domain-model.md`, line 736, replace:
+
+> `* each Focus Standard should belong to the selected profile;`
+
+with:
+
+```markdown
+* each Focus Standard must belong to the selected profile when the Activity is configured or revalidated;
+```
+
+After the Criterion Set classification rules, add:
+
+```markdown
+When a Criterion Set declares Core standards-profile context, every standard-backed Criterion in that Set must govern a standard belonging to that profile.
+```
+
+#### CSS-002 — Criterion immutability begins too late and is described inconsistently
+
+| Field                            | Value                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Criterion and Criterion Set revision semantics                                                                                                                                                                                                                                                                                                                   |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                                                              |
+| Status                           | Open                                                                                                                                                                                                                                                                                                                                                             |
+| Finding                          | The contracts call Criterion Sets immutable revisions but state that a Set becomes immutable only when selected by an Activity that “produces Scores,” while an individual Criterion becomes immutable only when used by a Score. This leaves room for an Activity’s configured Criteria or generated scoring materials to change before the first Score exists. |
+| Required action                  | Make Criterion Set membership, order, and member Criterion scoring semantics immutable once the Set revision is selected by an Activity.                                                                                                                                                                                                                         |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                                                                                               |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                                                                                               |
+| Example changes required         | No                                                                                                                                                                                                                                                                                                                                                               |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, line 2088, replace:
+
+> `* A Criterion Set becomes immutable once selected by an Activity that produces Scores.`
+
+with:
+
+```markdown
+* Once a Criterion Set revision is selected by an Activity, its Criterion membership, order, and member Criterion scoring semantics are immutable.
+```
+
+In the same document, line 2181, replace:
+
+> `* A Criterion used by a Score is immutable.`
+
+with:
+
+```markdown
+* A Criterion’s classification, governing or aligned standards, definition, target applicability, and scoring interpretation become immutable when its parent Criterion Set revision is selected by an Activity.
+```
+
+Retain the following rule that a semantic change creates a new Criterion identity and Criterion Set revision.
+
+In `docs/design/initial-concord-domain-model.md`, line 1612, replace:
+
+> `* A Criterion Set becomes immutable once selected by an Activity that produces Scores.`
+
+with:
+
+```markdown
+* Once a Criterion Set revision is selected by an Activity, its Criterion membership, order, and member Criterion scoring semantics are immutable.
+```
+
+In `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`, line 504, replace:
+
+> `Criterion Sets and Criteria used by Scores remain immutable under the existing historical-preservation decisions.`
+
+with:
+
+```markdown
+Once a Criterion Set revision is selected by an Activity, its membership, order, and member Criterion scoring semantics are immutable under the existing historical-preservation decisions.
+```
+
+In the same section, replace:
+
+> `requires a new Criterion revision or identity under the later finalized contract.`
+
+with:
+
+```markdown
+requires a new Criterion identity in a new Criterion Set revision.
+```
+
+#### CSS-003 — Scale levels lack explicit uniqueness and ordering invariants
+
+| Field                            | Value                                                                                                                                                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Scoring Scale interpretation                                                                                                                                                                                                                                |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                         |
+| Status                           | Open                                                                                                                                                                                                                                                        |
+| Finding                          | The contracts require permitted Scale values and exact revision references but do not explicitly require machine values to be unique or ordering to be deterministic. A duplicated machine value could make one Score value resolve to more than one level. |
+| Required action                  | Require at least one level, unique machine values within each Scale revision, and deterministic nonduplicated ordering where ordering applies.                                                                                                              |
+| Architecture change required     | No                                                                                                                                                                                                                                                          |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                          |
+| Example changes required         | No; all represented Scale values and order positions are already unique                                                                                                                                                                                     |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, lines 2213–2219, replace:
+
+> Each level should define:
+>
+> * machine value;
+> * display label;
+> * meaning;
+> * ordering where applicable;
+> * and optional description.
+
+with:
+
+```markdown
+Each level must define:
+
+* a machine value unique within the Scoring Scale revision;
+* a display label;
+* a meaning;
+* ordering when required by the `scale_type`;
+* and an optional description.
+```
+
+Add to the Scale invariants:
+
+```markdown
+* A Scoring Scale revision contains at least one level.
+* Each machine value is unique within the exact Scale revision.
+* A scored value resolves to exactly one level.
+* Ordering, when present, is deterministic and contains no duplicate positions.
+```
+
+In the Manifest Scoring Scale Projection section of the same document, lines 2647–2653, replace:
+
+> Each projected level must preserve, as applicable:
+>
+> * machine value;
+> * display label;
+> * meaning;
+> * ordering;
+> * and description.
+
+with:
+
+```markdown
+Each projected level must preserve, as applicable:
+
+* the unique machine value from the native Scale revision;
+* display label;
+* meaning;
+* exact ordering;
+* and description.
+```
+
+Add to the projection invariants:
+
+```markdown
+* Projected machine values remain unique within the projected Scale revision.
+* A projected scored value resolves to exactly one projected level.
+```
+
+In `docs/design/initial-concord-domain-model.md`, after lines 1730–1743 describing the Scoring Scale contents, add:
+
+```markdown
+Each Scoring Scale revision must contain at least one level. Machine values must be unique within the revision, and ordering must be deterministic and duplicate-free when the Scale type uses ordering. A scored value must resolve to exactly one level.
+```
+
+In `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`, after lines 618–625 describing what the Scale preserves, add:
+
+```markdown
+Within one Scoring Scale revision:
+
+* at least one level is required;
+* every machine value must be unique;
+* a scored value must resolve to exactly one level;
+* and ordering must be deterministic and duplicate-free when applicable.
+```
+
+#### CSS-004 — Criterion, Scale, target, and Score semantics are otherwise coherent
+
+| Field           | Value                                                                                                                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Criteria, Scoring Scales, and Score semantics                                                                                                                                                                                                                                                                          |
+| Severity        | No issue identified                                                                                                                                                                                                                                                                                                    |
+| Status          | Reviewed                                                                                                                                                                                                                                                                                                               |
+| Finding         | The foundation consistently preserves standard-backed versus local classification, exactly one governing standard, exact Scale revision semantics, explicit target compatibility, Group-versus-individual distinctions, and the boundary between contextual Concord Scores and Meridian-derived proficiency or Grades. |
+| Required action | None beyond CSS-001 through CSS-003.                                                                                                                                                                                                                                                                                   |
+
+### 8.11 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+No-issue findings: 1
+```
+
+The Criteria, Scoring Scales, and Score semantics foundation is suitable for continued review.
+
+The three open findings strengthen validation and reproducibility. They do not require:
+
+* a new foundational record type;
+* a new ADR;
+* changes to Core;
+* changes to Meridian;
+* or revisions to the representative example records.
