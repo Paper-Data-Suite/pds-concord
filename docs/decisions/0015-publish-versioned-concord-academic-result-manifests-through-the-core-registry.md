@@ -808,15 +808,20 @@ record_id
 optional contract_version
 ```
 
-When Concord knows that the external source was imported or resolved through a Core Publication Record, the lineage may additionally expose:
+When the external source revision was imported or resolved through a Core Publication Record, or when an exact compatible producer publication is verified to expose the source revision used, the lineage must include an exact Core Publication Reference.
 
-```text
-source_publication_id
-```
+The referenced producer manifest must expose the exact source record identified by the lineage.
 
-or another exact Core publication reference approved by the public contract.
+When no source publication exists, lineage must preserve another immutable source-version mechanism, such as:
 
-That publication reference is optional unless a later integration contract requires it.
+* immutable external record identity;
+* explicit external revision identity;
+* versioned export identity with integrity information;
+* or a bounded evidence snapshot.
+
+A mutable current-result reference, mutable path, or display label alone is insufficient for consequential evidence lineage.
+
+A later source publication must not be attached merely because it contains the same logical record ID. Concord must verify exact source-revision equivalence.
 
 ## Cross-Producer Double-Counting Risk
 

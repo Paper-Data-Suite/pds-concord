@@ -668,7 +668,7 @@ An **Evidence Reference** identifies one evidence source without transforming ev
 | `owning_system`               | Required | Owner of the source |
 | `record_id`                   | Required | Durable source identifier |
 | `contract_version`            | Optional | Public source-contract version |
-| `source_publication_reference` | Optional | Exact Core Publication Record through which an external source revision was resolved, when known |
+| `source_publication_reference` | Conditional | Required when the external source revision was resolved through, or verified against, an exact Core Publication Record; otherwise omitted only when another immutable source-version mechanism is preserved |
 | `locator`                     | Optional | Location within a broader source |
 | `subject_context`             | Optional | Subject relevant to this use |
 | `moderation_requirement`      | Optional | Whether moderation is required |
@@ -685,15 +685,37 @@ Initial evidence kinds include:
 * `quillan_response`;
 * and `external_record`.
 
+### Cross-producer representation
+
+When Concord maintains a durable contextual relationship to an external record, the Evidence Reference uses the indirect form:
+
+```yaml
+evidence_kind: external_record
+owning_system: concord
+record_id: <external_reference_id>
+```
+
+The referenced Concord External Reference supplies the actual external owning system, record kind, record ID, contract version, relationship purpose, and availability state.
+
+A direct source-owned Evidence Reference using `scoreform_result`, `quillan_response`, or another approved external kind is permitted only when no Concord External Reference is used for that evidence relationship.
+
+One Score Evidence Link must not identify the same external source through both the indirect External Reference form and a direct source-owned Evidence Reference.
+
 ### Invariants
 
 * Evidence ownership remains with the source record’s owner.
 * The reference does not copy or reinterpret the source.
 * The evidence kind must be compatible with the owning system.
 * A reference to evidence does not create a Score.
-* `source_publication_reference`, when present, identifies the exact Core publication through which the source revision became discoverable; it does not transfer ownership to Core.
-* Absence of `source_publication_reference` does not make the external record invalid when another durable public reference is available.
+* `source_publication_reference`, when present, identifies the exact Core publication whose bound manifest exposes the source revision used; it does not transfer ownership to Core.
+* When the evidence was resolved through a Core Publication Record, or an exact compatible publication is verified to contain the source revision used, `source_publication_reference` is required.
+* When no source publication is available, the Evidence Reference must preserve another immutable source-version mechanism.
+* A mutable current-result reference, mutable path, or display label alone is insufficient for consequential evidence use.
+* A later publication must not be attached solely because it contains the same logical record ID; exact source-revision equivalence must be verified.
 * Two producer results must not be presumed independent when one is explicitly recorded as evidence for the other.
+* When `evidence_kind = external_record` and `owning_system = concord`, `record_id` must resolve to an existing Concord External Reference.
+* A direct source-owned Evidence Reference must identify the actual external owner, public record kind, and durable record ID.
+* One Score Evidence Link uses exactly one direct or indirect source representation.
 
 ## 7.8 Evidence Locator
 
@@ -893,7 +915,8 @@ Concord stores durable references and owns their Activity-, Criterion-, Score-, 
 * A standard display code, title, or description is not a durable identity.
 * `focus_standard_ids` order is meaningful for teacher-facing scoring, manifest projection, and Meridian interpretation.
 * Duplicate Focus Standard IDs are invalid.
-* When a profile and Focus Standards are present, every Focus Standard should belong to that profile.
+* Every Focus Standard must belong to the selected profile when the Activity is configured or revalidated.
+* Later profile-membership changes, inactivity, or deprecation do not rewrite historical Activity, Criterion, or Score records.
 * A selected Focus Standard does not by itself establish that the standard was taught, practiced, assessed, demonstrated, or mastered.
 * A standard becomes a direct Concord result only through an explicit teacher-approved standard-backed Score Record.
 * `alignment_standard_ids` on a local Criterion are non-governing and must not be converted into direct standards Scores.
@@ -2828,7 +2851,7 @@ It is derived from Score Evidence Links, Evidence References, External Reference
 | `score_record_id` | Required | Supported Score |
 | `evidence_reference` | Required | Typed source evidence |
 | `source_record_reference` | Required | Durable Concord or module-qualified source record |
-| `source_publication_reference` | Optional | Exact Core source publication when known |
+| `source_publication_reference` | Conditional | Required when the source revision was resolved through or verified against an exact Core Publication Record |
 | `evidence_locator` | Optional | Relevant location within source |
 | `subject_context` | Optional | Subject relevant to this use |
 | `relevance_description` | Required | Why the source supports this Score |
@@ -2864,6 +2887,13 @@ It does not require Meridian always to exclude either source.
 * Concord must not suppress lineage merely to simplify downstream calculation.
 * Rejected evidence must not remain active support for a consequential Score.
 * Access to a Score does not imply access to all source evidence.
+* When `evidence_reference` identifies a Concord External Reference, `source_record_reference` must exactly match that External Reference’s external owning system, record kind, record ID, and compatible contract version.
+* When `evidence_reference` directly identifies a source-owned record, `source_record_reference` must identify the same source record.
+* A projection-level `source_publication_reference` and any `source_publication_reference` inside `evidence_reference` must be both absent or exactly equal.
+* When `source_publication_reference` is present, its bound producer manifest must expose the exact `source_record_reference`.
+* The source publication’s producer module must match the originating source owner.
+* Conflicting source-publication references are invalid.
+* Later source-publication supersession or withdrawal does not silently retarget or rewrite the Concord Score, Evidence Reference, Score Evidence Link, or published Concord manifest.
 
 ## 13.12 Manifest Moderation Projection
 
@@ -3533,6 +3563,7 @@ Examples include:
 * Concord must not require a runtime dependency on ScoreForm or Quillan.
 * An external result does not automatically become a Concord Score.
 * Physical packet assembly does not transfer ownership.
+* An External Reference identifies a logical external relationship; the exact source revision used for a particular Score belongs to that Score’s Evidence Reference and Score Evidence Link.
 
 ## 15. Optional extension contracts
 

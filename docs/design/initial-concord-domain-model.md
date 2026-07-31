@@ -1360,6 +1360,15 @@ An Evidence Reference should identify:
 - optional Subject context;
 - and optional Moderation requirement.
 
+For cross-producer evidence, Concord may use either:
+
+1. an indirect Evidence Reference to a Concord External Reference; or
+2. a direct module-qualified reference to the external source record.
+
+The indirect form is preferred when Concord must preserve Activity context, relationship purpose, availability, correction, or supersession independently of one Score Evidence Link.
+
+One evidence use must not represent the same external record through both forms.
+
 Relevance description and the applicable Moderation Record belong to the Score Evidence Link for a particular evidence use.
 
 Evidence ownership remains with the source record’s owner.
@@ -2205,7 +2214,9 @@ external producer result
 
 from unrelated evidence produced by separate observations.
 
-When known, lineage may include the exact Core Publication Record identity of the external source.
+When the exact external source revision was resolved through, or verified against, a Core Publication Record, lineage must preserve that exact Publication Record identity.
+
+When no source publication exists, lineage must preserve another immutable source-version mechanism. A mutable current-result reference alone is insufficient for consequential use.
 
 Concord does not decide whether Meridian should use:
 
@@ -2458,9 +2469,12 @@ It should contain:
 * optional provider-neutral locator;
 * optional descriptive label;
 * last-confirmed timestamp where available;
-* optional exact Core source-publication reference when known;
 * creation provenance;
 * and optional superseded External Reference.
+
+An External Reference identifies a durable logical relationship to an external record.
+
+The exact source revision used for a particular Score belongs to the Evidence Reference and Score Evidence Link. It is preserved through an exact Core source-publication reference or another immutable source-version mechanism.
 
 Possible external references include:
 
@@ -2511,7 +2525,9 @@ The external module remains authoritative for its own result.
 
 The Concord Score remains authoritative for the Concord Activity judgment.
 
-When the external source publication is known, Concord should preserve its exact Core Publication Record identity so Meridian can detect related results.
+When the external source revision was resolved through, or verified against, an exact Core Publication Record, Concord must preserve that Publication Record identity so Meridian can identify related producer results.
+
+When no source publication exists, Concord must preserve another immutable source-version mechanism.
 
 Concord must not:
 

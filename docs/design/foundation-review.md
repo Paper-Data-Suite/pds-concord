@@ -34,7 +34,7 @@ Findings will be classified as:
 | ID | Area | Severity | Status | Finding | Required action |
 |---|---|---|---|---|---|
 | OWN-001 | Module ownership and authority | No issue identified | Reviewed | Each foundational concept has one coherent authoritative owner. | None |
-| OWN-002 | Module ownership and authority | Minor clarification | Open | Verify that the Core catalog remains derived and publication never implies grading or reporting inclusion. | Check during publication and Meridian reviews |
+| OWN-002 | Module ownership and authority | Minor clarification | Resolved | Verify that the Core catalog remains derived and publication never implies grading or reporting inclusion. | Check during publication and Meridian reviews |
 | REG-001 | Activity identity and Core registration | Minor clarification | Resolved | Registration prose refers to nonexistent `Activity.class_id` rather than `Activity.class_reference.record_id`. | Correct the mapping language |
 | REG-002 | Activity identity and Core registration | Minor clarification | Resolved | Concord registration only recommends, rather than requires, an Activity source reference. | Make the matching Activity `ModuleRecordRef` a Concord invariant |
 | REG-003 | Activity identity and Core registration | Minor clarification | Resolved | “Applicable registration revision” is less precise than Core’s current-revision publication requirement. | Require the exact current revision at publication time |
@@ -55,6 +55,11 @@ Findings will be classified as:
 | RSW-002 | Revision, supersession, and withdrawal | Minor clarification | Resolved | Correction Record replacement semantics are inconsistent when no replacement exists, and Correction Records cannot explicitly supersede earlier Correction Records. | Make replacement conditional and define correction-without-replacement behavior |
 | RSW-003 | Revision, supersession, and withdrawal | Minor clarification | Resolved | Withdrawal does not state that a withdrawn series head leaves no currently selectable publication and does not reactivate its predecessor. | Document no-fallback selection and successor behavior |
 | RSW-004 | Revision, supersession, and withdrawal | No issue identified | Reviewed | Native correction, manifest revision, publication supersession, withdrawal, and downstream histories remain coherently separated. | None |
+| CPL-001 | Cross-producer evidence lineage | Minor clarification | Resolved | Exact source revision is assigned inconsistently between the general External Reference and the particular evidence use. | Place exact source-version identity on the Evidence Reference and Score Evidence Link |
+| CPL-002 | Cross-producer evidence lineage | Minor clarification | Resolved | Direct source-owned and indirect Concord External Reference forms are both permitted but not distinguished. | Define one unambiguous representation form per Score Evidence Link |
+| CPL-003 | Cross-producer evidence lineage | Minor clarification | Resolved | Exact source-publication conditionality, duplicate-field equality, source-record membership, and later lifecycle effects are underdefined. | Require exact source-version sufficiency and publication-integrity rules |
+| CPL-004 | Cross-producer evidence lineage | Follow-up implementation concern | Tracked | Released ScoreForm and Quillan runtimes do not yet expose the complete source-publication contracts represented by the conceptual examples. | Stabilize public record, manifest, publication, and adapter contracts before runtime integration |
+| CPL-005 | Cross-producer evidence lineage | No issue identified | Reviewed | Ownership, explicit judgment, Moderation, privacy, history, and Meridian overlap authority are coherent. | None |
 
 ## 4. Review Areas
 
@@ -276,7 +281,7 @@ It does not establish:
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 1
+Resolved Minor clarifications: 1
 Follow-up implementation concerns: 0
 ```
 
@@ -2597,3 +2602,681 @@ The three findings add explicit chain, correction, and selection invariants. The
 * a Core implementation change;
 * a Meridian implementation change;
 * or changes to the represented manifest bytes.
+
+## 11. Cross-Producer Evidence Lineage Review
+
+### 11.1 Review Question
+
+Does Concord preserve exact, historically sufficient, privacy-aware lineage when ScoreForm, Quillan, or another external producer supplies evidence for a Concord Score, without duplicating source records or assigning overlap policy to the wrong module?
+
+### 11.2 Ownership Model
+
+The cross-producer relationship is:
+
+````text
+source-producer record
+    -> Concord External Reference
+    -> Evidence Reference module?
+
+### 11.2 Ownership Model
+
+The cross-producer relationship is:
+
+```text
+source-producer
+    -> Score Evidence Link
+    -> teacher-approved Concord Score
+    -> Concord manifest evidence-lineage projection
+    -> Meridian overlap and selection policy
+````
+
+The originating producer remains authoritative for:
+
+* its assignment or work;
+* native result or response;
+* native Review;
+* native scale and interpretation;
+* native revision history;
+* and its own publication manifest.
+
+Concord remains authoritative for:
+
+* why the source is related to a Concord Activity;
+* the relationship purpose;
+* the particular source revision used as evidence;
+* Subject and Activity context;
+* relevance to a Concord Score;
+* applicable Concord Moderation;
+* and the teacher-approved Concord judgment.
+
+Core remains authoritative for:
+
+* Publication Record identity;
+* exact manifest binding;
+* supersession;
+* withdrawal;
+* and source-publication discovery state.
+
+Meridian remains authoritative for:
+
+* whether either publication is eligible;
+* whether the two results overlap;
+* whether one is derivative of the other;
+* whether both may be used;
+* whether one is corroborating;
+* and whether one must be excluded to prevent double counting.
+
+### 11.3 No Ownership Transfer
+
+Use of an external record as evidence does not:
+
+* copy the source record into Concord;
+* transfer source ownership;
+* convert the external result into a Concord Score;
+* convert its native scale into a Concord Scoring Scale;
+* authorize access to the full source;
+* or establish Grade eligibility.
+
+A Concord Score remains a separate teacher judgment even when external evidence strongly supports it.
+
+A shared `standard_id`, similar label, identical numeric value, or common target does not make records from different producers equivalent.
+
+### 11.4 External Reference Boundary
+
+A Concord External Reference identifies a durable logical relationship between a Concord Activity and an externally owned record.
+
+It preserves:
+
+* the actual owning module or external system;
+* public external record kind;
+* durable external record ID;
+* public contract version where available;
+* relationship purpose;
+* Concord context;
+* availability;
+* provenance;
+* and correction or supersession history.
+
+The External Reference is not, by itself, the exact historical evidence-use decision.
+
+The exact source revision used for one consequential Score belongs to that Score’s Evidence Reference and Score Evidence Link.
+
+This allows one logical external relationship to participate in several deliberate evidence uses without treating every use as the same historical decision.
+
+### 11.5 Canonical Cross-Producer Evidence Forms
+
+Two representation forms are permitted.
+
+#### Indirect form through a Concord External Reference
+
+The normal form when Concord maintains a contextual relationship record is:
+
+```yaml
+evidence_kind: external_record
+owning_system: concord
+record_id: <external_reference_id>
+```
+
+The referenced External Reference supplies the actual:
+
+```text
+external owning system
+external record kind
+external record ID
+external contract version
+relationship purpose
+Concord context
+availability state
+```
+
+#### Direct source-owned form
+
+A direct Evidence Reference may identify an external source record without an intervening Concord External Reference when no durable Concord relationship record is required:
+
+```yaml
+evidence_kind: scoreform_result
+owning_system: scoreform
+record_id: <scoreform_result_id>
+```
+
+or:
+
+```yaml
+evidence_kind: quillan_response
+owning_system: quillan
+record_id: <quillan_response_id>
+```
+
+One Score Evidence Link must use one representation form.
+
+It must not identify the same external record simultaneously through both:
+
+* a Concord External Reference; and
+* a separate direct source-owned Evidence Reference.
+
+### 11.6 Exact Source-Revision Sufficiency
+
+A consequential cross-producer evidence relationship must preserve the exact external state used by the teacher.
+
+At least one of the following is required:
+
+1. an exact Core Publication Reference whose bound manifest exposes the source record and revision used;
+2. an immutable external record identity;
+3. an explicit external revision identity;
+4. a versioned export identity with integrity information;
+5. or a bounded evidence snapshot.
+
+A reference to a mutable “current result,” mutable file path, or display label alone is insufficient.
+
+When the evidence was resolved through a Core Publication Record, or when an exact compatible source publication is verified to contain the source revision used, `source_publication_reference` is required.
+
+A later publication must not be attached merely because it now contains a record with the same logical ID. Concord must verify that it exposes the exact source state used for the judgment.
+
+When no source publication existed, Concord preserves another immutable source-version mechanism rather than fabricating a Publication Reference.
+
+### 11.7 Source-Publication Integrity
+
+When `source_publication_reference` is present:
+
+* it identifies one exact immutable Core Publication Record;
+* the referenced publication’s producer module must match the external source owner;
+* its manifest must expose the exact `source_record_reference`;
+* the source-record contract version must be compatible with the evidence relationship;
+* and the source state must be sufficient to reproduce what the teacher used.
+
+Within a Manifest Evidence-Lineage Projection:
+
+* `source_record_reference` identifies the originating producer-owned record;
+* `evidence_reference` identifies the Concord-native or direct evidence relationship;
+* and `source_publication_reference` identifies the exact producer publication through which that source revision was resolved.
+
+When the same source-publication field appears inside `evidence_reference` and at projection level, the two values must be either:
+
+* both absent; or
+* exactly equal.
+
+Conflicting publication references are invalid.
+
+### 11.8 Source Supersession and Withdrawal
+
+A later source-producer revision or Publication Record does not silently retarget a historical Concord evidence relationship.
+
+The teacher may deliberately:
+
+* retain the existing Concord Score;
+* create a new Score Evidence Link;
+* supersede the External Reference;
+* create a superseding Concord Score;
+* or record that the source is no longer appropriate for active use.
+
+The earlier relationship remains historical provenance.
+
+A later source-publication withdrawal:
+
+* does not delete the Concord Score;
+* does not rewrite an existing Concord manifest;
+* does not erase prior Meridian calculations;
+* and does not automatically prove that the underlying teacher judgment was invalid.
+
+It does require explicit policy or human review before the withdrawn publication is selected as current source evidence for a new calculation or later Concord publication.
+
+The withdrawal state remains resolvable through Core even when the exact Publication Reference continues to serve as historical provenance.
+
+### 11.9 External Availability and Compatibility
+
+External availability states remain integration states rather than performance judgments.
+
+Examples include:
+
+```text
+available
+unavailable
+unresolved
+permission_restricted
+incompatible
+superseded
+deleted_externally
+not_yet_created
+temporarily_inaccessible
+```
+
+None automatically creates:
+
+* zero;
+* the lowest scale value;
+* failed participation;
+* incomplete responsibility;
+* absence;
+* or another Score disposition.
+
+When an external schema or contract is unsupported, Concord must not guess at field meaning.
+
+A safe label or unresolved reference may remain available while detailed interpretation is disabled.
+
+### 11.10 Moderation
+
+Source-module processing does not eliminate Concord’s responsibility to moderate consequential use.
+
+For example:
+
+* ScoreForm may correctly process machine-readable peer ratings while Concord still evaluates bias and fairness;
+* Quillan may contain a valid teacher-reviewed response while Concord separately moderates claims about another participant;
+* and a technically verified repository record may still be insufficient to prove individual contribution.
+
+The originating producer owns native processing.
+
+Concord owns whether that processed source may support the particular Concord Score.
+
+### 11.11 Privacy
+
+A cross-producer reference does not broaden authorization.
+
+Access to a Concord Score does not imply access to:
+
+* complete Quillan writing;
+* ScoreForm answers;
+* answer keys;
+* private feedback;
+* source-module teacher notes;
+* repository credentials;
+* or other restricted evidence.
+
+The manifest exposes only the minimum structured lineage needed to:
+
+* identify the source;
+* preserve exact revision provenance;
+* establish relevance;
+* establish applicable Moderation;
+* and permit Meridian to recognize overlap.
+
+Credentials, access tokens, unrestricted source content, and unnecessary sensitive narrative remain excluded.
+
+### 11.12 Meridian Overlap Boundary
+
+Meridian must not presume that two producer results are independent merely because they have different Publication Record IDs or producer modules.
+
+For example:
+
+```text
+ScoreForm result
+    -> evidence for Concord Score
+```
+
+is different from:
+
+```text
+ScoreForm result
+    + unrelated Concord observation
+```
+
+The Concord manifest supplies the lineage required to distinguish them.
+
+Meridian then applies an explicit policy that may:
+
+* select both with their relationship documented;
+* select only the Concord judgment;
+* select only the originating producer result;
+* treat one as corroboration;
+* exclude one to prevent double counting;
+* or use neither.
+
+Concord does not make that policy decision by suppressing or rewriting lineage.
+
+### 11.13 Representative-Example Assessment
+
+The seminar example preserves:
+
+* a Quillan-owned response;
+* a Concord External Reference;
+* a deliberate Score Evidence Link;
+* the exact Quillan source record;
+* and the exact Core Publication Reference through which the Quillan source revision became discoverable.
+
+The laboratory example preserves the corresponding relationship for a ScoreForm result.
+
+Both examples show:
+
+* external ownership;
+* explicit teacher use;
+* no automatic Score conversion;
+* exact source-publication provenance;
+* repeated publication identity at the native and manifest projection layers;
+* and sufficient lineage for Meridian to detect cross-producer overlap.
+
+The project example demonstrates the complementary boundary for external systems that do not publish Paper Data Suite academic-result manifests. Repository, commit, pull-request, CI, CAD, and cloud-document records remain externally owned and are preserved through durable references rather than invented Core publications.
+
+No representative manifest bytes require modification.
+
+### 11.14 Findings
+
+#### CPL-001 — Exact source revision is assigned inconsistently between External Reference and evidence use
+
+| Field                        | Value                                                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                         | External Reference and historical evidence identity                                                                                                                                                                                                          |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                          |
+| Status                       | Open                                                                                                                                                                                                                                                         |
+| Finding                      | ADR 0012 and the initial domain model allow source version or publication information to appear on the general External Reference, while the finalized Evidence Reference and examples attach exact source-publication state to the particular evidence use. |
+| Required action              | Define the External Reference as the durable logical relationship and place the exact source revision on the Evidence Reference and Score Evidence Link.                                                                                                     |
+| Architecture change required | No                                                                                                                                                                                                                                                           |
+| Example changes required     | No                                                                                                                                                                                                                                                           |
+
+##### Exact corrections
+
+In `docs/decisions/0012-link-scoreform-and-quillan-without-duplication.md`, immediately after the External Reference field list ending with:
+
+> and correction or supersession history.
+
+add:
+
+```markdown
+An External Reference identifies the durable logical relationship to an external record.
+
+It does not, by itself, select the exact source revision used for a particular Score.
+
+The exact immutable source state used for consequential evidence belongs to the Evidence Reference and Score Evidence Link for that particular evidence use. That state may be preserved through a Core Publication Reference, immutable record identity, explicit source revision, versioned export, or bounded snapshot.
+```
+
+In `docs/design/initial-concord-domain-model.md`, under `## 11. External References`, remove this bullet from the External Reference field list:
+
+> `* optional exact Core source-publication reference when known;`
+
+Immediately after the field list, add:
+
+```markdown
+An External Reference identifies a durable logical relationship to an external record.
+
+The exact source revision used for a particular Score belongs to the Evidence Reference and Score Evidence Link. It is preserved through an exact Core source-publication reference or another immutable source-version mechanism.
+```
+
+In `docs/design/conceptual-data-contracts.md`, add to the `## 14.2 External Reference` invariants:
+
+```markdown
+* An External Reference identifies a logical external relationship; the exact source revision used for a particular Score belongs to that Score’s Evidence Reference and Score Evidence Link.
+```
+
+#### CPL-002 — Direct and indirect cross-producer Evidence Reference forms are ambiguous
+
+| Field                        | Value                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Evidence Reference identity                                                                                                                                                                                                                                                                                                                                                         |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                                                                 |
+| Status                       | Open                                                                                                                                                                                                                                                                                                                                                                                |
+| Finding                      | The Evidence Reference vocabulary permits `scoreform_result`, `quillan_response`, and `external_record`, while the representative cases use a Concord-owned External Reference as the Evidence Reference target and a separate source-owned record projection. The contracts do not define when each form applies or prevent both forms from identifying one source simultaneously. |
+| Required action              | Define the indirect External Reference form, retain a bounded direct form, and require one unambiguous representation per Score Evidence Link.                                                                                                                                                                                                                                      |
+| Architecture change required | No                                                                                                                                                                                                                                                                                                                                                                                  |
+| Example changes required     | No; the examples already use the intended indirect form                                                                                                                                                                                                                                                                                                                             |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, immediately after the initial Evidence Reference kinds, add:
+
+````markdown
+### Cross-producer representation
+
+When Concord maintains a durable contextual relationship to an external record, the Evidence Reference uses the indirect form:
+
+```yaml
+evidence_kind: external_record
+owning_system: concord
+record_id: <external_reference_id>
+````
+
+The referenced Concord External Reference supplies the actual external owning system, record kind, record ID, contract version, relationship purpose, and availability state.
+
+A direct source-owned Evidence Reference using `scoreform_result`, `quillan_response`, or another approved external kind is permitted only when no Concord External Reference is used for that evidence relationship.
+
+One Score Evidence Link must not identify the same external source through both the indirect External Reference form and a direct source-owned Evidence Reference.
+
+````
+
+Add to the Evidence Reference invariants:
+
+```markdown
+* When `evidence_kind = external_record` and `owning_system = concord`, `record_id` must resolve to an existing Concord External Reference.
+* A direct source-owned Evidence Reference must identify the actual external owner, public record kind, and durable record ID.
+* One Score Evidence Link uses exactly one direct or indirect source representation.
+````
+
+In `docs/design/initial-concord-domain-model.md`, immediately after the Evidence Reference description ending with:
+
+> and optional Moderation requirement.
+
+add:
+
+```markdown
+For cross-producer evidence, Concord may use either:
+
+1. an indirect Evidence Reference to a Concord External Reference; or
+2. a direct module-qualified reference to the external source record.
+
+The indirect form is preferred when Concord must preserve Activity context, relationship purpose, availability, correction, or supersession independently of one Score Evidence Link.
+
+One evidence use must not represent the same external record through both forms.
+```
+
+In ADR 0012, immediately after:
+
+```text
+ScoreForm or Quillan record
+    -> typed External Reference in Concord
+    -> optional Evidence Reference
+    -> optional Score Evidence Link
+    -> explicit Concord teacher judgment
+```
+
+add:
+
+````markdown
+For consequential evidence use, the normal Concord form is:
+
+```text
+external producer record
+    -> Concord External Reference
+    -> Evidence Reference identifying that External Reference
+    -> Score Evidence Link
+    -> explicit Concord Score
+````
+
+A direct source-owned Evidence Reference remains permitted when no durable Concord External Reference is required.
+
+One Score Evidence Link must not represent the same source through both forms.
+
+````
+
+In `docs/design/conceptual-data-contracts.md`, add to the Manifest Evidence-Lineage Projection invariants:
+
+```markdown
+* When `evidence_reference` identifies a Concord External Reference, `source_record_reference` must exactly match that External Reference’s external owning system, record kind, record ID, and compatible contract version.
+* When `evidence_reference` directly identifies a source-owned record, `source_record_reference` must identify the same source record.
+````
+
+#### CPL-003 — Exact source-publication conditionality and integrity are incomplete
+
+| Field                        | Value                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Source publication and manifest lineage                                                                                                                                                                                                                                                                                                                                                      |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                                                                          |
+| Status                       | Open                                                                                                                                                                                                                                                                                                                                                                                         |
+| Finding                      | Source-publication identity is generally described as optional “when known,” even when the evidence was resolved through an exact producer publication. The contracts also duplicate the Publication Reference inside the Evidence Reference and manifest lineage row without an equality rule, and do not state how later source supersession or withdrawal affects historical Concord use. |
+| Required action              | Make source-publication identity conditionally required, require another immutable source-version mechanism when absent, define duplicate-field equality and record-membership checks, and preserve later source lifecycle without silent retargeting.                                                                                                                                       |
+| Architecture change required | No                                                                                                                                                                                                                                                                                                                                                                                           |
+| Example changes required     | No                                                                                                                                                                                                                                                                                                                                                                                           |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, replace the Evidence Reference field-table row:
+
+> `| source_publication_reference | Optional | Exact Core Publication Record through which an external source revision was resolved, when known |`
+
+with:
+
+```markdown
+| `source_publication_reference` | Conditional | Required when the external source revision was resolved through, or verified against, an exact Core Publication Record; otherwise omitted only when another immutable source-version mechanism is preserved |
+```
+
+Replace these Evidence Reference invariants:
+
+> `* source_publication_reference, when present, identifies the exact Core publication through which the source revision became discoverable; it does not transfer ownership to Core.`
+> `* Absence of source_publication_reference does not make the external record invalid when another durable public reference is available.`
+
+with:
+
+```markdown
+* `source_publication_reference`, when present, identifies the exact Core publication whose bound manifest exposes the source revision used; it does not transfer ownership to Core.
+* When the evidence was resolved through a Core Publication Record, or an exact compatible publication is verified to contain the source revision used, `source_publication_reference` is required.
+* When no source publication is available, the Evidence Reference must preserve another immutable source-version mechanism.
+* A mutable current-result reference, mutable path, or display label alone is insufficient for consequential evidence use.
+* A later publication must not be attached solely because it contains the same logical record ID; exact source-revision equivalence must be verified.
+```
+
+In the Manifest Evidence-Lineage Projection field table, replace:
+
+> `| source_publication_reference | Optional | Exact Core source publication when known |`
+
+with:
+
+```markdown
+| `source_publication_reference` | Conditional | Required when the source revision was resolved through or verified against an exact Core Publication Record |
+```
+
+Add to its invariants:
+
+```markdown
+* A projection-level `source_publication_reference` and any `source_publication_reference` inside `evidence_reference` must be both absent or exactly equal.
+* When `source_publication_reference` is present, its bound producer manifest must expose the exact `source_record_reference`.
+* The source publication’s producer module must match the originating source owner.
+* Conflicting source-publication references are invalid.
+* Later source-publication supersession or withdrawal does not silently retarget or rewrite the Concord Score, Evidence Reference, Score Evidence Link, or published Concord manifest.
+```
+
+In `docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`, replace the passage beginning:
+
+> When Concord knows that the external source was imported or resolved through a Core Publication Record...
+
+and ending:
+
+> That publication reference is optional unless a later integration contract requires it.
+
+with:
+
+```markdown
+When the external source revision was imported or resolved through a Core Publication Record, or when an exact compatible producer publication is verified to expose the source revision used, the lineage must include an exact Core Publication Reference.
+
+The referenced producer manifest must expose the exact source record identified by the lineage.
+
+When no source publication exists, lineage must preserve another immutable source-version mechanism, such as:
+
+* immutable external record identity;
+* explicit external revision identity;
+* versioned export identity with integrity information;
+* or a bounded evidence snapshot.
+
+A mutable current-result reference, mutable path, or display label alone is insufficient for consequential evidence lineage.
+
+A later source publication must not be attached merely because it contains the same logical record ID. Concord must verify exact source-revision equivalence.
+```
+
+In `docs/design/initial-concord-domain-model.md`, under `### 10.10 Cross-Producer Evidence Lineage`, replace:
+
+> When known, lineage may include the exact Core Publication Record identity of the external source.
+
+with:
+
+```markdown
+When the exact external source revision was resolved through, or verified against, a Core Publication Record, lineage must preserve that exact Publication Record identity.
+
+When no source publication exists, lineage must preserve another immutable source-version mechanism. A mutable current-result reference alone is insufficient for consequential use.
+```
+
+Under `### Standards-related external evidence`, replace:
+
+> When the external source publication is known, Concord should preserve its exact Core Publication Record identity so Meridian can detect related results.
+
+with:
+
+```markdown
+When the external source revision was resolved through, or verified against, an exact Core Publication Record, Concord must preserve that Publication Record identity so Meridian can identify related producer results.
+
+When no source publication exists, Concord must preserve another immutable source-version mechanism.
+```
+
+In ADR 0012, under `### Historical sufficiency`, replace:
+
+> The integration contract should provide at least one of:
+>
+> * immutable external result identity;
+> * external revision identity;
+> * versioned export identity;
+> * or a bounded evidence snapshot.
+
+with:
+
+```markdown
+For consequential use, the integration contract must preserve at least one of:
+
+* an exact Core Publication Reference whose manifest exposes the source revision used;
+* immutable external result identity;
+* explicit external revision identity;
+* versioned export identity with integrity information;
+* or a bounded evidence snapshot.
+
+A mutable current-result reference, mutable path, or display label alone is insufficient.
+```
+
+Under `### External record revision`, after:
+
+> The earlier relationship remains available for provenance.
+
+add:
+
+```markdown
+A later source Publication Record does not silently retarget the earlier relationship.
+
+A later source-publication withdrawal preserves historical provenance but requires explicit review or policy before that withdrawn publication is selected for new consequential use. It does not automatically delete or revise the existing Concord Score.
+```
+
+#### CPL-004 — Source producer publication contracts remain an implementation dependency
+
+| Field                                    | Value                                                                                                                                                                                                                                                                      |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                                     | ScoreForm and Quillan implementation readiness                                                                                                                                                                                                                             |
+| Severity                                 | Follow-up implementation concern                                                                                                                                                                                                                                           |
+| Status                                   | Tracked                                                                                                                                                                                                                                                                    |
+| Finding                                  | The representative examples correctly model exact ScoreForm and Quillan source Publication References, but the currently released source-module runtimes do not yet expose the complete Core academic-result publication contracts represented by those synthetic records. |
+| Required action                          | Before Concord implementation, stabilize supported ScoreForm and Quillan public record kinds, immutable result identities, manifest contracts, Publication Records, and optional adapters.                                                                                 |
+| Architecture change required             | No                                                                                                                                                                                                                                                                         |
+| Blocks conceptual approval               | No                                                                                                                                                                                                                                                                         |
+| Blocks corresponding runtime integration | Yes                                                                                                                                                                                                                                                                        |
+
+#### CPL-005 — Cross-producer authority and overlap boundaries are coherent
+
+| Field           | Value                                                                                                                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Cross-producer evidence lineage                                                                                                                                                                               |
+| Severity        | No issue identified                                                                                                                                                                                           |
+| Status          | Reviewed                                                                                                                                                                                                      |
+| Finding         | Source ownership, explicit teacher judgment, no automatic conversion, Moderation, privacy, historical preservation, and Meridian-owned overlap policy are coherently separated and supported by the examples. |
+| Required action | None beyond CPL-001 through CPL-004.                                                                                                                                                                          |
+
+### 11.15 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+Follow-up implementation concerns: 1
+No-issue findings: 1
+```
+
+The cross-producer evidence-lineage foundation is suitable for continued review.
+
+The three minor findings make the existing lineage model unambiguous and historically reproducible. They do not require:
+
+* a new foundational record type;
+* a new ADR;
+* changes to Core;
+* changes to Meridian;
+* or changes to the represented manifest bytes.
+
+The implementation concern remains tracked until ScoreForm and Quillan expose compatible, stable producer-publication contracts.
