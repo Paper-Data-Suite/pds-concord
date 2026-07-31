@@ -2507,7 +2507,7 @@ The manifest is authoritative as the exact Concord-produced projection represent
 | `score_projections` | Required | Included Score Records and required native history |
 | `score_evidence_link_projections` | Optional | Deliberate evidence-use lineage |
 | `moderation_projections` | Optional | Minimum required Moderation state |
-| `standards_result_projection` | Optional | Direct standards-only subset |
+| `standards_result_projection` | Conditional | Required and nonempty when standard-backed Score projections are present; otherwise absent or explicitly empty |
 | `privacy_classification` | Required | Manifest-level minimum access classification |
 
 ### Record-set identity
@@ -2575,8 +2575,10 @@ A future reporting or evidence-publication contract may address that use separat
 ### Invariants
 
 * The manifest belongs to exactly one Concord Activity work context.
-* `work.module_id` is `concord`.
-* `work.work_id` equals `source_activity.record_id` and the Activity’s `activity_id`.
+* `work.module_id` and `source_activity.module_id` are `concord`.
+* `source_activity.record_kind` is `activity`.
+* `work.work_id` equals `source_activity.record_id` and `activity_context.activity_id`.
+* `work.class_id` equals `activity_context.class_id`.
 * The manifest contains no Meridian Grade, proficiency, Academic Period membership, or report state.
 * A manifest may contain standard-backed and local Scores together without merging their semantics.
 * A manifest may contain non-score dispositions without numeric substitution.
@@ -2946,11 +2948,13 @@ For Concord:
 
 ```text
 work.module_id = concord
-work.class_id  = Activity.class_id
+work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-The Activity should appear in `source_records` as:
+The registration must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`.
+
+Additional source records may be included when justified.
 
 ```text
 module_id: concord
@@ -2986,7 +2990,7 @@ These questions must remain separate.
 * Registration does not establish Academic Period membership.
 * Registration history is append-preserving.
 * At most one registration revision is selected as current by Core.
-* An `academic_result_set` publication references an applicable registration revision.
+* An `academic_result_set` publication references the exact Academic Work Registration revision that was current at publication time. Later registration revisions do not alter the revision preserved by the Publication Record.
 * Evidence-only Activities require no registration merely because they exist.
 
 ## 13.15 Core Publication Record Relationship
@@ -3011,7 +3015,7 @@ A **Core Publication Record** is an immutable Core-owned registry record announc
 | `manifest_digest_algorithm` | Required | `sha256` |
 | `manifest_digest` | Required | Exact lowercase SHA-256 digest |
 | `published_at` | Required | Core publication time |
-| `academic_work_registration_revision` | Required | Applicable Core registration revision |
+| `academic_work_registration_revision` | Required | Exact Core registration revision current at publication time |
 | `supersedes_publication_id` | Optional | Prior publication in the same series |
 
 ### Publication kind
@@ -3045,6 +3049,14 @@ moderated_scores
 
 `moderated_scores` applies when the manifest exposes applicable Moderation state required to interpret included Scores.
 
+For the initial Concord manifest contract:
+
+* `criterion_scores` is required when any Criterion-level Score projection or non-score disposition is present;
+* `standards_ratings` is required when any standard-backed Score projection or standard-backed non-score disposition is present;
+* when `standards_ratings` is declared, the Standards Result Projection is required, nonempty, and exactly represents the standard-backed subset;
+* `moderated_scores` is required when interpretation of an included consequential Score depends on projected Moderation state;
+* and each capability must be omitted when its represented feature is absent.
+
 Capabilities are discovery metadata.
 
 They do not:
@@ -3065,6 +3077,10 @@ record_kind: activity
 record_id: <activity_id>
 contract_version: <public Activity contract version>
 ```
+
+The Publication Record’s `source_record` must equal the manifest’s `source_activity`.
+
+Its `record_id` must equal `work.work_id`, and the manifest Activity context must identify the same `work.class_id` and `work.work_id`.
 
 ### Invariants
 
@@ -3167,18 +3183,33 @@ A native change that does not alter the published projection need not force repu
 
 ### Idempotency
 
-Repeating a publication request with the same:
+Repeating the same publication request must reconcile to the existing successful Publication Record when all of the following are unchanged:
 
-* work;
-* `record_set_id`;
-* `record_set_revision`;
-* manifest path;
-* manifest contract version;
-* and digest
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
 
-must reconcile to the existing successful Publication Record.
+For an initial publication, `supersedes_publication_id` is absent.
 
-Reusing the same logical revision with different bytes, digest, path, or contract version is an integrity conflict.
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
+
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
+
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
+
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
+
 
 ### Publication supersession
 

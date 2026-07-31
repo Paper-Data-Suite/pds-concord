@@ -1486,11 +1486,11 @@ Core does not infer Author, Subject, Score target, standard, or Grade membership
 
 ### 12.4 Core publication workflow
 
-1. Concord submits the exact manifest path, manifest contract version, publication kind, capabilities, record-set identity, revision, source Activity reference, and the exact current Academic Work Registration revision at publication time.
+1. Concord submits the exact manifest path, manifest contract version, publication kind, capabilities, record-set identity, revision, source Activity reference, and the exact current Academic Work Registration revision at publication time. For initial Concord publication, the submitted source Activity reference must equal the manifest’s `source_activity`; its `record_id` must equal `work.work_id`; and the manifest Activity context must identify the same `work.class_id` and `work.work_id`.
 2. Core validates the shared publication envelope.
 3. Core verifies that the path is safe, workspace-relative, work-scoped, and present.
 4. Core calculates or verifies the SHA-256 digest.
-5. Core reconciles exact replay idempotently.
+5. Core reconciles exact replay idempotently. Exact replay requires agreement on `work`, source record, publication kind, capabilities, record-set identity and revision, manifest contract version, path, digest algorithm, digest, Academic Work Registration revision, and predecessor publication identity.
 6. Core rejects contradictory reuse of the same logical revision.
 7. Core exclusively creates the immutable Publication Record.
 8. Core updates the derived catalog or reports canonical success with catalog partial failure.

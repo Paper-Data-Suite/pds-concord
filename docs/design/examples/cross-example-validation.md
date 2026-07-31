@@ -450,7 +450,7 @@ The examples validate that:
 - native Score existence does not create registration;
 - `standards_based`, `mixed`, and `local_criteria_only` are not Core academic intents;
 - `formative` and `summative` are not Concord scoring orientations;
-- and every published `academic_result_set` references an applicable registration revision.
+- and every published `academic_result_set` references the exact Academic Work Registration revision that was current when that Publication Record was created.
 
 All Activity, registration, manifest, and publication records agree on the exact module-qualified work reference.
 

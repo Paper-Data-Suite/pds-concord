@@ -47,6 +47,10 @@ Findings will be classified as:
 | CSS-002 | Criteria, Scales, and Score semantics | Minor clarification | Resolved | Criterion Set and Criterion immutability begins too late and is described inconsistently. | Make scoring semantics immutable when a Criterion Set revision is selected by an Activity |
 | CSS-003 | Criteria, Scales, and Score semantics | Minor clarification | Resolved | Scoring Scale levels lack explicit machine-value uniqueness and deterministic-ordering invariants. | Require unique values, unambiguous ordering, and one-level resolution |
 | CSS-004 | Criteria, Scales, and Score semantics | No issue identified | Reviewed | Standard/local classification, one-standard semantics, exact Scale interpretation, target distinctions, and the Meridian boundary are coherent. | None |
+| MPA-001 | Manifest and publication architecture | Minor clarification | Resolved | Concord publication source identity is not fully constrained across `work`, `source_record`, `source_activity`, and `activity_context`. | Require exact Activity and class identity agreement |
+| MPA-002 | Manifest and publication architecture | Minor clarification | Resolved | Idempotency descriptions omit replay-defining publication metadata enforced by Core. | Align replay identity with Core’s complete immutable request comparison |
+| MPA-003 | Manifest and publication architecture | Minor clarification | Resolved | Capability declarations are not fully connected to required manifest projections. | Define conditional capability and Standards Result Projection rules |
+| MPA-004 | Manifest and publication architecture | No issue identified | Reviewed | Producer authority, immutable binding, Core ownership, catalog nonauthority, and downstream separation are coherent. | None |
 
 ## 4. Review Areas
 
@@ -274,7 +278,7 @@ Follow-up implementation concerns: 0
 
 The proposed ownership model is suitable for continued foundation review.
 
-No architecture document should be changed yet. Finding `OWN-002` should remain open until the publication and Meridian review areas confirm that the nonauthority rules are stated consistently.
+Finding `OWN-002` was resolved during the manifest and publication review. Core and Concord consistently treat the registry catalog as derived and nonauthoritative, and publication does not create Grade eligibility, Academic Period membership, or reporting inclusion.
 
 ## 6. Activity Identity and Core Academic Work Registration Review
 
@@ -1490,3 +1494,535 @@ The three open findings strengthen validation and reproducibility. They do not r
 * changes to Core;
 * changes to Meridian;
 * or revisions to the representative example records.
+
+## 9. Manifest and Publication Architecture Review
+
+### 9.1 Review Question
+
+Does the Concord manifest and Core publication architecture preserve producer authority, exact immutable identity, reproducible interpretation, truthful discovery metadata, safe publication workflow, and separation from grading and reporting?
+
+### 9.2 Authority Model
+
+The architecture correctly separates three authoritative layers:
+
+```text
+Concord canonical records
+    -> Concord-owned immutable manifest revision
+    -> Core-owned immutable Publication Record
+    -> Meridian-owned policy interpretation
+```
+
+Concord remains authoritative for:
+
+* Activity context;
+* Criterion and Scoring Scale meaning;
+* Score Records;
+* evidence-use lineage;
+* Moderation;
+* native supersession;
+* manifest schema;
+* manifest contents;
+* and manifest revision assignment.
+
+Core remains authoritative for:
+
+* Publication Record identity;
+* publication schema;
+* publication kind and shared capabilities;
+* safe manifest-path validation;
+* SHA-256 binding;
+* publication-series validation;
+* publication idempotency;
+* supersession;
+* withdrawal;
+* canonical registry persistence;
+* and the derived discovery catalog.
+
+Meridian remains authoritative for:
+
+* publication eligibility;
+* Grade-item membership;
+* Score and evidence selection;
+* scale mapping;
+* standards proficiency;
+* Academic Period membership;
+* Grades;
+* overrides;
+* and reports.
+
+The manifest does not transfer ownership of Concord records to Core. The Publication Record does not make the manifest a Core-owned academic result. Meridian interpretation does not mutate either source.
+
+### 9.3 Manifest Identity and Scope
+
+One Concord Academic Result Manifest revision is identified by:
+
+```text
+work
+record_set_id
+record_set_revision
+manifest_contract_version
+exact manifest bytes
+```
+
+The initial manifest series is scoped to exactly one Concord Activity work context:
+
+```text
+module_id + class_id + activity_id
+```
+
+It must not become an implicit:
+
+* cross-Activity aggregate;
+* class-wide aggregate;
+* course aggregate;
+* Academic Period aggregate;
+* or school-year aggregate.
+
+The stable `record_set_id` identifies one logical publication series within the Activity. It remains distinct from:
+
+* `activity_id`;
+* `score_record_id`;
+* `publication_id`;
+* manifest path;
+* Grade-item identity;
+* and Academic Period identity.
+
+The manifest remains reproducible from Concord’s canonical records and preserves every projection required to interpret its included Scores.
+
+### 9.4 Required Identity Agreement
+
+For initial Concord academic-result publication, the following identities must agree:
+
+```text
+Publication Record work
+Manifest work
+Publication Record source_record
+Manifest source_activity
+Manifest activity_context
+```
+
+The required relationship is:
+
+```text
+work.module_id = concord
+source_record.module_id = concord
+source_record.record_kind = activity
+source_record.record_id = work.work_id
+manifest.source_activity = source_record
+manifest.activity_context.activity_id = work.work_id
+manifest.activity_context.class_id = work.class_id
+```
+
+Core’s generic Publication Record contract cannot enforce all of these Concord-specific joins. Concord must validate them before submitting the publication request.
+
+### 9.5 Manifest Interpretation
+
+A manifest must contain or expose enough immutable producer meaning to interpret every included Score independently of mutable Concord configuration.
+
+That includes:
+
+* the Activity interpretation snapshot;
+* every referenced Criterion;
+* every referenced Scoring Scale revision;
+* Score disposition and conditional value;
+* target identity;
+* standard-backed versus local classification;
+* native supersession state;
+* deliberate evidence-use lineage;
+* and required Moderation state.
+
+A bare Criterion ID or Scoring Scale ID is insufficient when the consumer cannot otherwise resolve the exact immutable semantics.
+
+Local Scores may appear in the broader manifest but remain excluded from the direct standards-result subset.
+
+Non-score dispositions remain explicit and contain no substituted value.
+
+### 9.6 Publication Binding
+
+The Core Publication Record identifies:
+
+* the complete `ModuleWorkRef`;
+* Concord source Activity;
+* publication kind;
+* shared capabilities;
+* record-set identity and revision;
+* manifest contract version;
+* exact workspace-relative path;
+* SHA-256 digest;
+* publication time;
+* exact registration revision current at publication time;
+* and optional predecessor publication.
+
+The digest binds the Publication Record to the exact manifest bytes.
+
+The Publication Record is not:
+
+* a copy of the manifest;
+* a mutable pointer to current Concord state;
+* an interpretation of Score meaning;
+* authorization to inspect all manifest contents;
+* Grade eligibility;
+* or a report.
+
+An unpublished manifest file remains unpublished even when it is otherwise valid.
+
+### 9.7 Capability Semantics
+
+Core capabilities are discovery metadata. Concord must declare them truthfully for the exact manifest revision.
+
+For the initial Concord contract:
+
+#### `criterion_scores`
+
+This capability is required when the manifest contains one or more Criterion-level Score projections or non-score dispositions.
+
+#### `standards_ratings`
+
+This capability is required when the manifest contains one or more standard-backed Score projections or standard-backed non-score dispositions.
+
+When it is declared:
+
+* the Standards Result Projection is required;
+* it must be nonempty;
+* and it must correspond exactly to the manifest’s standard-backed Score subset.
+
+When no standard-backed result exists:
+
+* `standards_ratings` must be omitted;
+* and the Standards Result Projection may be absent or explicitly empty.
+
+#### `moderated_scores`
+
+This capability is required when interpretation of at least one included consequential Score depends on projected Moderation state.
+
+It must be omitted when the manifest contains no such Moderation-dependent Score.
+
+Capabilities do not:
+
+* define the complete manifest schema;
+* guarantee completeness for every target;
+* authorize access;
+* create Grade eligibility;
+* or normalize producer meaning.
+
+### 9.8 Publication Workflow
+
+The required workflow remains:
+
+```text
+validate native records
+    -> determine exact projection
+    -> assign manifest revision
+    -> generate complete bytes
+    -> validate manifest contract
+    -> write new revision-addressed file
+    -> durably close file
+    -> calculate SHA-256 digest
+    -> submit complete publication request
+    -> Core validates registration, envelope, path, and digest
+    -> Core creates immutable Publication Record
+    -> catalog update or later rebuild
+```
+
+A valid native Score remains valid if publication fails.
+
+If canonical Publication Record creation succeeds but the derived catalog update fails:
+
+* publication remains successful;
+* the manifest must not be rewritten;
+* the Publication Record remains authoritative;
+* and catalog rebuild may restore discovery.
+
+### 9.9 Exact Replay and Contradictory Revision Reuse
+
+Idempotent replay requires equality across the complete immutable publication request:
+
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
+
+For an initial publication, `supersedes_publication_id` is absent.
+
+For a superseding publication, it must equal the expected current predecessor.
+
+Core-owned `publication_id` and `published_at` are generated publication results rather than replay-request identity fields.
+
+Any contradictory reuse of the same logical record-set revision is an integrity failure. Changed content or changed publication semantics require a new manifest revision rather than mutation or ordinary replay.
+
+### 9.10 Catalog and Downstream Nonauthority
+
+The Core catalog is derived, rebuildable, and nonauthoritative.
+
+It cannot:
+
+* create a registration;
+* create a Publication Record;
+* determine publication-series head independently;
+* supersede a publication;
+* withdraw a publication;
+* authorize access;
+* or determine Meridian eligibility.
+
+Publication consistently remains distinct from:
+
+* Grade-item membership;
+* standards-evidence eligibility;
+* Academic Period membership;
+* proficiency;
+* Grade calculation;
+* overrides;
+* and reports.
+
+Finding `OWN-002` is therefore resolved by this review.
+
+### 9.11 Representative-Example Assessment
+
+The representative examples collectively demonstrate:
+
+* six complete immutable manifest byte sequences;
+* exact SHA-256 agreement;
+* work-scoped revision-addressed paths;
+* stable record-set identity;
+* one-revision and multi-revision series;
+* exact Criterion and Scale projections;
+* standard-backed and local Score publication;
+* standards-only subsets;
+* non-score dispositions without values;
+* cross-producer evidence lineage;
+* Moderation projection;
+* truthful capability combinations;
+* publication supersession;
+* registration-revision preservation;
+* derived-catalog nonauthority;
+* and publication without automatic Grade or Academic Period membership.
+
+No representative record requires an architectural redesign.
+
+The examples already conform to the stronger identity, replay, and capability rules identified below.
+
+### 9.12 Findings
+
+#### MPA-001 — Concord publication source identity is not fully constrained
+
+| Field                            | Value                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Manifest and Publication Record identity                                                                                                                                                                                                                                                                                     |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                          |
+| Status                           | Open                                                                                                                                                                                                                                                                                                                         |
+| Finding                          | The documents require a Concord Activity source record but do not consistently require exact agreement among `work`, Publication Record `source_record`, manifest `source_activity`, and manifest `activity_context`. Core’s generic contract validates only module ownership and cannot enforce all Concord-specific joins. |
+| Required action                  | Add explicit Concord producer invariants requiring every identity representation to identify the same Activity and class.                                                                                                                                                                                                    |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                                                           |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                                                           |
+| Example changes required         | No                                                                                                                                                                                                                                                                                                                           |
+
+##### Exact corrections
+
+In `docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`, line 998, replace:
+
+> For Concord, `source_record` should identify the Activity:
+
+With:
+
+```markdown
+For initial Concord use, `source_record` is required and must identify the same Activity represented by the Publication Record’s `work`, the manifest’s `source_activity`, and the manifest’s `activity_context`.
+```
+
+After the existing `source_record` YAML block, add:
+
+````markdown
+The following identities must agree:
+
+```text
+source_record.module_id = concord = work.module_id
+source_record.record_kind = activity
+source_record.record_id = work.work_id
+manifest.source_activity = source_record
+manifest.activity_context.activity_id = work.work_id
+manifest.activity_context.class_id = work.class_id
+````
+
+Concord must validate these producer-specific relationships before requesting Core publication.
+
+````
+
+In `docs/design/conceptual-data-contracts.md`, replace manifest invariants lines 2577–2579:
+
+> The manifest belongs to exactly one Concord Activity work context.  
+> `work.module_id` is `concord`.  
+> `work.work_id` equals `source_activity.record_id` and the Activity’s `activity_id`.
+
+With:
+
+```markdown
+* The manifest belongs to exactly one Concord Activity work context.
+* `work.module_id` and `source_activity.module_id` are `concord`.
+* `source_activity.record_kind` is `activity`.
+* `work.work_id` equals `source_activity.record_id` and `activity_context.activity_id`.
+* `work.class_id` equals `activity_context.class_id`.
+````
+
+In the same document, after the source-record block at lines 3058–3065, add:
+
+```markdown
+The Publication Record’s `source_record` must equal the manifest’s `source_activity`.
+
+Its `record_id` must equal `work.work_id`, and the manifest Activity context must identify the same `work.class_id` and `work.work_id`.
+```
+
+In `docs/design/pds-core-integration-requirements.md`, after workflow step 1 at line 1489, add:
+
+```markdown
+For initial Concord publication, the submitted source Activity reference must equal the manifest’s `source_activity`; its `record_id` must equal `work.work_id`; and the manifest Activity context must identify the same `work.class_id` and `work.work_id`.
+```
+
+#### MPA-002 — Idempotency descriptions omit replay-defining metadata
+
+| Field                            | Value                                                                                                                                                                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Publication idempotency                                                                                                                                                                                                                                                    |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                        |
+| Status                           | Open                                                                                                                                                                                                                                                                       |
+| Finding                          | Concord documentation lists only work, record-set identity, path, contract version, and digest as replay identity. Core actually compares the complete immutable request, including source record, publication kind, capabilities, registration revision, and predecessor. |
+| Required action                  | Align all idempotency descriptions with Core’s exact replay comparison.                                                                                                                                                                                                    |
+| Architecture change required     | No                                                                                                                                                                                                                                                                         |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                         |
+| Example changes required         | No                                                                                                                                                                                                                                                                         |
+
+##### Exact corrections
+
+In ADR 0015, replace lines 1080–1099 with:
+
+````markdown
+Repeating the same publication request must return or reconcile to the existing Core Publication Record when all of the following are unchanged:
+
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+````
+
+For an initial publication, `supersedes_publication_id` is absent. For a successor, it identifies the exact expected predecessor.
+
+Any difference in those fields for the same logical record-set revision is an integrity conflict.
+
+Concord must create a new manifest revision for changed content or changed publication semantics.
+
+````
+
+In `docs/design/conceptual-data-contracts.md`, replace lines 3170–3181 with the same replay-field list and conflict rule.
+
+In `docs/design/examples/README.md`, replace lines 3173–3195 with the same replay-field list and conflict rule.
+
+In `docs/design/pds-core-integration-requirements.md`, after line 1493:
+
+> Core reconciles exact replay idempotently.
+
+Add:
+
+```markdown
+Exact replay requires agreement on `work`, source record, publication kind, capabilities, record-set identity and revision, manifest contract version, path, digest algorithm, digest, Academic Work Registration revision, and predecessor publication identity.
+````
+
+#### MPA-003 — Capability and projection conditionality is incomplete
+
+| Field                            | Value                                                                                                                                                                                                                                                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Publication capabilities and manifest projections                                                                                                                                                                                                                                                          |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                                        |
+| Status                           | Open                                                                                                                                                                                                                                                                                                       |
+| Finding                          | The documents require truthful capabilities but do not fully state the bidirectional conditions connecting capability declarations to actual Score, standards, and Moderation projections. The Standards Result Projection is currently labeled merely optional even when `standards_ratings` is declared. |
+| Required action                  | Define exact conditional rules for `criterion_scores`, `standards_ratings`, `moderated_scores`, and the Standards Result Projection.                                                                                                                                                                       |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                                         |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                                         |
+| Example changes required         | No                                                                                                                                                                                                                                                                                                         |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, line 2510, replace:
+
+> `standards_result_projection` | Optional | Direct standards-only subset
+
+With:
+
+```markdown
+| `standards_result_projection` | Conditional | Required and nonempty when standard-backed Score projections are present; otherwise absent or explicitly empty |
+```
+
+In the same document, after the capability descriptions at lines 3042–3046, add:
+
+```markdown
+For the initial Concord manifest contract:
+
+* `criterion_scores` is required when any Criterion-level Score projection or non-score disposition is present;
+* `standards_ratings` is required when any standard-backed Score projection or standard-backed non-score disposition is present;
+* when `standards_ratings` is declared, the Standards Result Projection is required, nonempty, and exactly represents the standard-backed subset;
+* `moderated_scores` is required when interpretation of an included consequential Score depends on projected Moderation state;
+* and each capability must be omitted when its represented feature is absent.
+```
+
+In ADR 0015, after line 945:
+
+> Capability declaration must be truthful for the exact manifest revision.
+
+Add the same five conditional rules.
+
+In `docs/design/examples/README.md`, replace the examples at lines 3097–3102 with:
+
+```markdown
+For the initial Concord manifest contract:
+
+* include `criterion_scores` when any Criterion-level Score projection or non-score disposition is present;
+* include `standards_ratings` when any standard-backed Score projection or disposition is present;
+* when `standards_ratings` is included, require a nonempty Standards Result Projection that exactly represents the standard-backed subset;
+* include `moderated_scores` when interpretation of at least one included consequential Score depends on projected Moderation state;
+* omit each capability when its represented feature is absent.
+```
+
+#### MPA-004 — Manifest and publication architecture is otherwise coherent
+
+| Field           | Value                                                                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Manifest and publication architecture                                                                                                                                                                                                                               |
+| Severity        | No issue identified                                                                                                                                                                                                                                                 |
+| Status          | Reviewed                                                                                                                                                                                                                                                            |
+| Finding         | Producer authority, immutable manifest identity, exact digest binding, work-scoped storage, Core publication ownership, derived-catalog nonauthority, and separation from Meridian grading and reporting are coherent and supported by the representative examples. |
+| Required action | None beyond MPA-001 through MPA-003.                                                                                                                                                                                                                                |
+
+### 9.13 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+Resolved prior ownership clarifications: 1
+No-issue findings: 1
+```
+
+The manifest and publication architecture is suitable for continued review.
+
+The open findings tighten Concord producer validation and documentation. They do not require:
+
+* a new foundational record type;
+* a Core modification;
+* a Meridian modification;
+* or revision of the representative example records.

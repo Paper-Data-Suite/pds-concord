@@ -2369,7 +2369,7 @@ Concord native records
     -> Meridian import and policy
 ```
 
-For `publication_kind: academic_result_set`, an applicable Core Academic Work Registration revision is also required.
+For `publication_kind: academic_result_set`, the exact Academic Work Registration revision current at publication time is required.
 
 ### 32.1 Authority boundaries
 
@@ -3094,12 +3094,13 @@ moderated_scores
 
 Capabilities must be truthful for the exact manifest.
 
-Examples:
+For the initial Concord manifest contract:
 
-* include `criterion_scores` when Criterion-level results are exposed;
-* include `standards_ratings` when direct standard-backed Score results or dispositions are exposed;
-* include `moderated_scores` when the manifest exposes applicable Moderation state required to interpret included Scores;
-* omit a capability that the manifest does not actually provide.
+* include `criterion_scores` when any Criterion-level Score projection or non-score disposition is present;
+* include `standards_ratings` when any standard-backed Score projection or disposition is present;
+* when `standards_ratings` is included, require a nonempty Standards Result Projection that exactly represents the standard-backed subset;
+* include `moderated_scores` when interpretation of at least one included consequential Score depends on projected Moderation state;
+* omit each capability when its represented feature is absent.
 
 Capabilities are discovery metadata.
 
@@ -3117,7 +3118,7 @@ They do not establish:
 A valid publication example must preserve this order:
 
 1. validate the Activity and native publishable records;
-2. verify or select the applicable Academic Work Registration revision;
+2. verify the exact Academic Work Registration revision currently selected by Core;
 3. determine the exact result projection;
 4. assign a new valid `record_set_revision`;
 5. generate complete manifest bytes;
@@ -3170,29 +3171,34 @@ The manifest revision is not:
 
 ### 32.19 Idempotency
 
-Repeating a publication request with the same:
+Repeating the same publication request must reconcile to the existing successful Publication Record when all of the following are unchanged:
 
 ```text
 work
+source_record
+publication_kind
+capabilities
 record_set_id
 record_set_revision
-manifest_path
 manifest_contract_version
+manifest_path
+manifest_digest_algorithm
 manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
 ```
 
-must reconcile to the existing successful Publication Record.
+For an initial publication, `supersedes_publication_id` is absent.
 
-Reusing the same logical manifest revision with different:
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
 
-* bytes;
-* digest;
-* path;
-* or contract version
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
 
-is an integrity conflict.
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
 
-The examples must not model the conflicting request as an ordinary update.
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
+
+The examples must not model a conflicting request as an ordinary update or successful idempotent replay.
 
 ### 32.20 Publication supersession
 

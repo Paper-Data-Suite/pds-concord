@@ -309,7 +309,7 @@ work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-The registration must identify the Concord Activity through a Core `ModuleRecordRef` in `source_records`.
+The registration must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`. Additional source records may be included when justified.
 
 Conceptually:
 
@@ -930,7 +930,7 @@ A Concord Academic Result Manifest is published through Core as:
 publication_kind: academic_result_set
 ```
 
-An academic-result publication requires an applicable Academic Work Registration revision.
+An academic-result publication must reference the exact current Academic Work Registration revision at publication time. Later registration revisions do not alter the revision preserved by an existing Publication Record.
 
 The Core Publication Record advertises only supported shared capabilities.
 
@@ -943,6 +943,14 @@ moderated_scores
 ```
 
 Capability declaration must be truthful for the exact manifest revision.
+
+For the initial Concord manifest contract:
+
+* `criterion_scores` is required when any Criterion-level Score projection or non-score disposition is present;
+* `standards_ratings` is required when any standard-backed Score projection or standard-backed non-score disposition is present;
+* when `standards_ratings` is declared, the Standards Result Projection is required, nonempty, and exactly represents the standard-backed subset;
+* `moderated_scores` is required when interpretation of an included consequential Score depends on projected Moderation state;
+* and each capability must be omitted when its represented feature is absent.
 
 ### `criterion_scores`
 
@@ -995,7 +1003,7 @@ academic_work_registration_revision
 optional supersedes_publication_id
 ```
 
-For Concord, `source_record` should identify the Activity:
+For initial Concord use, `source_record` is required and must identify the same Activity represented by the Publication Record’s `work`, the manifest’s `source_activity`, and the manifest’s `activity_context`.
 
 ```yaml
 source_record:
@@ -1004,6 +1012,19 @@ source_record:
   record_id: act_proj_resource_finder_01
   contract_version: <approved Activity contract version>
 ```
+
+The following identities must agree:
+
+```text
+source_record.module_id = concord = work.module_id
+source_record.record_kind = activity
+source_record.record_id = work.work_id
+manifest.source_activity = source_record
+manifest.activity_context.activity_id = work.work_id
+manifest.activity_context.class_id = work.class_id
+````
+
+Concord must validate these producer-specific relationships before requesting Core publication.
 
 The Core Publication Record is not a copy of the manifest.
 
@@ -1066,14 +1087,28 @@ The publication workflow must occur in this order:
 15. Core updates or later rebuilds the derived catalog.
 16. Concord records or displays the publication result for teacher inspection.
 
-If Core Publication Record creation fails, the presence of the manifest file does not mean publication succeeded.
+Repeating the same publication request must return or reconcile to the existing Core Publication Record when all of the following are unchanged:
 
-If the canonical Publication Record succeeds but catalog update fails:
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+````
 
-* the Publication Record remains authoritative;
-* Concord must not rewrite the manifest;
-* the failure must be reported accurately;
-* and Core catalog repair may restore discovery later.
+For an initial publication, `supersedes_publication_id` is absent. For a successor, it identifies the exact expected predecessor.
+
+Any difference in those fields for the same logical record-set revision is an integrity conflict.
+
+Concord must create a new manifest revision for changed content or changed publication semantics.
 
 ## Idempotency
 
