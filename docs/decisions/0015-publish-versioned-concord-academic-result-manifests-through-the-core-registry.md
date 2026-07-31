@@ -1087,6 +1087,8 @@ The publication workflow must occur in this order:
 15. Core updates or later rebuilds the derived catalog.
 16. Concord records or displays the publication result for teacher inspection.
 
+## Idempotency
+
 Repeating the same publication request must return or reconcile to the existing Core Publication Record when all of the following are unchanged:
 
 ```text
@@ -1102,38 +1104,17 @@ manifest_digest_algorithm
 manifest_digest
 academic_work_registration_revision
 supersedes_publication_id
-````
+```
 
-For an initial publication, `supersedes_publication_id` is absent. For a successor, it identifies the exact expected predecessor.
+For an initial publication, `supersedes_publication_id` is absent.
 
-Any difference in those fields for the same logical record-set revision is an integrity conflict.
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
 
-Concord must create a new manifest revision for changed content or changed publication semantics.
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
 
-## Idempotency
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
 
-Repeating the same publication request with:
-
-* the same work;
-* the same `record_set_id`;
-* the same `record_set_revision`;
-* the same manifest path;
-* the same manifest contract version;
-* and the same digest
-
-must return or reconcile to the existing Core Publication Record rather than create a duplicate logical publication.
-
-Reusing the same logical revision with different:
-
-* bytes;
-* digest;
-* path;
-* contract version;
-* or result state
-
-is an integrity conflict.
-
-Concord must create a new manifest revision for changed content.
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
 
 ## Manifest Revision
 
@@ -1233,6 +1214,14 @@ Neither Core nor Meridian may infer one supersession relationship solely from th
 ## Publication Withdrawal
 
 Core withdrawal is used when a published manifest revision should no longer be selected as current or ordinarily usable.
+
+Withdrawal does not alter publication-series structure.
+
+When the withdrawn Publication Record is the unsuperseded series head, an earlier predecessor does not become current or ordinarily selectable again. The series has no currently selectable publication until a new successor is published.
+
+A corrected successor must explicitly supersede the withdrawn head.
+
+Withdrawing a historical non-head publication does not change the existing series head.
 
 A withdrawal may be appropriate when:
 

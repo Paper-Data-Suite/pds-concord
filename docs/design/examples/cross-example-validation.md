@@ -537,16 +537,30 @@ Capabilities are truthful:
 
 ### 20.1 Idempotent replay
 
-Each publication example states that an identical request for the same:
+Each publication example requires an identical replay request to preserve:
 
-- work;
-- record-set identity;
-- revision;
-- contract version;
-- path;
-- and digest
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
 
-must return or recognize the same logical publication rather than create a contradictory duplicate.
+For an initial publication, `supersedes_publication_id` is absent.
+
+For a superseding publication, it identifies the exact expected predecessor.
+
+An exact replay returns or recognizes the existing logical Publication Record rather than creating a duplicate.
+
+Any difference in these request fields for the same logical record-set revision is an integrity conflict.
 
 ### 20.2 Contradictory revision reuse
 
@@ -586,7 +600,9 @@ The project case explicitly establishes that:
 - the native manifest and Publication Record would remain preserved;
 - and withdrawal would not rewrite the native Concord Score.
 
-This satisfies the representative README’s permitted bounded treatment, but issue #13 may require a concrete withdrawal fixture before serialized Core contracts are approved.
+Issue #13 concludes that an additional Concord-specific withdrawal fixture is not required before serialized Concord contracts proceed because Publication Withdrawal is Core-owned and already governed by an implemented Core contract.
+
+The Concord contracts and examples must nevertheless preserve the reviewed rule that withdrawing a series head does not reactivate its predecessor.
 
 ### 20.5 Derived Core catalog
 

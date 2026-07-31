@@ -1526,6 +1526,10 @@ Core Publication Withdrawal
     -> new Core Publication Record
 ```
 
+Withdrawal does not reactivate a predecessor publication.
+
+When the withdrawn publication is the current series head, the series has no currently selectable publication until the corrected manifest is published through a new Publication Record that explicitly supersedes the withdrawn head.
+
 A Meridian-only policy or override change requires no Concord Score or manifest mutation.
 
 ---

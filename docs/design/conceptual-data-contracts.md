@@ -485,6 +485,18 @@ must not be silently rewritten in a way that changes its historical meaning.
 
 Corrections and replacements create explicit history.
 
+When a Concord record uses an explicit same-type supersession relationship:
+
+* the predecessor must exist;
+* the successor and predecessor must be distinct records of the same record kind;
+* the successor must identify its direct predecessor;
+* the successor’s applicable effective or decision time must not precede the predecessor’s;
+* one predecessor must not have more than one successor;
+* each supersession chain must be acyclic and have exactly one unsuperseded head;
+* and current state must be derived from the explicit chain rather than identifier ordering, timestamps alone, or an isolated status label.
+
+Record-specific contracts may impose stronger continuity requirements.
+
 ### 6.9 Surface neutrality
 
 The same conceptual record must be capable of being created through:
@@ -1976,8 +1988,12 @@ A **Correction Record** documents why an earlier record or association was corre
 
 Concord uses a hybrid correction model:
 
-1. same-type replacement records use an explicit `supersedes_<record>_id` relationship; and
-2. a generic Correction Record explains the correction, actor, reason, and old-to-new relationship.
+1. when one durable record replaces another, the same-type successor uses an explicit record-specific supersession relationship; and
+2. a Correction Record documents the affected record, correction type, actor, time, reason, supporting source, and replacement when one exists.
+
+A Correction Record may omit `replacement_reference` when it documents invalidation, cancellation, a pending correction, or another event that creates no replacement record.
+
+A Correction Record without a replacement does not designate a new current record or retarget existing references.
 
 This preserves efficient current-record traversal while maintaining one consistent audit contract.
 
@@ -1991,7 +2007,7 @@ This preserves efficient current-record traversal while maintaining one consiste
 | `reason`                   | Required    | Explanation                             |
 | `correcting_actor`         | Required    | Actor                                   |
 | `corrected_at`             | Required    | Correction time                         |
-| `replacement_reference`    | Optional    | New governing record                    |
+| `replacement_reference`    | Conditional | Required when the correction creates a replacement; otherwise omitted |
 | `related_source_reference` | Optional    | Source supporting the correction        |
 | `note`                     | Optional    | Additional explanation                  |
 | `privacy_policy`           | Required    | Correction privacy                      |
@@ -2016,8 +2032,11 @@ Examples include:
 
 * The target record remains available.
 * A Correction Record never rewrites a retained source scan.
-* The replacement must identify the record it supersedes.
-* A current-record designation is a retrieval aid, not deletion of history.
+* When `replacement_reference` is present, it must identify the same successor whose record-specific supersession field identifies `target_reference`.
+* When `replacement_reference` is absent, the Correction Record documents the correction event but does not establish a new governing record.
+* A Correction Record does not by itself retarget historical references.
+* An erroneous Correction Record may be replaced through `supersedes_correction_id`.
+* Current-record designation is derived from the applicable same-type supersession relationship rather than deletion of history.
 * Corrections must not create ambiguous competing current records.
 
 ## 13. Criteria and scoring contracts
@@ -2418,6 +2437,20 @@ A Group standards Score does not become an individual standards Score for every 
 * Zero is valid only when deliberately selected from a scale.
 * Revised consequential Scores preserve earlier Score Records.
 * A downstream module must not reinterpret a local Score as a direct standards Score.
+
+When `supersedes_score_record_id` is present:
+
+* it must identify an existing different Score Record;
+* the predecessor and successor must belong to the same Activity;
+* the successor’s `scored_at` must not precede the predecessor’s;
+* the Score-supersession chain must be acyclic and unbranched;
+* and the current Score must be derived from the explicit chain.
+
+The target and Criterion ordinarily remain the same.
+
+When target, Criterion, `score_kind`, or governing `standard_id` changes because an earlier Score was semantically incorrect, a Correction Record must identify the predecessor, replacement, and reason for that correction.
+
+A later observation is not a superseding Score merely because it has a later timestamp or a higher value.
 
 ## 13.5 Score Evidence Link
 
@@ -3253,6 +3286,12 @@ Neither relationship is inferred from the other.
 ### Withdrawal
 
 Core withdrawal marks a publication as no longer ordinarily selectable as current data.
+
+Withdrawal does not change which Publication Record is the structural series head.
+
+If the withdrawn record is the series head, no predecessor is reactivated. The series has no currently selectable publication until a new Publication Record explicitly supersedes the withdrawn head.
+
+Withdrawal of a historical non-head publication does not change the current head.
 
 Withdrawal:
 

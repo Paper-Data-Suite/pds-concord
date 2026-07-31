@@ -51,6 +51,10 @@ Findings will be classified as:
 | MPA-002 | Manifest and publication architecture | Minor clarification | Resolved | Idempotency descriptions omit replay-defining publication metadata enforced by Core. | Align replay identity with Core’s complete immutable request comparison |
 | MPA-003 | Manifest and publication architecture | Minor clarification | Resolved | Capability declarations are not fully connected to required manifest projections. | Define conditional capability and Standards Result Projection rules |
 | MPA-004 | Manifest and publication architecture | No issue identified | Reviewed | Producer authority, immutable binding, Core ownership, catalog nonauthority, and downstream separation are coherent. | None |
+| RSW-001 | Revision, supersession, and withdrawal | Minor clarification | Resolved | Native same-type supersession chains lack complete shared invariants, and Score continuity is underconstrained. | Require explicit, acyclic, unbranched chains and Score-specific continuity rules |
+| RSW-002 | Revision, supersession, and withdrawal | Minor clarification | Resolved | Correction Record replacement semantics are inconsistent when no replacement exists, and Correction Records cannot explicitly supersede earlier Correction Records. | Make replacement conditional and define correction-without-replacement behavior |
+| RSW-003 | Revision, supersession, and withdrawal | Minor clarification | Resolved | Withdrawal does not state that a withdrawn series head leaves no currently selectable publication and does not reactivate its predecessor. | Document no-fallback selection and successor behavior |
+| RSW-004 | Revision, supersession, and withdrawal | No issue identified | Reviewed | Native correction, manifest revision, publication supersession, withdrawal, and downstream histories remain coherently separated. | None |
 
 ## 4. Review Areas
 
@@ -1819,7 +1823,7 @@ The examples already conform to the stronger identity, replay, and capability ru
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Manifest and Publication Record identity                                                                                                                                                                                                                                                                                     |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                          |
-| Status                           | Open                                                                                                                                                                                                                                                                                                                         |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                                                         |
 | Finding                          | The documents require a Concord Activity source record but do not consistently require exact agreement among `work`, Publication Record `source_record`, manifest `source_activity`, and manifest `activity_context`. Core’s generic contract validates only module ownership and cannot enforce all Concord-specific joins. |
 | Required action                  | Add explicit Concord producer invariants requiring every identity representation to identify the same Activity and class.                                                                                                                                                                                                    |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                                                           |
@@ -1892,7 +1896,7 @@ For initial Concord publication, the submitted source Activity reference must eq
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Publication idempotency                                                                                                                                                                                                                                                    |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                        |
-| Status                           | Open                                                                                                                                                                                                                                                                       |
+| Status                           | Resolved                                                                                                                                                                                                                                                                       |
 | Finding                          | Concord documentation lists only work, record-set identity, path, contract version, and digest as replay identity. Core actually compares the complete immutable request, including source record, publication kind, capabilities, registration revision, and predecessor. |
 | Required action                  | Align all idempotency descriptions with Core’s exact replay comparison.                                                                                                                                                                                                    |
 | Architecture change required     | No                                                                                                                                                                                                                                                                         |
@@ -1901,9 +1905,11 @@ For initial Concord publication, the submitted source Activity reference must eq
 
 ##### Exact corrections
 
-In ADR 0015, replace lines 1080–1099 with:
+In `docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`, replace the duplicate and malformed idempotency material immediately before `## Manifest Revision` with:
 
 ````markdown
+## Idempotency
+
 Repeating the same publication request must return or reconcile to the existing Core Publication Record when all of the following are unchanged:
 
 ```text
@@ -1919,29 +1925,51 @@ manifest_digest_algorithm
 manifest_digest
 academic_work_registration_revision
 supersedes_publication_id
+```
+
+For an initial publication, `supersedes_publication_id` is absent.
+
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
+
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
+
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
+
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
 ````
 
-For an initial publication, `supersedes_publication_id` is absent. For a successor, it identifies the exact expected predecessor.
+In `docs/design/examples/cross-example-validation.md`, replace the obsolete six-field summary under `### 20.1 Idempotent replay` with:
 
-Any difference in those fields for the same logical record-set revision is an integrity conflict.
+````markdown
+### 20.1 Idempotent replay
 
-Concord must create a new manifest revision for changed content or changed publication semantics.
+Each publication example requires an identical replay request to preserve:
 
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
+
+For an initial publication, `supersedes_publication_id` is absent.
+
+For a superseding publication, it identifies the exact expected predecessor.
+
+An exact replay returns or recognizes the existing logical Publication Record rather than creating a duplicate.
+
+Any difference in these request fields for the same logical record-set revision is an integrity conflict.
 ````
 
-In `docs/design/conceptual-data-contracts.md`, replace lines 3170–3181 with the same replay-field list and conflict rule.
-
-In `docs/design/examples/README.md`, replace lines 3173–3195 with the same replay-field list and conflict rule.
-
-In `docs/design/pds-core-integration-requirements.md`, after line 1493:
-
-> Core reconciles exact replay idempotently.
-
-Add:
-
-```markdown
-Exact replay requires agreement on `work`, source record, publication kind, capabilities, record-set identity and revision, manifest contract version, path, digest algorithm, digest, Academic Work Registration revision, and predecessor publication identity.
-````
+The corresponding replay rules in `conceptual-data-contracts.md`, the representative-examples `README.md`, and `pds-core-integration-requirements.md` were aligned during the same finding resolution.
 
 #### MPA-003 — Capability and projection conditionality is incomplete
 
@@ -1949,7 +1977,7 @@ Exact replay requires agreement on `work`, source record, publication kind, capa
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Publication capabilities and manifest projections                                                                                                                                                                                                                                                          |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                                        |
-| Status                           | Open                                                                                                                                                                                                                                                                                                       |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                                       |
 | Finding                          | The documents require truthful capabilities but do not fully state the bidirectional conditions connecting capability declarations to actual Score, standards, and Moderation projections. The Standards Result Projection is currently labeled merely optional even when `standards_ratings` is declared. |
 | Required action                  | Define exact conditional rules for `criterion_scores`, `standards_ratings`, `moderated_scores`, and the Standards Result Projection.                                                                                                                                                                       |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                                         |
@@ -2013,16 +2041,559 @@ For the initial Concord manifest contract:
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 Resolved prior ownership clarifications: 1
 No-issue findings: 1
 ```
 
 The manifest and publication architecture is suitable for continued review.
 
-The open findings tighten Concord producer validation and documentation. They do not require:
+The resolved findings tighten Concord producer validation and documentation. They do not require:
 
 * a new foundational record type;
 * a Core modification;
 * a Meridian modification;
 * or revision of the representative example records.
+
+## 10. Revision, Supersession, and Withdrawal Review
+
+### 10.1 Review Question
+
+Do Concord’s correction, native supersession, manifest revision, Core publication supersession, and withdrawal contracts preserve an explicit, unambiguous, append-only history without silently reviving older state or collapsing distinct versioning axes?
+
+### 10.2 Separate Historical Axes
+
+The foundation correctly preserves the following as separate histories:
+
+```text
+source-scan and routing history
+Concord association and metadata correction
+Artifact Review supersession
+Moderation supersession
+Score Evidence Link supersession
+native Score supersession
+manifest record-set revision
+Core Academic Work Registration revision
+Core Publication Record supersession
+Core Publication Withdrawal
+Meridian import and derived-result revision
+Meridian override
+report snapshot revision
+```
+
+A change on one axis does not automatically create or modify a record on another axis.
+
+In particular:
+
+* a new native Score does not publish itself;
+* a new manifest does not revise a Score;
+* a new Publication Record does not supersede a native Score;
+* a withdrawal does not correct native data;
+* and a Meridian override does not revise Concord or Core records.
+
+### 10.3 Native Correction Model
+
+The hybrid native correction model is appropriate:
+
+```text
+same-type successor
+    -> explicit record-specific supersession relationship
+
+Correction Record
+    -> why the correction occurred
+    -> who authorized it
+    -> when it occurred
+    -> which record was affected
+    -> which replacement exists, when applicable
+```
+
+The original record remains available.
+
+A Correction Record does not itself rewrite the target, retarget existing references, or designate a replacement as current.
+
+When a replacement exists, the same-type replacement’s explicit supersession relationship remains the authoritative current-record traversal mechanism.
+
+A Correction Record without a replacement may document:
+
+* invalidation;
+* cancellation;
+* a pending correction;
+* or another correction event that does not yet create a new governing record.
+
+### 10.4 Native Supersession Chains
+
+Every native same-type supersession chain must be:
+
+* explicit;
+* append-preserving;
+* acyclic;
+* unbranched;
+* and independently reproducible.
+
+Each successor must identify its direct predecessor.
+
+A predecessor must not acquire two competing successors.
+
+Current state must be derived from explicit supersession relationships rather than:
+
+* identifier ordering;
+* creation time alone;
+* modification time;
+* the numerically highest value;
+* or an isolated `current` label.
+
+Record-specific contracts may impose stronger continuity rules.
+
+### 10.5 Score Supersession
+
+A superseding Score remains a new teacher-approved judgment.
+
+It must not overwrite:
+
+* the prior disposition or value;
+* prior scorer;
+* prior scoring time;
+* prior evidence links;
+* prior Moderation context;
+* prior rationale;
+* or prior publication history.
+
+A superseding Score must:
+
+* identify an existing predecessor;
+* differ from its predecessor;
+* belong to the same Activity;
+* have a `scored_at` value no earlier than the predecessor;
+* participate in an acyclic, unbranched chain;
+* and preserve enough continuity to show which native judgment is being replaced.
+
+The target and Criterion ordinarily remain the same.
+
+When correction of the target, Criterion, Score classification, or governing standard is the reason for supersession, an accompanying Correction Record must identify that semantic correction explicitly.
+
+Several later observations about the same standard are not automatically Score supersession. They may remain independent contextual observations unless Concord records a deliberate replacement relationship.
+
+### 10.6 Manifest Revision
+
+A new manifest revision is required when the published projection changes materially.
+
+Examples include:
+
+* a new publishable Score;
+* native Score supersession;
+* a target or governing-standard correction;
+* a scored-to-non-score or non-score-to-scored change;
+* a consequential evidence-link change;
+* a Moderation decision that changes permitted use;
+* an evidence-lineage correction;
+* a Criterion or Scale projection correction;
+* a privacy-projection correction;
+* or a manifest-contract migration.
+
+A native change that does not affect the published projection does not require republication.
+
+Manifest revisions:
+
+* are immutable;
+* retain one stable `record_set_id`;
+* use distinct positive revisions;
+* need not be contiguous;
+* and do not establish the current published head by themselves.
+
+### 10.7 Core Publication Supersession
+
+Core publication supersession is a single explicit chain for one publication-series identity:
+
+```text
+ModuleWorkRef
+publication_kind
+record_set_id
+```
+
+A successor Publication Record:
+
+* identifies the exact current predecessor;
+* uses a greater `record_set_revision`;
+* retains the same work, publication kind, and record-set identity;
+* points to a new immutable manifest;
+* and does not mutate the predecessor.
+
+The series must have:
+
+* exactly one root;
+* no branching successors;
+* no cycles;
+* and exactly one unsuperseded head.
+
+The head is derived from explicit predecessor relationships rather than revision number or timestamp alone.
+
+### 10.8 Publication Withdrawal
+
+Publication Withdrawal is a separate immutable Core record attached to one exact Publication Record.
+
+Withdrawal does not:
+
+* delete the Publication Record;
+* delete or alter manifest bytes;
+* alter native Concord records;
+* erase prior Meridian imports;
+* rewrite prior calculations or reports;
+* create a corrected result;
+* or restore another publication automatically.
+
+When the withdrawn publication is the series head:
+
+```text
+withdrawn head
+    -> remains the structural series head
+    -> is not currently selectable
+    -> does not reactivate its predecessor
+```
+
+The series therefore has no currently selectable publication until a new successor Publication Record is created.
+
+A corrected successor must explicitly supersede the withdrawn head.
+
+When a historical non-head publication is withdrawn, the current series head is unchanged.
+
+Withdrawal cannot be reversed by mutating or deleting the Withdrawal or Publication Record.
+
+### 10.9 Representative-Example Assessment
+
+The seminar and project examples demonstrate:
+
+* native Score supersession;
+* preservation of predecessor Scores;
+* new manifest revision following native change;
+* distinct Core publication supersession;
+* stable record-set identity;
+* immutable predecessor manifests;
+* explicit predecessor Publication Record identity;
+* and continued historical reproducibility.
+
+The representative cases do not instantiate a complete Publication Withdrawal record.
+
+That omission does not require an additional Concord-owned fixture before serialized Concord contracts proceed because:
+
+* Publication Withdrawal is Core-owned;
+* Core already defines and enforces its immutable shape and relationship;
+* Concord introduces no producer-specific withdrawal record;
+* and the remaining issue is documentation of selection behavior rather than an untested Concord entity.
+
+The examples should nevertheless state explicitly that withdrawing a series head does not reactivate its predecessor.
+
+### 10.10 Findings
+
+#### RSW-001 — Native supersession chains lack complete shared invariants
+
+| Field                            | Value                                                                                                                                                                                                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Native correction and supersession                                                                                                                                                                                                                                                                                     |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                    |
+| Status                           | Open                                                                                                                                                                                                                                                                                                                   |
+| Finding                          | Numerous Concord records carry record-specific supersession fields, but the shared contracts do not fully require existing predecessors, non-self-reference, acyclic and unbranched chains, chronological consistency, or explicit-head derivation. Score supersession also lacks sufficient logical-continuity rules. |
+| Required action                  | Add shared native supersession-chain invariants and Score-specific continuity requirements.                                                                                                                                                                                                                            |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                                                     |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                                                     |
+| Example changes required         | No; represented chains already follow the intended rules                                                                                                                                                                                                                                                               |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, immediately after line **486**:
+
+> Corrections and replacements create explicit history.
+
+Add:
+
+```markdown
+When a Concord record uses an explicit same-type supersession relationship:
+
+* the predecessor must exist;
+* the successor and predecessor must be distinct records of the same record kind;
+* the successor must identify its direct predecessor;
+* the successor’s applicable effective or decision time must not precede the predecessor’s;
+* one predecessor must not have more than one successor;
+* each supersession chain must be acyclic and have exactly one unsuperseded head;
+* and current state must be derived from the explicit chain rather than identifier ordering, timestamps alone, or an isolated status label.
+
+Record-specific contracts may impose stronger continuity requirements.
+```
+
+In the same document, immediately after line **2419**:
+
+> Revised consequential Scores preserve earlier Score Records.
+
+Add:
+
+```markdown
+When `supersedes_score_record_id` is present:
+
+* it must identify an existing different Score Record;
+* the predecessor and successor must belong to the same Activity;
+* the successor’s `scored_at` must not precede the predecessor’s;
+* the Score-supersession chain must be acyclic and unbranched;
+* and the current Score must be derived from the explicit chain.
+
+The target and Criterion ordinarily remain the same.
+
+When target, Criterion, `score_kind`, or governing `standard_id` changes because an earlier Score was semantically incorrect, a Correction Record must identify the predecessor, replacement, and reason for that correction.
+
+A later observation is not a superseding Score merely because it has a later timestamp or a higher value.
+```
+
+In `docs/design/initial-concord-domain-model.md`, immediately before line **1928**:
+
+> `### 10.6 Score Evidence Link`
+
+Add:
+
+```markdown
+#### Score supersession
+
+A Score may supersede an earlier Score only through an explicit predecessor relationship.
+
+The predecessor must exist, must belong to the same Activity, and must not be the successor itself. The successor’s scoring time must not precede the predecessor’s.
+
+Score-supersession chains must be acyclic and unbranched. Current state is derived from the explicit relationship rather than timestamps or values.
+
+The target and Criterion normally remain the same. A correction that changes the target, Criterion, Score classification, or governing standard requires an accompanying Correction Record explaining that semantic change.
+
+A later contextual observation remains independent unless the teacher deliberately records native supersession.
+```
+
+In `docs/design/examples/README.md`, immediately after line **1450**:
+
+> The replacement must identify the record it supersedes. A replacement becoming current does not make the original record invalid history.
+
+Add:
+
+```markdown
+Every illustrated same-type supersession chain must be direct, acyclic, and unbranched.
+
+The successor must identify an existing predecessor, and current state must be derived from the explicit chain rather than timestamps, values, filenames, or identifier ordering.
+
+For Score supersession, the predecessor and successor must belong to the same Activity. A change to the target, Criterion, Score classification, or governing standard requires an explicit Correction Record.
+```
+
+#### RSW-002 — Correction Record replacement semantics are internally inconsistent
+
+| Field                            | Value                                                                                                                                                                                                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                             | Correction Record                                                                                                                                                                                                                                                                                |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                                                              |
+| Status                           | Open                                                                                                                                                                                                                                                                                             |
+| Finding                          | `replacement_reference` is optional, while the invariants state unconditionally that “the replacement must identify the record it supersedes.” The contracts also do not define what a Correction Record without a replacement accomplishes or how a Correction Record itself may be superseded. |
+| Required action                  | Make replacement conditional, state the effect of a correction without replacement, and permit append-preserving correction of an erroneous Correction Record.                                                                                                                                   |
+| Architecture change required     | No                                                                                                                                                                                                                                                                                               |
+| Core or Meridian change required | No                                                                                                                                                                                                                                                                                               |
+| Example changes required         | No                                                                                                                                                                                                                                                                                               |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, replace lines **1977–1982**:
+
+> Concord uses a hybrid correction model:
+>
+> 1. same-type replacement records use an explicit `supersedes_<record>_id` relationship; and
+> 2. a generic Correction Record explains the correction, actor, reason, and old-to-new relationship.
+>
+> This preserves efficient current-record traversal while maintaining one consistent audit contract.
+
+With:
+
+```markdown
+Concord uses a hybrid correction model:
+
+1. when one durable record replaces another, the same-type successor uses an explicit record-specific supersession relationship; and
+2. a Correction Record documents the affected record, correction type, actor, time, reason, supporting source, and replacement when one exists.
+
+A Correction Record may omit `replacement_reference` when it documents invalidation, cancellation, a pending correction, or another event that creates no replacement record.
+
+A Correction Record without a replacement does not designate a new current record or retarget existing references.
+
+This preserves efficient current-record traversal while maintaining one consistent audit contract.
+```
+
+In the Correction Record field table, add after line **1988**:
+
+```markdown
+| `supersedes_correction_id` | Optional | Earlier Correction Record replaced |
+```
+
+Replace line **1994**:
+
+> `replacement_reference` | Optional | New governing record
+
+With:
+
+```markdown
+| `replacement_reference` | Conditional | Required when the correction creates a replacement; otherwise omitted |
+```
+
+Replace lines **2017–2021** with:
+
+```markdown
+* The target record remains available.
+* A Correction Record never rewrites a retained source scan.
+* When `replacement_reference` is present, it must identify the same successor whose record-specific supersession field identifies `target_reference`.
+* When `replacement_reference` is absent, the Correction Record documents the correction event but does not establish a new governing record.
+* A Correction Record does not by itself retarget historical references.
+* An erroneous Correction Record may be replaced through `supersedes_correction_id`.
+* Current-record designation is derived from the applicable same-type supersession relationship rather than deletion of history.
+* Corrections must not create ambiguous competing current records.
+```
+
+In `docs/design/initial-concord-domain-model.md`, replace lines **1511–1527** with:
+
+```markdown
+Concord uses a hybrid correction model:
+
+1. a same-type replacement record explicitly identifies the record it supersedes; and
+2. a general **Correction Record** documents the affected record, correction type, actor, time, reason, supporting source, and replacement when one exists.
+
+A Correction Record should identify:
+
+* durable `correction_id`;
+* target record type and identifier;
+* correction type;
+* reason;
+* correcting Actor;
+* timestamp;
+* replacement or superseding record when the correction creates one;
+* optional supporting source;
+* privacy policy;
+* optional superseded Correction Record;
+* and optional note.
+
+A Correction Record without a replacement may document invalidation, cancellation, or a pending correction, but it does not create a new governing record or retarget existing references.
+```
+
+In `docs/design/examples/README.md`, immediately after line **1452**:
+
+> A Correction Record never rewrites a Core-retained source scan.
+
+Add:
+
+```markdown
+When a correction creates a replacement, `replacement_reference` is required and must agree with the replacement record’s explicit supersession field.
+
+A Correction Record without a replacement documents the event only. It does not establish a new current record, retarget existing references, or make another record current implicitly.
+```
+
+#### RSW-003 — Withdrawal does not state its no-fallback selection semantics
+
+| Field                            | Value                                                                                                                                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Core Publication Withdrawal                                                                                                                                                                                                               |
+| Severity                         | Minor clarification                                                                                                                                                                                                                       |
+| Status                           | Open                                                                                                                                                                                                                                      |
+| Finding                          | Concord correctly describes withdrawal as immutable and non-destructive but does not state that withdrawing the current series head leaves the series with no currently selectable publication. Core does not reactivate the predecessor. |
+| Required action                  | State the no-fallback rule and require a corrected successor to supersede the withdrawn head.                                                                                                                                             |
+| Architecture change required     | No                                                                                                                                                                                                                                        |
+| Core or Meridian change required | No; this documents existing Core behavior                                                                                                                                                                                                 |
+| Example changes required         | No serialized record changes                                                                                                                                                                                                              |
+
+##### Exact corrections
+
+In ADR 0015, immediately after line **1235**:
+
+> Core withdrawal is used when a published manifest revision should no longer be selected as current or ordinarily usable.
+
+Add:
+
+```markdown
+Withdrawal does not alter publication-series structure.
+
+When the withdrawn Publication Record is the unsuperseded series head, an earlier predecessor does not become current or ordinarily selectable again. The series has no currently selectable publication until a new successor is published.
+
+A corrected successor must explicitly supersede the withdrawn head.
+
+Withdrawing a historical non-head publication does not change the existing series head.
+```
+
+In `docs/design/conceptual-data-contracts.md`, immediately after line **3255**:
+
+> Core withdrawal marks a publication as no longer ordinarily selectable as current data.
+
+Add:
+
+```markdown
+Withdrawal does not change which Publication Record is the structural series head.
+
+If the withdrawn record is the series head, no predecessor is reactivated. The series has no currently selectable publication until a new Publication Record explicitly supersedes the withdrawn head.
+
+Withdrawal of a historical non-head publication does not change the current head.
+```
+
+In `docs/design/examples/README.md`, immediately after line **1497**:
+
+> It records that one exact Publication Record should no longer be ordinarily selected as current data.
+
+Add:
+
+```markdown
+If that Publication Record is the series head, withdrawal does not reactivate an earlier predecessor. The series remains without a currently selectable publication until a new successor explicitly supersedes the withdrawn head.
+
+Withdrawal of a historical non-head publication leaves the existing series head unchanged.
+```
+
+In the same document, immediately after line **3235**:
+
+> Core represents withdrawal as a separate immutable record.
+
+Add:
+
+```markdown
+A withdrawn series head remains the structural head but is not currently selectable. Its predecessor does not become current again.
+
+A corrected replacement must be a new Publication Record that explicitly supersedes the withdrawn head.
+```
+
+In `docs/design/pds-core-integration-requirements.md`, immediately after line **1527**, add:
+
+```markdown
+Withdrawal does not reactivate a predecessor publication.
+
+When the withdrawn publication is the current series head, the series has no currently selectable publication until the corrected manifest is published through a new Publication Record that explicitly supersedes the withdrawn head.
+```
+
+In `docs/design/examples/cross-example-validation.md`, replace line **589**:
+
+> This satisfies the representative README’s permitted bounded treatment, but issue #13 may require a concrete withdrawal fixture before serialized Core contracts are approved.
+
+With:
+
+```markdown
+Issue #13 concludes that an additional Concord-specific withdrawal fixture is not required before serialized Concord contracts proceed because Publication Withdrawal is Core-owned and already governed by an implemented Core contract.
+
+The Concord contracts and examples must nevertheless preserve the reviewed rule that withdrawing a series head does not reactivate its predecessor.
+```
+
+#### RSW-004 — Revision, supersession, and withdrawal architecture is otherwise coherent
+
+| Field           | Value                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area            | Revision, supersession, and withdrawal                                                                                                                                         |
+| Severity        | No issue identified                                                                                                                                                            |
+| Status          | Reviewed                                                                                                                                                                       |
+| Finding         | Native correction, Score history, manifest revision, Core publication supersession, withdrawal, and Meridian-derived history remain correctly separated and append-preserving. |
+| Required action | None beyond RSW-001 through RSW-003.                                                                                                                                           |
+
+### 10.11 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+No-issue findings: 1
+```
+
+The revision, supersession, and withdrawal architecture is suitable for continued review.
+
+The three findings add explicit chain, correction, and selection invariants. They do not require:
+
+* a new foundational record type;
+* a new ADR;
+* a Core implementation change;
+* a Meridian implementation change;
+* or changes to the represented manifest bytes.

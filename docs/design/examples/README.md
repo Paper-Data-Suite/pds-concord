@@ -1449,7 +1449,17 @@ privacy_policy:
 
 The replacement must identify the record it supersedes. A replacement becoming current does not make the original record invalid history.
 
+Every illustrated same-type supersession chain must be direct, acyclic, and unbranched.
+
+The successor must identify an existing predecessor, and current state must be derived from the explicit chain rather than timestamps, values, filenames, or identifier ordering.
+
+For Score supersession, the predecessor and successor must belong to the same Activity. A change to the target, Criterion, Score classification, or governing standard requires an explicit Correction Record.
+
 A Correction Record never rewrites a Core-retained source scan.
+
+When a correction creates a replacement, `replacement_reference` is required and must agree with the replacement record’s explicit supersession field.
+
+A Correction Record without a replacement documents the event only. It does not establish a new current record, retarget existing references, or make another record current implicitly.
 
 ### Native Score, manifest, and publication histories
 
@@ -1495,6 +1505,10 @@ A later Core Publication Record must identify its predecessor explicitly. The cu
 A Core Publication Withdrawal is not Score correction or publication supersession.
 
 It records that one exact Publication Record should no longer be ordinarily selected as current data.
+
+If that Publication Record is the series head, withdrawal does not reactivate an earlier predecessor. The series remains without a currently selectable publication until a new successor explicitly supersedes the withdrawn head.
+
+Withdrawal of a historical non-head publication leaves the existing series head unchanged.
 
 Withdrawal:
 
@@ -3233,6 +3247,10 @@ Native Score supersession does not imply that a Core successor publication exist
 ### 32.21 Core Publication Withdrawal
 
 Core represents withdrawal as a separate immutable record.
+
+A withdrawn series head remains the structural head but is not currently selectable. Its predecessor does not become current again.
+
+A corrected replacement must be a new Publication Record that explicitly supersedes the withdrawn head.
 
 Representative shape:
 

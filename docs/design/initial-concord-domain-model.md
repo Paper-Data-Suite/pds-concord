@@ -1510,8 +1510,8 @@ Possible statuses include:
 
 Concord uses a hybrid correction model:
 
-1. same-type replacement records use explicit supersession relationships; and
-2. a general **Correction Record** explains the correction, actor, reason, and old-to-new relationship.
+1. a same-type replacement record explicitly identifies the record it supersedes; and
+2. a general **Correction Record** documents the affected record, correction type, actor, time, reason, supporting source, and replacement when one exists.
 
 A Correction Record should identify:
 
@@ -1521,10 +1521,13 @@ A Correction Record should identify:
 * reason;
 * correcting Actor;
 * timestamp;
-* replacement or superseding record where applicable;
+* replacement or superseding record when the correction creates one;
 * optional supporting source;
 * privacy policy;
+* optional superseded Correction Record;
 * and optional note.
+
+A Correction Record without a replacement may document invalidation, cancellation, or a pending correction, but it does not create a new governing record or retarget existing references.
 
 Corrections may apply to:
 
@@ -1543,6 +1546,7 @@ Corrections may apply to:
 The original record remains available for provenance.
 
 A current-record designation is a retrieval aid, not deletion of history.
+
 ## 10. Criteria and Scoring
 
 Concord’s primary academic scoring model is standards-based.
@@ -1924,6 +1928,18 @@ A standard-backed Score may target a Group when:
 * and the teacher deliberately selects the Group target.
 
 A Group standards Score does not become an individual standards Score for each Group member.
+
+#### Score supersession
+
+A Score may supersede an earlier Score only through an explicit predecessor relationship.
+
+The predecessor must exist, must belong to the same Activity, and must not be the successor itself. The successor’s scoring time must not precede the predecessor’s.
+
+Score-supersession chains must be acyclic and unbranched. Current state is derived from the explicit relationship rather than timestamps or values.
+
+The target and Criterion normally remain the same. A correction that changes the target, Criterion, Score classification, or governing standard requires an accompanying Correction Record explaining that semantic change.
+
+A later contextual observation remains independent unless the teacher deliberately records native supersession.
 
 ### 10.6 Score Evidence Link
 
