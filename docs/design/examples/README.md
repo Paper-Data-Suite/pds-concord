@@ -5,8 +5,8 @@
 **Module:** `pds-concord`  
 **Issue:** `#12 — 11. Create representative contract examples`  
 **Branch:** `12-create-representative-contract-examples`  
-**Revision date:** July 29, 2026  
-**Revision:** 3 — reconciled with ADR 0015, the Core academic-publication registry, and Meridian
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 foundation-review findings
 
 ## 1. Purpose
 
@@ -75,7 +75,7 @@ Tests mixed standards-and-local scoring, Group evidence, Group and individual ta
 
 ### `project-contract-example.md`
 
-Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and withdrawal.
+Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and bounded withdrawal semantics.
 
 ### `cross-example-validation.md`
 
@@ -764,7 +764,7 @@ Use Subject References for Artifact Subject associations, Moderation target subj
 
 A Score-Target Reference identifies the entity receiving one criterion-level judgment.
 
-The current conceptual contract defines supported target kinds and invariants but does not yet publish a field table. To keep the examples explicit and prevent accidental substitution of a Subject Reference, this directory uses the following provisional example notation:
+The conceptual contract defines the Score-Target Reference field table and invariants. To prevent accidental substitution of a Subject Reference, every example uses the following contract-native notation:
 
 ```yaml
 target_kind: core_student
@@ -789,9 +789,9 @@ concord_artifact_instance
 concord_work_item
 ```
 
-This provisional shape is an example-document convention, not an amendment to the governing conceptual contract. Issue #13 should either accept it or add the missing Score-Target Reference field table before serialized contracts are defined.
+This is the contract-native Score-Target Reference shape.
 
-A Score target is not an Artifact Subject. Do not use `subject_kind` and `subject_id` for `target_reference`.
+A Score target is not an Artifact Subject and must not be represented through Subject Reference fields.
 
 ### 10.8 Evidence Reference
 
@@ -856,7 +856,7 @@ Do not use the above three fields as a generic replacement for Participant, Acto
 
 The Manifest Evidence-Lineage Projection may identify an exact originating Core Publication Record when the source producer result is already published.
 
-The current conceptual contract requires an exact source publication reference but does not yet publish a separate field table for that reference. These examples therefore use the following provisional notation:
+The conceptual contract defines a Core Publication Reference value object. These examples use the following contract-native notation:
 
 ```yaml
 source_publication_reference:
@@ -865,12 +865,14 @@ source_publication_reference:
 
 The `publication_id` resolves to the immutable Core Publication Record. Do not copy the complete Publication Record into every lineage row.
 
-This provisional shape is example-document notation. Issue #13 should either accept it or add a shared Core Publication Reference value-object contract before serialized Concord manifests are finalized.
+The `publication_id` is required.
+
+An optional `publication_schema_version` may be included when needed for compatibility.
 
 A source Publication Record reference is:
 
-* optional when no exact source publication is known;
-* required when a case claims exact published-source lineage;
+* required when the source revision was resolved through, or verified against, an exact Core Publication Record;
+* omitted only when another immutable source-version mechanism is preserved;
 * distinct from the originating module-owned result record;
 * and insufficient by itself without `source_record_reference`.
 
@@ -2925,7 +2927,7 @@ The three relationships remain distinct:
 
 ```text
 originating producer result
-    -> optional exact Core source publication
+    -> conditional exact Core source publication
     -> Concord evidence relationship and teacher-approved Score
 ```
 
@@ -3577,7 +3579,7 @@ Before a case or the cross-example validation may declare `PASS`, run or perform
 23. complete Criterion and Scoring Scale projections for every included Score;
 24. consistency between manifest Score projections and canonical native Scores;
 25. complete source-record lineage for every projected evidence use;
-26. source Publication Record lineage where the case claims that exact source publication is known;
+26. source Publication Record lineage whenever the source revision was resolved through or verified against an exact Core publication;
 27. truthful publication capabilities;
 28. revision-addressed manifest path contained within the exact Activity work root;
 29. lowercase 64-character SHA-256 digest syntax;
@@ -3831,7 +3833,7 @@ The representative examples are complete when:
 1. the seminar, laboratory, and project cases each form a coherent conceptual record set;
 2. all references and relationships are internally consistent;
 3. all examples use the same shared notation and terminology;
-4. every typed relationship uses its contract-native reference shape or a clearly identified provisional convention where the contract lacks a field table;
+4. every typed relationship uses its contract-native reference shape;
 5. the four scoring orientations are represented collectively;
 6. PDS2 routing remains separate from semantic context;
 7. routing remains separate from academic registration and publication;
@@ -3846,7 +3848,7 @@ The representative examples are complete when:
 16. every included Score has sufficient Criterion and exact Scoring Scale projections;
 17. local Scores may appear in the broader manifest but never in the direct Standards Result Projection;
 18. non-score dispositions remain explicit and omit `value`;
-19. cross-producer ScoreForm or Quillan lineage identifies the originating module record and exact source publication where known;
+19. cross-producer ScoreForm or Quillan lineage identifies the originating module record and the exact source publication whenever required by the source-resolution contract;
 20. required Moderation state is sufficient to validate consequential evidence use;
 21. published manifest paths are revision-addressed and contained within the exact Activity work root;
 22. published manifest bytes are SHA-256 bound to immutable Core Publication Records;
@@ -3909,9 +3911,10 @@ native Score supersession
     -> external technical evidence lineage
 ```
 
-After all four documents are complete, issue #13 should perform the skeptical foundation review and determine:
+Issue #13 performs the skeptical foundation review and determines:
 
 * whether the Concord conceptual architecture is ready to govern serialized contracts and implementation work;
-* whether the provisional Score-Target and Core Publication Reference notations require formal value-object contracts;
 * whether ADR 0015 should be accepted, revised, or rejected;
-* and which Core and Meridian APIs must be released before runtime publication work begins.
+* and which Core, ScoreForm, Quillan, and Meridian contracts must be released before runtime publication work begins.
+
+Issue #13 has already formalized the Score-Target Reference and Core Publication Reference value objects and has determined that bounded withdrawal coverage is sufficient for the conceptual examples.

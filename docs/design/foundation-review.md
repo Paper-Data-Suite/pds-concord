@@ -70,6 +70,12 @@ Findings will be classified as:
 | PDM-003 | Privacy and data minimization | Minor clarification | Resolved | Published narrative, display metadata, registration text, and External Locators lack explicit field-level minimization rules. | Prohibit PII, sensitive narrative, secrets, signed access material, and unsafe paths |
 | PDM-004 | Privacy and data minimization | Follow-up implementation concern | Tracked | Coordinated retention and legal-deletion behavior across Core, Concord, Meridian, reports, catalogs, and backups remains undefined. | Establish suite-level retention, revocation, redaction, withdrawal, and deletion policy before production |
 | PDM-005 | Privacy and data minimization | No issue identified | Reviewed | Record-specific privacy, minimized projections, historical restriction, redaction, and publication-versus-authorization boundaries are coherent. | None |
+| REC-001 | Representative-example consistency | Major revision | Resolved | All six exact manifest byte blocks include top-level example-only `record_owner` and `record_kind` fields excluded by the shared notation and absent from the governing manifest contract. | Remove the two fields, recalculate six digests, update six Core Publication Records, and rerun validation |
+| REC-002 | Representative-example consistency | Minor clarification | Resolved | The README and cross-example validation retain obsolete provisional-reference and source-publication wording for matters resolved by issue #13. | Replace provisional language with the finalized Score-Target, Core Publication, and source-version contracts |
+| REC-003 | Representative-example consistency | Minor clarification | Resolved | The seminar, laboratory, and project Meridian sections retain abbreviated import-provenance lists superseded by MCB-001. | Add the complete mandatory publication observation to each example |
+| REC-004 | Representative-example consistency | Minor clarification | Resolved | The README, seminar, and laboratory descriptions say the project exercises withdrawal even though it only provides bounded withdrawal semantics. | Correct the coverage descriptions |
+| REC-005 | Representative-example consistency | No issue identified | Reviewed | The representative cases continue to cover the required semantic boundaries without case-specific foundational records. | None |
+
 
 ## 4. Review Areas
 
@@ -4690,3 +4696,949 @@ The three minor findings make existing privacy semantics enforceable and publica
 * or changes to their SHA-256 digests.
 
 The retention and deletion concern remains tracked and must be resolved before production privacy readiness is claimed.
+
+## 14. Representative-Example Consistency Review
+
+### 14.1 Review Question
+
+Do the seminar, laboratory, project, shared README, and cross-example validation remain internally consistent with the governing contracts after the foundation-review corrections, including exact manifest bytes, source lineage, Meridian import provenance, privacy, target eligibility, supersession, and withdrawal?
+
+### 14.2 Representative Set
+
+The reviewed representative set consists of:
+
+* `docs/design/examples/README.md`;
+* `docs/design/examples/seminar-contract-example.md`;
+* `docs/design/examples/laboratory-contract-example.md`;
+* `docs/design/examples/project-contract-example.md`;
+* and `docs/design/examples/cross-example-validation.md`.
+
+The cases collectively represent:
+
+```text
+seminar
+    -> standards-based Activity
+    -> individual Scores
+    -> peer Moderation
+    -> Quillan lineage
+    -> native Score and publication supersession
+
+laboratory
+    -> mixed Activity
+    -> Group and individual targets
+    -> local and standard-backed Scores
+    -> ScoreForm lineage
+    -> one publication
+
+project
+    -> mixed long-running Activity
+    -> Group and individual targets
+    -> external technical evidence
+    -> native Score and publication supersession
+    -> evidence-only addendum
+    -> local-criteria-only published addendum
+```
+
+The represented domain states remain sufficient to test the Concord foundation without introducing case-specific foundational record types.
+
+### 14.3 Exact Manifest Contract
+
+The shared README states that exact published manifest blocks omit:
+
+```text
+record_owner
+record_kind
+```
+
+when those fields are only illustrative envelope notation and are not part of the governing serialized manifest contract.
+
+The conceptual Concord Academic Result Manifest field table does not define either field.
+
+However, all six exact manifest JSON blocks currently contain:
+
+```json
+"record_kind": "concord_academic_result_manifest",
+"record_owner": "concord",
+```
+
+The affected manifests are:
+
+1. seminar revision 1;
+2. seminar revision 2;
+3. laboratory revision 1;
+4. project primary revision 1;
+5. project primary revision 2;
+6. project retrospective revision 1.
+
+These are not merely explanatory YAML blocks. They are the exact byte blocks whose SHA-256 digests are asserted by the corresponding Core Publication Records.
+
+The fields therefore cannot be corrected only in prose.
+
+The required sequence is:
+
+```text
+remove the two invalid top-level fields
+    -> preserve every other byte and field
+    -> validate JSON
+    -> normalize to exactly one final LF
+    -> recalculate SHA-256
+    -> update the corresponding Core Publication Record digest
+    -> rerun cross-example mechanical validation
+```
+
+Only the two top-level manifest fields are removed.
+
+Nested contract-native fields named `record_kind`, including those inside:
+
+* `source_activity`;
+* Module Record References;
+* source-record lineage;
+* and other typed references
+
+remain unchanged.
+
+### 14.4 Shared Reference Conventions
+
+Issue #13 has now formalized both previously provisional value objects:
+
+* Score-Target Reference;
+* and Core Publication Reference.
+
+The representative README and cross-example validation still describe them as unresolved provisional conventions.
+
+That language is obsolete.
+
+The example notation itself is compatible with the finalized contracts:
+
+```yaml
+target_reference:
+  target_kind: core_student
+  target_id: stu_001
+  owning_system: core
+```
+
+and:
+
+```yaml
+source_publication_reference:
+  publication_id: pub_scoreform_resultset_001
+```
+
+The documentation must now identify those as contract-native value objects.
+
+The finalized Core Publication Reference permits an optional `publication_schema_version` when compatibility requires it.
+
+### 14.5 Source-Publication Conditionality
+
+The README still describes a source Publication Record reference as:
+
+> optional when no exact source publication is known
+
+That formulation is no longer sufficiently precise.
+
+The governing rule is:
+
+* when a source revision was resolved through a Core Publication Record, or verified against an exact compatible Core publication, `source_publication_reference` is required;
+* when no source publication exists, another immutable source-version mechanism is required;
+* and a later publication must not be substituted merely because it contains the same logical source-record ID.
+
+The seminar and laboratory exact manifests already preserve the required exact source Publication References.
+
+No exact manifest change is required for cross-producer lineage.
+
+### 14.6 Meridian Import Provenance
+
+The three principal examples contain abbreviated Meridian import-provenance lists written before MCB-001 was resolved.
+
+Every represented Meridian import must preserve:
+
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
+* manifest contract version;
+* record-set identity and revision;
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
+
+Case-specific interpretation state remains additional information rather than a substitute for that publication observation.
+
+Examples include:
+
+* standard-backed versus local Score classification;
+* Group versus individual target identity;
+* exact Scale semantics;
+* native supersession;
+* evidence lineage;
+* and Moderation state.
+
+### 14.7 Target Consistency
+
+The examples preserve Group and individual Score targets correctly.
+
+The laboratory and project cases do not fabricate individual Concord Scores from Group Scores.
+
+The governing downstream rule is now explicit:
+
+```text
+core_student target
+    -> may be directly eligible for student-level Meridian evidence
+
+non-student target
+    -> remains non-student downstream
+```
+
+The representative cases require no record or manifest changes for this rule.
+
+Their Meridian prose should continue to state that Group Membership, authorship, Subject context, and Artifact association do not synthesize student targets.
+
+### 14.8 Privacy Consistency
+
+The exact manifest privacy examples remain consistent with the resolved privacy contract.
+
+In particular, the seminar manifests demonstrate:
+
+```text
+teacher_and_subjects Score projections
+    + teacher_restricted Moderation projection
+    -> teacher_restricted manifest
+```
+
+The examples:
+
+* use synthetic identifiers;
+* contain no real student names;
+* do not embed source scans;
+* do not embed full student writing;
+* preserve minimized evidence lineage;
+* preserve structured Moderation state;
+* and distinguish publication from authorization.
+
+The shared README should now state explicitly that:
+
+* all included projection policies must resolve before publication;
+* the manifest audience must be no broader than every included projection;
+* and unresolved `inherited` or `external_policy` modes are not valid published classifications.
+
+No exact manifest bytes require alteration for privacy.
+
+### 14.9 Withdrawal Coverage
+
+The representative set does not contain a complete Publication Withdrawal record.
+
+The project example provides a bounded treatment that establishes:
+
+* withdrawal is Core-owned;
+* withdrawal differs from publication supersession;
+* withdrawal preserves the Publication Record and manifest;
+* a withdrawn series head does not reactivate its predecessor;
+* and a later correction requires a new manifest and Publication Record.
+
+That bounded treatment is sufficient for this conceptual review.
+
+The seminar, laboratory, and README prose must not say that the project case “exercises” withdrawal.
+
+They should say that the project case bounds or documents withdrawal semantics without instantiating a complete withdrawal record.
+
+### 14.10 Mechanical Validation
+
+After removing the two invalid top-level manifest fields, mechanical validation must confirm for all six manifest blocks:
+
+1. valid UTF-8 JSON;
+2. LF line endings;
+3. exactly one final LF;
+4. no comments, placeholders, or ellipses;
+5. absence of top-level `record_owner`;
+6. absence of top-level `record_kind`;
+7. preservation of required nested typed-reference fields;
+8. exact SHA-256 equality;
+9. exact agreement between each manifest and its Core Publication Record;
+10. unchanged record-set identity and revision;
+11. unchanged manifest path;
+12. unchanged manifest contract version;
+13. unchanged publication-series relationships;
+14. unchanged capabilities;
+15. and unchanged Academic Work Registration revision.
+
+Changing the digest does not create a new conceptual manifest revision in these examples because the previously asserted fixtures were invalid representations of the intended contract rather than historical publications that actually occurred.
+
+The corrected synthetic fixture replaces the invalid example before implementation.
+
+### 14.11 Findings
+
+#### REC-001 — Exact manifest fixtures include forbidden example-only envelope fields
+
+| Field                                | Value                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                                 | Exact representative manifest bytes                                                                                                                                                                                                                                                                    |
+| Severity                             | Major revision                                                                                                                                                                                                                                                                                         |
+| Status                               | Open                                                                                                                                                                                                                                                                                                   |
+| Finding                              | All six exact published manifest blocks include top-level `record_owner` and `record_kind`, even though the shared README identifies them as illustrative fields that must be omitted from exact JSON unless the serialized contract defines them. The Concord manifest contract does not define them. |
+| Required action                      | Remove only those two top-level fields, recalculate all six SHA-256 digests, update all six Core Publication Records, and rerun mechanical validation.                                                                                                                                                 |
+| Architecture change required         | No                                                                                                                                                                                                                                                                                                     |
+| Exact manifest changes required      | Yes                                                                                                                                                                                                                                                                                                    |
+| Publication Record changes required  | Yes, digest only                                                                                                                                                                                                                                                                                       |
+| Record-set revision changes required | No                                                                                                                                                                                                                                                                                                     |
+
+##### Exact corrections
+
+Apply the correction to every exact JSON block in:
+
+```text
+docs/design/examples/seminar-contract-example.md
+docs/design/examples/laboratory-contract-example.md
+docs/design/examples/project-contract-example.md
+```
+
+Remove exactly these two top-level lines wherever they occur in an exact manifest block:
+
+```json
+  "record_kind": "concord_academic_result_manifest",
+  "record_owner": "concord",
+```
+
+Do not remove nested `record_kind` fields from typed references.
+
+The following one-time script performs the byte correction and updates every matching digest in the three files:
+
+````python
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from pathlib import Path
+
+FILES = {
+    Path("docs/design/examples/seminar-contract-example.md"): 2,
+    Path("docs/design/examples/laboratory-contract-example.md"): 1,
+    Path("docs/design/examples/project-contract-example.md"): 3,
+}
+
+JSON_BLOCK = re.compile(
+    r"```json\n(?P<body>\{.*?\}\n)```",
+    flags=re.DOTALL,
+)
+
+RECORD_KIND_LINE = (
+    '  "record_kind": "concord_academic_result_manifest",\n'
+)
+RECORD_OWNER_LINE = (
+    '  "record_owner": "concord",\n'
+)
+
+
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+for path, expected_manifest_count in FILES.items():
+    original_text = path.read_text(encoding="utf-8")
+    digest_replacements: dict[str, str] = {}
+    changed_count = 0
+
+    def correct_manifest(match: re.Match[str]) -> str:
+        nonlocal changed_count
+
+        body = match.group("body")
+        parsed = json.loads(body)
+
+        if (
+            parsed.get("producer_module_id") != "concord"
+            or "record_set_id" not in parsed
+            or "record_set_revision" not in parsed
+        ):
+            return match.group(0)
+
+        if parsed.get("record_kind") != "concord_academic_result_manifest":
+            raise RuntimeError(
+                f"{path}: expected top-level manifest record_kind"
+            )
+
+        if parsed.get("record_owner") != "concord":
+            raise RuntimeError(
+                f"{path}: expected top-level manifest record_owner"
+            )
+
+        old_digest = sha256_text(body)
+
+        corrected = body.replace(RECORD_KIND_LINE, "", 1)
+        corrected = corrected.replace(RECORD_OWNER_LINE, "", 1)
+
+        corrected_parsed = json.loads(corrected)
+
+        if "record_kind" in corrected_parsed:
+            raise RuntimeError(
+                f"{path}: top-level record_kind was not removed"
+            )
+
+        if "record_owner" in corrected_parsed:
+            raise RuntimeError(
+                f"{path}: top-level record_owner was not removed"
+            )
+
+        if not corrected.endswith("\n"):
+            raise RuntimeError(
+                f"{path}: corrected manifest must end with one LF"
+            )
+
+        new_digest = sha256_text(corrected)
+        digest_replacements[old_digest] = new_digest
+        changed_count += 1
+
+        return f"```json\n{corrected}```"
+
+    corrected_text = JSON_BLOCK.sub(correct_manifest, original_text)
+
+    if changed_count != expected_manifest_count:
+        raise RuntimeError(
+            f"{path}: corrected {changed_count} manifests; "
+            f"expected {expected_manifest_count}"
+        )
+
+    for old_digest, new_digest in digest_replacements.items():
+        if old_digest not in corrected_text:
+            raise RuntimeError(
+                f"{path}: documented old digest {old_digest} not found"
+            )
+
+        corrected_text = corrected_text.replace(
+            old_digest,
+            new_digest,
+        )
+
+        print(f"{path}: {old_digest} -> {new_digest}")
+
+    path.write_text(corrected_text, encoding="utf-8", newline="\n")
+
+print("Corrected six exact manifests and their documented digests.")
+````
+
+Run from the repository root:
+
+```bash
+python tools_or_temporary_script_name.py
+```
+
+Then verify:
+
+```bash
+git diff --check
+git diff -- docs/design/examples/
+```
+
+The diff should show:
+
+* two removed JSON lines per manifest;
+* one changed SHA-256 digest per manifest;
+* no other exact-manifest field changes.
+
+#### REC-002 — Shared example conventions retain resolved provisional language
+
+| Field                           | Value                                                                                                                                                                                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                            | Shared notation and cross-example validation                                                                                                                                                                                                              |
+| Severity                        | Minor clarification                                                                                                                                                                                                                                       |
+| Status                          | Open                                                                                                                                                                                                                                                      |
+| Finding                         | The README and cross-example validation still describe Score-Target Reference and Core Publication Reference as provisional, retain obsolete “when known” source-publication wording, and ask issue #13 to decide matters already resolved by the review. |
+| Required action                 | Replace the provisional language with the finalized value-object contracts and source-publication rules.                                                                                                                                                  |
+| Architecture change required    | No                                                                                                                                                                                                                                                        |
+| Exact manifest changes required | No                                                                                                                                                                                                                                                        |
+
+##### Exact corrections: README Score-Target Reference
+
+In `docs/design/examples/README.md`, under the exact heading:
+
+> `### 10.7 Score-Target Reference`
+
+replace:
+
+> The current conceptual contract defines supported target kinds and invariants but does not yet publish a field table. To keep the examples explicit and prevent accidental substitution of a Subject Reference, this directory uses the following provisional example notation:
+
+with:
+
+```markdown
+The conceptual contract defines the Score-Target Reference field table and invariants. To prevent accidental substitution of a Subject Reference, every example uses the following contract-native notation:
+```
+
+Replace:
+
+> This provisional shape is an example-document convention, not an amendment to the governing conceptual contract. Issue #13 should either accept it or add the missing Score-Target Reference field table before serialized contracts are defined.
+
+with:
+
+```markdown
+This is the contract-native Score-Target Reference shape.
+
+A Score target is not an Artifact Subject and must not be represented through Subject Reference fields.
+```
+
+Remove the now-duplicated following sentence when necessary:
+
+> A Score target is not an Artifact Subject. Do not use `subject_kind` and `subject_id` for `target_reference`.
+
+##### Exact corrections: README Core Publication Reference
+
+Under the exact heading:
+
+> `### 10.10 Core Publication Reference`
+
+replace:
+
+> The current conceptual contract requires an exact source publication reference but does not yet publish a separate field table for that reference. These examples therefore use the following provisional notation:
+
+with:
+
+```markdown
+The conceptual contract defines a Core Publication Reference value object. These examples use the following contract-native notation:
+```
+
+Replace:
+
+> This provisional shape is example-document notation. Issue #13 should either accept it or add a shared Core Publication Reference value-object contract before serialized Concord manifests are finalized.
+
+with:
+
+```markdown
+The `publication_id` is required.
+
+An optional `publication_schema_version` may be included when needed for compatibility.
+```
+
+Replace these two bullets:
+
+```markdown
+* optional when no exact source publication is known;
+* required when a case claims exact published-source lineage;
+```
+
+with:
+
+```markdown
+* required when the source revision was resolved through, or verified against, an exact Core Publication Record;
+* omitted only when another immutable source-version mechanism is preserved;
+```
+
+In the same file, replace:
+
+```text
+originating producer result
+    -> optional exact Core source publication
+    -> Concord evidence relationship and teacher-approved Score
+```
+
+with:
+
+```text
+originating producer result
+    -> conditional exact Core source publication
+    -> Concord evidence relationship and teacher-approved Score
+```
+
+Replace:
+
+> source Publication Record lineage where the case claims that exact source publication is known;
+
+with:
+
+```markdown
+source Publication Record lineage whenever the source revision was resolved through or verified against an exact Core publication;
+```
+
+Replace:
+
+> cross-producer ScoreForm or Quillan lineage identifies the originating module record and exact source publication where known;
+
+with:
+
+```markdown
+cross-producer ScoreForm or Quillan lineage identifies the originating module record and the exact source publication whenever required by the source-resolution contract;
+```
+
+##### Exact corrections: README completion language
+
+Replace:
+
+> every typed relationship uses its contract-native reference shape or a clearly identified provisional convention where the contract lacks a field table;
+
+with:
+
+```markdown
+every typed relationship uses its contract-native reference shape;
+```
+
+Near the end of the README, replace:
+
+```markdown
+After all four documents are complete, issue #13 should perform the skeptical foundation review and determine:
+
+* whether the Concord conceptual architecture is ready to govern serialized contracts and implementation work;
+* whether the provisional Score-Target and Core Publication Reference notations require formal value-object contracts;
+* whether ADR 0015 should be accepted, revised, or rejected;
+* and which Core and Meridian APIs must be released before runtime publication work begins.
+```
+
+with:
+
+```markdown
+Issue #13 performs the skeptical foundation review and determines:
+
+* whether the Concord conceptual architecture is ready to govern serialized contracts and implementation work;
+* whether ADR 0015 should be accepted, revised, or rejected;
+* and which Core, ScoreForm, Quillan, and Meridian contracts must be released before runtime publication work begins.
+
+Issue #13 has already formalized the Score-Target Reference and Core Publication Reference value objects and has determined that bounded withdrawal coverage is sufficient for the conceptual examples.
+```
+
+##### Exact corrections: cross-example validation Section 4.6
+
+In `docs/design/examples/cross-example-validation.md`, replace the complete subsection beginning with:
+
+> `### 4.6 Readiness for issue #13`
+
+and ending immediately before:
+
+> `## 5. Representative Case Summary`
+
+with:
+
+````markdown
+### 4.6 Issue #13 Reconciliation
+
+```text
+FOUNDATION REVIEW IN PROGRESS
+````
+
+Issue #13 has resolved the previously provisional:
+
+* Score-Target Reference contract;
+* Core Publication Reference contract;
+* source-publication conditionality;
+* and withdrawal no-fallback semantics.
+
+The representative examples do not require a complete Publication Withdrawal fixture for conceptual approval.
+
+The remaining issue #13 determinations are:
+
+* whether ADR 0015 should be accepted, revised, or rejected;
+* whether the corrected exact manifest fixtures pass final mechanical validation;
+* and which Core, ScoreForm, Quillan, and Meridian APIs or public contracts must be released before implementation.
+
+````
+
+##### Exact corrections: cross-example validation Section 28
+
+Replace subsections `### 28.1` through `### 28.3` with:
+
+```markdown
+### 28.1 Score-Target Reference — resolved
+
+Issue #13 formalized the Score-Target Reference as a shared value object with:
+
+```text
+target_kind
+target_id
+owning_system
+optional contract_version
+````
+
+The representative examples already use the compatible field shape.
+
+### 28.2 Core Publication Reference — resolved
+
+Issue #13 formalized the Core Publication Reference as:
+
+```text
+publication_id
+optional publication_schema_version
+```
+
+The representative source-publication references already use the required `publication_id`.
+
+### 28.3 Withdrawal fixture — resolved
+
+No complete Publication Withdrawal record is represented.
+
+Issue #13 determined that the bounded project treatment is sufficient because it explicitly preserves the distinction among:
+
+* native correction;
+* manifest revision;
+* publication supersession;
+* withdrawal;
+* structural series head;
+* and current selectable publication.
+
+The examples must state the no-fallback rule but need not invent a Core-owned withdrawal record.
+
+````
+
+#### REC-003 — Principal Meridian sections retain obsolete abbreviated import provenance
+
+| Field | Value |
+|---|---|
+| Area | Seminar, laboratory, and project Meridian sections |
+| Severity | Minor clarification |
+| Status | Open |
+| Finding | Each principal example preserves only a subset of the publication observation now required by MCB-001. |
+| Required action | Replace or supplement each abbreviated list with the complete mandatory import-provenance list. |
+| Architecture change required | No |
+| Exact manifest changes required | No |
+
+##### Exact correction: seminar
+
+In `docs/design/examples/seminar-contract-example.md`, under:
+
+> `## 25. Meridian Consumption Boundary`
+
+replace the list beginning with:
+
+> `- publication_id;`
+
+and ending with:
+
+> `- and import time.`
+
+with:
+
+```markdown
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
+- manifest contract version;
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
+````
+
+Keep the following policy list beginning with:
+
+> Meridian then applies explicit policy for:
+
+unchanged.
+
+##### Exact correction: laboratory
+
+In `docs/design/examples/laboratory-contract-example.md`, locate the Meridian list containing this exact ending:
+
+```markdown
+- manifest contract version;
+- `record_set_id`;
+- `record_set_revision`;
+- Academic Work Registration revision;
+- source Activity reference;
+- source-publication lineage;
+- withdrawal state;
+- and import time.
+```
+
+Replace the complete import-provenance list with:
+
+```markdown
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
+- manifest contract version;
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
+```
+
+Immediately after that list, add:
+
+```markdown
+For interpretation of this laboratory result, Meridian must additionally preserve:
+
+- standard-backed versus local Score classification;
+- Group versus individual target identity;
+- exact Scoring Scale identity and meaning;
+- ScoreForm source-record and source-publication lineage;
+- native Score dispositions;
+- and applicable Moderation state.
+```
+
+Keep the following text beginning with:
+
+> Meridian then owns explicit policy for:
+
+unchanged.
+
+##### Exact correction: project
+
+In `docs/design/examples/project-contract-example.md`, replace the block beginning with:
+
+> For the primary Activity, Meridian must preserve:
+
+and ending with:
+
+> * and the teacher's selected or excluded evidence under Meridian policy.
+
+with:
+
+```markdown
+For every imported Concord publication, Meridian must preserve:
+
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
+- manifest contract version;
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
+
+For interpretation of the primary Activity, Meridian must additionally preserve:
+
+- standard-backed versus local Score classification;
+- Group versus individual target identity;
+- the exact Scoring Scale revision and level meaning;
+- current versus superseded Score state;
+- external project-evidence lineage;
+- Moderation state;
+- and the evidence selected or excluded under Meridian policy.
+```
+
+#### REC-004 — Withdrawal coverage is overstated in three example descriptions
+
+| Field                           | Value                                                                                                                                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                            | Withdrawal coverage claims                                                                                                                                                                                |
+| Severity                        | Minor clarification                                                                                                                                                                                       |
+| Status                          | Open                                                                                                                                                                                                      |
+| Finding                         | The README, seminar, and laboratory prose say the project example exercises withdrawal, while the project and cross-example validation correctly state that no complete withdrawal record is represented. |
+| Required action                 | Describe the project as bounding withdrawal semantics rather than exercising a withdrawal fixture.                                                                                                        |
+| Architecture change required    | No                                                                                                                                                                                                        |
+| Exact manifest changes required | No                                                                                                                                                                                                        |
+
+##### Exact correction: README
+
+In `docs/design/examples/README.md`, replace:
+
+> Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and withdrawal.
+
+with:
+
+```markdown
+Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and bounded withdrawal semantics.
+```
+
+##### Exact correction: seminar
+
+In `docs/design/examples/seminar-contract-example.md`, replace:
+
+> No publication withdrawal is represented in this seminar case. The architecture can represent withdrawal through a separate immutable Core record; the project example will exercise a withdrawal scenario.
+
+with:
+
+```markdown
+No Publication Withdrawal record is represented in this seminar case.
+
+The project example bounds the withdrawal contract and no-fallback rule without inventing a complete Core-owned withdrawal record.
+```
+
+##### Exact correction: laboratory
+
+In `docs/design/examples/laboratory-contract-example.md`, replace:
+
+> This case deliberately represents one valid publication revision. Native Score supersession, Core publication supersession, and publication withdrawal are exercised by the project example rather than fabricated here.
+
+with:
+
+```markdown
+This case deliberately represents one valid publication revision.
+
+Native Score supersession and Core publication supersession are exercised by the project example. Publication withdrawal is bounded there without a complete withdrawal record.
+```
+
+#### REC-005 — Representative semantic coverage remains coherent
+
+| Field           | Value                                                                                                                                                                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Representative-example consistency                                                                                                                                                                                                                  |
+| Severity        | No issue identified                                                                                                                                                                                                                                 |
+| Status          | Reviewed                                                                                                                                                                                                                                            |
+| Finding         | The three principal cases and two bounded addenda continue to exercise the required Activity, routing, evidence, Moderation, scoring, target, publication, lineage, and Meridian boundaries without introducing case-specific foundational records. |
+| Required action | None beyond REC-001 through REC-004.                                                                                                                                                                                                                |
+
+### 14.12 Document Metadata
+
+Because all five representative-example documents will change during this correction, update their revision metadata.
+
+In `docs/design/examples/README.md`:
+
+```markdown
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 foundation-review findings
+```
+
+In `docs/design/examples/cross-example-validation.md`:
+
+```markdown
+**Revision date:** July 31, 2026  
+**Revision:** 5 — reconciled with issue #13 foundation-review findings
+```
+
+In each principal example:
+
+```text
+seminar-contract-example.md
+laboratory-contract-example.md
+project-contract-example.md
+```
+
+use:
+
+```markdown
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 representative-example consistency review
+```
+
+### 14.13 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 1
+Minor clarifications: 3
+No-issue findings: 1
+```
+
+The representative conceptual coverage remains sound.
+
+The exact fixture set is not ready for final approval until REC-001 is resolved because the currently asserted manifest bytes conflict with the shared notation rules and governing manifest field table.
+
+After the six manifest blocks and digests are corrected:
+
+* no foundational record type changes are required;
+* no manifest revision-number changes are required;
+* no publication-series changes are required;
+* no representative scenario changes are required;
+* and no architectural decision is required beyond the already resolved findings.
+
+ADR 0015 disposition should occur only after the corrected exact fixtures pass mechanical validation.

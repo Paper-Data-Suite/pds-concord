@@ -7,8 +7,8 @@
 **Example family:** Collaborative programming / engineering project  
 **Primary scoring orientation:** `mixed`  
 **Publication model:** Two main-Activity manifest revisions plus one local-only addendum publication  
-**Revision date:** July 30, 2026  
-**Revision:** 3 — aligned with ADR 0015, Core registry publication, and Meridian
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 representative-example consistency review
 
 ## 1. Case Purpose
 
@@ -7409,8 +7409,6 @@ The exact published bytes are:
   ],
   "privacy_classification": "teacher_restricted",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_proj_resource_finder_01",
   "record_set_revision": 1,
   "score_evidence_link_projections": [
@@ -8112,7 +8110,7 @@ The exact published bytes are:
 The exact SHA-256 digest of those UTF-8 bytes, including the final newline, is:
 
 ```text
-df5c502efd3649e776dae771905be2e4d4330099c270fdb02cb2c47e4c8ec412
+5b648ff12d3e0292a00562105797fbb6dc53aa4c8bd7ebbd9de3f559f37a8caf
 ```
 
 Manifest revision 1 is immutable after publication.
@@ -8144,7 +8142,7 @@ record_set_revision: 1
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_apcsp_p01/modules/concord/work/act_proj_resource_finder_01/exports/manifests/rs_proj_resource_finder_01/1.json
 manifest_digest_algorithm: sha256
-manifest_digest: df5c502efd3649e776dae771905be2e4d4330099c270fdb02cb2c47e4c8ec412
+manifest_digest: 5b648ff12d3e0292a00562105797fbb6dc53aa4c8bd7ebbd9de3f559f37a8caf
 published_at: '2026-11-09T11:00:00-05:00'
 academic_work_registration_revision: 2
 ```
@@ -8389,8 +8387,6 @@ The exact published bytes are:
   ],
   "privacy_classification": "teacher_restricted",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_proj_resource_finder_01",
   "record_set_revision": 2,
   "score_evidence_link_projections": [
@@ -9291,7 +9287,7 @@ The exact published bytes are:
 The exact SHA-256 digest of those UTF-8 bytes, including the final newline, is:
 
 ```text
-dc64636d1f87ad8ec22a10df507d08403577e827997c75d7c20ab0aa6801f250
+8ae5dd61933d1b423d75606998ba02cd85cccbdf07591ddb9ed77645da44dc21
 ```
 
 Manifest revision 2 is a new immutable object. It does not rewrite revision 1.
@@ -9323,7 +9319,7 @@ record_set_revision: 2
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_apcsp_p01/modules/concord/work/act_proj_resource_finder_01/exports/manifests/rs_proj_resource_finder_01/2.json
 manifest_digest_algorithm: sha256
-manifest_digest: dc64636d1f87ad8ec22a10df507d08403577e827997c75d7c20ab0aa6801f250
+manifest_digest: 8ae5dd61933d1b423d75606998ba02cd85cccbdf07591ddb9ed77645da44dc21
 published_at: '2026-11-09T12:20:00-05:00'
 academic_work_registration_revision: 2
 supersedes_publication_id: pub_concord_proj_resource_finder_001
@@ -10478,8 +10474,6 @@ The manifest contains the local Score and its evidence lineage. Its Standards Re
   "moderation_projections": [],
   "privacy_classification": "group_and_teacher",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_proj_retrospective_01",
   "record_set_revision": 1,
   "score_evidence_link_projections": [
@@ -10579,7 +10573,7 @@ The manifest contains the local Score and its evidence lineage. Its Standards Re
 SHA-256:
 
 ```text
-9d54f078056388d4a42c50d185df9e9ffee5e2b0aa24b22c48c4435857b37198
+20a7560a035750f55cb71109d695735bbbf89f90dc6bdf7c3e1480664a3586d3
 ```
 
 ### 24.4 Local-criteria-only Core Publication Record
@@ -10607,7 +10601,7 @@ record_set_revision: 1
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_apcsp_p01/modules/concord/work/act_proj_retrospective_01/exports/manifests/rs_proj_retrospective_01/1.json
 manifest_digest_algorithm: sha256
-manifest_digest: 9d54f078056388d4a42c50d185df9e9ffee5e2b0aa24b22c48c4435857b37198
+manifest_digest: 20a7560a035750f55cb71109d695735bbbf89f90dc6bdf7c3e1480664a3586d3
 published_at: '2026-11-13T09:35:00-05:00'
 academic_work_registration_revision: 1
 ```
@@ -10626,18 +10620,32 @@ Meridian may discover and import:
 
 Meridian must not infer that every discovered publication is eligible for grading.
 
-For the primary Activity, Meridian must preserve:
+For every imported Concord publication, Meridian must preserve:
 
-- the exact Core Publication Record ID selected;
-- the exact Concord manifest revision;
-- the Core Academic Work Registration revision;
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
+- manifest contract version;
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
+
+For interpretation of the primary Activity, Meridian must additionally preserve:
+
 - standard-backed versus local Score classification;
 - Group versus individual target identity;
 - the exact Scoring Scale revision and level meaning;
 - current versus superseded Score state;
 - external project-evidence lineage;
-- Moderation status;
-- and the teacher's selected or excluded evidence under Meridian policy.
+- Moderation state;
+- and the evidence selected or excluded under Meridian policy.
 
 The external GitHub, CI, CAD, and cloud-document records are not separate PDS result publications in this example. Their lineage is retained as underlying evidence, not imported as duplicate academic results.
 
