@@ -60,6 +60,11 @@ Findings will be classified as:
 | CPL-003 | Cross-producer evidence lineage | Minor clarification | Resolved | Exact source-publication conditionality, duplicate-field equality, source-record membership, and later lifecycle effects are underdefined. | Require exact source-version sufficiency and publication-integrity rules |
 | CPL-004 | Cross-producer evidence lineage | Follow-up implementation concern | Tracked | Released ScoreForm and Quillan runtimes do not yet expose the complete source-publication contracts represented by the conceptual examples. | Stabilize public record, manifest, publication, and adapter contracts before runtime integration |
 | CPL-005 | Cross-producer evidence lineage | No issue identified | Reviewed | Ownership, explicit judgment, Moderation, privacy, history, and Meridian overlap authority are coherent. | None |
+| MCB-001 | Meridian consumption boundary | Minor clarification | Resolved | Meridian import provenance is advisory and omits parts of the exact publication observation required for reproducibility. | Make complete import provenance mandatory |
+| MCB-002 | Meridian consumption boundary | Minor clarification | Resolved | Withdrawal is treated as a general import-validity failure rather than a current-selection restriction. | Separate historical import from ordinary current eligibility |
+| MCB-003 | Meridian consumption boundary | Minor clarification | Resolved | Non-student Score targets lack an explicit rule governing student-level Meridian eligibility. | Preserve non-student targets and forbid synthesized student targets |
+| MCB-004 | Meridian consumption boundary | Minor clarification | Resolved | Scale mapping is not explicitly bound to the exact producer Scale identity, revision, and level semantics. | Define exact source-scale mapping identity |
+| MCB-005 | Meridian consumption boundary | No issue identified | Reviewed | Producer authority, Meridian policy ownership, Academic Periods, overrides, and reporting remain coherently separated. | None |
 
 ## 4. Review Areas
 
@@ -272,7 +277,7 @@ It does not establish:
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area            | Module ownership and authority                                                                                                                                                                                                                                                                 |
 | Severity        | Minor clarification                                                                                                                                                                                                                                                                            |
-| Status          | Open                                                                                                                                                                                                                                                                                           |
+| Status          | Resolved                                                                                                                                                                                                                                                                                           |
 | Finding         | The architecture treats the Core publication catalog as derived and treats publication as separate from grading eligibility. These rules are present in the current design but are important enough to verify consistently in every governing document that discusses publication consumption. |
 | Required action | During the publication-document review, confirm that no document treats the Core catalog as authoritative or implies that publication automatically creates Grade eligibility, Academic Period membership, or reporting inclusion.                                                             |
 
@@ -281,7 +286,7 @@ It does not establish:
 ```text
 Blocking defects: 0
 Major revisions: 0
-Resolved Minor clarifications: 1
+Resolved minor clarifications: 1
 Follow-up implementation concerns: 0
 ```
 
@@ -454,7 +459,7 @@ The Concord integration document already describes this ordering correctly.
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Activity identity and Core registration                                                                                                                           |
 | Severity                     | Minor clarification                                                                                                                                               |
-| Status                       | Open                                                                                                                                                              |
+| Status                       | Resolved                                                                                                                                                              |
 | Finding                      | ADR 0015 and the Core integration requirements describe `work.class_id = Activity.class_id`, but the Activity contract defines `class_reference`, not `class_id`. |
 | Required action              | Replace the mapping with `work.class_id = Activity.class_reference.record_id`, while requiring `class_reference` to identify a Core class.                        |
 | Architecture change required | No                                                                                                                                                                |
@@ -467,7 +472,7 @@ The Activity field table defines `class_reference`, while the registration prose
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Activity identity and Core registration                                                                                                                                                                                                                                      |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                          |
-| Status                       | Open                                                                                                                                                                                                                                                                         |
+| Status                       | Resolved                                                                                                                                                                                                                                                                         |
 | Finding                      | The Concord documents state that the registration “should” include the Activity in `source_records`. Core’s generic model permits an empty `source_records` collection and cannot enforce Concord-specific Activity binding.                                                 |
 | Required action              | Require every Concord Academic Work Registration to include exactly one Activity `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`. Other source records may also be included when justified. |
 | Architecture change required | No; this is a Concord producer-contract invariant                                                                                                                                                                                                                            |
@@ -482,7 +487,7 @@ The representative examples already follow the stronger proposed rule.
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Activity identity and Core registration                                                                                                                                                                                                       |
 | Severity                     | Minor clarification                                                                                                                                                                                                                           |
-| Status                       | Open                                                                                                                                                                                                                                          |
+| Status                       | Resolved                                                                                                                                                                                                                                          |
 | Finding                      | Some Concord prose refers to the “applicable” registration revision. Core’s implemented publication service is more precise: an academic-result publication must reference the exact current registration revision at publication time.       |
 | Required action              | Replace ambiguous “applicable registration revision” wording with “the exact current Academic Work Registration revision at publication time.” State separately that later registration revisions do not rewrite earlier Publication Records. |
 | Architecture change required | No                                                                                                                                                                                                                                            |
@@ -504,13 +509,13 @@ Core enforces current-revision equality and rejects a cancelled current registra
 ```text
 Blocking defects: 0
 Major revisions: 0
-Resolved Minor clarifications: 3
+Resolved minor clarifications: 3
 No-issue findings: 1
 ```
 
 The Activity identity and Academic Work Registration architecture is suitable for continued foundation review.
 
-The three open findings require wording and producer-invariant corrections, not a redesign of Activity identity, Core registration, or the representative examples.
+The three resolved findings required wording and producer-invariant corrections, not a redesign of Activity identity, Core registration, or the representative examples.
 
 ## 7. Evidence, Review, Moderation, and Scoring Review
 
@@ -766,7 +771,7 @@ No representative example contradicts the intended evidence, Review, Moderation,
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                         | Scoring and evidence lineage                                                                                                                                                                                                                                                                                                         |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                  |
-| Status                       | Open                                                                                                                                                                                                                                                                                                                                 |
+| Status                       | Resolved                                                                                                                                                                                                                                                                                                                                 |
 | Finding                      | The contracts define `linked_evidence`, `professional_judgment`, and `mixed_basis`, but they do not fully state which basis values require Score Evidence Links. As written, a `linked_evidence` Score could contain zero links, or a `mixed_basis` Score could omit the rationale representing the professional-judgment component. |
 | Required action              | Require at least one active Score Evidence Link for `linked_evidence` and `mixed_basis`; require rationale for `mixed_basis`; and require a zero-link Score to use `professional_judgment`.                                                                                                                                          |
 | Architecture change required | No                                                                                                                                                                                                                                                                                                                                   |
@@ -861,7 +866,7 @@ A Score with zero Score Evidence Links must use `basis = professional_judgment`.
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                         | Evidence references and Score Evidence Links                                                                                                                                                                                                                             |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                      |
-| Status                       | Open                                                                                                                                                                                                                                                                     |
+| Status                       | Resolved                                                                                                                                                                                                                                                                     |
 | Finding                      | ADR 0009 and the initial domain model place relevance description or applicable Moderation state on the Evidence Reference. The finalized contract correctly places deliberate relevance, significance, and the applicable Moderation Record on the Score Evidence Link. |
 | Required action              | Align the older descriptions with the finalized Evidence Reference and Score Evidence Link contracts.                                                                                                                                                                    |
 | Architecture change required | No                                                                                                                                                                                                                                                                       |
@@ -966,7 +971,7 @@ Relevance description and the applicable Moderation Record belong to the Score E
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Review scope                                                                                                                                                                                                                                                                                               |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                                                        |
-| Status                       | Open                                                                                                                                                                                                                                                                                                       |
+| Status                       | Resolved                                                                                                                                                                                                                                                                                                       |
 | Finding                      | ADR 0008 says a Review may examine an Artifact Instance “or other routed evidence,” while the finalized contract defines Artifact Review specifically for one Artifact Instance and its routed evidence. Other source types retain source-owned review state or undergo Concord Moderation as appropriate. |
 | Required action              | Narrow the ADR wording to the finalized Artifact Review target.                                                                                                                                                                                                                                            |
 | Architecture change required | No                                                                                                                                                                                                                                                                                                         |
@@ -1005,13 +1010,13 @@ Artifact Review determines whether the Artifact and its routed evidence are admi
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 No-issue findings: 1
 ```
 
 The evidence, Review, Moderation, and Scoring foundation is suitable for continued review.
 
-The three open findings tighten existing contracts. They do not require new foundational entities, a new ADR, changes to Core, changes to Meridian, or revisions to the representative records.
+The three resolved findings tighten existing contracts. They do not require new foundational entities, a new ADR, changes to Core, changes to Meridian, or revisions to the representative records.
 
 ## 8. Criteria, Scoring Scales, and Score Semantics Review
 
@@ -1254,7 +1259,7 @@ No representative example requires a new scoring entity or contradicts the inten
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Standards profile and Focus Standard validation                                                                                                                                                                                                                                                                                                     |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                                                 |
-| Status                           | Open                                                                                                                                                                                                                                                                                                                                                |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                                                                                |
 | Finding                          | Several governing documents say that selected Focus Standards or profile-bound Criteria “should” belong to the selected standards profile. Core owns profile-membership validation, and the Activity contract describes the profile as the source of the Focus Standards. Membership must therefore be a validation requirement rather than advice. |
 | Required action                  | Replace advisory profile-membership language with mandatory validation language while preserving historical records when later Core profile or lifecycle state changes.                                                                                                                                                                             |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                                                                                  |
@@ -1322,7 +1327,7 @@ When a Criterion Set declares Core standards-profile context, every standard-bac
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Criterion and Criterion Set revision semantics                                                                                                                                                                                                                                                                                                                   |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                                                              |
-| Status                           | Open                                                                                                                                                                                                                                                                                                                                                             |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                                                                                             |
 | Finding                          | The contracts call Criterion Sets immutable revisions but state that a Set becomes immutable only when selected by an Activity that “produces Scores,” while an individual Criterion becomes immutable only when used by a Score. This leaves room for an Activity’s configured Criteria or generated scoring materials to change before the first Score exists. |
 | Required action                  | Make Criterion Set membership, order, and member Criterion scoring semantics immutable once the Set revision is selected by an Activity.                                                                                                                                                                                                                         |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                                                                                               |
@@ -1389,7 +1394,7 @@ requires a new Criterion identity in a new Criterion Set revision.
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Scoring Scale interpretation                                                                                                                                                                                                                                |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                         |
-| Status                           | Open                                                                                                                                                                                                                                                        |
+| Status                           | Resolved                                                                                                                                                                                                                                                        |
 | Finding                          | The contracts require permitted Scale values and exact revision references but do not explicitly require machine values to be unique or ordering to be deterministic. A duplicated machine value could make one Score value resolve to more than one level. |
 | Required action                  | Require at least one level, unique machine values within each Scale revision, and deterministic nonduplicated ordering where ordering applies.                                                                                                              |
 | Architecture change required     | No                                                                                                                                                                                                                                                          |
@@ -1490,13 +1495,13 @@ Within one Scoring Scale revision:
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 No-issue findings: 1
 ```
 
 The Criteria, Scoring Scales, and Score semantics foundation is suitable for continued review.
 
-The three open findings strengthen validation and reproducibility. They do not require:
+The three resolved findings strengthen validation and reproducibility. They do not require:
 
 * a new foundational record type;
 * a new ADR;
@@ -2295,7 +2300,7 @@ The examples should nevertheless state explicitly that withdrawing a series head
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Native correction and supersession                                                                                                                                                                                                                                                                                     |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                                                    |
-| Status                           | Open                                                                                                                                                                                                                                                                                                                   |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                                                   |
 | Finding                          | Numerous Concord records carry record-specific supersession fields, but the shared contracts do not fully require existing predecessors, non-self-reference, acyclic and unbranched chains, chronological consistency, or explicit-head derivation. Score supersession also lacks sufficient logical-continuity rules. |
 | Required action                  | Add shared native supersession-chain invariants and Score-specific continuity requirements.                                                                                                                                                                                                                            |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                                                     |
@@ -2386,7 +2391,7 @@ For Score supersession, the predecessor and successor must belong to the same Ac
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                             | Correction Record                                                                                                                                                                                                                                                                                |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                                                              |
-| Status                           | Open                                                                                                                                                                                                                                                                                             |
+| Status                           | Resolved                                                                                                                                                                                                                                                                                             |
 | Finding                          | `replacement_reference` is optional, while the invariants state unconditionally that “the replacement must identify the record it supersedes.” The contracts also do not define what a Correction Record without a replacement accomplishes or how a Correction Record itself may be superseded. |
 | Required action                  | Make replacement conditional, state the effect of a correction without replacement, and permit append-preserving correction of an erroneous Correction Record.                                                                                                                                   |
 | Architecture change required     | No                                                                                                                                                                                                                                                                                               |
@@ -2491,7 +2496,7 @@ A Correction Record without a replacement documents the event only. It does not 
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Core Publication Withdrawal                                                                                                                                                                                                               |
 | Severity                         | Minor clarification                                                                                                                                                                                                                       |
-| Status                           | Open                                                                                                                                                                                                                                      |
+| Status                           | Resolved                                                                                                                                                                                                                                      |
 | Finding                          | Concord correctly describes withdrawal as immutable and non-destructive but does not state that withdrawing the current series head leaves the series with no currently selectable publication. Core does not reactivate the predecessor. |
 | Required action                  | State the no-fallback rule and require a corrected successor to supersede the withdrawn head.                                                                                                                                             |
 | Architecture change required     | No                                                                                                                                                                                                                                        |
@@ -2589,13 +2594,13 @@ The Concord contracts and examples must nevertheless preserve the reviewed rule 
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 No-issue findings: 1
 ```
 
 The revision, supersession, and withdrawal architecture is suitable for continued review.
 
-The three findings add explicit chain, correction, and selection invariants. They do not require:
+The three resolved findings add explicit chain, correction, and selection invariants. They do not require:
 
 * a new foundational record type;
 * a new ADR;
@@ -2613,22 +2618,15 @@ Does Concord preserve exact, historically sufficient, privacy-aware lineage when
 
 The cross-producer relationship is:
 
-````text
-source-producer record
-    -> Concord External Reference
-    -> Evidence Reference module?
-
-### 11.2 Ownership Model
-
-The cross-producer relationship is:
-
 ```text
-source-producer
+source-producer record
+    -> Concord External Reference when needed
+    -> Evidence Reference
     -> Score Evidence Link
     -> teacher-approved Concord Score
     -> Concord manifest evidence-lineage projection
     -> Meridian overlap and selection policy
-````
+```
 
 The originating producer remains authoritative for:
 
@@ -2955,7 +2953,7 @@ No representative manifest bytes require modification.
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                         | External Reference and historical evidence identity                                                                                                                                                                                                          |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                          |
-| Status                       | Open                                                                                                                                                                                                                                                         |
+| Status                       | Resolved                                                                                                                                                                                                                                                         |
 | Finding                      | ADR 0012 and the initial domain model allow source version or publication information to appear on the general External Reference, while the finalized Evidence Reference and examples attach exact source-publication state to the particular evidence use. |
 | Required action              | Define the External Reference as the durable logical relationship and place the exact source revision on the Evidence Reference and Score Evidence Link.                                                                                                     |
 | Architecture change required | No                                                                                                                                                                                                                                                           |
@@ -3001,7 +2999,7 @@ In `docs/design/conceptual-data-contracts.md`, add to the `## 14.2 External Refe
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Evidence Reference identity                                                                                                                                                                                                                                                                                                                                                         |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                                                                 |
-| Status                       | Open                                                                                                                                                                                                                                                                                                                                                                                |
+| Status                       | Resolved                                                                                                                                                                                                                                                                                                                                                                                |
 | Finding                      | The Evidence Reference vocabulary permits `scoreform_result`, `quillan_response`, and `external_record`, while the representative cases use a Concord-owned External Reference as the Evidence Reference target and a separate source-owned record projection. The contracts do not define when each form applies or prevent both forms from identifying one source simultaneously. |
 | Required action              | Define the indirect External Reference form, retain a bounded direct form, and require one unambiguous representation per Score Evidence Link.                                                                                                                                                                                                                                      |
 | Architecture change required | No                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -3097,7 +3095,7 @@ In `docs/design/conceptual-data-contracts.md`, add to the Manifest Evidence-Line
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Source publication and manifest lineage                                                                                                                                                                                                                                                                                                                                                      |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                                                                                                                                                          |
-| Status                       | Open                                                                                                                                                                                                                                                                                                                                                                                         |
+| Status                       | Resolved                                                                                                                                                                                                                                                                                                                                                                                         |
 | Finding                      | Source-publication identity is generally described as optional “when known,” even when the evidence was resolved through an exact producer publication. The contracts also duplicate the Publication Reference inside the Evidence Reference and manifest lineage row without an equality rule, and do not state how later source supersession or withdrawal affects historical Concord use. |
 | Required action              | Make source-publication identity conditionally required, require another immutable source-version mechanism when absent, define duplicate-field equality and record-membership checks, and preserve later source lifecycle without silent retargeting.                                                                                                                                       |
 | Architecture change required | No                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -3264,14 +3262,14 @@ A later source-publication withdrawal preserves historical provenance but requir
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 Follow-up implementation concerns: 1
 No-issue findings: 1
 ```
 
 The cross-producer evidence-lineage foundation is suitable for continued review.
 
-The three minor findings make the existing lineage model unambiguous and historically reproducible. They do not require:
+The three resolved minor findings make the existing lineage model unambiguous and historically reproducible. They do not require:
 
 * a new foundational record type;
 * a new ADR;
@@ -3280,3 +3278,617 @@ The three minor findings make the existing lineage model unambiguous and histori
 * or changes to the represented manifest bytes.
 
 The implementation concern remains tracked until ScoreForm and Quillan expose compatible, stable producer-publication contracts.
+
+## 12. Meridian Consumption Boundary Review
+
+### 12.1 Review Question
+
+Does the Concord-to-Meridian boundary provide enough exact, immutable, producer-owned meaning for Meridian to import, validate, select, map, aggregate, assign to Academic Periods, override, and report Concord results without mutating Concord records or inventing unsupported equivalences?
+
+### 12.2 Consumption Path
+
+The supported consumption path is:
+
+```text
+Concord canonical records
+    -> immutable Concord Academic Result Manifest
+    -> immutable Core Publication Record
+    -> authorized Meridian import
+    -> Meridian eligibility and selection policy
+    -> Meridian mapping and calculation policy
+    -> Meridian-derived result
+    -> optional Meridian report snapshot
+```
+
+Meridian consumes Concord through:
+
+* Core Academic Work Registrations;
+* Core Publication Records;
+* Core withdrawal state;
+* the public Concord manifest contract;
+* and supported producer-specific adapters.
+
+Meridian must not:
+
+* recursively crawl Concord directories;
+* infer publication from files;
+* import mutable convenience paths as authority;
+* import Concord private Python implementation;
+* parse arbitrary native Concord records;
+* or bypass the Core publication boundary.
+
+The Core catalog may assist discovery, but canonical Core records remain authoritative.
+
+### 12.3 Import Is Distinct from Selection
+
+A Meridian import records an exact observation of one Core Publication Record and its bound Concord manifest.
+
+Import or historical retention does not itself mean that the publication:
+
+* is current;
+* is Grade eligible;
+* is standards-evidence eligible;
+* belongs to an Academic Period;
+* should replace an earlier observation;
+* or may appear in a current report.
+
+A superseded or withdrawn publication may remain imported or retained when necessary for:
+
+* historical provenance;
+* reproduction of an earlier calculation;
+* reproduction of an issued report;
+* comparison;
+* correction analysis;
+* or another authorized historical workflow.
+
+Current selection remains a separate Meridian policy decision.
+
+### 12.4 Required Import Provenance
+
+A Meridian import of a Concord publication must preserve at least:
+
+* Core Publication Record ID;
+* Core publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind;
+* declared capabilities;
+* manifest path;
+* digest algorithm;
+* exact manifest digest;
+* manifest contract version;
+* record-set identity;
+* record-set revision;
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* time at which withdrawal state was observed;
+* import time;
+* and the supported Meridian import-contract or adapter version.
+
+The import must preserve enough information to determine exactly which producer publication and manifest bytes were observed.
+
+A later registry, catalog, registration, publication, withdrawal, adapter, or policy change must not silently rewrite the earlier import record.
+
+### 12.5 Import Validation
+
+Before a Concord publication is eligible for interpretation, Meridian must validate:
+
+* authorization;
+* supported Core publication schema;
+* compatible publication kind;
+* supported manifest contract version;
+* supported declared capabilities;
+* safe and resolvable manifest reference;
+* exact manifest digest;
+* consistency between the Publication Record and manifest identity;
+* Criterion and Score projection integrity;
+* exact Scale resolution;
+* standard-backed versus local classification;
+* target-reference validity;
+* non-score disposition rules;
+* native supersession relationships;
+* evidence-lineage integrity;
+* and required Moderation state.
+
+A structurally valid import may still be ineligible for every grading or reporting calculation.
+
+Unsupported or internally inconsistent data must remain explicitly incompatible or ineligible. Meridian must not guess at producer meaning.
+
+### 12.6 Withdrawal and Supersession
+
+Publication importability, historical retention, and current selection are distinct.
+
+A withdrawn publication:
+
+* remains an immutable historical Publication Record;
+* may remain referenced by earlier imports, calculations, overrides, and reports;
+* may be loaded for authorized historical reproduction;
+* but is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn Publication Record is the structural series head:
+
+* its predecessor is not reactivated;
+* Meridian must not fall back automatically;
+* and the series has no currently selectable publication until a new successor explicitly supersedes the withdrawn head.
+
+A superseded publication similarly remains available for provenance. Current policy may select the later series head without deleting or rewriting the earlier import.
+
+### 12.7 Score-Target Eligibility
+
+Every imported Concord Score retains its exact `target_reference`.
+
+Initial Concord target kinds include:
+
+```text
+core_student
+concord_group
+concord_session
+concord_activity
+concord_artifact_instance
+concord_work_item
+another approved activity component
+```
+
+For the current foundation, only a `core_student` target is directly eligible to become student-level standards evidence, student proficiency evidence, or a student Grade-item input.
+
+A non-student target may remain useful for:
+
+* Group-level interpretation;
+* Activity or work-level analysis;
+* teacher dashboards;
+* contextual reporting;
+* workflow evaluation;
+* or another explicitly non-student derived result.
+
+Meridian must not:
+
+* replace a Group target with its current members;
+* copy a Group Score to each member;
+* infer equal individual performance;
+* turn a Session or Activity Score into student evidence;
+* use Artifact authorship as a Score-target mapping;
+* or synthesize a student target from Subject context.
+
+Any future policy that allocates or translates a non-student result into student-level derived data requires a separate explicit contract and architectural decision. It must preserve the original non-student target and must not represent the derived allocation as a Concord-native individual Score.
+
+### 12.8 Standard-Backed and Local Scores
+
+A standard-backed Score may become candidate standards evidence only when:
+
+* `score_kind = standard_backed`;
+* the direct `standard_id` is present;
+* the standard matches the projected Criterion;
+* the standard is one of the Activity’s projected Focus Standards;
+* the target is eligible for the intended Meridian result;
+* required Moderation is complete;
+* and the active Meridian policy selects it.
+
+A local Score:
+
+* retains `score_kind = local`;
+* contains no governing `standard_id`;
+* does not become direct standards evidence;
+* and may participate in a conventional or hybrid calculation only through explicit policy.
+
+Non-governing `alignment_standard_ids` on a local Criterion must not be promoted to direct standards evidence.
+
+### 12.9 Exact Scale Mapping
+
+Meridian must preserve the exact native Concord Scoring Scale revision before applying any mapping.
+
+A source-scale mapping policy must bind to at least:
+
+* producer module;
+* manifest contract version;
+* `scoring_scale_id`;
+* `scale_lineage_id`;
+* Scale revision;
+* scale type;
+* complete machine-value set;
+* ordering;
+* display meanings;
+* and the intended destination scale or calculation role.
+
+A mapping must not be selected solely because two Scales share:
+
+* numeric values;
+* labels;
+* number of levels;
+* ordering;
+* or an apparent four-level structure.
+
+A new or changed source Scale revision requires a separately valid mapping decision or explicit revalidation.
+
+When no compatible mapping exists, the result remains:
+
+```text
+unmapped
+unsupported
+or ineligible for that calculation
+```
+
+Meridian must not guess a percentage, points value, letter Grade, proficiency level, or equivalent scale value.
+
+Non-score dispositions are interpreted through disposition policy, not through Scale mapping.
+
+### 12.10 Repeated Evidence and Native Supersession
+
+Meridian must distinguish:
+
+```text
+native Concord Score supersession
+```
+
+from:
+
+```text
+several independent contextual observations
+```
+
+An explicit Concord supersession relationship establishes producer-native replacement history.
+
+Absent that relationship, Meridian must not infer replacement solely from:
+
+* a later timestamp;
+* a later Session;
+* a higher value;
+* a higher manifest revision;
+* a later Publication Record;
+* or matching Criterion and target identity.
+
+Meridian evidence-selection policy may use recency, highest evidence, reassessment, teacher selection, or another supported strategy, but the applied policy must remain explicit and versioned.
+
+Earlier imported evidence remains available for provenance even when it is not selected.
+
+### 12.11 Evidence Lineage and Moderation
+
+Meridian must validate evidence lineage before treating two producer results as independent.
+
+When a Concord Score used a ScoreForm or Quillan result as evidence, Meridian may:
+
+* use both with their relationship documented;
+* use only the Concord judgment;
+* use only the originating producer result;
+* treat one as corroboration;
+* exclude one to prevent double counting;
+* or use neither.
+
+That decision belongs to an explicit Meridian policy.
+
+For active consequential Score Evidence Links, Meridian must not rely solely on the Score-level `moderation_complete` Boolean.
+
+It must validate that:
+
+* every link requiring Moderation identifies the applicable projected Moderation Record;
+* the Moderation decision permits the represented use;
+* material qualification is preserved;
+* rejected evidence is not active support;
+* and the Score-level Boolean agrees with the active evidence and Moderation projections.
+
+### 12.12 Academic Period Membership
+
+Concord-native dates are preserved chronology, not authoritative Academic Period membership.
+
+Meridian assigns eligible work and evidence to Academic Periods under explicit policy using Core-owned calendars.
+
+A period-related calculation must preserve:
+
+* school year;
+* Academic Period ID;
+* exact Core calendar revision;
+* period-membership policy version;
+* treatment of late evidence;
+* treatment of reassessment;
+* and any carry-forward or cumulative rule.
+
+Meridian must not determine period membership solely from:
+
+* Activity date;
+* Session date;
+* evidence date;
+* `scored_at`;
+* publication date;
+* or import date.
+
+Those dates may be policy inputs, but the membership decision remains a distinct derived record.
+
+### 12.13 Overrides
+
+A Concord Score revision changes the producer-native teacher judgment.
+
+A Meridian override changes a Meridian-derived result or selection.
+
+A Meridian override may apply to:
+
+* evidence selection;
+* standards proficiency;
+* a Grade-item result;
+* an Academic Period result;
+* a conventional or hybrid Grade;
+* or another explicitly supported Meridian-derived result.
+
+It must preserve:
+
+* the pre-override derived state;
+* replacement state;
+* scope;
+* responsible Actor;
+* time;
+* rationale where required;
+* authorization policy;
+* and relationship to the affected calculation.
+
+An override must not:
+
+* mutate a Concord Score;
+* alter its target;
+* change its Criterion or standard;
+* change its native Scale;
+* rewrite its disposition;
+* rewrite the manifest;
+* mutate the Core Publication Record;
+* or fabricate a new producer-native Score.
+
+When the underlying teacher judgment changes, the correct sequence is:
+
+```text
+new Concord Score
+    -> new Concord manifest revision
+    -> new Core Publication Record
+    -> later Meridian import or recalculation
+```
+
+### 12.14 Formal Reporting
+
+A Concord manifest is not a formal report.
+
+A Meridian report snapshot remains a separate derived product that preserves:
+
+* exact source Publication Record IDs;
+* relevant registration revisions;
+* selected and materially excluded evidence;
+* grading and evidence-selection policies;
+* exact Academic Period context;
+* active overrides;
+* report-definition version;
+* audience;
+* generation provenance;
+* rendering state;
+* delivery state;
+* and report supersession.
+
+A frozen report snapshot must not silently change when:
+
+* a Concord publication is superseded;
+* a publication is withdrawn;
+* a Score is revised;
+* a grading policy changes;
+* an Academic Period calendar changes;
+* an override is added or removed;
+* or the report definition changes.
+
+A refresh creates a new identifiable generation result or snapshot.
+
+### 12.15 Representative-Example Assessment
+
+The seminar example demonstrates:
+
+* individual standard-backed Score targets;
+* native Score supersession;
+* two Concord publications;
+* cross-producer Quillan lineage;
+* and no automatic Grade or period inclusion.
+
+The laboratory example demonstrates:
+
+* a Group standard-backed Score;
+* a local Group Score;
+* an individual standard-backed Score;
+* an individual non-score disposition;
+* distinct native Scales;
+* ScoreForm overlap;
+* and a manifest containing both standards and local results.
+
+The project example demonstrates local-criteria publication, external technical evidence, publication supersession, and continued separation from Meridian policy.
+
+Together the cases provide sufficient producer meaning for Meridian to:
+
+* distinguish target kinds;
+* distinguish standard-backed and local results;
+* preserve non-score dispositions;
+* resolve exact Scales;
+* identify native supersession;
+* detect cross-producer overlap;
+* and apply separate Grade, period, override, and reporting policies.
+
+No representative manifest bytes require modification.
+
+### 12.16 Findings
+
+#### MCB-001 — Meridian import provenance is advisory and incomplete
+
+| Field                            | Value                                                                                                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Meridian import provenance                                                                                                                                                                                                                            |
+| Severity                         | Minor clarification                                                                                                                                                                                                                                   |
+| Status                           | Open                                                                                                                                                                                                                                                  |
+| Finding                          | The conceptual contract and ADR 0015 say a Meridian import “should” preserve a bounded subset of publication identity. Reproducibility requires a mandatory observation of the complete publication and manifest identity relevant to interpretation. |
+| Required action                  | Make import provenance mandatory and preserve the exact publication envelope, withdrawal observation, and adapter compatibility state.                                                                                                                |
+| Architecture change required     | No                                                                                                                                                                                                                                                    |
+| Core or Meridian change required | No immediate implementation change; later Meridian serialization must follow the clarified contract                                                                                                                                                   |
+| Example changes required         | No                                                                                                                                                                                                                                                    |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, under `## 13.18 Meridian Consumption Boundary`, replace:
+
+> A Meridian import should preserve:
+>
+> * Core `publication_id`;
+> * exact manifest digest;
+> * manifest contract version;
+> * record-set identity;
+> * record-set revision;
+> * Academic Work Registration revision;
+> * source Activity reference;
+> * publication withdrawal state;
+> * and import time.
+
+with:
+
+```markdown
+A Meridian import must preserve:
+
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
+* manifest contract version;
+* record-set identity and revision;
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
+```
+
+In ADR 0015, under `## Meridian Consumption`, replace its corresponding “should preserve” list with the same mandatory list.
+
+In `docs/design/initial-concord-domain-model.md`, under `### 10.15 Meridian Consumption Boundary`, replace the existing abbreviated import list with the same mandatory list.
+
+#### MCB-002 — Withdrawal is treated as an import-validity condition rather than a selection condition
+
+| Field                            | Value                                                                                                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                             | Withdrawal and Meridian selection                                                                                                                                                                                                    |
+| Severity                         | Minor clarification                                                                                                                                                                                                                  |
+| Status                           | Open                                                                                                                                                                                                                                 |
+| Finding                          | ADR 0015 says Meridian must validate that a publication “has not been withdrawn.” That is correct for ordinary current selection, but too broad for historical import, prior-calculation reproduction, and frozen-report provenance. |
+| Required action                  | Separate historical import and retention from current eligibility, while preserving the no-fallback rule for a withdrawn series head.                                                                                                |
+| Architecture change required     | No                                                                                                                                                                                                                                   |
+| Core or Meridian change required | No                                                                                                                                                                                                                                   |
+| Example changes required         | No                                                                                                                                                                                                                                   |
+
+##### Exact corrections
+
+In ADR 0015, under `## Meridian Consumption`, replace:
+
+> * the publication has not been withdrawn;
+
+with:
+
+```markdown
+* the current withdrawal state has been resolved; and
+* the publication is eligible for the intended import, selection, calculation, or historical operation.
+```
+
+Immediately after the validation list, add:
+
+```markdown
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
+```
+
+Add the same distinction to:
+
+* `docs/design/conceptual-data-contracts.md` under `## 13.18 Meridian Consumption Boundary`;
+* and `docs/design/initial-concord-domain-model.md` under `### 10.15 Meridian Consumption Boundary`.
+
+#### MCB-003 — Non-student target eligibility is underdefined
+
+| Field                            | Value                                                                                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Score targets and downstream eligibility                                                                                                                                                                                                        |
+| Severity                         | Minor clarification                                                                                                                                                                                                                             |
+| Status                           | Open                                                                                                                                                                                                                                            |
+| Finding                          | Concord supports student, Group, Session, Activity, Artifact, Work Item, and other component targets. The contracts forbid copying Group Scores to members but do not state which targets may become student-level Meridian evidence or Grades. |
+| Required action                  | Make `core_student` the only directly student-eligible target in the current boundary and forbid synthesized student targets from non-student Scores.                                                                                           |
+| Architecture change required     | No                                                                                                                                                                                                                                              |
+| Core or Meridian change required | No; a future non-student allocation model would require a separate decision                                                                                                                                                                     |
+| Example changes required         | No                                                                                                                                                                                                                                              |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, add to the Score-Target Reference invariants:
+
+```markdown
+* For the current Meridian boundary, only a `core_student` target is directly eligible for student-level standards evidence, proficiency, or Grade-item calculation.
+* Non-student targets must remain non-student downstream.
+* Meridian must not synthesize a student target from Group Membership, Artifact Author, Artifact Subject, Session context, or another contextual relationship.
+* Any future allocation of a non-student result to students requires a separate explicit contract and must preserve the original target.
+```
+
+Add to the Manifest Score Projection invariants:
+
+```markdown
+* Meridian must preserve `target_reference` exactly.
+* A non-student Score may support Group-, Activity-, work-, or contextual reporting but must not become student-level evidence merely because students are related to its target.
+```
+
+In ADR 0015 and the initial domain model, add the same rules immediately after the existing prohibition against copying Group Scores to members.
+
+#### MCB-004 — Scale mappings are not explicitly bound to the exact source Scale contract
+
+| Field                            | Value                                                                                                                                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                             | Meridian scale mapping                                                                                                                                                                                          |
+| Severity                         | Minor clarification                                                                                                                                                                                             |
+| Status                           | Open                                                                                                                                                                                                            |
+| Finding                          | The contracts correctly require explicit versioned mapping, but do not define the minimum exact source identity to which the mapping applies. A mapping could otherwise be selected by shared values or labels. |
+| Required action                  | Bind every mapping to the exact producer, manifest contract, Scale identity, revision, type, and complete level semantics.                                                                                      |
+| Architecture change required     | No                                                                                                                                                                                                              |
+| Core or Meridian change required | No immediate change; later Meridian mapping contracts must implement the rule                                                                                                                                   |
+| Example changes required         | No                                                                                                                                                                                                              |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, add to the Manifest Scoring Scale Projection invariants:
+
+```markdown
+* A Meridian source-scale mapping must bind to the producer module, manifest contract version, `scoring_scale_id`, `scale_lineage_id`, Scale revision, scale type, and complete projected level semantics.
+* A mapping must not be selected solely by numeric values, labels, level count, or ordering.
+* A changed Scale revision requires a separately valid mapping or explicit revalidation.
+* When no compatible mapping exists, the result remains unmapped or ineligible for that calculation rather than being guessed.
+```
+
+In ADR 0015, add the same rules under `## Scoring Scale Projection`.
+
+In `docs/design/initial-concord-domain-model.md`, add the same rules to `### 10.15 Meridian Consumption Boundary`.
+
+#### MCB-005 — Meridian authority and producer separation are coherent
+
+| Field           | Value                                                                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area            | Meridian consumption boundary                                                                                                                                                                                                                          |
+| Severity        | No issue identified                                                                                                                                                                                                                                    |
+| Status          | Reviewed                                                                                                                                                                                                                                               |
+| Finding         | Import, producer meaning, evidence selection, scale mapping, Academic Period membership, derived overrides, Grade calculation, and formal reporting are assigned to coherent authorities without requiring Meridian to mutate Concord or Core records. |
+| Required action | None beyond MCB-001 through MCB-004.                                                                                                                                                                                                                   |
+
+### 12.17 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 4
+No-issue findings: 1
+```
+
+The Meridian consumption boundary is suitable for continued review.
+
+The four findings strengthen reproducibility and prevent invalid downstream transformation. They do not require:
+
+* a new Concord record type;
+* a new Concord ADR;
+* changes to Core;
+* changes to the representative manifests;
+* or changes to their SHA-256 digests.

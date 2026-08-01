@@ -655,6 +655,10 @@ Initial target kinds include:
 * A Score target is distinct from Artifact Author and Artifact Subject.
 * A target must be valid for the selected Criterion.
 * A Group target does not imply individual Scores for Group members.
+* For the current Meridian boundary, only a `core_student` target is directly eligible for student-level standards evidence, proficiency, or Grade-item calculation.
+* Non-student targets must remain non-student downstream.
+* Meridian must not synthesize a student target from Group Membership, Artifact Author, Artifact Subject, Session context, or another contextual relationship.
+* Any future allocation of a non-student result to students requires a separate explicit contract and must preserve the original target.
 
 ## 7.7 Evidence Reference
 
@@ -2736,6 +2740,10 @@ Each projected level must preserve, as applicable:
 * Aggregation guidance is not a Grade calculation.
 * Projected machine values remain unique within the projected Scale revision.
 * A projected scored value resolves to exactly one projected level.
+* A Meridian source-scale mapping must bind to the producer module, manifest contract version, `scoring_scale_id`, `scale_lineage_id`, Scale revision, scale type, and complete projected level semantics.
+* A mapping must not be selected solely by numeric values, labels, level count, or ordering.
+* A changed Scale revision requires a separately valid mapping or explicit revalidation.
+* When no compatible mapping exists, the result remains unmapped or ineligible for that calculation rather than being guessed.
 
 ## 13.10 Manifest Score Projection
 
@@ -2836,6 +2844,8 @@ A later timestamp does not establish native supersession without an explicit Con
 * Local and standard-backed classifications remain distinct.
 * Native Score supersession is not Core publication supersession.
 * A Meridian override does not revise the Concord Score.
+* Meridian must preserve `target_reference` exactly.
+* A non-student Score may support Group-, Activity-, work-, or contextual reporting but must not become student-level evidence merely because students are related to its target.
 
 ## 13.11 Manifest Evidence-Lineage Projection
 
@@ -3339,17 +3349,22 @@ A withdrawn publication is not restored by mutation.
 
 Meridian consumes Concord publications through Core.
 
-A Meridian import should preserve:
+A Meridian import must preserve:
 
-* Core `publication_id`;
-* exact manifest digest;
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
 * manifest contract version;
-* record-set identity;
-* record-set revision;
-* Academic Work Registration revision;
-* source Activity reference;
-* publication withdrawal state;
-* and import time.
+* record-set identity and revision;
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
 
 Meridian validates compatibility and authorization before using the manifest.
 
@@ -3367,6 +3382,14 @@ Meridian then applies explicit policy to determine:
 * proficiency calculation;
 * Grade calculation;
 * and reporting.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 ### Producer neutrality
 

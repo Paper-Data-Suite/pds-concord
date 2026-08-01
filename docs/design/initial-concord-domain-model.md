@@ -2393,16 +2393,32 @@ A corrected replacement requires a new manifest revision and Publication Record.
 
 ### 10.15 Meridian Consumption Boundary
 
-Meridian consumes Concord publications through Core and preserves the exact:
+Meridian consumes Concord publications through Core.
 
-* Core Publication Record identity;
-* digest;
+A Meridian import must preserve:
+
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
 * manifest contract version;
 * record-set identity and revision;
-* registration revision;
-* source Activity reference;
-* withdrawal state;
-* and import time.
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 Meridian applies explicit policy for:
 
@@ -2430,11 +2446,55 @@ It must not:
 * silently convert non-score dispositions to zero;
 * or treat publication as automatic Grade inclusion.
 
+* A Meridian source-scale mapping must bind to the producer module, manifest contract version, `scoring_scale_id`, `scale_lineage_id`, Scale revision, scale type, and complete projected level semantics.
+* A mapping must not be selected solely by numeric values, labels, level count, or ordering.
+* A changed Scale revision requires a separately valid mapping or explicit revalidation.
+* When no compatible mapping exists, the result remains unmapped or ineligible for that calculation rather than being guessed.
+
+#### Score-target preservation and eligibility
+
+Meridian must preserve the exact Score `target_reference`.
+
+For the current Meridian boundary, only a `core_student` target is directly eligible for:
+
+* student-level standards evidence;
+* student-level proficiency calculation;
+* or student Grade-item calculation.
+
+Non-student targets must remain non-student downstream.
+
+A non-student Score may support:
+
+* Group-level interpretation;
+* Activity- or work-level analysis;
+* contextual reporting;
+* or another explicitly non-student derived result.
+
+It must not become student-level evidence merely because students are related to its target.
+
+Meridian must not synthesize a student target from:
+
+* Group Membership;
+* Artifact Author;
+* Artifact Subject;
+* Session context;
+* or another contextual relationship.
+
+Any future allocation of a non-student result to students requires a separate explicit contract. That contract must preserve the original non-student target and must not represent the allocated result as a Concord-native individual Score.
+
 A Concord Score revision changes a native teacher judgment.
 
 A Meridian override changes a Meridian-derived result.
 
 The two histories remain separate.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 ### 10.16 Academic Period and Formal Reporting Boundary
 
