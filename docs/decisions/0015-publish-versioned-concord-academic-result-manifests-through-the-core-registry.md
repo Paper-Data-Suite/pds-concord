@@ -932,6 +932,43 @@ The existence of a Core Publication Record does not authorize every module, user
 
 Concord privacy rules, workspace authorization, Meridian source-access rules, and report-audience policy remain applicable.
 
+### Effective manifest privacy
+
+Publication-time validation must resolve the effective privacy policy of every included Score, evidence-lineage, Moderation, narrative, and display projection.
+
+The effective manifest audience must be no broader than the audience permitted for every included projection.
+
+Manifest-level classification is a conservative access summary rather than an authorization grant or substitute for record-specific policy.
+
+When required projections cannot be combined under one safe audience, Concord must omit optional sensitive detail, use an adequate privacy-safe structured summary, or defer publication.
+
+Access to a manifest does not authorize access to referenced source evidence.
+
+### Published text and registration metadata
+
+Published free-text and display metadata must be concise, purpose-limited, and privacy-safe.
+
+Concord must not publish names or direct personal identifiers when durable references are sufficient.
+
+It must not place sensitive medical, disability, counseling, disciplinary, family, credential, secret, signed-access, machine-local-user-path, or unrestricted source-content information in:
+
+* Activity title snapshots;
+* Academic Work Registration titles;
+* manifest paths;
+* record-set identifiers;
+* revision reasons;
+* Criterion or Scale display text;
+* Score rationale;
+* evidence relevance descriptions;
+* Moderation qualifications;
+* locator notes;
+* access hints;
+* or other producer-supplied discovery metadata.
+
+Optional narrative should be omitted or reduced to a privacy-safe structured summary when full text is unnecessary.
+
+Required semantic definitions must not be silently altered. Publication must fail when required Criterion or Scale meaning cannot be represented safely and exactly.
+
 ## Publication Kind and Capabilities
 
 A Concord Academic Result Manifest is published through Core as:

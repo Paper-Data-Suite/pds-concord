@@ -65,6 +65,11 @@ Findings will be classified as:
 | MCB-003 | Meridian consumption boundary | Minor clarification | Resolved | Non-student Score targets lack an explicit rule governing student-level Meridian eligibility. | Preserve non-student targets and forbid synthesized student targets |
 | MCB-004 | Meridian consumption boundary | Minor clarification | Resolved | Scale mapping is not explicitly bound to the exact producer Scale identity, revision, and level semantics. | Define exact source-scale mapping identity |
 | MCB-005 | Meridian consumption boundary | No issue identified | Reviewed | Producer authority, Meridian policy ownership, Academic Periods, overrides, and reporting remain coherently separated. | None |
+| PDM-001 | Privacy and data minimization | Minor clarification | Resolved | Direct privacy classifications and the `inherited` and `external_policy` resolution modes lack conditional-reference and effective-policy rules. | Require effective privacy resolution before access or publication |
+| PDM-002 | Privacy and data minimization | Minor clarification | Resolved | Manifest-level privacy is not explicitly constrained by every included Score, evidence-lineage, and Moderation projection. | Define conservative manifest privacy aggregation |
+| PDM-003 | Privacy and data minimization | Minor clarification | Resolved | Published narrative, display metadata, registration text, and External Locators lack explicit field-level minimization rules. | Prohibit PII, sensitive narrative, secrets, signed access material, and unsafe paths |
+| PDM-004 | Privacy and data minimization | Follow-up implementation concern | Tracked | Coordinated retention and legal-deletion behavior across Core, Concord, Meridian, reports, catalogs, and backups remains undefined. | Establish suite-level retention, revocation, redaction, withdrawal, and deletion policy before production |
+| PDM-005 | Privacy and data minimization | No issue identified | Reviewed | Record-specific privacy, minimized projections, historical restriction, redaction, and publication-versus-authorization boundaries are coherent. | None |
 
 ## 4. Review Areas
 
@@ -3892,3 +3897,796 @@ The four findings strengthen reproducibility and prevent invalid downstream tran
 * changes to Core;
 * changes to the representative manifests;
 * or changes to their SHA-256 digests.
+
+## 13. Privacy and Data Minimization Review
+
+### 13.1 Review Question
+
+Does the Concord foundation preserve record-specific privacy, minimize published educational data, prevent authorization leakage through references and metadata, and reconcile historical preservation with restricted access without weakening provenance?
+
+### 13.2 Privacy Boundary
+
+The privacy architecture distinguishes:
+
+```text
+native Concord record privacy
+    -> privacy-safe publication projection
+    -> Core publication discovery
+    -> Meridian source authorization
+    -> audience-aware report composition
+```
+
+These layers answer different questions.
+
+Concord owns:
+
+* native record privacy;
+* privacy inheritance and record-specific restriction;
+* privacy-aware evidence, Score, and Moderation projections;
+* publication-time minimization;
+* and the decision whether a safe manifest can be produced.
+
+Core owns:
+
+* canonical identity and publication infrastructure;
+* publication-path and digest validation;
+* and shared authorization capabilities where defined.
+
+Core publication does not authorize manifest access.
+
+Meridian owns:
+
+* source-access validation;
+* derived-result access;
+* audience-aware report composition;
+* report minimization;
+* report delivery authorization;
+* and report-snapshot provenance.
+
+An authorized reference to one record does not authorize unrestricted access to:
+
+* its source evidence;
+* every related Subject;
+* full student writing;
+* peer comments;
+* teacher notes;
+* Moderation rationale;
+* external files;
+* or sibling-module records.
+
+### 13.3 Direct Classifications and Resolution Modes
+
+The initial Privacy Policy vocabulary contains four direct classifications:
+
+```text
+teacher_restricted
+teacher_and_subjects
+group_and_teacher
+classroom_shared
+```
+
+It also contains two policy-resolution modes:
+
+```text
+inherited
+external_policy
+```
+
+`inherited` and `external_policy` are not independently usable final audience classifications.
+
+An inherited policy must resolve through a valid parent record.
+
+An external policy must resolve through an explicit policy reference.
+
+Before a record is accessed, projected, published, or reported, the system must resolve an effective privacy policy.
+
+The effective audience must account for:
+
+* record-specific classification;
+* applicable parent policy;
+* explicit audience references;
+* applicable external policy;
+* record type;
+* Subject context;
+* Group context;
+* current or superseded state;
+* and authorized role.
+
+Privacy classifications such as `teacher_and_subjects` and `group_and_teacher` are not necessarily totally ordered. When two policies authorize different audience sets, the system must evaluate their actual effective audiences rather than assume that one label is universally more restrictive.
+
+### 13.4 Record-Specific Privacy
+
+Privacy remains attached to the record or relationship whose disclosure is being evaluated.
+
+The visibility of an Artifact must not be inferred from:
+
+* its Authors;
+* its Subjects;
+* Group Membership;
+* its Score target;
+* its scorer;
+* or another related record.
+
+For example:
+
+```text
+peer observation source
+    -> teacher_restricted
+
+derived teacher-approved Score
+    -> teacher_and_subjects
+
+parent or guardian report field
+    -> separately authorized Meridian projection
+```
+
+Those policies may legitimately differ because the records disclose different information.
+
+A child record may narrow its audience.
+
+A broader child audience requires an explicit authorized privacy decision. It must not arise merely from inheritance, association, or a less restrictive parent default.
+
+### 13.5 Sensitive Native Information
+
+Concord must not copy detailed records from external institutional domains merely to explain classroom context.
+
+In particular, Concord should preserve only a minimal reference or safe reason code rather than copying:
+
+* medical information;
+* disability or accommodation details;
+* counseling information;
+* disciplinary records;
+* family circumstances;
+* formal incident reports;
+* or other unrelated institutional narrative.
+
+A contextual state such as:
+
+```text
+excused
+absent
+external_policy
+permission_restricted
+```
+
+does not require Concord to reproduce the underlying sensitive institutional record.
+
+The external authority remains authoritative.
+
+### 13.6 Artifact, Author, Subject, and Evidence Privacy
+
+Author, Subject, and source-evidence privacy remain independent.
+
+A peer observer’s identity may be more restricted than:
+
+* the fact that evidence was reviewed;
+* the teacher’s resulting Score;
+* or a privacy-safe report summary.
+
+A multi-Subject Artifact remains one source Artifact. Its existence does not authorize every Subject to view:
+
+* the full Artifact;
+* information about every other Subject;
+* all Author identities;
+* or every later Score supported by that source.
+
+Evidence locators help an authorized reviewer find relevant material. They do not broaden source authorization.
+
+Access to a Score Evidence Link similarly does not imply access to the complete evidence source.
+
+### 13.7 Historical Privacy
+
+Historical preservation does not mean unrestricted visibility.
+
+The following may require equal or greater protection after they become inactive, rejected, corrected, or superseded:
+
+* disputed peer observations;
+* corrected Author or Subject assignments;
+* rejected Contribution Claims;
+* superseded Moderation Records;
+* withdrawn evidence relationships;
+* teacher notes;
+* superseded Scores;
+* and earlier manifest revisions.
+
+A record must not become more visible merely because it is:
+
+* no longer current;
+* rejected;
+* superseded;
+* withdrawn from use;
+* or retained only for provenance.
+
+Historical audit access remains permission-controlled.
+
+### 13.8 Redaction and Derivatives
+
+Redaction creates a derivative.
+
+It does not silently alter the Core-retained source scan or other authoritative source record.
+
+A redacted derivative must preserve provenance to:
+
+* its restricted source;
+* the reason for redaction;
+* the responsible Actor or process;
+* generation time;
+* and the applicable access policy.
+
+The restricted source remains under its existing controls unless a separate legal or institutional deletion process requires otherwise.
+
+A redacted derivative must not be represented as the unmodified source.
+
+### 13.9 Manifest Minimization
+
+A Concord Academic Result Manifest contains sensitive educational data and must contain only the information needed to:
+
+* identify the Activity and exact publication;
+* interpret included Criteria and Scoring Scales;
+* interpret included Scores and dispositions;
+* preserve necessary native history;
+* preserve consequential evidence lineage;
+* establish required Moderation state;
+* and support explicit downstream policy.
+
+The manifest must not ordinarily contain:
+
+* source scans;
+* complete Artifact contents;
+* full student writing;
+* full peer comments;
+* unrestricted teacher notes;
+* detailed Moderation rationale;
+* credentials;
+* access tokens;
+* private repository information;
+* family information;
+* medical, disability, counseling, or disciplinary details;
+* or unrelated Activity records.
+
+Student, Group, Actor, source, and target identity should use durable references rather than names when references are sufficient.
+
+### 13.10 Effective Manifest Privacy
+
+Publication-time validation must resolve the effective privacy policy of every included:
+
+* Score projection;
+* evidence-lineage projection;
+* Moderation projection;
+* narrative field;
+* and display snapshot.
+
+The effective manifest audience must be no broader than the audience permitted for every included projection.
+
+The manifest-level `privacy_classification` is a conservative access summary. It does not:
+
+* replace record-specific policies;
+* authorize access by itself;
+* authorize access to source evidence;
+* or authorize every later report audience.
+
+When one required projection is `teacher_restricted`, a manifest containing that projection cannot be made available under `teacher_and_subjects` merely because the associated Score uses that broader classification.
+
+When projections cannot be combined under one safe effective audience, Concord must:
+
+* omit an optional sensitive projection when the contract permits omission;
+* use an adequate privacy-safe structured summary;
+* defer publication;
+* or use a later explicitly authorized publication contract.
+
+Concord must not lower a child record’s protection to make a combined manifest easier to publish.
+
+### 13.11 Published Text and Display Metadata
+
+Every published free-text or display field must be concise, purpose-limited, and privacy-safe.
+
+This requirement applies to fields such as:
+
+* Activity title snapshots;
+* revision reasons;
+* Criterion labels and definitions;
+* Scoring Scale names, labels, meanings, and descriptions;
+* Score rationale;
+* evidence relevance descriptions;
+* Moderation qualifications;
+* display labels;
+* locator notes;
+* and access hints.
+
+Published text must not contain, when durable references or structured state are sufficient:
+
+* student or family names;
+* direct personal identifiers;
+* sensitive medical, disability, counseling, or disciplinary information;
+* credentials or secrets;
+* bearer tokens;
+* signed access URLs;
+* machine-local user paths;
+* unrestricted source excerpts;
+* or information unrelated to interpreting the published result.
+
+Optional native narrative should be omitted or replaced with a privacy-safe structured summary when its complete text is unnecessary downstream.
+
+Required Criterion or Scale semantics must not be silently rewritten. If required semantic text contains prohibited personal information, publication must fail until Concord can supply a valid privacy-safe semantic revision or an approved immutable public-definition reference.
+
+### 13.12 External Locators
+
+A persisted External Locator must use a stable provider-neutral or provider-qualified identity rather than storing transient authorization material.
+
+Concord must not persist:
+
+* passwords;
+* credentials;
+* API keys;
+* bearer tokens;
+* session cookies;
+* signed URL query parameters;
+* secret repository URLs;
+* or other embedded authentication material.
+
+When a provider requires an expiring signed URL, Concord should preserve the stable underlying locator and generate the signed access URL only during an authorized access operation.
+
+An External Locator identifies where an authorized user may resolve a source. It does not establish authorization to retrieve it.
+
+### 13.13 Core Publication and Catalog Metadata
+
+Core Publication Records and the derived catalog must remain privacy-minimized.
+
+Concord-supplied identifiers and paths must not contain direct PII.
+
+Concord-supplied Core registration or discovery display text must also be privacy-safe, including:
+
+* Academic Work Registration titles;
+* work labels;
+* manifest paths;
+* record-set identifiers;
+* and other producer-supplied catalog metadata.
+
+The derived Core catalog must not expose manifest contents or become an authorization bypass.
+
+Discovery and retrieval authorization remain separate operations.
+
+### 13.14 Meridian Reports
+
+Meridian may present less information than the Concord manifest.
+
+A report audience does not inherit every source authorization held by the report generator.
+
+Report composition must separately evaluate:
+
+* report purpose;
+* intended audience;
+* source authorization;
+* field necessity;
+* Subject scope;
+* peer or Group-member privacy;
+* intervention-information separation;
+* override visibility;
+* and delivery authorization.
+
+A student-facing or parent-facing report may include a derived Score or proficiency result while excluding:
+
+* peer identities;
+* full evidence lineage;
+* private teacher rationale;
+* full Moderation qualification;
+* unrelated Group-member information;
+* and restricted source locations.
+
+A frozen report snapshot preserves what was issued, but its continued access remains subject to applicable authorization and retention policy.
+
+### 13.15 Retention and Deletion Boundary
+
+The conceptual foundation correctly distinguishes ordinary correction from exceptional physical deletion.
+
+Ordinary correction uses:
+
+* supersession;
+* withdrawal;
+* invalidation;
+* redaction derivatives;
+* and append-preserving history.
+
+Physical deletion may be required by:
+
+* law;
+* institutional retention policy;
+* privacy obligations;
+* accidental import cleanup;
+* or another separately authorized process.
+
+Before production deployment, Paper Data Suite requires a coordinated retention and deletion policy covering:
+
+* Core-retained source scans;
+* Concord native records;
+* routed and redacted derivatives;
+* immutable published manifests;
+* Core Publication Records and withdrawals;
+* derived catalogs;
+* Meridian imports and calculations;
+* frozen report snapshots;
+* audit records;
+* backups;
+* and external-source references.
+
+That implementation policy must define what is:
+
+* physically deleted;
+* access-revoked;
+* withdrawn;
+* tombstoned;
+* retained under restriction;
+* or preserved only as non-content audit metadata.
+
+This requirement does not block conceptual foundation approval, but it blocks a claim of complete production privacy readiness.
+
+### 13.16 Representative-Example Assessment
+
+The representative examples already demonstrate:
+
+* synthetic, non-name identifiers;
+* no direct PII in record-set IDs or paths;
+* record-specific native privacy;
+* teacher-restricted peer and Moderation records;
+* broader Score privacy where appropriate;
+* privacy-safe module-qualified references;
+* manifest-level conservative restriction;
+* minimized evidence-lineage projections;
+* no embedded source scans or full student writing;
+* and separation between publication and authorization.
+
+The seminar manifest demonstrates the intended aggregation rule:
+
+```text
+teacher_and_subjects Score projections
+    + teacher_restricted Moderation projection
+    -> teacher_restricted manifest
+```
+
+The examples use synthetic labels such as `Student 001`. Those are example-only display aids and are not permission to publish real student names in production manifests.
+
+No representative manifest bytes or SHA-256 digests require modification.
+
+### 13.17 Findings
+
+#### PDM-001 — Privacy classifications and policy-resolution modes are underconstrained
+
+| Field                        | Value                                                                                                                                                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Privacy Policy semantics                                                                                                                                                                                                                                 |
+| Severity                     | Minor clarification                                                                                                                                                                                                                                      |
+| Status                       | Open                                                                                                                                                                                                                                                     |
+| Finding                      | `inherited` and `external_policy` are listed beside direct audience classifications, while `inherited_from` and `policy_reference` remain optional. The contract also does not define how explicit audiences interact with inherited or external policy. |
+| Required action              | Distinguish direct classifications from resolution modes, make their supporting references conditional, and require effective-policy resolution before access or publication.                                                                            |
+| Architecture change required | No                                                                                                                                                                                                                                                       |
+| Example changes required     | No                                                                                                                                                                                                                                                       |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, under the exact heading:
+
+> `## 7.11 Privacy Policy`
+
+find this exact table fragment:
+
+```markdown
+| `audience_references` | Optional    | Explicit audience when the classification requires it |
+| `policy_reference`    | Optional    | External policy controlling access                    |
+| `reason`              | Optional    | Minimal explanation for restriction                   |
+| `inherited_from`      | Optional    | Parent record supplying the default                   |
+```
+
+Replace only those four rows with:
+
+```markdown
+| `audience_references` | Conditional | Required when explicit audience identity is needed to resolve or narrow the effective policy |
+| `policy_reference`    | Conditional | Required when `classification = external_policy` |
+| `reason`              | Optional    | Minimal explanation for restriction |
+| `inherited_from`      | Conditional | Required when `classification = inherited` |
+```
+
+In the same section, find this exact text:
+
+```markdown
+The values may later move into a shared Core contract.
+
+### Invariants
+```
+
+Replace it with:
+
+````markdown
+The values may later move into a shared Core contract.
+
+The following are direct audience classifications:
+
+```text
+teacher_restricted
+teacher_and_subjects
+group_and_teacher
+classroom_shared
+````
+
+The following are policy-resolution modes:
+
+```text
+inherited
+external_policy
+```
+
+A resolution mode must resolve to an effective direct classification or explicit authorized audience before access, projection, publication, or reporting.
+
+### Invariants
+
+````
+
+Then add these bullets to the existing invariant list:
+
+```markdown
+* `classification = inherited` requires a valid `inherited_from` reference.
+* `classification = external_policy` requires a valid `policy_reference`.
+* `audience_references` may narrow an effective audience but must not silently broaden it.
+* A broader child audience requires an explicit authorized privacy decision rather than automatic inheritance.
+* Policies with different audience sets must be resolved from their effective audiences rather than an assumed total ordering of labels.
+* Published projections must contain a resolved effective classification rather than unresolved `inherited` or `external_policy`.
+````
+
+In `docs/design/initial-concord-domain-model.md`, find this exact block:
+
+```markdown
+The initial minimum privacy vocabulary may include:
+
+* `teacher_restricted`;
+* `teacher_and_subjects`;
+* `group_and_teacher`;
+* `classroom_shared`;
+* `inherited`;
+* and `external_policy`.
+```
+
+Insert immediately after it:
+
+```markdown
+`teacher_restricted`, `teacher_and_subjects`, `group_and_teacher`, and `classroom_shared` are direct audience classifications.
+
+`inherited` and `external_policy` are resolution modes. They require a valid parent or external policy reference and must resolve to an effective audience before access or publication.
+```
+
+#### PDM-002 — Manifest-level privacy is not tied explicitly to included projections
+
+| Field                        | Value                                                                                                                                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Manifest privacy derivation                                                                                                                                                                                          |
+| Severity                     | Minor clarification                                                                                                                                                                                                  |
+| Status                       | Open                                                                                                                                                                                                                 |
+| Finding                      | The manifest has one required `privacy_classification`, but the contract does not explicitly require its effective audience to be no broader than every included Score, evidence-lineage, and Moderation projection. |
+| Required action              | Define conservative manifest privacy aggregation and publication-time compatibility validation.                                                                                                                      |
+| Architecture change required | No                                                                                                                                                                                                                   |
+| Example changes required     | No; the seminar already follows the intended rule                                                                                                                                                                    |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, under:
+
+> `## 13.6 Concord Academic Result Manifest`
+
+find this exact field-table row:
+
+```markdown
+| `privacy_classification` | Required | Manifest-level minimum access classification |
+```
+
+Replace it with:
+
+```markdown
+| `privacy_classification` | Required | Resolved effective manifest access classification; no broader than every included projection |
+```
+
+In the same section, find the exact final invariant:
+
+```markdown
+* Published manifest bytes are immutable.
+```
+
+Insert immediately after it:
+
+```markdown
+* Publication-time validation must resolve the effective privacy policy of every included Score, evidence-lineage, and Moderation projection.
+* The effective manifest audience must be no broader than the audience permitted for every included projection.
+* Manifest-level classification is a conservative access summary and does not replace record-specific authorization.
+* Access to the manifest does not authorize access to referenced source evidence.
+* When required projections cannot be combined under one safe audience, Concord must omit optional sensitive detail, use an adequate privacy-safe structured summary, or defer publication.
+* A separate differently authorized record-set series requires an explicit later publication contract.
+```
+
+#### PDM-003 — Published narrative, display metadata, and locators lack field-level minimization rules
+
+| Field                        | Value                                                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                         | Published text and external locators                                                                                                                                                                          |
+| Severity                     | Minor clarification                                                                                                                                                                                           |
+| Status                       | Open                                                                                                                                                                                                          |
+| Finding                      | General minimization language exists, but required or optional display and narrative fields could still expose names, sensitive context, unrestricted source text, signed URLs, or machine-local information. |
+| Required action              | Add field-level publication-text rules and strengthen persisted External Locator restrictions.                                                                                                                |
+| Architecture change required | No                                                                                                                                                                                                            |
+| Example changes required     | No                                                                                                                                                                                                            |
+
+##### Exact corrections
+
+In `docs/design/conceptual-data-contracts.md`, under:
+
+> `## 13.6 Concord Academic Result Manifest`
+
+find this exact transition:
+
+```markdown
+A future reporting or evidence-publication contract may address that use separately.
+
+### Invariants
+```
+
+Replace it with:
+
+```markdown
+A future reporting or evidence-publication contract may address that use separately.
+
+### Published text and display minimization
+
+Every published free-text or display field must be concise, purpose-limited, and privacy-safe.
+
+This includes:
+
+* Activity title snapshots;
+* revision reasons;
+* Criterion labels and definitions;
+* Scoring Scale names, labels, meanings, and descriptions;
+* Score rationale;
+* evidence relevance descriptions;
+* Moderation qualifications;
+* display labels;
+* locator notes;
+* and access hints.
+
+When durable references or structured state are sufficient, published text must not contain:
+
+* names or direct personal identifiers;
+* medical, disability, counseling, disciplinary, or family details;
+* credentials, secrets, access tokens, or signed access URLs;
+* machine-local user paths;
+* unrestricted source excerpts;
+* or unrelated narrative.
+
+Optional native narrative should be omitted or replaced by a privacy-safe structured summary when its full text is unnecessary downstream.
+
+Required Criterion or Scale semantics must not be silently rewritten. If required semantic text contains prohibited personal information, publication must fail until a privacy-safe semantic revision or approved immutable public-definition reference exists.
+
+### Invariants
+```
+
+In the same file, under:
+
+> `## 7.13 External Locator`
+
+find this exact invariant list:
+
+```markdown
+* Credentials and access tokens must not be stored.
+* The locator does not transfer ownership to Concord.
+* File or account ownership does not establish Artifact authorship.
+* Availability must be tracked independently.
+```
+
+Replace it with:
+
+```markdown
+* Credentials, access tokens, passwords, API keys, session secrets, and signed authorization parameters must not be persisted.
+* A persisted `locator` or `access_hint` must not contain embedded authentication material.
+* When access requires an expiring signed URL, Concord preserves a stable underlying locator and generates the signed URL only during an authorized access operation.
+* Machine-local paths containing personal user-directory information must not be used when a stable workspace-relative or provider-owned locator is available.
+* The locator does not transfer ownership to Concord.
+* File or account ownership does not establish Artifact authorship.
+* Availability must be tracked independently.
+```
+
+In ADR 0015, under the exact heading:
+
+> `## Privacy and Data Minimization`
+
+find this exact ending:
+
+```markdown
+Concord privacy rules, workspace authorization, Meridian source-access rules, and report-audience policy remain applicable.
+
+## Publication Kind and Capabilities
+```
+
+Replace it with:
+
+```markdown
+Concord privacy rules, workspace authorization, Meridian source-access rules, and report-audience policy remain applicable.
+
+### Effective manifest privacy
+
+Publication-time validation must resolve the effective privacy policy of every included Score, evidence-lineage, Moderation, narrative, and display projection.
+
+The effective manifest audience must be no broader than the audience permitted for every included projection.
+
+Manifest-level classification is a conservative access summary rather than an authorization grant or substitute for record-specific policy.
+
+When required projections cannot be combined under one safe audience, Concord must omit optional sensitive detail, use an adequate privacy-safe structured summary, or defer publication.
+
+Access to a manifest does not authorize access to referenced source evidence.
+
+### Published text and registration metadata
+
+Published free-text and display metadata must be concise, purpose-limited, and privacy-safe.
+
+Concord must not publish names or direct personal identifiers when durable references are sufficient.
+
+It must not place sensitive medical, disability, counseling, disciplinary, family, credential, secret, signed-access, machine-local-user-path, or unrestricted source-content information in:
+
+* Activity title snapshots;
+* Academic Work Registration titles;
+* manifest paths;
+* record-set identifiers;
+* revision reasons;
+* Criterion or Scale display text;
+* Score rationale;
+* evidence relevance descriptions;
+* Moderation qualifications;
+* locator notes;
+* access hints;
+* or other producer-supplied discovery metadata.
+
+Optional narrative should be omitted or reduced to a privacy-safe structured summary when full text is unnecessary.
+
+Required semantic definitions must not be silently altered. Publication must fail when required Criterion or Scale meaning cannot be represented safely and exactly.
+
+## Publication Kind and Capabilities
+```
+
+#### PDM-004 — Formal retention and legal-deletion behavior remains an implementation dependency
+
+| Field                               | Value                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                                | Retention, deletion, and immutable publication                                                                                                                                                                                                                                                              |
+| Severity                            | Follow-up implementation concern                                                                                                                                                                                                                                                                            |
+| Status                              | Tracked                                                                                                                                                                                                                                                                                                     |
+| Finding                             | ADR 0007 correctly distinguishes ordinary append-preserving correction from exceptional deletion, but the suite does not yet define coordinated retention and legal-deletion behavior across source scans, Concord records, manifests, Core publications, Meridian imports, reports, catalogs, and backups. |
+| Required action                     | Establish a permission-controlled, auditable suite-level retention, access-revocation, withdrawal, redaction, and legal-deletion policy before production deployment.                                                                                                                                       |
+| Architecture change required        | Not necessarily; implementation work may reveal a need for additional shared contracts                                                                                                                                                                                                                      |
+| Blocks conceptual approval          | No                                                                                                                                                                                                                                                                                                          |
+| Blocks production privacy readiness | Yes                                                                                                                                                                                                                                                                                                         |
+
+No governing-document correction is required during this foundation pass. Keep this finding `Tracked`.
+
+#### PDM-005 — Privacy ownership and minimization boundaries are coherent
+
+| Field           | Value                                                                                                                                                                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Privacy and data minimization                                                                                                                                                                                                                             |
+| Severity        | No issue identified                                                                                                                                                                                                                                       |
+| Status          | Reviewed                                                                                                                                                                                                                                                  |
+| Finding         | Record-specific privacy, opaque identifiers, separation of source evidence from projections, redacted derivatives, historical restriction, publication-versus-authorization separation, and audience-aware Meridian reporting form a coherent foundation. |
+| Required action | None beyond PDM-001 through PDM-004.                                                                                                                                                                                                                      |
+
+### 13.18 Review Conclusion
+
+```text
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 3
+Follow-up implementation concerns: 1
+No-issue findings: 1
+```
+
+The Privacy and Data Minimization foundation is suitable for continued review.
+
+The three minor findings make existing privacy semantics enforceable and publication-safe. They do not require:
+
+* a new foundational record type;
+* changes to Core publication identity;
+* changes to the representative manifest bytes;
+* or changes to their SHA-256 digests.
+
+The retention and deletion concern remains tracked and must be resolved before production privacy readiness is claimed.

@@ -3174,6 +3174,10 @@ The initial minimum privacy vocabulary may include:
 * `inherited`;
 * and `external_policy`.
 
+`teacher_restricted`, `teacher_and_subjects`, `group_and_teacher`, and `classroom_shared` are direct audience classifications.
+
+`inherited` and `external_policy` are resolution modes. They require a valid parent or external policy reference and must resolve to an effective audience before access or publication.
+
 Final suite-wide ownership of the privacy vocabulary remains to be coordinated with Core.
 
 Sensitive medical, disability, counseling, or disciplinary details must not be copied into Concord merely to explain a restriction or exception.
