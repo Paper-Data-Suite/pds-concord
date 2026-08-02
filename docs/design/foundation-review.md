@@ -79,21 +79,36 @@ Findings will be classified as:
 | ADR-001 | ADR 0015 disposition | No issue identified | Reviewed | ADR 0015 establishes a coherent producer-manifest, Core-publication, and Meridian-consumption boundary and should govern subsequent serialized-contract and implementation work. | Accept ADR 0015 |
 | ADR-002 | ADR 0015 disposition | Minor clarification | Resolved | The ADR remains Proposed and retains stale future-tense governance and follow-up language after completion of the skeptical review. | Mark the ADR Accepted and distinguish implementation follow-up from settled architecture |
 | ADR-003 | ADR 0015 disposition | Minor clarification | Resolved | The ADR contains one malformed code fence and one malformed Meridian validation bullet. | Repair the Markdown and list punctuation |
+| PDS-001 | PDS2 routing and retained-source ownership | No issue identified | Reviewed | Artifact Pages, route identity, QR minimality, Core-retained scans, Concord Scan References, and routing independence remain coherently separated and compatible with the released Core routing baseline. | None |
+| DOM-001 | Domain cardinality and identity | No issue identified | Reviewed | Activity, Session, Group, Membership, Author, Subject, Score, evidence-link, Criterion, Scale, and publication-series cardinalities are explicit and contain no unresolved hidden one-to-one assumption. | None |
+| OPT-001 | Optionality and domain creep | No issue identified | Reviewed | Optional Activity structures remain conditional; evidence-only and local-criteria-only Activities remain valid without unrelated standards, scoring, publication, or project-management structures. | None |
+| CMP-001 | Released-versus-proposed compatibility | No issue identified | Reviewed | Documentation distinguishes the released Core routing baseline from unreleased registry publication architecture and prohibits unsupported runtime compatibility claims. | None |
 
-## 4. Review Areas
+## 4. Required Review-Area Coverage
 
-1. Module ownership and authority
-2. Activity identity and Core registration
-3. Evidence, Review, Moderation, and Scoring
-4. Criteria, Scales, and Score semantics
-5. Manifest and publication architecture
-6. Revision, supersession, and withdrawal
-7. Cross-producer evidence lineage
-8. Meridian consumption boundary
-9. Privacy and data minimization
-10. Representative-example consistency
-11. ADR 0015 disposition
-12. Final verdict
+| Issue #13 area | Required review area | Primary report coverage |
+|---:|---|---|
+| 1 | Module ownership | Section 5 |
+| 2 | Activity identity and Core registration | Section 6 |
+| 3 | PDS2 routing and retained-source ownership | Section 16.2 |
+| 4 | Domain cardinality and identity | Section 16.3, supported by Sections 6–10 and 14 |
+| 5 | Evidence, Review, Moderation, and Scoring | Section 7 |
+| 6 | Standards and local scoring | Section 8 |
+| 7 | Concord Academic Result Manifest | Section 9 |
+| 8 | Core Publication Records | Section 9 |
+| 9 | Revision, correction, supersession, and withdrawal | Section 10 |
+| 10 | Cross-producer evidence lineage | Section 11 |
+| 11 | Meridian consumption boundary | Section 12 |
+| 12 | Privacy and data minimization | Section 13 |
+| 13 | Optionality and domain creep | Section 16.4, supported by Section 14 |
+| 14 | Example validity | Section 14 |
+| 15 | Released-versus-proposed compatibility | Sections 15.5, 16.5, and 17.7 |
+
+ADR 0015 disposition is recorded in Section 15.
+
+The required adversarial-scenario matrix is recorded in Section 16.6.
+
+The final foundation verdict is recorded in Section 17.
 
 ## 5. Module Ownership and Authority Review
 
@@ -5841,9 +5856,254 @@ Therefore:
 * runtime publication remains gated by explicit compatibility and production-readiness dependencies;
 * and no further architectural revision is required before the final verdict.
 
-## 16. Final Foundation Verdict
+## 16. Issue #13 Rubric Completion Audit
 
-### 16.1 Required Verdict
+### 16.1 Purpose
+
+This section explicitly reconciles the completed foundation review with the full issue #13 rubric.
+
+It records:
+
+* the required PDS2 routing and retained-source review;
+* the required domain-cardinality review;
+* the required optionality and domain-creep review;
+* the required released-versus-proposed compatibility review;
+* and an individual result for every required adversarial scenario.
+
+This section does not reopen findings already resolved in Sections 5–15.
+
+### 16.2 PDS2 Routing and Retained-Source Ownership
+
+The reviewed routing sequence is:
+
+```text
+Concord creates an Artifact Page
+    -> Core creates or preserves the Route Registration
+    -> the QR locator contains routing identity only
+    -> Core retains the canonical returned source scan
+    -> Concord creates semantic Scan References
+    -> Review, Moderation, Author, Subject, and Score resolution occur separately
+```
+
+The following rules are approved:
+
+* an Artifact Page exists before its ordinary Concord route is created;
+* ordinary Concord routes target Artifact Pages rather than unresolved semantic entities;
+* the QR payload contains only the PDS2 routing identity;
+* Activity, Session, Group, Author, Subject, Criterion, Score, and privacy meaning remain outside the locator;
+* Core retains the canonical source scan and routing provenance;
+* Concord owns semantic filing through Scan References;
+* rescans, duplicates, corrections, and misroutes preserve the earlier retained-source history;
+* a routing event does not establish Artifact Author or Artifact Subject identity;
+* successful routing does not create Review, Moderation, a Score, registration, publication, or Grade eligibility;
+* and Concord must not replace Core’s routing or source-retention authority with a parallel implementation.
+
+The released Core routing baseline is sufficient for this boundary.
+
+Academic Work Registration and publication-registry behavior remain separately gated by explicit supported versions or coordinated development contracts.
+
+### 16.3 Domain Cardinality and Identity
+
+The reviewed cardinality rules are:
+
+* one Activity belongs to exactly one Core class;
+* an Activity uses explicit Sessions rather than implicit time slices;
+* Membership is contextual to the applicable Activity, Session, or Group rather than copied from the class roster;
+* parent and child Groups remain distinct identities;
+* Role Assignments and Responsibility Assignments preserve their own histories;
+* one Artifact may have several Authors;
+* one Artifact may have several Subjects;
+* Author identity does not imply Subject identity;
+* one Score Record represents one Criterion-and-target judgment in one defined context;
+* repeated observations remain separate Scores unless an explicit native supersession relationship exists;
+* one Score may use several evidence sources;
+* one evidence source may support several Scores;
+* a standard-backed Criterion has exactly one governing standard;
+* a local Criterion has no governing standard;
+* one Score references one exact immutable Scoring Scale revision;
+* Scoring Scale values resolve unambiguously within that revision;
+* and one Core publication series is identified by its work, publication kind, and stable record-set identity.
+
+No representative example depends on an undocumented one-to-one relationship.
+
+Group evidence may support an individual judgment, but that relationship does not alter the identities or cardinalities of the Group evidence, student target, or resulting Score.
+
+### 16.4 Optionality and Domain Creep
+
+The foundation preserves required structures without turning every Activity into a project-management workflow.
+
+The following structures remain conditional:
+
+* child Groups;
+* Role Assignments beyond those required by the Activity;
+* Responsibility Assignments;
+* Activity Markers;
+* Work Items;
+* Dependencies;
+* Activity Events;
+* Attachments;
+* Contribution Claims;
+* External References;
+* Criteria;
+* Scores;
+* Core Academic Work Registration;
+* and publication.
+
+An Activity still requires explicit Session context under the accepted Session decision, but it does not require unrelated project structures.
+
+The representative cases establish that:
+
+* an evidence-only Activity is valid without Criteria, Scores, academic registration, or academic-result publication;
+* a local-criteria-only Activity is valid without standards-profile or Focus Standard configuration;
+* a standards-based Activity need not use project-management entities;
+* child Groups are created only when bounded subgroup identity matters;
+* optional evidence and project records are omitted when unused;
+* manifest projections are conditional on represented content;
+* unused capabilities are omitted;
+* and manifests do not require empty placeholder records merely to satisfy a universal shape.
+
+No foundational entity has been made mandatory solely because one representative case uses it.
+
+### 16.5 Released-Versus-Proposed Compatibility
+
+The review distinguishes conceptual architecture from supported runtime behavior.
+
+The compatibility boundary is:
+
+```text
+released Core routing and retained-source contracts
+    -> available runtime baseline
+
+Core Academic Work Registration and publication-registry architecture
+    -> accepted conceptual dependency
+    -> runtime use only through a released, stabilized, or explicitly coordinated contract
+
+ScoreForm and Quillan publication contracts
+    -> tracked runtime dependency
+
+Meridian import, mapping, grading, and reporting contracts
+    -> approved conceptual boundary
+    -> runtime implementation still required
+```
+
+Concord documentation may use accepted unreleased architecture for planning when that status is stated explicitly.
+
+Concord runtime code must not:
+
+* claim support for an unreleased Core registry API;
+* infer compatibility from development-branch implementation alone;
+* bind to unstable ScoreForm or Quillan result contracts without an approved coordination decision;
+* claim a completed Meridian adapter that does not exist;
+* or present conceptual fixtures as proof of released end-to-end behavior.
+
+The existing compatibility gates are sufficient.
+
+`CPL-004` and `PDM-004` remain the only tracked nonblocking concerns.
+
+### 16.6 Required Adversarial Scenario Results
+
+|  # | Required scenario                                                                | Result                                                          | Governing review evidence                                                                                       |
+| -: | -------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+|  1 | An Activity exists but is never registered.                                      | Represents cleanly.                                             | Explicit registration is independent of Activity creation; Sections 6.2–6.4.                                    |
+|  2 | An Activity is registered but never published.                                   | Represents cleanly.                                             | Registration and publication are independent explicit operations; Sections 6.4 and 9.8.                         |
+|  3 | Evidence exists but no Score is created.                                         | Represents cleanly.                                             | Evidence is independent of scoring; Section 7.2 and the evidence-only representative case.                      |
+|  4 | A local Score is published but excluded from standards reporting.                | Represents cleanly.                                             | Local Scores remain outside the standards-only projection; Sections 8.3, 9.7, and 12.8.                         |
+|  5 | A non-score disposition is published without a value.                            | Represents cleanly.                                             | Non-score dispositions forbid `value`; Sections 7.7 and 9.5.                                                    |
+|  6 | A Score is revised after an earlier publication.                                 | Represents cleanly.                                             | Native Score supersession and publication history remain separate; Sections 10.5–10.7.                          |
+|  7 | A manifest revision includes the revised Score while preserving the earlier one. | Represents cleanly.                                             | Manifest revisions preserve necessary native history; Sections 9.5, 10.5, and 10.6.                             |
+|  8 | A publication is superseded without mutating the earlier Publication Record.     | Represents cleanly.                                             | Publication supersession is immutable and append-preserving; Section 10.7.                                      |
+|  9 | A publication must be withdrawn.                                                 | Represents cleanly with an accepted bounded-fixture limitation. | Withdrawal is Core-owned, immutable, and has no predecessor fallback; Sections 10.8, 14.9, and 17.9.            |
+| 10 | The Core catalog is deleted and rebuilt.                                         | Represents cleanly.                                             | The catalog is derived and nonauthoritative; Sections 9.8 and 9.10.                                             |
+| 11 | The same manifest revision is published twice identically.                       | Represents cleanly.                                             | Exact replay reconciles to the existing Publication Record; Section 9.9.                                        |
+| 12 | The same record-set revision is reused with different bytes.                     | Represents cleanly as an integrity failure.                     | Contradictory revision reuse is rejected; Section 9.9.                                                          |
+| 13 | The manifest digest does not match the file.                                     | Represents cleanly as a publication failure.                    | Core verifies the exact path and SHA-256 digest; Sections 9.6 and 9.8.                                          |
+| 14 | The manifest contract version is unsupported.                                    | Represents cleanly as incompatible or ineligible.               | Meridian and Core compatibility validation reject unsupported contracts; Sections 12.5 and 15.5.                |
+| 15 | A Publication Record references the wrong registration revision.                 | Represents cleanly as a publication failure.                    | Publication requires the exact current registration revision; Sections 6.6 and 9.6.                             |
+| 16 | Capabilities overstate the manifest contents.                                    | Represents cleanly as a validation failure.                     | Capability declarations are bidirectionally tied to projections; Section 9.7.                                   |
+| 17 | A source Quillan or ScoreForm publication is also imported directly by Meridian. | Represents cleanly with a tracked runtime dependency.           | Concord exposes derivation lineage and Meridian owns overlap policy; Sections 11.12 and 12.11; `CPL-004`.       |
+| 18 | Group evidence supports an individual Score.                                     | Represents cleanly.                                             | A deliberate teacher judgment and individual relevance are required; Section 7.5.                               |
+| 19 | Required Moderation remains unresolved.                                          | Represents cleanly as ineligible for consequential use.         | Unresolved Moderation blocks active consequential support; Sections 7.4 and 12.11.                              |
+| 20 | A Meridian override changes a derived result without changing Concord.           | Represents cleanly.                                             | Overrides remain Meridian-owned and do not mutate producer records; Section 12.13.                              |
+| 21 | A Grade policy changes without changing any producer record.                     | Represents cleanly.                                             | Meridian policy and recalculation history are independent of Concord records; Sections 12.10 and 12.13.         |
+| 22 | An Academic Period assignment changes without changing producer dates.           | Represents cleanly.                                             | Period membership is a separate Meridian decision; Section 12.12.                                               |
+| 23 | A restricted peer source supports a less-restricted Score.                       | Represents cleanly under record-specific privacy.               | Source and Score policies may differ, while manifest privacy remains conservative; Sections 13.4 and 13.10.     |
+| 24 | A published manifest is valid but ineligible for Grade use.                      | Represents cleanly.                                             | Import, structural validity, eligibility, selection, and Grade membership are distinct; Sections 12.3 and 12.5. |
+
+Scenario totals:
+
+```text
+Required scenarios evaluated: 24
+Represented cleanly: 22
+Represented with accepted bounded limitation: 1
+Represented with tracked runtime dependency: 1
+Requires unresolved clarification: 0
+Contains blocking defect: 0
+```
+
+### 16.7 Findings
+
+#### PDS-001 — PDS2 routing and retained-source ownership are coherent
+
+| Field           | Value                                                                                                                                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | PDS2 routing and retained-source ownership                                                                                                                                                                           |
+| Severity        | No issue identified                                                                                                                                                                                                  |
+| Status          | Reviewed                                                                                                                                                                                                             |
+| Finding         | Artifact Page creation, route identity, QR minimality, Core-retained source ownership, Concord semantic filing, and downstream Author, Subject, Review, Moderation, and Score independence form a coherent boundary. |
+| Required action | None.                                                                                                                                                                                                                |
+
+#### DOM-001 — Domain cardinalities and identities are coherent
+
+| Field           | Value                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | Domain cardinality and identity                                                                                                                                                                                           |
+| Severity        | No issue identified                                                                                                                                                                                                       |
+| Status          | Reviewed                                                                                                                                                                                                                  |
+| Finding         | The foundation explicitly preserves Activity, Session, Group, Membership, Author, Subject, Score, evidence-link, Criterion, Scale, and publication-series cardinalities without unresolved hidden one-to-one assumptions. |
+| Required action | None.                                                                                                                                                                                                                     |
+
+#### OPT-001 — Optional structures remain optional
+
+| Field           | Value                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area            | Optionality and domain creep                                                                                                                                       |
+| Severity        | No issue identified                                                                                                                                                |
+| Status          | Reviewed                                                                                                                                                           |
+| Finding         | Optional project, evidence, scoring, registration, and publication structures remain conditional, and the representative cases demonstrate valid bounded omission. |
+| Required action | None.                                                                                                                                                              |
+
+#### CMP-001 — Released and proposed compatibility states are adequately separated
+
+| Field           | Value                                                                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area            | Released-versus-proposed compatibility                                                                                                                                                                                         |
+| Severity        | No issue identified                                                                                                                                                                                                            |
+| Status          | Reviewed                                                                                                                                                                                                                       |
+| Finding         | The documentation distinguishes released routing behavior, accepted conceptual registry architecture, tracked producer dependencies, and incomplete Meridian runtime behavior without making unsupported compatibility claims. |
+| Required action | None.                                                                                                                                                                                                                          |
+
+### 16.8 Rubric Completion Conclusion
+
+```text
+Additional blocking defects: 0
+Additional major revisions: 0
+Additional minor clarifications: 0
+Additional follow-up implementation concerns: 0
+Additional no-issue findings: 4
+
+Required review areas explicitly covered: 15 of 15
+Required adversarial scenarios explicitly evaluated: 24 of 24
+```
+
+The issue #13 review rubric is now explicitly satisfied.
+
+The four additional no-issue findings document previously integrated but insufficiently indexed review work.
+
+They do not alter the architectural verdict or introduce new implementation dependencies.
+
+## 17. Final Foundation Verdict
+
+### 17.1 Required Verdict
 
 ```text
 APPROVED WITH NONBLOCKING FOLLOW-UP
@@ -5867,7 +6127,7 @@ Neither concern invalidates the conceptual foundation.
 
 Both constrain runtime and production-readiness claims.
 
-### 16.2 Approval Scope
+### 17.2 Approval Scope
 
 This verdict approves:
 
@@ -5893,18 +6153,18 @@ This verdict approves:
 
 This approval does not assert that the complete runtime publication workflow is currently available in released packages.
 
-### 16.3 Final Finding Disposition
+### 17.3 Final Finding Disposition
 
 The review recorded:
 
 ```text
-Total findings: 45
+Total findings: 49
 
 Blocking defects: 0
 Resolved major revisions: 1
 Resolved minor clarifications: 31
 Tracked implementation concerns: 2
-No-issue findings: 11
+No-issue findings: 15
 Unresolved blocking, major, or minor findings: 0
 ```
 
@@ -5919,7 +6179,7 @@ The correction changed only the synthetic exact manifest fixtures and their corr
 
 No foundational architecture was rejected or replaced.
 
-### 16.4 Conceptual-Foundation Readiness
+### 17.4 Conceptual-Foundation Readiness
 
 ```text
 APPROVED
@@ -5939,7 +6199,7 @@ The review found:
 * no collapse of native correction, manifest revision, publication supersession, withdrawal, override, Grade, or report history;
 * and no unresolved contradiction in the publication architecture.
 
-### 16.5 Serialized-Contract Readiness
+### 17.5 Serialized-Contract Readiness
 
 ```text
 READY TO PROCEED
@@ -5964,7 +6224,7 @@ Serialized-contract readiness does not mean that production JSON Schemas already
 
 The next phase must define and validate those schemas against the approved representative examples.
 
-### 16.6 Runtime Implementation Readiness
+### 17.6 Runtime Implementation Readiness
 
 ```text
 NOT READY FOR END-TO-END PUBLICATION
@@ -5988,7 +6248,7 @@ Runtime work remains dependent on:
 
 Native implementation work that does not invent or assume unavailable cross-module APIs may be planned separately under later implementation issues.
 
-### 16.7 Core Release Compatibility
+### 17.7 Core Release Compatibility
 
 ```text
 ROUTING BASELINE AVAILABLE
@@ -6008,7 +6268,7 @@ Concord must not claim released compatibility with Academic Work Registration or
 
 Runtime publication requires an explicitly supported Core version or coordinated development contract.
 
-### 16.8 Meridian Readiness
+### 17.8 Meridian Readiness
 
 ```text
 CONCEPTUAL BOUNDARY APPROVED
@@ -6033,7 +6293,7 @@ The approved boundary defines:
 
 Meridian must still implement and version those contracts and policies.
 
-### 16.9 Publication Withdrawal Decision
+### 17.9 Publication Withdrawal Decision
 
 No additional Concord-specific Publication Withdrawal record is required.
 
@@ -6053,41 +6313,30 @@ The bounded treatment in the representative examples is sufficient for the Conco
 
 A later cross-repository integration fixture should test the released Core withdrawal contract when the compatible runtime exists.
 
-### 16.10 Adversarial Review Outcome
+### 17.10 Adversarial Review Outcome
 
-The review actively tested credible failure modes, including:
+Section 16.6 individually adjudicates all 24 adversarial scenarios required by issue #13.
 
-* duplicated or missing authority;
-* inferred registration;
-* stale registration revision;
-* publication from the wrong Activity;
-* mutation of published manifest bytes;
-* contradictory record-set revision reuse;
-* false capability declarations;
-* catalog authority inflation;
-* Group-to-student Score propagation;
-* non-score-to-zero conversion;
-* implicit Scale equivalence;
-* loss of native supersession history;
-* withdrawal fallback to an older publication;
-* external-source ownership transfer;
-* cross-producer double counting;
-* evidence use without adequate Moderation;
-* publication as authorization;
-* sensitive data in identifiers, locators, narratives, or discovery metadata;
-* report mutation after source changes;
-* and implementation claims based on unreleased APIs.
+The results are:
 
-The credible failures were either:
+```text
+Represented cleanly: 22
+Represented with accepted bounded limitation: 1
+Represented with tracked runtime dependency: 1
+Requires unresolved clarification: 0
+Contains blocking defect: 0
+```
+The credible failure modes were:
 
-* corrected;
-* explicitly prohibited by enforceable invariants;
-* demonstrated safely in the representative examples;
-* or assigned to bounded nonblocking implementation follow-up.
+- corrected;
+- explicitly prohibited by enforceable invariants;
+- demonstrated safely in the representative examples;
+- represented through an accepted bounded limitation;
+- or assigned to bounded nonblocking implementation follow-up.
 
-No blocking failure mode remains concealed beneath the final approval.
+No required scenario and no blocking failure mode remains concealed beneath the final approval.
 
-### 16.11 Work Authorized by This Verdict
+### 17.11 Work Authorized by This Verdict
 
 The following work may proceed:
 
@@ -6111,7 +6360,7 @@ The following claims remain prohibited:
 * that production authorization and retention policy are complete;
 * or that conceptual approval alone constitutes production readiness.
 
-### 16.12 Completion Determination
+### 17.12 Completion Determination
 
 Issue #13 has completed its architectural purpose.
 
