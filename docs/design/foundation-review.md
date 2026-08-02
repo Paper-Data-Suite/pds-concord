@@ -1,6 +1,7 @@
 # Concord Foundation Review
 
-**Status:** In progress  
+**Status:** Complete  
+**Verdict:** APPROVED WITH NONBLOCKING FOLLOW-UP  
 **Issue:** #13 — Conduct a Skeptical Foundation Review  
 **Branch:** `13-conduct-skeptical-foundation-review`
 
@@ -3725,7 +3726,7 @@ No representative manifest bytes require modification.
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Meridian import provenance                                                                                                                                                                                                                            |
 | Severity                         | Minor clarification                                                                                                                                                                                                                                   |
-| Status                           | Open                                                                                                                                                                                                                                                  |
+| Status                           | Resolved                                                                                                                                                                                                                                                  |
 | Finding                          | The conceptual contract and ADR 0015 say a Meridian import “should” preserve a bounded subset of publication identity. Reproducibility requires a mandatory observation of the complete publication and manifest identity relevant to interpretation. |
 | Required action                  | Make import provenance mandatory and preserve the exact publication envelope, withdrawal observation, and adapter compatibility state.                                                                                                                |
 | Architecture change required     | No                                                                                                                                                                                                                                                    |
@@ -3779,7 +3780,7 @@ In `docs/design/initial-concord-domain-model.md`, under `### 10.15 Meridian Cons
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                             | Withdrawal and Meridian selection                                                                                                                                                                                                    |
 | Severity                         | Minor clarification                                                                                                                                                                                                                  |
-| Status                           | Open                                                                                                                                                                                                                                 |
+| Status                           | Resolved                                                                                                                                                                                                                                 |
 | Finding                          | ADR 0015 says Meridian must validate that a publication “has not been withdrawn.” That is correct for ordinary current selection, but too broad for historical import, prior-calculation reproduction, and frozen-report provenance. |
 | Required action                  | Separate historical import and retention from current eligibility, while preserving the no-fallback rule for a withdrawn series head.                                                                                                |
 | Architecture change required     | No                                                                                                                                                                                                                                   |
@@ -3822,7 +3823,7 @@ Add the same distinction to:
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Score targets and downstream eligibility                                                                                                                                                                                                        |
 | Severity                         | Minor clarification                                                                                                                                                                                                                             |
-| Status                           | Open                                                                                                                                                                                                                                            |
+| Status                           | Resolved                                                                                                                                                                                                                                            |
 | Finding                          | Concord supports student, Group, Session, Activity, Artifact, Work Item, and other component targets. The contracts forbid copying Group Scores to members but do not state which targets may become student-level Meridian evidence or Grades. |
 | Required action                  | Make `core_student` the only directly student-eligible target in the current boundary and forbid synthesized student targets from non-student Scores.                                                                                           |
 | Architecture change required     | No                                                                                                                                                                                                                                              |
@@ -3855,7 +3856,7 @@ In ADR 0015 and the initial domain model, add the same rules immediately after t
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                             | Meridian scale mapping                                                                                                                                                                                          |
 | Severity                         | Minor clarification                                                                                                                                                                                             |
-| Status                           | Open                                                                                                                                                                                                            |
+| Status                           | Resolved                                                                                                                                                                                                            |
 | Finding                          | The contracts correctly require explicit versioned mapping, but do not define the minimum exact source identity to which the mapping applies. A mapping could otherwise be selected by shared values or labels. |
 | Required action                  | Bind every mapping to the exact producer, manifest contract, Scale identity, revision, type, and complete level semantics.                                                                                      |
 | Architecture change required     | No                                                                                                                                                                                                              |
@@ -3892,19 +3893,21 @@ In `docs/design/initial-concord-domain-model.md`, add the same rules to `### 10.
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 4
+Resolved minor clarifications: 4
 No-issue findings: 1
 ```
 
-The Meridian consumption boundary is suitable for continued review.
+The Meridian consumption boundary is approved as part of the Concord conceptual foundation.
 
-The four findings strengthen reproducibility and prevent invalid downstream transformation. They do not require:
+The four resolved findings strengthen reproducibility and prevent invalid downstream transformation. They do not require:
 
 * a new Concord record type;
 * a new Concord ADR;
 * changes to Core;
 * changes to the representative manifests;
 * or changes to their SHA-256 digests.
+
+Meridian runtime implementation remains dependent on a supported import contract or adapter, exact producer-scale mappings, explicit selection policy, Academic Period policy, override contracts, and report contracts.
 
 ## 13. Privacy and Data Minimization Review
 
@@ -4363,7 +4366,7 @@ No representative manifest bytes or SHA-256 digests require modification.
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Privacy Policy semantics                                                                                                                                                                                                                                 |
 | Severity                     | Minor clarification                                                                                                                                                                                                                                      |
-| Status                       | Open                                                                                                                                                                                                                                                     |
+| Status                       | Resolved                                                                                                                                                                                                                                                     |
 | Finding                      | `inherited` and `external_policy` are listed beside direct audience classifications, while `inherited_from` and `policy_reference` remain optional. The contract also does not define how explicit audiences interact with inherited or external policy. |
 | Required action              | Distinguish direct classifications from resolution modes, make their supporting references conditional, and require effective-policy resolution before access or publication.                                                                            |
 | Architecture change required | No                                                                                                                                                                                                                                                       |
@@ -4466,7 +4469,7 @@ Insert immediately after it:
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Manifest privacy derivation                                                                                                                                                                                          |
 | Severity                     | Minor clarification                                                                                                                                                                                                  |
-| Status                       | Open                                                                                                                                                                                                                 |
+| Status                       | Resolved                                                                                                                                                                                                                 |
 | Finding                      | The manifest has one required `privacy_classification`, but the contract does not explicitly require its effective audience to be no broader than every included Score, evidence-lineage, and Moderation projection. |
 | Required action              | Define conservative manifest privacy aggregation and publication-time compatibility validation.                                                                                                                      |
 | Architecture change required | No                                                                                                                                                                                                                   |
@@ -4513,7 +4516,7 @@ Insert immediately after it:
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                         | Published text and external locators                                                                                                                                                                          |
 | Severity                     | Minor clarification                                                                                                                                                                                           |
-| Status                       | Open                                                                                                                                                                                                          |
+| Status                       | Resolved                                                                                                                                                                                                          |
 | Finding                      | General minimization language exists, but required or optional display and narrative fields could still expose names, sensitive context, unrestricted source text, signed URLs, or machine-local information. |
 | Required action              | Add field-level publication-text rules and strengthen persisted External Locator restrictions.                                                                                                                |
 | Architecture change required | No                                                                                                                                                                                                            |
@@ -4683,21 +4686,21 @@ No governing-document correction is required during this foundation pass. Keep t
 ```text
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 3
+Resolved minor clarifications: 3
 Follow-up implementation concerns: 1
 No-issue findings: 1
 ```
 
-The Privacy and Data Minimization foundation is suitable for continued review.
+The Privacy and Data Minimization foundation is approved with one nonblocking implementation concern.
 
-The three minor findings make existing privacy semantics enforceable and publication-safe. They do not require:
+The three resolved minor findings make the privacy semantics enforceable and publication-safe. They do not require:
 
 * a new foundational record type;
 * changes to Core publication identity;
 * changes to the representative manifest bytes;
 * or changes to their SHA-256 digests.
 
-The retention and deletion concern remains tracked and must be resolved before production privacy readiness is claimed.
+`PDM-004` remains tracked. A coordinated suite-level retention and lawful-deletion policy is required before production privacy readiness may be claimed.
 
 ## 14. Representative-Example Consistency Review
 
@@ -4980,7 +4983,7 @@ The corrected synthetic fixture replaces the invalid example before implementati
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Area                                 | Exact representative manifest bytes                                                                                                                                                                                                                                                                    |
 | Severity                             | Major revision                                                                                                                                                                                                                                                                                         |
-| Status                               | Open                                                                                                                                                                                                                                                                                                   |
+| Status                               | Resolved                                                                                                                                                                                                                                                                                                   |
 | Finding                              | All six exact published manifest blocks include top-level `record_owner` and `record_kind`, even though the shared README identifies them as illustrative fields that must be omitted from exact JSON unless the serialized contract defines them. The Concord manifest contract does not define them. |
 | Required action                      | Remove only those two top-level fields, recalculate all six SHA-256 digests, update all six Core Publication Records, and rerun mechanical validation.                                                                                                                                                 |
 | Architecture change required         | No                                                                                                                                                                                                                                                                                                     |
@@ -5149,7 +5152,7 @@ The diff should show:
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                            | Shared notation and cross-example validation                                                                                                                                                                                                              |
 | Severity                        | Minor clarification                                                                                                                                                                                                                                       |
-| Status                          | Open                                                                                                                                                                                                                                                      |
+| Status                          | Resolved                                                                                                                                                                                                                                                      |
 | Finding                         | The README and cross-example validation still describe Score-Target Reference and Core Publication Reference as provisional, retain obsolete “when known” source-publication wording, and ask issue #13 to decide matters already resolved by the review. |
 | Required action                 | Replace the provisional language with the finalized value-object contracts and source-publication rules.                                                                                                                                                  |
 | Architecture change required    | No                                                                                                                                                                                                                                                        |
@@ -5388,7 +5391,7 @@ The examples must state the no-fallback rule but need not invent a Core-owned wi
 |---|---|
 | Area | Seminar, laboratory, and project Meridian sections |
 | Severity | Minor clarification |
-| Status | Open |
+| Status | Resolved |
 | Finding | Each principal example preserves only a subset of the publication observation now required by MCB-001. |
 | Required action | Replace or supplement each abbreviated list with the complete mandatory import-provenance list. |
 | Architecture change required | No |
@@ -5533,7 +5536,7 @@ For interpretation of the primary Activity, Meridian must additionally preserve:
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area                            | Withdrawal coverage claims                                                                                                                                                                                |
 | Severity                        | Minor clarification                                                                                                                                                                                       |
-| Status                          | Open                                                                                                                                                                                                      |
+| Status                          | Resolved                                                                                                                                                                                                      |
 | Finding                         | The README, seminar, and laboratory prose say the project example exercises withdrawal, while the project and cross-example validation correctly state that no complete withdrawal record is represented. |
 | Required action                 | Describe the project as bounding withdrawal semantics rather than exercising a withdrawal fixture.                                                                                                        |
 | Architecture change required    | No                                                                                                                                                                                                        |
@@ -5626,24 +5629,35 @@ use:
 
 ```text
 Blocking defects: 0
-Major revisions: 1
-Minor clarifications: 3
+Resolved major revisions: 1
+Resolved minor clarifications: 3
 No-issue findings: 1
 ```
 
-The representative conceptual coverage remains sound.
+The representative conceptual coverage and corrected fixture set are approved.
 
-The exact fixture set is not ready for final approval until REC-001 is resolved because the currently asserted manifest bytes conflict with the shared notation rules and governing manifest field table.
+`REC-001` was resolved by:
 
-After the six manifest blocks and digests are corrected:
+* removing the two invalid top-level envelope fields from all six exact manifest blocks;
+* preserving all contract-native nested reference fields;
+* recalculating all six SHA-256 digests;
+* updating every corresponding digest occurrence and Core Publication Record;
+* correcting the affected byte-length declarations;
+* and enforcing LF line endings for the representative Markdown files.
 
-* no foundational record type changes are required;
-* no manifest revision-number changes are required;
-* no publication-series changes are required;
-* no representative scenario changes are required;
-* and no architectural decision is required beyond the already resolved findings.
+`REC-002` through `REC-004` were also resolved.
 
-ADR 0015 disposition should occur only after the corrected exact fixtures pass mechanical validation.
+The corrected representative set requires:
+
+* no new foundational record type;
+* no manifest revision-number changes;
+* no publication-series changes;
+* no representative scenario changes;
+* and no additional architectural decision.
+
+The examples are suitable as conceptual test vectors for subsequent serialized-contract work.
+
+ADR 0015 was accepted after the corrected fixtures passed the required mechanical and semantic review.
 
 ## 15. ADR 0015 Disposition Review
 
@@ -5761,15 +5775,16 @@ Neither tracked concern invalidates the architectural decision.
 
 Both constrain production-readiness claims.
 
-### 15.6 ADR Corrections Required for Acceptance
+### 15.6 ADR Corrections Completed for Acceptance
 
-The ADR requires three documentation corrections:
+The following documentation corrections were completed:
 
-1. change its status from `Proposed` to `Accepted` and record the acceptance date;
-2. repair one malformed code fence and one malformed Meridian validation bullet;
-3. distinguish settled architecture from remaining implementation follow-up and change future-tense documentation-reconciliation language to completed reconciliation.
+1. the ADR status was changed from `Proposed` to `Accepted`, and the acceptance date was recorded;
+2. the malformed code fence and Meridian validation bullet were repaired;
+3. settled architecture was distinguished from remaining implementation follow-up;
+4. and the documentation-reconciliation language was changed from future tense to completed reconciliation.
 
-These corrections do not alter the substance of the decision.
+These corrections did not alter the substance of the decision.
 
 ### 15.7 Findings
 
@@ -5789,7 +5804,7 @@ These corrections do not alter the substance of the decision.
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area            | ADR status and follow-up governance                                                                                                                                                                              |
 | Severity        | Minor clarification                                                                                                                                                                                              |
-| Status          | Open                                                                                                                                                                                                             |
+| Status          | Resolved                                                                                                                                                                                                             |
 | Finding         | The ADR remains marked `Proposed`, describes documentation reconciliation in future tense, and labels remaining implementation questions as general follow-up despite issue #13 having settled the architecture. |
 | Required action | Mark the ADR accepted, record the acceptance date, classify remaining questions as implementation follow-up, and update the documentation-reconciliation wording.                                                |
 
@@ -5799,7 +5814,7 @@ These corrections do not alter the substance of the decision.
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Area            | ADR document integrity                                                                                                                                          |
 | Severity        | Minor clarification                                                                                                                                             |
-| Status          | Open                                                                                                                                                            |
+| Status          | Resolved                                                                                                                                                            |
 | Finding         | The Core Publication Record identity block closes with four backticks, and the Meridian validation list contains a malformed final bullet beginning with “and.” |
 | Required action | Repair the code fence and validation-list punctuation.                                                                                                          |
 
@@ -5810,16 +5825,311 @@ Disposition: Accept
 
 Blocking defects: 0
 Major revisions: 0
-Minor clarifications: 2
+Resolved minor clarifications: 2
 No-issue findings: 1
 ```
 
-ADR 0015 is suitable for acceptance.
+ADR 0015 is accepted and is the governing Concord academic-result publication decision.
 
-After ADR-002 and ADR-003 are resolved:
+`ADR-002` and `ADR-003` are resolved.
 
-* ADR 0015 becomes the governing publication decision;
-* the conceptual foundation is ready for final-verdict review;
-* serialized-contract work may be planned;
-* runtime work remains gated by explicit compatibility and production-readiness dependencies;
+Therefore:
+
+* ADR 0015 governs subsequent serialized-contract and schema work;
+* the conceptual foundation is ready for final-verdict approval;
+* serialized-contract work may proceed;
+* runtime publication remains gated by explicit compatibility and production-readiness dependencies;
 * and no further architectural revision is required before the final verdict.
+
+## 16. Final Foundation Verdict
+
+### 16.1 Required Verdict
+
+```text
+APPROVED WITH NONBLOCKING FOLLOW-UP
+```
+
+The Concord v0.1.0 conceptual foundation is approved.
+
+The foundation is internally coherent, appropriately bounded, historically reproducible, privacy-conscious, and sufficiently explicit to govern subsequent serialized-contract and schema work.
+
+The approval carries two bounded implementation concerns:
+
+```text
+CPL-004
+    -> ScoreForm and Quillan source-result and source-publication contracts
+
+PDM-004
+    -> coordinated suite-level retention and lawful-deletion policy
+```
+
+Neither concern invalidates the conceptual foundation.
+
+Both constrain runtime and production-readiness claims.
+
+### 16.2 Approval Scope
+
+This verdict approves:
+
+* the Concord conceptual domain;
+* module ownership boundaries;
+* Activity and Session identity;
+* contextual Groups, Memberships, Roles, and Responsibilities;
+* Artifact, Author, Subject, Review, and Moderation distinctions;
+* Criterion, Scoring Scale, and Score semantics;
+* standard-backed and local Score coexistence;
+* non-score dispositions;
+* Group and individual target separation;
+* Core Academic Work Registration integration;
+* immutable Concord Academic Result Manifests;
+* immutable Core Publication Records;
+* manifest revision and publication supersession;
+* Core-owned withdrawal with no predecessor fallback;
+* cross-producer evidence lineage;
+* Meridian’s consumption and policy boundary;
+* privacy and data-minimization requirements;
+* the corrected representative contract examples;
+* and accepted ADR 0015.
+
+This approval does not assert that the complete runtime publication workflow is currently available in released packages.
+
+### 16.3 Final Finding Disposition
+
+The review recorded:
+
+```text
+Total findings: 45
+
+Blocking defects: 0
+Resolved major revisions: 1
+Resolved minor clarifications: 31
+Tracked implementation concerns: 2
+No-issue findings: 11
+Unresolved blocking, major, or minor findings: 0
+```
+
+The resolved major finding was:
+
+```text
+REC-001
+    -> invalid example-only fields in six exact manifest fixtures
+```
+
+The correction changed only the synthetic exact manifest fixtures and their corresponding digest declarations.
+
+No foundational architecture was rejected or replaced.
+
+### 16.4 Conceptual-Foundation Readiness
+
+```text
+APPROVED
+```
+
+The conceptual domain is ready to govern subsequent work.
+
+The review found:
+
+* one authoritative owner for each foundational concept;
+* no unresolved ownership conflict;
+* no necessary case-specific foundational entity;
+* no hidden automatic conversion among evidence, Review, Moderation, Score, Grade, and report;
+* no unresolved ambiguity between standard-backed and local Scores;
+* no automatic conversion of Group Scores into individual Scores;
+* no conversion of non-score dispositions into low performance;
+* no collapse of native correction, manifest revision, publication supersession, withdrawal, override, Grade, or report history;
+* and no unresolved contradiction in the publication architecture.
+
+### 16.5 Serialized-Contract Readiness
+
+```text
+READY TO PROCEED
+```
+
+Serialized-contract and schema work may begin.
+
+That work must preserve:
+
+* the accepted ownership boundaries;
+* all resolved invariants in this review;
+* ADR 0015;
+* exact typed-reference contracts;
+* immutable revision semantics;
+* conservative privacy resolution;
+* exact Criterion and Scoring Scale meaning;
+* source-publication lineage;
+* target identity;
+* and publication-versus-grading separation.
+
+Serialized-contract readiness does not mean that production JSON Schemas already exist.
+
+The next phase must define and validate those schemas against the approved representative examples.
+
+### 16.6 Runtime Implementation Readiness
+
+```text
+NOT READY FOR END-TO-END PUBLICATION
+```
+
+The complete Concord-to-Core-to-Meridian runtime workflow must not yet be represented as released or production-ready.
+
+Runtime work remains dependent on:
+
+* released or explicitly stabilized Core Academic Work Registration APIs;
+* released or explicitly stabilized Core Publication Record, supersession, withdrawal, and catalog APIs;
+* a finalized and versioned Concord Academic Result Manifest JSON Schema;
+* finalized public Concord record contracts;
+* stabilized ScoreForm and Quillan result and publication contracts;
+* supported cross-producer adapters;
+* a supported Meridian import contract or adapter;
+* versioned Meridian source-scale mappings;
+* authorization enforcement;
+* cross-repository integration fixtures;
+* and coordinated retention and lawful-deletion behavior.
+
+Native implementation work that does not invent or assume unavailable cross-module APIs may be planned separately under later implementation issues.
+
+### 16.7 Core Release Compatibility
+
+```text
+ROUTING BASELINE AVAILABLE
+REGISTRY PUBLICATION RUNTIME NOT YET RELEASE-COMPATIBLE
+```
+
+Released Core behavior and future registry architecture remain explicitly distinguished.
+
+The current released Core routing baseline may continue to govern:
+
+* PDS2 locators;
+* Route Registrations;
+* retained source scans;
+* and routing provenance.
+
+Concord must not claim released compatibility with Academic Work Registration or publication-registry behavior solely because compatible architecture or development-branch code exists.
+
+Runtime publication requires an explicitly supported Core version or coordinated development contract.
+
+### 16.8 Meridian Readiness
+
+```text
+CONCEPTUAL BOUNDARY APPROVED
+RUNTIME IMPLEMENTATION NOT READY
+```
+
+Meridian has sufficient producer meaning to consume Concord results without heuristic reinterpretation once compatible public contracts exist.
+
+The approved boundary defines:
+
+* complete import observation;
+* publication and withdrawal validation;
+* exact target preservation;
+* student versus non-student eligibility;
+* exact Scale mapping identity;
+* standard-backed versus local treatment;
+* repeated-observation and native-supersession distinctions;
+* cross-producer overlap handling;
+* Academic Period ownership;
+* derived overrides;
+* and reproducible report snapshots.
+
+Meridian must still implement and version those contracts and policies.
+
+### 16.9 Publication Withdrawal Decision
+
+No additional Concord-specific Publication Withdrawal record is required.
+
+Withdrawal remains Core-owned.
+
+The approved rule is:
+
+```text
+withdrawn series head
+    -> remains the structural head
+    -> is not currently selectable
+    -> does not reactivate its predecessor
+    -> requires a new explicit successor for corrected current data
+```
+
+The bounded treatment in the representative examples is sufficient for the Concord conceptual foundation.
+
+A later cross-repository integration fixture should test the released Core withdrawal contract when the compatible runtime exists.
+
+### 16.10 Adversarial Review Outcome
+
+The review actively tested credible failure modes, including:
+
+* duplicated or missing authority;
+* inferred registration;
+* stale registration revision;
+* publication from the wrong Activity;
+* mutation of published manifest bytes;
+* contradictory record-set revision reuse;
+* false capability declarations;
+* catalog authority inflation;
+* Group-to-student Score propagation;
+* non-score-to-zero conversion;
+* implicit Scale equivalence;
+* loss of native supersession history;
+* withdrawal fallback to an older publication;
+* external-source ownership transfer;
+* cross-producer double counting;
+* evidence use without adequate Moderation;
+* publication as authorization;
+* sensitive data in identifiers, locators, narratives, or discovery metadata;
+* report mutation after source changes;
+* and implementation claims based on unreleased APIs.
+
+The credible failures were either:
+
+* corrected;
+* explicitly prohibited by enforceable invariants;
+* demonstrated safely in the representative examples;
+* or assigned to bounded nonblocking implementation follow-up.
+
+No blocking failure mode remains concealed beneath the final approval.
+
+### 16.11 Work Authorized by This Verdict
+
+The following work may proceed:
+
+1. formal Concord serialized-record contracts;
+2. the Concord Academic Result Manifest JSON Schema;
+3. schema validators and compatibility policy;
+4. deterministic manifest-generation design;
+5. mechanical fixture validation;
+6. producer compatibility declarations;
+7. Core integration planning against explicit supported versions;
+8. Meridian adapter and mapping design;
+9. cross-repository contract fixtures;
+10. and later runtime implementation issues with explicit dependency gates.
+
+The following claims remain prohibited:
+
+* that the complete publication runtime is currently released;
+* that unreleased Core APIs are supported;
+* that ScoreForm or Quillan publication adapters already exist when they do not;
+* that Meridian runtime behavior is complete;
+* that production authorization and retention policy are complete;
+* or that conceptual approval alone constitutes production readiness.
+
+### 16.12 Completion Determination
+
+Issue #13 has completed its architectural purpose.
+
+The review now establishes, with recorded evidence:
+
+1. the Concord conceptual foundation is sound;
+2. module ownership boundaries are stable;
+3. the contracts preserve required educational meaning and history;
+4. the publication architecture is sufficiently complete to govern serialized-contract work;
+5. Meridian can consume the proposed outputs safely under explicit future contracts;
+6. ADR 0015 governs later publication work;
+7. bounded withdrawal representation is sufficient;
+8. no blocking, major, or minor correction remains open;
+9. runtime dependencies are explicitly identified;
+10. and implementation may proceed only within the readiness boundaries stated above.
+
+The final verdict is:
+
+```text
+APPROVED WITH NONBLOCKING FOLLOW-UP
+```
