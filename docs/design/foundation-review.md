@@ -75,7 +75,9 @@ Findings will be classified as:
 | REC-003 | Representative-example consistency | Minor clarification | Resolved | The seminar, laboratory, and project Meridian sections retain abbreviated import-provenance lists superseded by MCB-001. | Add the complete mandatory publication observation to each example |
 | REC-004 | Representative-example consistency | Minor clarification | Resolved | The README, seminar, and laboratory descriptions say the project exercises withdrawal even though it only provides bounded withdrawal semantics. | Correct the coverage descriptions |
 | REC-005 | Representative-example consistency | No issue identified | Reviewed | The representative cases continue to cover the required semantic boundaries without case-specific foundational records. | None |
-
+| ADR-001 | ADR 0015 disposition | No issue identified | Reviewed | ADR 0015 establishes a coherent producer-manifest, Core-publication, and Meridian-consumption boundary and should govern subsequent serialized-contract and implementation work. | Accept ADR 0015 |
+| ADR-002 | ADR 0015 disposition | Minor clarification | Resolved | The ADR remains Proposed and retains stale future-tense governance and follow-up language after completion of the skeptical review. | Mark the ADR Accepted and distinguish implementation follow-up from settled architecture |
+| ADR-003 | ADR 0015 disposition | Minor clarification | Resolved | The ADR contains one malformed code fence and one malformed Meridian validation bullet. | Repair the Markdown and list punctuation |
 
 ## 4. Review Areas
 
@@ -5642,3 +5644,182 @@ After the six manifest blocks and digests are corrected:
 * and no architectural decision is required beyond the already resolved findings.
 
 ADR 0015 disposition should occur only after the corrected exact fixtures pass mechanical validation.
+
+## 15. ADR 0015 Disposition Review
+
+### 15.1 Review Question
+
+Should ADR 0015, **Publish Versioned Concord Academic Result Manifests Through the Core Registry**, be accepted, revised, or rejected after completion of the skeptical foundation review?
+
+### 15.2 Disposition
+
+```text
+ACCEPT
+```
+
+ADR 0015 should be accepted as the governing architectural decision for publishing selected Concord academic results.
+
+Acceptance establishes this authoritative sequence:
+
+```text
+Concord native records
+    -> immutable Concord Academic Result Manifest revision
+    -> immutable Core Publication Record
+    -> policy-controlled Meridian import
+    -> Meridian-derived proficiency, Grade, Academic Period, or report result
+```
+
+The decision preserves the required ownership boundaries:
+
+* Concord owns native educational records, manifest semantics, manifest generation, and manifest revision;
+* Core owns Academic Work Registration, Publication Records, publication integrity, supersession, withdrawal, and discovery;
+* Meridian owns import selection, evidence eligibility, scale mapping, Grade-item membership, Academic Period membership, calculations, overrides, and reports;
+* ScoreForm and Quillan retain ownership of their native source records;
+* and external systems retain ownership of repository, CI, CAD, cloud-document, and other external evidence.
+
+### 15.3 Basis for Acceptance
+
+The skeptical review found no blocking architectural defect in ADR 0015.
+
+The decision now preserves:
+
+* explicit Activity-to-registration identity;
+* one authoritative owner for each record family;
+* producer-owned manifest semantics;
+* immutable revision-addressed manifest bytes;
+* exact SHA-256 binding;
+* Core-owned immutable Publication Records;
+* truthful publication capabilities;
+* explicit publication supersession;
+* withdrawal without predecessor fallback;
+* separation of native Score supersession from publication supersession;
+* exact Criterion and Scoring Scale interpretation;
+* explicit standard-backed and local Score distinction;
+* explicit non-score dispositions;
+* Group and individual target separation;
+* complete cross-producer evidence lineage;
+* conservative manifest privacy;
+* publication as discoverability rather than authorization;
+* complete Meridian import observation;
+* Meridian-owned evidence selection and scale mapping;
+* and separation of Concord Score revision from Meridian override.
+
+The representative seminar, laboratory, project, evidence-only, and local-criteria-only cases demonstrate the architecture without requiring case-specific foundational entities.
+
+### 15.4 Rejected Alternatives
+
+ADR 0015 appropriately rejects:
+
+* a direct Concord-to-Meridian package dependency;
+* mutable `latest.json` as an authoritative handoff;
+* a Core-owned universal Score schema;
+* standards-only publication as the complete integration;
+* separate Core publication of every native Concord record;
+* mandatory automatic publication after every Score change;
+* publication as automatic Grade inclusion;
+* Concord-owned Academic Period membership;
+* and assumed independence of related cross-producer publications.
+
+Those alternatives either weaken reproducibility, collapse ownership boundaries, erase producer-native meaning, create unnecessary coupling, or risk duplicate evidence use.
+
+### 15.5 Acceptance Does Not Mean Runtime Readiness
+
+ADR acceptance and runtime readiness are distinct.
+
+Acceptance authorizes:
+
+* serialized-contract design;
+* schema development;
+* producer and consumer adapter planning;
+* coordinated Core integration work;
+* and implementation sequencing.
+
+Acceptance does not establish that current released packages can perform the workflow.
+
+Runtime publication remains dependent on:
+
+* released or explicitly stabilized Core Academic Work Registration and Publication Record APIs;
+* a finalized Concord manifest JSON Schema;
+* stabilized ScoreForm and Quillan source-result and source-publication contracts;
+* a supported Meridian import contract or adapter;
+* versioned Meridian source-scale mappings;
+* authorization enforcement;
+* cross-repository integration fixtures;
+* and coordinated retention and lawful-deletion policy.
+
+The tracked findings remain:
+
+```text
+CPL-004
+    -> ScoreForm and Quillan runtime publication contracts
+
+PDM-004
+    -> suite-level retention and legal-deletion behavior
+```
+
+Neither tracked concern invalidates the architectural decision.
+
+Both constrain production-readiness claims.
+
+### 15.6 ADR Corrections Required for Acceptance
+
+The ADR requires three documentation corrections:
+
+1. change its status from `Proposed` to `Accepted` and record the acceptance date;
+2. repair one malformed code fence and one malformed Meridian validation bullet;
+3. distinguish settled architecture from remaining implementation follow-up and change future-tense documentation-reconciliation language to completed reconciliation.
+
+These corrections do not alter the substance of the decision.
+
+### 15.7 Findings
+
+#### ADR-001 — ADR 0015 is architecturally acceptable
+
+| Field           | Value                                                                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | ADR 0015 disposition                                                                                                                                                             |
+| Severity        | No issue identified                                                                                                                                                              |
+| Status          | Reviewed                                                                                                                                                                         |
+| Finding         | ADR 0015 establishes a coherent producer-manifest, Core-publication, and Meridian-consumption boundary and should govern subsequent serialized-contract and implementation work. |
+| Required action | Accept ADR 0015.                                                                                                                                                                 |
+
+#### ADR-002 — ADR status and post-review governance language remain stale
+
+| Field           | Value                                                                                                                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | ADR status and follow-up governance                                                                                                                                                                              |
+| Severity        | Minor clarification                                                                                                                                                                                              |
+| Status          | Open                                                                                                                                                                                                             |
+| Finding         | The ADR remains marked `Proposed`, describes documentation reconciliation in future tense, and labels remaining implementation questions as general follow-up despite issue #13 having settled the architecture. |
+| Required action | Mark the ADR accepted, record the acceptance date, classify remaining questions as implementation follow-up, and update the documentation-reconciliation wording.                                                |
+
+#### ADR-003 — Two mechanical Markdown defects remain
+
+| Field           | Value                                                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area            | ADR document integrity                                                                                                                                          |
+| Severity        | Minor clarification                                                                                                                                             |
+| Status          | Open                                                                                                                                                            |
+| Finding         | The Core Publication Record identity block closes with four backticks, and the Meridian validation list contains a malformed final bullet beginning with “and.” |
+| Required action | Repair the code fence and validation-list punctuation.                                                                                                          |
+
+### 15.8 Review Conclusion
+
+```text
+Disposition: Accept
+
+Blocking defects: 0
+Major revisions: 0
+Minor clarifications: 2
+No-issue findings: 1
+```
+
+ADR 0015 is suitable for acceptance.
+
+After ADR-002 and ADR-003 are resolved:
+
+* ADR 0015 becomes the governing publication decision;
+* the conceptual foundation is ready for final-verdict review;
+* serialized-contract work may be planned;
+* runtime work remains gated by explicit compatibility and production-readiness dependencies;
+* and no further architectural revision is required before the final verdict.

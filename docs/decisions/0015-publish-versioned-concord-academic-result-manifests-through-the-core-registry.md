@@ -1,7 +1,8 @@
 # ADR 0015: Publish Versioned Concord Academic Result Manifests Through the Core Registry
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** July 29, 2026
+**Accepted:** August 2, 2026 — approved after issue #13 skeptical foundation review
 **Decision owners:** Paper Data Suite maintainers
 **Applies to:** `pds-concord` and its integration with `pds-core` and `pds-meridian`
 
@@ -1069,7 +1070,7 @@ source_record.record_id = work.work_id
 manifest.source_activity = source_record
 manifest.activity_context.activity_id = work.work_id
 manifest.activity_context.class_id = work.class_id
-````
+```
 
 Concord must validate these producer-specific relationships before requesting Core publication.
 
@@ -1356,8 +1357,8 @@ Meridian must validate that:
 * declared capabilities are supported;
 * the manifest digest matches;
 * the current withdrawal state has been resolved; and
-* the publication is eligible for the intended import, selection, calculation, or historical operation.
-* and access is authorized.
+* the publication is eligible for the intended import, selection, calculation, or historical operation; and
+* access is authorized.
 
 Import, historical retention, and current selection are distinct.
 
@@ -1751,9 +1752,11 @@ Rejected because that can double-count the same underlying evidence.
 
 Concord must expose lineage, and Meridian must apply an explicit relationship policy.
 
-## Follow-Up Questions
+## Implementation Follow-Up
 
-This ADR establishes architecture and ownership. Later contracts or implementation issues must resolve the following.
+This ADR establishes accepted architecture and ownership.
+
+The following are implementation and contract-finalization questions. Their resolution must preserve the invariants in this ADR and must not reopen settled ownership boundaries without a superseding ADR.
 
 ### Manifest schema
 
@@ -1773,9 +1776,9 @@ This ADR establishes architecture and ownership. Later contracts or implementati
 ### Evidence lineage
 
 * What exact value object represents a Concord-owned evidence source?
-* How are Core Publication Record IDs attached to external ScoreForm or Quillan evidence when known?
+* How does implementation validate and serialize the required Core Publication Reference when a source revision was resolved through or verified against an exact Core publication?
 * How does Meridian detect equivalent or overlapping external evidence?
-* What privacy fields accompany lineage references?
+* How are resolved privacy classifications serialized and enforced for lineage references and their source records?
 
 ### Scoring Scale interpretation
 
@@ -1832,7 +1835,7 @@ This ADR establishes architecture and ownership. Later contracts or implementati
 
 ## Required Documentation Changes
 
-Adoption of this ADR requires revisions to:
+Adoption of this ADR was reconciled through issue #13 across:
 
 * `docs/design/conceptual-data-contracts.md`;
 * `docs/design/initial-concord-domain-model.md`;
@@ -1843,7 +1846,7 @@ Adoption of this ADR requires revisions to:
 * `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`;
 * and the representative examples under `docs/design/examples/`.
 
-The changes must:
+The reconciled documentation must continue to:
 
 1. define the Concord Academic Result Manifest;
 2. make the existing Standards Result Handoff Projection a standards-specific subset;
