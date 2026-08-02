@@ -332,13 +332,15 @@ Rules:
 * the list must be nonempty for `standards_based` and `mixed` Activities;
 * every entry must be a durable Core `standard_id`;
 * duplicate IDs are invalid;
-* every selected standard should belong to the selected profile;
+* every selected standard must belong to the selected profile when the Activity is configured or revalidated;
 * ordering is meaningful for teacher-facing scoring, publication, and Meridian workflows;
 * and a selected Focus Standard does not by itself prove that the standard was taught, practiced, assessed, demonstrated, or mastered.
 
 The Focus Standards define the Activity’s intended standards-scoring scope.
 
 A standard becomes direct Concord performance evidence only through an explicit teacher-approved standard-backed Score Record or another later contract that deliberately defines a standards-result event.
+
+Later profile-membership changes, inactivity, or deprecation must be reported explicitly without mutating historical Activity, Criterion, or Score records.
 
 ## Criterion classifications
 
@@ -501,7 +503,7 @@ Performs the assigned observer rotation
 
 The local Criterion remains distinguishable from the direct standards judgments.
 
-Criterion Sets and Criteria used by Scores remain immutable under the existing historical-preservation decisions.
+Once a Criterion Set revision is selected by an Activity, its membership, order, and member Criterion scoring semantics are immutable under the existing historical-preservation decisions.
 
 Changing:
 
@@ -511,7 +513,7 @@ Changing:
 * scoring interpretation;
 * or standard/local classification
 
-requires a new Criterion revision or identity under the later finalized contract.
+requires a new Criterion identity in a new Criterion Set revision.
 
 ## Score Record semantics
 
@@ -625,6 +627,13 @@ The Scoring Scale must preserve:
 * and historical reproducibility.
 
 Meridian must not assume that similarly numbered scales are semantically equivalent.
+
+Within one Scoring Scale revision:
+
+* at least one level is required;
+* every machine value must be unique;
+* a scored value must resolve to exactly one level;
+* and ordering must be deterministic and duplicate-free when applicable.
 
 For example:
 

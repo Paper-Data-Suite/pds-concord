@@ -733,10 +733,12 @@ For `standards_based` and `mixed` Activities:
 * `focus_standard_ids` is nonempty;
 * duplicate Focus Standard IDs are invalid;
 * order is meaningful for teacher-facing scoring and publication;
-* each Focus Standard should belong to the selected profile;
+* each Focus Standard must belong to the selected profile when the Activity is configured or revalidated;
 * and missing, inactive, or deprecated references must be reported without silently mutating the Activity.
 
 Selecting a Focus Standard does not create a Score, a publication, or a Meridian proficiency result.
+
+When a Criterion Set declares Core standards-profile context, every standard-backed Criterion in that Set must govern a standard belonging to that profile.
 
 #### Academic registration
 
@@ -748,11 +750,13 @@ A registered Concord Activity uses:
 
 ```text
 work.module_id = concord
-work.class_id  = Activity.class_id
+work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-and identifies the Activity through a Concord `ModuleRecordRef`.
+and must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`.
+
+Additional source records may be included when justified.
 
 Core registration `academic_intent` remains distinct from Activity `scoring_orientation`.
 
@@ -760,7 +764,7 @@ Core registration `academic_intent` remains distinct from Activity `scoring_orie
 
 An Activity may have zero or many immutable Concord Academic Result Manifest revisions.
 
-An academic-result manifest requires an applicable Core Academic Work Registration revision before Core publication.
+An academic-result publication must reference the exact current Core Academic Work Registration revision at publication time. Later registration revisions do not alter the revision preserved by an existing Publication Record.
 
 A manifest may include standard-backed Scores, local Scores, explicit non-score dispositions, native history, and evidence lineage.
 
@@ -1347,14 +1351,25 @@ The domain therefore uses a typed **Evidence Reference** rather than requiring e
 
 An Evidence Reference should identify:
 
-* evidence source kind;
-* owning system;
-* durable source identifier;
-* optional public contract version;
-* optional page or source location;
-* optional Subject context;
-* optional relevance note;
-* and optional Moderation requirement.
+- evidence source kind;
+- owning system;
+- durable source identifier;
+- optional public contract version;
+- optional exact source-publication reference;
+- optional page or source location;
+- optional Subject context;
+- and optional Moderation requirement.
+
+For cross-producer evidence, Concord may use either:
+
+1. an indirect Evidence Reference to a Concord External Reference; or
+2. a direct module-qualified reference to the external source record.
+
+The indirect form is preferred when Concord must preserve Activity context, relationship purpose, availability, correction, or supersession independently of one Score Evidence Link.
+
+One evidence use must not represent the same external record through both forms.
+
+Relevance description and the applicable Moderation Record belong to the Score Evidence Link for a particular evidence use.
 
 Evidence ownership remains with the source record’s owner.
 
@@ -1504,8 +1519,8 @@ Possible statuses include:
 
 Concord uses a hybrid correction model:
 
-1. same-type replacement records use explicit supersession relationships; and
-2. a general **Correction Record** explains the correction, actor, reason, and old-to-new relationship.
+1. a same-type replacement record explicitly identifies the record it supersedes; and
+2. a general **Correction Record** documents the affected record, correction type, actor, time, reason, supporting source, and replacement when one exists.
 
 A Correction Record should identify:
 
@@ -1515,10 +1530,13 @@ A Correction Record should identify:
 * reason;
 * correcting Actor;
 * timestamp;
-* replacement or superseding record where applicable;
+* replacement or superseding record when the correction creates one;
 * optional supporting source;
 * privacy policy;
+* optional superseded Correction Record;
 * and optional note.
+
+A Correction Record without a replacement may document invalidation, cancellation, or a pending correction, but it does not create a new governing record or retarget existing references.
 
 Corrections may apply to:
 
@@ -1537,6 +1555,7 @@ Corrections may apply to:
 The original record remains available for provenance.
 
 A current-record designation is a retrieval aid, not deletion of history.
+
 ## 10. Criteria and Scoring
 
 Concord’s primary academic scoring model is standards-based.
@@ -1607,7 +1626,7 @@ A `mixed` Criterion Set may contain both.
 * One Criterion Set contains one or more Criteria.
 * One Activity may select zero or many Criterion Sets.
 * One Criterion Set revision may be selected by zero or many Activities.
-* A Criterion Set becomes immutable once selected by an Activity that produces Scores.
+* Once a Criterion Set revision is selected by an Activity, its Criterion membership, order, and member Criterion scoring semantics are immutable.
 * Changes to Criterion membership, order, definition, governing standards, target applicability, classification, or scoring meaning require a new revision.
 * Historical Scores retain the exact referenced Criterion and Set revision.
 * Selecting a Criterion Set does not create Scores.
@@ -1746,6 +1765,8 @@ Changes require a new Scoring Scale revision.
 
 A Meridian grading and reporting module must not assume that similarly numbered scales are semantically equivalent.
 
+Each Scoring Scale revision must contain at least one level. Machine values must be unique within the revision, and ordering must be deterministic and duplicate-free when the Scale type uses ordering. A scored value must resolve to exactly one level.
+
 ### 10.5 Score Record
 
 A **Score Record** is one teacher-approved judgment about one Criterion for one target.
@@ -1877,11 +1898,22 @@ mixed_basis
 
 A teacher may enter a Score through professional judgment without one controlling Artifact.
 
-When no formal Score Evidence Link exists:
+When `basis = professional_judgment` and no formal Score Evidence Link exists:
 
-* rationale is required;
-* scorer provenance is required;
-* and the Activity context must be explicit.
+- rationale is required;
+- scorer provenance is required;
+- and the Activity context must be explicit.
+
+When `basis = linked_evidence`:
+
+- at least one active Score Evidence Link is required.
+
+When `basis = mixed_basis`:
+
+- at least one active Score Evidence Link is required;
+- and rationale is required to preserve the professional-judgment component.
+
+A Score with zero Score Evidence Links must use `basis = professional_judgment`.
 
 #### Individual Scores and Group evidence
 
@@ -1905,6 +1937,18 @@ A standard-backed Score may target a Group when:
 * and the teacher deliberately selects the Group target.
 
 A Group standards Score does not become an individual standards Score for each Group member.
+
+#### Score supersession
+
+A Score may supersede an earlier Score only through an explicit predecessor relationship.
+
+The predecessor must exist, must belong to the same Activity, and must not be the successor itself. The successor’s scoring time must not precede the predecessor’s.
+
+Score-supersession chains must be acyclic and unbranched. Current state is derived from the explicit relationship rather than timestamps or values.
+
+The target and Criterion normally remain the same. A correction that changes the target, Criterion, Score classification, or governing standard requires an accompanying Correction Record explaining that semantic change.
+
+A later contextual observation remains independent unless the teacher deliberately records native supersession.
 
 ### 10.6 Score Evidence Link
 
@@ -1971,7 +2015,7 @@ The initial manifest series is scoped to one `ModuleWorkRef`:
 
 ```text
 module_id = concord
-class_id  = Activity.class_id
+class_id  = Activity.class_reference.record_id
 work_id   = Activity.activity_id
 ```
 
@@ -2170,7 +2214,9 @@ external producer result
 
 from unrelated evidence produced by separate observations.
 
-When known, lineage may include the exact Core Publication Record identity of the external source.
+When the exact external source revision was resolved through, or verified against, a Core Publication Record, lineage must preserve that exact Publication Record identity.
+
+When no source publication exists, lineage must preserve another immutable source-version mechanism. A mutable current-result reference alone is insufficient for consequential use.
 
 Concord does not decide whether Meridian should use:
 
@@ -2347,16 +2393,32 @@ A corrected replacement requires a new manifest revision and Publication Record.
 
 ### 10.15 Meridian Consumption Boundary
 
-Meridian consumes Concord publications through Core and preserves the exact:
+Meridian consumes Concord publications through Core.
 
-* Core Publication Record identity;
-* digest;
+A Meridian import must preserve:
+
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
 * manifest contract version;
 * record-set identity and revision;
-* registration revision;
-* source Activity reference;
-* withdrawal state;
-* and import time.
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 Meridian applies explicit policy for:
 
@@ -2384,11 +2446,55 @@ It must not:
 * silently convert non-score dispositions to zero;
 * or treat publication as automatic Grade inclusion.
 
+* A Meridian source-scale mapping must bind to the producer module, manifest contract version, `scoring_scale_id`, `scale_lineage_id`, Scale revision, scale type, and complete projected level semantics.
+* A mapping must not be selected solely by numeric values, labels, level count, or ordering.
+* A changed Scale revision requires a separately valid mapping or explicit revalidation.
+* When no compatible mapping exists, the result remains unmapped or ineligible for that calculation rather than being guessed.
+
+#### Score-target preservation and eligibility
+
+Meridian must preserve the exact Score `target_reference`.
+
+For the current Meridian boundary, only a `core_student` target is directly eligible for:
+
+* student-level standards evidence;
+* student-level proficiency calculation;
+* or student Grade-item calculation.
+
+Non-student targets must remain non-student downstream.
+
+A non-student Score may support:
+
+* Group-level interpretation;
+* Activity- or work-level analysis;
+* contextual reporting;
+* or another explicitly non-student derived result.
+
+It must not become student-level evidence merely because students are related to its target.
+
+Meridian must not synthesize a student target from:
+
+* Group Membership;
+* Artifact Author;
+* Artifact Subject;
+* Session context;
+* or another contextual relationship.
+
+Any future allocation of a non-student result to students requires a separate explicit contract. That contract must preserve the original non-student target and must not represent the allocated result as a Concord-native individual Score.
+
 A Concord Score revision changes a native teacher judgment.
 
 A Meridian override changes a Meridian-derived result.
 
 The two histories remain separate.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 ### 10.16 Academic Period and Formal Reporting Boundary
 
@@ -2423,9 +2529,12 @@ It should contain:
 * optional provider-neutral locator;
 * optional descriptive label;
 * last-confirmed timestamp where available;
-* optional exact Core source-publication reference when known;
 * creation provenance;
 * and optional superseded External Reference.
+
+An External Reference identifies a durable logical relationship to an external record.
+
+The exact source revision used for a particular Score belongs to the Evidence Reference and Score Evidence Link. It is preserved through an exact Core source-publication reference or another immutable source-version mechanism.
 
 Possible external references include:
 
@@ -2476,7 +2585,9 @@ The external module remains authoritative for its own result.
 
 The Concord Score remains authoritative for the Concord Activity judgment.
 
-When the external source publication is known, Concord should preserve its exact Core Publication Record identity so Meridian can detect related results.
+When the external source revision was resolved through, or verified against, an exact Core Publication Record, Concord must preserve that Publication Record identity so Meridian can identify related producer results.
+
+When no source publication exists, Concord must preserve another immutable source-version mechanism.
 
 Concord must not:
 
@@ -3062,6 +3173,10 @@ The initial minimum privacy vocabulary may include:
 * `classroom_shared`;
 * `inherited`;
 * and `external_policy`.
+
+`teacher_restricted`, `teacher_and_subjects`, `group_and_teacher`, and `classroom_shared` are direct audience classifications.
+
+`inherited` and `external_policy` are resolution modes. They require a valid parent or external policy reference and must resolve to an effective audience before access or publication.
 
 Final suite-wide ownership of the privacy vocabulary remains to be coordinated with Core.
 

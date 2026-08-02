@@ -7,8 +7,8 @@
 **Example family:** Socratic seminar / structured discussion  
 **Scoring orientation:** `standards_based`  
 **Publication model:** Two immutable Concord Academic Result Manifest revisions published through Core  
-**Revision date:** July 30, 2026  
-**Revision:** 3 — aligned with ADR 0015, Core registry publication, and Meridian
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 representative-example consistency review
 
 ## 1. Case Purpose
 
@@ -4025,8 +4025,6 @@ The exact immutable bytes are the following UTF-8 JSON, including one trailing l
   ],
   "privacy_classification": "teacher_restricted",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_seminar_results_01",
   "record_set_revision": 1,
   "score_evidence_link_projections": [
@@ -4462,9 +4460,9 @@ The exact immutable bytes are the following UTF-8 JSON, including one trailing l
 | Record-set ID | `rs_seminar_results_01` |
 | Record-set revision | `1` |
 | Manifest path | `classes/cls_ela10_p03/modules/concord/work/act_seminar_01/exports/manifests/rs_seminar_results_01/1.json` |
-| Byte length | `19098` |
+| Byte length | `19016` |
 | Digest algorithm | `sha256` |
-| SHA-256 digest | `a6147ea67b6dd3582a7087bc930a490931082ba3a48ec49d53eabf02ef8dde28` |
+| SHA-256 digest | `6f828c6f9c42fd45e8ba1a067f39d89f80ef8fcf79ffab5476569bdad43579cf` |
 
 The manifest is a producer-owned projection, not a replacement for the Activity, Criteria, Scoring Scale, Scores, evidence, Reviews, or Moderation Records.
 
@@ -4495,7 +4493,7 @@ record_set_revision: 1
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_ela10_p03/modules/concord/work/act_seminar_01/exports/manifests/rs_seminar_results_01/1.json
 manifest_digest_algorithm: sha256
-manifest_digest: a6147ea67b6dd3582a7087bc930a490931082ba3a48ec49d53eabf02ef8dde28
+manifest_digest: 6f828c6f9c42fd45e8ba1a067f39d89f80ef8fcf79ffab5476569bdad43579cf
 published_at: '2026-09-15T12:20:00-04:00'
 academic_work_registration_revision: 1
 ```
@@ -4678,8 +4676,6 @@ The exact immutable bytes are the following UTF-8 JSON, including one trailing l
   ],
   "privacy_classification": "teacher_restricted",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_seminar_results_01",
   "record_set_revision": 2,
   "score_evidence_link_projections": [
@@ -5257,9 +5253,9 @@ The exact immutable bytes are the following UTF-8 JSON, including one trailing l
 | Record-set ID | `rs_seminar_results_01` |
 | Record-set revision | `2` |
 | Manifest path | `classes/cls_ela10_p03/modules/concord/work/act_seminar_01/exports/manifests/rs_seminar_results_01/2.json` |
-| Byte length | `25092` |
+| Byte length | `25010` |
 | Digest algorithm | `sha256` |
-| SHA-256 digest | `8855b1162a9ea2c913a0c78a2c8e7c3db4d29f853c81eaab0b69aa0494624879` |
+| SHA-256 digest | `d5c9933658f91db6cd4b006f0804f994aa93c440e7762fd2c7585e218bc593ec` |
 
 Manifest revision 2 does not mutate or replace revision 1. It is a new immutable projection with a greater logical revision.
 
@@ -5290,7 +5286,7 @@ record_set_revision: 2
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_ela10_p03/modules/concord/work/act_seminar_01/exports/manifests/rs_seminar_results_01/2.json
 manifest_digest_algorithm: sha256
-manifest_digest: 8855b1162a9ea2c913a0c78a2c8e7c3db4d29f853c81eaab0b69aa0494624879
+manifest_digest: d5c9933658f91db6cd4b006f0804f994aa93c440e7762fd2c7585e218bc593ec
 published_at: '2026-09-16T12:05:00-04:00'
 academic_work_registration_revision: 2
 supersedes_publication_id: pub_concord_seminar_results_001
@@ -5312,20 +5308,28 @@ pub_concord_seminar_results_002
 
 Neither relationship implies the other automatically. Publication supersession does not mean every Score in revision 1 was superseded.
 
-No publication withdrawal is represented in this seminar case. The architecture can represent withdrawal through a separate immutable Core record; the project example will exercise a withdrawal scenario.
+No Publication Withdrawal record is represented in this seminar case.
+
+The project example bounds the withdrawal contract and no-fallback rule without inventing a complete Core-owned withdrawal record.
 
 ## 25. Meridian Consumption Boundary
 
 Meridian can discover and import the two Concord publications through Core while preserving:
 
-- `publication_id`;
-- exact manifest digest;
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
 - manifest contract version;
-- record-set ID and revision;
-- Academic Work Registration revision;
-- source Activity reference;
-- supersession and withdrawal state;
-- and import time.
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
 
 Meridian then applies explicit policy for:
 

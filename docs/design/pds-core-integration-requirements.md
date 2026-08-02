@@ -1302,7 +1302,7 @@ A Concord Academic Result Manifest uses:
 academic_result_set
 ```
 
-and requires an applicable Academic Work Registration revision.
+and requires the exact current Academic Work Registration revision at publication time.
 
 ### 10.5 Publication Withdrawal
 
@@ -1486,11 +1486,11 @@ Core does not infer Author, Subject, Score target, standard, or Grade membership
 
 ### 12.4 Core publication workflow
 
-1. Concord submits the exact manifest path, manifest contract version, publication kind, capabilities, record-set identity, revision, source Activity reference, and applicable registration revision.
+1. Concord submits the exact manifest path, manifest contract version, publication kind, capabilities, record-set identity, revision, source Activity reference, and the exact current Academic Work Registration revision at publication time. For initial Concord publication, the submitted source Activity reference must equal the manifest’s `source_activity`; its `record_id` must equal `work.work_id`; and the manifest Activity context must identify the same `work.class_id` and `work.work_id`.
 2. Core validates the shared publication envelope.
 3. Core verifies that the path is safe, workspace-relative, work-scoped, and present.
 4. Core calculates or verifies the SHA-256 digest.
-5. Core reconciles exact replay idempotently.
+5. Core reconciles exact replay idempotently. Exact replay requires agreement on `work`, source record, publication kind, capabilities, record-set identity and revision, manifest contract version, path, digest algorithm, digest, Academic Work Registration revision, and predecessor publication identity.
 6. Core rejects contradictory reuse of the same logical revision.
 7. Core exclusively creates the immutable Publication Record.
 8. Core updates the derived catalog or reports canonical success with catalog partial failure.
@@ -1525,6 +1525,10 @@ Core Publication Withdrawal
     -> later corrected manifest revision
     -> new Core Publication Record
 ```
+
+Withdrawal does not reactivate a predecessor publication.
+
+When the withdrawn publication is the current series head, the series has no currently selectable publication until the corrected manifest is published through a new Publication Record that explicitly supersedes the withdrawn head.
 
 A Meridian-only policy or override change requires no Concord Score or manifest mutation.
 
@@ -1960,11 +1964,13 @@ The registration uses:
 
 ```text
 work.module_id = concord
-work.class_id = Activity.class_id
+work.class_id = Activity.class_reference.record_id
 work.work_id = Activity.activity_id
 ```
 
-and should include the Activity as a source `ModuleRecordRef`.
+and must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`.
+
+Additional source records may be included when justified.
 
 The initial Concord work kind is conceptually:
 
@@ -2054,7 +2060,9 @@ standards_ratings
 moderated_scores
 ```
 
-The Publication Record identifies the Activity as its optional source record and references the applicable Academic Work Registration revision.
+The Publication Record identifies the Activity as its optional source record and records the exact current Academic Work Registration revision at publication time.
+
+Later Academic Work Registration revisions do not alter the registration revision preserved by an existing Publication Record.
 
 ### 17.12 Native versus publication history
 

@@ -7,8 +7,8 @@
 **Example family:** Science laboratory investigation  
 **Scoring orientation:** `mixed`  
 **Publication model:** One immutable Concord Academic Result Manifest revision published through Core  
-**Revision date:** July 30, 2026  
-**Revision:** 3 — aligned with ADR 0015, Core registry publication, and Meridian
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 representative-example consistency review
 
 ## 1. Case Purpose
 
@@ -41,7 +41,9 @@ This example tests whether the Concord conceptual contracts can represent a coll
 
 The case uses shared Activity, Group, Artifact, Review, Moderation, Criterion, Score, Event, Responsibility, External Reference, PDS2, registration, manifest, and publication contracts. It does not introduce laboratory-specific foundational entities.
 
-This case deliberately represents one valid publication revision. Native Score supersession, Core publication supersession, and publication withdrawal are exercised by the project example rather than fabricated here.
+This case deliberately represents one valid publication revision.
+
+Native Score supersession and Core publication supersession are exercised by the project example. Publication withdrawal is bounded there without a complete withdrawal record.
 
 ## 2. Activity Narrative
 
@@ -5245,8 +5247,6 @@ The exact immutable bytes are the following UTF-8 JSON, including one trailing l
   ],
   "privacy_classification": "teacher_restricted",
   "producer_module_id": "concord",
-  "record_kind": "concord_academic_result_manifest",
-  "record_owner": "concord",
   "record_set_id": "rs_lab_results_01",
   "record_set_revision": 1,
   "score_evidence_link_projections": [
@@ -5827,7 +5827,7 @@ The path is revision-addressed, contained within the exact Concord Activity work
 The SHA-256 digest of the exact JSON bytes shown above is:
 
 ```text
-c5e11918d47585acf52bdd82604304470434723a4ba776e6e5f4dfd7d58e3a57
+21240bacba9fea4faf3adc9c63b1f49b3b209f59e70ad85ec2c2422322d11b57
 ```
 
 The broader `score_projections` collection includes both standard-backed and local Score Records. The nested `standards_result_projection` contains only standard-backed results and dispositions.
@@ -5873,7 +5873,7 @@ record_set_revision: 1
 manifest_contract_version: concord_academic_result_manifest_v1
 manifest_path: classes/cls_biology_p05/modules/concord/work/act_lab_catalase_01/exports/manifests/rs_lab_results_01/1.json
 manifest_digest_algorithm: sha256
-manifest_digest: c5e11918d47585acf52bdd82604304470434723a4ba776e6e5f4dfd7d58e3a57
+manifest_digest: 21240bacba9fea4faf3adc9c63b1f49b3b209f59e70ad85ec2c2422322d11b57
 published_at: '2026-10-09T14:50:00-04:00'
 academic_work_registration_revision: 2
 ```
@@ -5905,18 +5905,31 @@ Meridian may discover and import both:
 
 The Concord manifest explicitly records that the ScoreForm result supported `score_lab_002_analyze`. Meridian therefore has enough lineage to avoid assuming that the two producer results are independent evidence merely because they arrived through separate Core publications.
 
-A Meridian import should preserve at least:
+A Meridian import must preserve:
 
-- Core `publication_id`;
-- exact manifest digest;
+- Core Publication Record ID and publication-schema version;
+- exact `ModuleWorkRef`;
+- exact source Activity `ModuleRecordRef`;
+- publication kind and declared capabilities;
+- manifest path;
+- manifest digest algorithm and exact digest;
 - manifest contract version;
-- `record_set_id`;
-- `record_set_revision`;
-- Academic Work Registration revision;
-- source Activity reference;
-- source-publication lineage;
-- withdrawal state;
-- and import time.
+- record-set identity and revision;
+- exact Academic Work Registration revision;
+- predecessor Publication Record ID when present;
+- withdrawal state observed at import;
+- withdrawal-state observation time;
+- import time;
+- and the supported Meridian import-contract or adapter version.
+
+For interpretation of this laboratory result, Meridian must additionally preserve:
+
+- standard-backed versus local Score classification;
+- Group versus individual target identity;
+- exact Scoring Scale identity and meaning;
+- ScoreForm source-record and source-publication lineage;
+- native Score dispositions;
+- and applicable Moderation state.
 
 Meridian then owns explicit policy for:
 
@@ -6352,7 +6365,7 @@ The case exposes implementation questions about structured evidence locators, re
 - [x] All eleven evidence uses are projected with source-record lineage.
 - [x] Required Moderation state and qualification are projected.
 - [x] The manifest is stored at a revision-addressed path inside the exact Activity work root.
-- [x] The exact manifest bytes produce SHA-256 `c5e11918d47585acf52bdd82604304470434723a4ba776e6e5f4dfd7d58e3a57`.
+- [x] The exact manifest bytes produce SHA-256 `21240bacba9fea4faf3adc9c63b1f49b3b209f59e70ad85ec2c2422322d11b57`.
 - [x] One immutable Core Publication Record binds the path, contract, revision, and digest.
 - [x] Publication capabilities are truthful.
 - [x] Identical replay is idempotent and contradictory revision reuse is rejected.

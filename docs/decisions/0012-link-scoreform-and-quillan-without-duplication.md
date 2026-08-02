@@ -91,6 +91,20 @@ ScoreForm or Quillan record
     -> explicit Concord teacher judgment
 ```
 
+For consequential evidence use, the normal Concord form is:
+
+```text
+external producer record
+    -> Concord External Reference
+    -> Evidence Reference identifying that External Reference
+    -> Score Evidence Link
+    -> explicit Concord Score
+```
+
+A direct source-owned Evidence Reference remains permitted when no durable Concord External Reference is required.
+
+One Score Evidence Link must not represent the same source through both forms.
+
 The originating module remains authoritative for its record.
 
 Concord remains authoritative for:
@@ -301,6 +315,12 @@ A Concord External Reference to ScoreForm or Quillan should be capable of record
 * creation provenance;
 * last-confirmed timestamp where applicable;
 * and correction or supersession history.
+
+An External Reference identifies the durable logical relationship to an external record.
+
+It does not, by itself, select the exact source revision used for a particular Score.
+
+The exact immutable source state used for consequential evidence belongs to the Evidence Reference and Score Evidence Link for that particular evidence use. That state may be preserved through a Core Publication Reference, immutable record identity, explicit source revision, versioned export, or bounded snapshot.
 
 The exact serialized contract belongs in later work.
 
@@ -851,12 +871,15 @@ A snapshot must not be represented as the authoritative external record.
 
 For consequential Scoring, a reference to a mutable “current result” may be insufficient.
 
-The integration contract should provide at least one of:
+For consequential use, the integration contract must preserve at least one of:
 
+* an exact Core Publication Reference whose manifest exposes the source revision used;
 * immutable external result identity;
-* external revision identity;
-* versioned export identity;
+* explicit external revision identity;
+* versioned export identity with integrity information;
 * or a bounded evidence snapshot.
+
+A mutable current-result reference, mutable path, or display label alone is insufficient.
 
 The goal is to determine what external evidence the teacher used at the time of the Concord Score.
 
@@ -1130,6 +1153,10 @@ The teacher may:
 * or mark the earlier external evidence relationship as superseded.
 
 The earlier relationship remains available for provenance.
+
+A later source Publication Record does not silently retarget the earlier relationship.
+
+A later source-publication withdrawal preserves historical provenance but requires explicit review or policy before that withdrawn publication is selected for new consequential use. It does not automatically delete or revise the existing Concord Score.
 
 ### External deletion
 

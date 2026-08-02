@@ -5,8 +5,8 @@
 **Module:** `pds-concord`  
 **Issue:** `#12 — 11. Create representative contract examples`  
 **Branch:** `12-create-representative-contract-examples`  
-**Revision date:** July 29, 2026  
-**Revision:** 3 — reconciled with ADR 0015, the Core academic-publication registry, and Meridian
+**Revision date:** July 31, 2026  
+**Revision:** 4 — reconciled with issue #13 foundation-review findings
 
 ## 1. Purpose
 
@@ -75,7 +75,7 @@ Tests mixed standards-and-local scoring, Group evidence, Group and individual ta
 
 ### `project-contract-example.md`
 
-Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and withdrawal.
+Tests long-running collaborative work, changing Membership, child Groups, Activity Markers, Work Items, Dependencies, Events, Attachments, External References, Contribution Claims, externally owned technical evidence, native Score supersession, manifest revision, Core publication supersession, and bounded withdrawal semantics.
 
 ### `cross-example-validation.md`
 
@@ -764,7 +764,7 @@ Use Subject References for Artifact Subject associations, Moderation target subj
 
 A Score-Target Reference identifies the entity receiving one criterion-level judgment.
 
-The current conceptual contract defines supported target kinds and invariants but does not yet publish a field table. To keep the examples explicit and prevent accidental substitution of a Subject Reference, this directory uses the following provisional example notation:
+The conceptual contract defines the Score-Target Reference field table and invariants. To prevent accidental substitution of a Subject Reference, every example uses the following contract-native notation:
 
 ```yaml
 target_kind: core_student
@@ -789,9 +789,9 @@ concord_artifact_instance
 concord_work_item
 ```
 
-This provisional shape is an example-document convention, not an amendment to the governing conceptual contract. Issue #13 should either accept it or add the missing Score-Target Reference field table before serialized contracts are defined.
+This is the contract-native Score-Target Reference shape.
 
-A Score target is not an Artifact Subject. Do not use `subject_kind` and `subject_id` for `target_reference`.
+A Score target is not an Artifact Subject and must not be represented through Subject Reference fields.
 
 ### 10.8 Evidence Reference
 
@@ -856,7 +856,7 @@ Do not use the above three fields as a generic replacement for Participant, Acto
 
 The Manifest Evidence-Lineage Projection may identify an exact originating Core Publication Record when the source producer result is already published.
 
-The current conceptual contract requires an exact source publication reference but does not yet publish a separate field table for that reference. These examples therefore use the following provisional notation:
+The conceptual contract defines a Core Publication Reference value object. These examples use the following contract-native notation:
 
 ```yaml
 source_publication_reference:
@@ -865,12 +865,14 @@ source_publication_reference:
 
 The `publication_id` resolves to the immutable Core Publication Record. Do not copy the complete Publication Record into every lineage row.
 
-This provisional shape is example-document notation. Issue #13 should either accept it or add a shared Core Publication Reference value-object contract before serialized Concord manifests are finalized.
+The `publication_id` is required.
+
+An optional `publication_schema_version` may be included when needed for compatibility.
 
 A source Publication Record reference is:
 
-* optional when no exact source publication is known;
-* required when a case claims exact published-source lineage;
+* required when the source revision was resolved through, or verified against, an exact Core Publication Record;
+* omitted only when another immutable source-version mechanism is preserved;
 * distinct from the originating module-owned result record;
 * and insufficient by itself without `source_record_reference`.
 
@@ -1449,7 +1451,17 @@ privacy_policy:
 
 The replacement must identify the record it supersedes. A replacement becoming current does not make the original record invalid history.
 
+Every illustrated same-type supersession chain must be direct, acyclic, and unbranched.
+
+The successor must identify an existing predecessor, and current state must be derived from the explicit chain rather than timestamps, values, filenames, or identifier ordering.
+
+For Score supersession, the predecessor and successor must belong to the same Activity. A change to the target, Criterion, Score classification, or governing standard requires an explicit Correction Record.
+
 A Correction Record never rewrites a Core-retained source scan.
+
+When a correction creates a replacement, `replacement_reference` is required and must agree with the replacement record’s explicit supersession field.
+
+A Correction Record without a replacement documents the event only. It does not establish a new current record, retarget existing references, or make another record current implicitly.
 
 ### Native Score, manifest, and publication histories
 
@@ -1495,6 +1507,10 @@ A later Core Publication Record must identify its predecessor explicitly. The cu
 A Core Publication Withdrawal is not Score correction or publication supersession.
 
 It records that one exact Publication Record should no longer be ordinarily selected as current data.
+
+If that Publication Record is the series head, withdrawal does not reactivate an earlier predecessor. The series remains without a currently selectable publication until a new successor explicitly supersedes the withdrawn head.
+
+Withdrawal of a historical non-head publication leaves the existing series head unchanged.
 
 Withdrawal:
 
@@ -2369,7 +2385,7 @@ Concord native records
     -> Meridian import and policy
 ```
 
-For `publication_kind: academic_result_set`, an applicable Core Academic Work Registration revision is also required.
+For `publication_kind: academic_result_set`, the exact Academic Work Registration revision current at publication time is required.
 
 ### 32.1 Authority boundaries
 
@@ -2911,7 +2927,7 @@ The three relationships remain distinct:
 
 ```text
 originating producer result
-    -> optional exact Core source publication
+    -> conditional exact Core source publication
     -> Concord evidence relationship and teacher-approved Score
 ```
 
@@ -3094,12 +3110,13 @@ moderated_scores
 
 Capabilities must be truthful for the exact manifest.
 
-Examples:
+For the initial Concord manifest contract:
 
-* include `criterion_scores` when Criterion-level results are exposed;
-* include `standards_ratings` when direct standard-backed Score results or dispositions are exposed;
-* include `moderated_scores` when the manifest exposes applicable Moderation state required to interpret included Scores;
-* omit a capability that the manifest does not actually provide.
+* include `criterion_scores` when any Criterion-level Score projection or non-score disposition is present;
+* include `standards_ratings` when any standard-backed Score projection or disposition is present;
+* when `standards_ratings` is included, require a nonempty Standards Result Projection that exactly represents the standard-backed subset;
+* include `moderated_scores` when interpretation of at least one included consequential Score depends on projected Moderation state;
+* omit each capability when its represented feature is absent.
 
 Capabilities are discovery metadata.
 
@@ -3117,7 +3134,7 @@ They do not establish:
 A valid publication example must preserve this order:
 
 1. validate the Activity and native publishable records;
-2. verify or select the applicable Academic Work Registration revision;
+2. verify the exact Academic Work Registration revision currently selected by Core;
 3. determine the exact result projection;
 4. assign a new valid `record_set_revision`;
 5. generate complete manifest bytes;
@@ -3170,29 +3187,34 @@ The manifest revision is not:
 
 ### 32.19 Idempotency
 
-Repeating a publication request with the same:
+Repeating the same publication request must reconcile to the existing successful Publication Record when all of the following are unchanged:
 
 ```text
 work
+source_record
+publication_kind
+capabilities
 record_set_id
 record_set_revision
-manifest_path
 manifest_contract_version
+manifest_path
+manifest_digest_algorithm
 manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
 ```
 
-must reconcile to the existing successful Publication Record.
+For an initial publication, `supersedes_publication_id` is absent.
 
-Reusing the same logical manifest revision with different:
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
 
-* bytes;
-* digest;
-* path;
-* or contract version
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
 
-is an integrity conflict.
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
 
-The examples must not model the conflicting request as an ordinary update.
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
+
+The examples must not model a conflicting request as an ordinary update or successful idempotent replay.
 
 ### 32.20 Publication supersession
 
@@ -3227,6 +3249,10 @@ Native Score supersession does not imply that a Core successor publication exist
 ### 32.21 Core Publication Withdrawal
 
 Core represents withdrawal as a separate immutable record.
+
+A withdrawn series head remains the structural head but is not currently selectable. Its predecessor does not become current again.
+
+A corrected replacement must be a new Publication Record that explicitly supersedes the withdrawn head.
 
 Representative shape:
 
@@ -3553,7 +3579,7 @@ Before a case or the cross-example validation may declare `PASS`, run or perform
 23. complete Criterion and Scoring Scale projections for every included Score;
 24. consistency between manifest Score projections and canonical native Scores;
 25. complete source-record lineage for every projected evidence use;
-26. source Publication Record lineage where the case claims that exact source publication is known;
+26. source Publication Record lineage whenever the source revision was resolved through or verified against an exact Core publication;
 27. truthful publication capabilities;
 28. revision-addressed manifest path contained within the exact Activity work root;
 29. lowercase 64-character SHA-256 digest syntax;
@@ -3807,7 +3833,7 @@ The representative examples are complete when:
 1. the seminar, laboratory, and project cases each form a coherent conceptual record set;
 2. all references and relationships are internally consistent;
 3. all examples use the same shared notation and terminology;
-4. every typed relationship uses its contract-native reference shape or a clearly identified provisional convention where the contract lacks a field table;
+4. every typed relationship uses its contract-native reference shape;
 5. the four scoring orientations are represented collectively;
 6. PDS2 routing remains separate from semantic context;
 7. routing remains separate from academic registration and publication;
@@ -3822,7 +3848,7 @@ The representative examples are complete when:
 16. every included Score has sufficient Criterion and exact Scoring Scale projections;
 17. local Scores may appear in the broader manifest but never in the direct Standards Result Projection;
 18. non-score dispositions remain explicit and omit `value`;
-19. cross-producer ScoreForm or Quillan lineage identifies the originating module record and exact source publication where known;
+19. cross-producer ScoreForm or Quillan lineage identifies the originating module record and the exact source publication whenever required by the source-resolution contract;
 20. required Moderation state is sufficient to validate consequential evidence use;
 21. published manifest paths are revision-addressed and contained within the exact Activity work root;
 22. published manifest bytes are SHA-256 bound to immutable Core Publication Records;
@@ -3885,9 +3911,10 @@ native Score supersession
     -> external technical evidence lineage
 ```
 
-After all four documents are complete, issue #13 should perform the skeptical foundation review and determine:
+Issue #13 performs the skeptical foundation review and determines:
 
 * whether the Concord conceptual architecture is ready to govern serialized contracts and implementation work;
-* whether the provisional Score-Target and Core Publication Reference notations require formal value-object contracts;
 * whether ADR 0015 should be accepted, revised, or rejected;
-* and which Core and Meridian APIs must be released before runtime publication work begins.
+* and which Core, ScoreForm, Quillan, and Meridian contracts must be released before runtime publication work begins.
+
+Issue #13 has already formalized the Score-Target Reference and Core Publication Reference value objects and has determined that bounded withdrawal coverage is sufficient for the conceptual examples.

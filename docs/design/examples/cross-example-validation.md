@@ -6,8 +6,8 @@
 **Issue:** `#12 — 11. Create representative contract examples`  
 **Branch:** `12-create-representative-contract-examples`  
 **Original validation date:** July 22, 2026  
-**Revision date:** July 30, 2026  
-**Revision:** 4 — reconciled with ADR 0015, Core academic-work registration and publication, and Meridian ownership boundaries
+**Revision date:** July 31, 2026  
+**Revision:** 5 — reconciled with issue #13 foundation-review findings
 
 ## 1. Purpose
 
@@ -197,21 +197,26 @@ PASS
 
 The complete issue #12 validation scope is represented directly, through a bounded addendum, or through an explicit deliberate non-use finding.
 
-### 4.6 Readiness for issue #13
+### 4.6 Issue #13 Reconciliation
 
 ```text
-READY
-```
+FOUNDATION REVIEW IN PROGRESS
+````
 
-Issue #12 is ready for skeptical foundation review.
+Issue #13 has resolved the previously provisional:
 
-Issue #13 should still decide:
+* Score-Target Reference contract;
+* Core Publication Reference contract;
+* source-publication conditionality;
+* and withdrawal no-fallback semantics.
 
-- whether ADR 0015 should be accepted, revised, or rejected;
-- whether the provisional Score-Target Reference needs a formal shared value-object contract;
-- whether Core Publication Reference notation needs a formal contract;
-- whether a concrete withdrawal fixture is required rather than the current bounded treatment;
-- and which Core and Meridian APIs must be released before implementation.
+The representative examples do not require a complete Publication Withdrawal fixture for conceptual approval.
+
+The remaining issue #13 determinations are:
+
+* whether ADR 0015 should be accepted, revised, or rejected;
+* whether the corrected exact manifest fixtures pass final mechanical validation;
+* and which Core, ScoreForm, Quillan, and Meridian APIs or public contracts must be released before implementation.
 
 ## 5. Representative Case Summary
 
@@ -450,7 +455,7 @@ The examples validate that:
 - native Score existence does not create registration;
 - `standards_based`, `mixed`, and `local_criteria_only` are not Core academic intents;
 - `formative` and `summative` are not Concord scoring orientations;
-- and every published `academic_result_set` references an applicable registration revision.
+- and every published `academic_result_set` references the exact Academic Work Registration revision that was current when that Publication Record was created.
 
 All Activity, registration, manifest, and publication records agree on the exact module-qualified work reference.
 
@@ -537,16 +542,30 @@ Capabilities are truthful:
 
 ### 20.1 Idempotent replay
 
-Each publication example states that an identical request for the same:
+Each publication example requires an identical replay request to preserve:
 
-- work;
-- record-set identity;
-- revision;
-- contract version;
-- path;
-- and digest
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
 
-must return or recognize the same logical publication rather than create a contradictory duplicate.
+For an initial publication, `supersedes_publication_id` is absent.
+
+For a superseding publication, it identifies the exact expected predecessor.
+
+An exact replay returns or recognizes the existing logical Publication Record rather than creating a duplicate.
+
+Any difference in these request fields for the same logical record-set revision is an integrity conflict.
 
 ### 20.2 Contradictory revision reuse
 
@@ -586,7 +605,9 @@ The project case explicitly establishes that:
 - the native manifest and Publication Record would remain preserved;
 - and withdrawal would not rewrite the native Concord Score.
 
-This satisfies the representative README’s permitted bounded treatment, but issue #13 may require a concrete withdrawal fixture before serialized Core contracts are approved.
+Issue #13 concludes that an additional Concord-specific withdrawal fixture is not required before serialized Concord contracts proceed because Publication Withdrawal is Core-owned and already governed by an implemented Core contract.
+
+The Concord contracts and examples must nevertheless preserve the reviewed rule that withdrawing a series head does not reactivate its predecessor.
 
 ### 20.5 Derived Core catalog
 
@@ -829,29 +850,44 @@ A prose PASS would not override a digest, parsing, chronology, reference, or pro
 
 The examples expose implementation and governance questions. None currently proves that the Concord conceptual foundation is defective.
 
-### 28.1 Provisional Score-Target Reference shape
+### 28.1 Score-Target Reference — resolved
 
-The examples use a consistent provisional Score-Target Reference notation because the conceptual contract defines target kinds and invariants but does not yet publish a complete field table.
+Issue #13 formalized the Score-Target Reference as a shared value object with:
 
-Issue #13 should decide whether to formalize it as a shared value object.
+```text
+target_kind
+target_id
+owning_system
+optional contract_version
+````
 
-### 28.2 Core Publication Reference shape
+The representative examples already use the compatible field shape.
 
-The examples use a minimal Core Publication Reference containing `publication_id`.
+### 28.2 Core Publication Reference — resolved
 
-Issue #13 should determine whether additional fields, such as contract version or Core namespace, belong in the formal reference contract.
+Issue #13 formalized the Core Publication Reference as:
 
-### 28.3 Concrete withdrawal fixture
+```text
+publication_id
+optional publication_schema_version
+```
 
-No complete withdrawal record is represented.
+The representative source-publication references already use the required `publication_id`.
 
-The current project example gives an explicit bounded treatment and preserves the distinction among:
+### 28.3 Withdrawal fixture — resolved
 
-- native revision;
-- publication supersession;
-- and withdrawal.
+No complete Publication Withdrawal record is represented.
 
-Issue #13 should decide whether conceptual approval requires a concrete Core withdrawal example.
+Issue #13 determined that the bounded project treatment is sufficient because it explicitly preserves the distinction among:
+
+* native correction;
+* manifest revision;
+* publication supersession;
+* withdrawal;
+* structural series head;
+* and current selectable publication.
+
+The examples must state the no-fallback rule but need not invent a Core-owned withdrawal record.
 
 ### 28.4 Released Core registry APIs
 

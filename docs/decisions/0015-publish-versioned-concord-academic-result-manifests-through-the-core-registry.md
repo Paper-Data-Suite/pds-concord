@@ -1,7 +1,8 @@
 # ADR 0015: Publish Versioned Concord Academic Result Manifests Through the Core Registry
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** July 29, 2026
+**Accepted:** August 2, 2026 — approved after issue #13 skeptical foundation review
 **Decision owners:** Paper Data Suite maintainers
 **Applies to:** `pds-concord` and its integration with `pds-core` and `pds-meridian`
 
@@ -305,11 +306,11 @@ For a registered Concord Activity:
 
 ```text
 work.module_id = concord
-work.class_id  = Activity.class_id
+work.class_id  = Activity.class_reference.record_id
 work.work_id   = Activity.activity_id
 ```
 
-The registration should identify the Concord Activity through a Core `ModuleRecordRef` in `source_records`.
+The registration must include exactly one matching Activity source `ModuleRecordRef` whose `module_id` is `concord`, whose `record_kind` is `activity`, and whose `record_id` equals `work.work_id`. Additional source records may be included when justified.
 
 Conceptually:
 
@@ -642,6 +643,11 @@ Meridian may map a Concord scale to a Meridian proficiency or Grade policy only 
 
 A four-level scale is a supported use case, not a universal Concord or Meridian constant.
 
+* A Meridian source-scale mapping must bind to the producer module, manifest contract version, `scoring_scale_id`, `scale_lineage_id`, Scale revision, scale type, and complete projected level semantics.
+* A mapping must not be selected solely by numeric values, labels, level count, or ordering.
+* A changed Scale revision requires a separately valid mapping or explicit revalidation.
+* When no compatible mapping exists, the result remains unmapped or ineligible for that calculation rather than being guessed.
+
 ## Score Projection
 
 The manifest must preserve each included Score Record’s native meaning.
@@ -808,15 +814,20 @@ record_id
 optional contract_version
 ```
 
-When Concord knows that the external source was imported or resolved through a Core Publication Record, the lineage may additionally expose:
+When the external source revision was imported or resolved through a Core Publication Record, or when an exact compatible producer publication is verified to expose the source revision used, the lineage must include an exact Core Publication Reference.
 
-```text
-source_publication_id
-```
+The referenced producer manifest must expose the exact source record identified by the lineage.
 
-or another exact Core publication reference approved by the public contract.
+When no source publication exists, lineage must preserve another immutable source-version mechanism, such as:
 
-That publication reference is optional unless a later integration contract requires it.
+* immutable external record identity;
+* explicit external revision identity;
+* versioned export identity with integrity information;
+* or a bounded evidence snapshot.
+
+A mutable current-result reference, mutable path, or display label alone is insufficient for consequential evidence lineage.
+
+A later source publication must not be attached merely because it contains the same logical record ID. Concord must verify exact source-revision equivalence.
 
 ## Cross-Producer Double-Counting Risk
 
@@ -922,6 +933,43 @@ The existence of a Core Publication Record does not authorize every module, user
 
 Concord privacy rules, workspace authorization, Meridian source-access rules, and report-audience policy remain applicable.
 
+### Effective manifest privacy
+
+Publication-time validation must resolve the effective privacy policy of every included Score, evidence-lineage, Moderation, narrative, and display projection.
+
+The effective manifest audience must be no broader than the audience permitted for every included projection.
+
+Manifest-level classification is a conservative access summary rather than an authorization grant or substitute for record-specific policy.
+
+When required projections cannot be combined under one safe audience, Concord must omit optional sensitive detail, use an adequate privacy-safe structured summary, or defer publication.
+
+Access to a manifest does not authorize access to referenced source evidence.
+
+### Published text and registration metadata
+
+Published free-text and display metadata must be concise, purpose-limited, and privacy-safe.
+
+Concord must not publish names or direct personal identifiers when durable references are sufficient.
+
+It must not place sensitive medical, disability, counseling, disciplinary, family, credential, secret, signed-access, machine-local-user-path, or unrestricted source-content information in:
+
+* Activity title snapshots;
+* Academic Work Registration titles;
+* manifest paths;
+* record-set identifiers;
+* revision reasons;
+* Criterion or Scale display text;
+* Score rationale;
+* evidence relevance descriptions;
+* Moderation qualifications;
+* locator notes;
+* access hints;
+* or other producer-supplied discovery metadata.
+
+Optional narrative should be omitted or reduced to a privacy-safe structured summary when full text is unnecessary.
+
+Required semantic definitions must not be silently altered. Publication must fail when required Criterion or Scale meaning cannot be represented safely and exactly.
+
 ## Publication Kind and Capabilities
 
 A Concord Academic Result Manifest is published through Core as:
@@ -930,7 +978,7 @@ A Concord Academic Result Manifest is published through Core as:
 publication_kind: academic_result_set
 ```
 
-An academic-result publication requires an applicable Academic Work Registration revision.
+An academic-result publication must reference the exact current Academic Work Registration revision at publication time. Later registration revisions do not alter the revision preserved by an existing Publication Record.
 
 The Core Publication Record advertises only supported shared capabilities.
 
@@ -943,6 +991,14 @@ moderated_scores
 ```
 
 Capability declaration must be truthful for the exact manifest revision.
+
+For the initial Concord manifest contract:
+
+* `criterion_scores` is required when any Criterion-level Score projection or non-score disposition is present;
+* `standards_ratings` is required when any standard-backed Score projection or standard-backed non-score disposition is present;
+* when `standards_ratings` is declared, the Standards Result Projection is required, nonempty, and exactly represents the standard-backed subset;
+* `moderated_scores` is required when interpretation of an included consequential Score depends on projected Moderation state;
+* and each capability must be omitted when its represented feature is absent.
 
 ### `criterion_scores`
 
@@ -995,7 +1051,7 @@ academic_work_registration_revision
 optional supersedes_publication_id
 ```
 
-For Concord, `source_record` should identify the Activity:
+For initial Concord use, `source_record` is required and must identify the same Activity represented by the Publication Record’s `work`, the manifest’s `source_activity`, and the manifest’s `activity_context`.
 
 ```yaml
 source_record:
@@ -1004,6 +1060,19 @@ source_record:
   record_id: act_proj_resource_finder_01
   contract_version: <approved Activity contract version>
 ```
+
+The following identities must agree:
+
+```text
+source_record.module_id = concord = work.module_id
+source_record.record_kind = activity
+source_record.record_id = work.work_id
+manifest.source_activity = source_record
+manifest.activity_context.activity_id = work.work_id
+manifest.activity_context.class_id = work.class_id
+```
+
+Concord must validate these producer-specific relationships before requesting Core publication.
 
 The Core Publication Record is not a copy of the manifest.
 
@@ -1066,39 +1135,34 @@ The publication workflow must occur in this order:
 15. Core updates or later rebuilds the derived catalog.
 16. Concord records or displays the publication result for teacher inspection.
 
-If Core Publication Record creation fails, the presence of the manifest file does not mean publication succeeded.
-
-If the canonical Publication Record succeeds but catalog update fails:
-
-* the Publication Record remains authoritative;
-* Concord must not rewrite the manifest;
-* the failure must be reported accurately;
-* and Core catalog repair may restore discovery later.
-
 ## Idempotency
 
-Repeating the same publication request with:
+Repeating the same publication request must return or reconcile to the existing Core Publication Record when all of the following are unchanged:
 
-* the same work;
-* the same `record_set_id`;
-* the same `record_set_revision`;
-* the same manifest path;
-* the same manifest contract version;
-* and the same digest
+```text
+work
+source_record
+publication_kind
+capabilities
+record_set_id
+record_set_revision
+manifest_contract_version
+manifest_path
+manifest_digest_algorithm
+manifest_digest
+academic_work_registration_revision
+supersedes_publication_id
+```
 
-must return or reconcile to the existing Core Publication Record rather than create a duplicate logical publication.
+For an initial publication, `supersedes_publication_id` is absent.
 
-Reusing the same logical revision with different:
+For a superseding publication, `supersedes_publication_id` must identify the exact expected predecessor.
 
-* bytes;
-* digest;
-* path;
-* contract version;
-* or result state
+Core-owned `publication_id` and `published_at` are publication results rather than caller-supplied replay-identity fields.
 
-is an integrity conflict.
+Any difference in the listed fields for the same logical record-set revision is an integrity conflict.
 
-Concord must create a new manifest revision for changed content.
+Changed manifest content or changed publication semantics require a new `record_set_revision`.
 
 ## Manifest Revision
 
@@ -1199,6 +1263,14 @@ Neither Core nor Meridian may infer one supersession relationship solely from th
 
 Core withdrawal is used when a published manifest revision should no longer be selected as current or ordinarily usable.
 
+Withdrawal does not alter publication-series structure.
+
+When the withdrawn Publication Record is the unsuperseded series head, an earlier predecessor does not become current or ordinarily selectable again. The series has no currently selectable publication until a new successor is published.
+
+A corrected successor must explicitly supersede the withdrawn head.
+
+Withdrawing a historical non-head publication does not change the existing series head.
+
 A withdrawal may be appropriate when:
 
 * the manifest was published from invalid native state;
@@ -1261,16 +1333,22 @@ A later integration may expose optional nonauthoritative scheduling context, but
 
 Meridian consumes Concord publications through Core.
 
-A Meridian import should preserve:
+A Meridian import must preserve:
 
-* Core Publication Record ID;
-* exact manifest digest;
+* Core Publication Record ID and publication-schema version;
+* exact `ModuleWorkRef`;
+* exact source Activity `ModuleRecordRef`;
+* publication kind and declared capabilities;
+* manifest path;
+* manifest digest algorithm and exact digest;
 * manifest contract version;
-* record-set identity;
-* record-set revision;
-* source Academic Work Registration revision;
-* source Activity reference;
-* and import time.
+* record-set identity and revision;
+* exact Academic Work Registration revision;
+* predecessor Publication Record ID when present;
+* withdrawal state observed at import;
+* withdrawal-state observation time;
+* import time;
+* and the supported Meridian import-contract or adapter version.
 
 Meridian must validate that:
 
@@ -1278,8 +1356,17 @@ Meridian must validate that:
 * the manifest contract version is supported;
 * declared capabilities are supported;
 * the manifest digest matches;
-* the publication has not been withdrawn;
-* and access is authorized.
+* the current withdrawal state has been resolved; and
+* the publication is eligible for the intended import, selection, calculation, or historical operation; and
+* access is authorized.
+
+Import, historical retention, and current selection are distinct.
+
+A withdrawn publication may remain imported or resolvable for historical provenance, reproduction of an earlier calculation, or reproduction of an issued report.
+
+It is not ordinarily eligible for a new current calculation or current report.
+
+When a withdrawn publication is the structural series head, no predecessor is reactivated or selected as an implicit fallback.
 
 Meridian then applies explicit policy to determine:
 
@@ -1303,6 +1390,37 @@ It must not:
 * assume that the newest Score always wins;
 * assume that the highest Score always wins;
 * or assume publication means Grade inclusion.
+
+### Score-Target Preservation and Eligibility
+
+Meridian must preserve the exact Score `target_reference`.
+
+For the current Meridian boundary, only a `core_student` target is directly eligible for:
+
+* student-level standards evidence;
+* student-level proficiency calculation;
+* or student Grade-item calculation.
+
+Non-student targets must remain non-student downstream.
+
+A non-student Score may support:
+
+* Group-level interpretation;
+* Activity- or work-level analysis;
+* contextual reporting;
+* or another explicitly non-student derived result.
+
+It must not become student-level evidence merely because students are related to its target.
+
+Meridian must not synthesize a student target from:
+
+* Group Membership;
+* Artifact Author;
+* Artifact Subject;
+* Session context;
+* or another contextual relationship.
+
+Any future allocation of a non-student result to students requires a separate explicit contract. That contract must preserve the original non-student target and must not represent the allocated result as a Concord-native individual Score.
 
 ## Meridian Overrides
 
@@ -1634,9 +1752,11 @@ Rejected because that can double-count the same underlying evidence.
 
 Concord must expose lineage, and Meridian must apply an explicit relationship policy.
 
-## Follow-Up Questions
+## Implementation Follow-Up
 
-This ADR establishes architecture and ownership. Later contracts or implementation issues must resolve the following.
+This ADR establishes accepted architecture and ownership.
+
+The following are implementation and contract-finalization questions. Their resolution must preserve the invariants in this ADR and must not reopen settled ownership boundaries without a superseding ADR.
 
 ### Manifest schema
 
@@ -1656,9 +1776,9 @@ This ADR establishes architecture and ownership. Later contracts or implementati
 ### Evidence lineage
 
 * What exact value object represents a Concord-owned evidence source?
-* How are Core Publication Record IDs attached to external ScoreForm or Quillan evidence when known?
+* How does implementation validate and serialize the required Core Publication Reference when a source revision was resolved through or verified against an exact Core publication?
 * How does Meridian detect equivalent or overlapping external evidence?
-* What privacy fields accompany lineage references?
+* How are resolved privacy classifications serialized and enforced for lineage references and their source records?
 
 ### Scoring Scale interpretation
 
@@ -1715,7 +1835,7 @@ This ADR establishes architecture and ownership. Later contracts or implementati
 
 ## Required Documentation Changes
 
-Adoption of this ADR requires revisions to:
+Adoption of this ADR was reconciled through issue #13 across:
 
 * `docs/design/conceptual-data-contracts.md`;
 * `docs/design/initial-concord-domain-model.md`;
@@ -1726,7 +1846,7 @@ Adoption of this ADR requires revisions to:
 * `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`;
 * and the representative examples under `docs/design/examples/`.
 
-The changes must:
+The reconciled documentation must continue to:
 
 1. define the Concord Academic Result Manifest;
 2. make the existing Standards Result Handoff Projection a standards-specific subset;

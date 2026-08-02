@@ -124,9 +124,11 @@ The source evidence and all later judgments remain distinguishable records.
 
 ### Purpose
 
-A Review records a human examination of an Artifact Instance or other routed evidence.
+An Artifact Review records a human examination of one Artifact Instance and its available routed evidence.
 
-Review determines whether the evidence is administratively and evidentially ready for possible use.
+Other evidence sources retain their owning record’s review or validation state and may undergo Concord Moderation when consequential use requires it.
+
+Artifact Review determines whether the Artifact and its routed evidence are administratively and evidentially ready for possible use.
 
 A Review may evaluate:
 
