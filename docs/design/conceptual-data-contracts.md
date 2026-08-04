@@ -175,7 +175,7 @@ These contracts are governed by the accepted Concord architecture decisions, the
 * `docs/decisions/0013-keep-activity-specific-structures-optional.md`;
 * `docs/decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md`;
 * `docs/decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md`;
-* the released `pds-core` 0.5/PDS2 contracts;
+* the released `pds-core` 0.6.0 routing and academic-registry contracts;
 * `pds-core/docs/decisions/0002-adopt-typed-reportable-data-publication-registry.md`;
 * `pds-core/docs/decisions/0003-adopt-hierarchical-academic-period-model.md`;
 * the Core Academic Work Registration, Publication Record, publication-series, withdrawal, and registry-catalog contracts;

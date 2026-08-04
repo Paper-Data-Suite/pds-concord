@@ -13,7 +13,10 @@ Concord is the Paper Data Suite module responsible for paper-first evidence gene
 
 ## Current Status
 
-The initial architecture phase and the first Core integration specification are complete.
+The architecture and conceptual-contract phase is complete. The skeptical
+foundation review concluded with the verdict `APPROVED WITH NONBLOCKING FOLLOW-UP`,
+and v0.2.0 implementation is now active against the released `pds-core` v0.6.0
+integration baseline.
 
 The repository now contains:
 
@@ -21,14 +24,17 @@ The repository now contains:
 * three representative packet models;
 * a cross-case requirements analysis;
 * an initial domain model;
-* thirteen accepted Architecture Decision Records;
-* and a detailed `pds-core` integration requirements specification covering PDS2, route registration, module-qualified work identity, workspace routing, scan provenance, and coordinated module migration.
+* complete conceptual data contracts and representative contract examples;
+* a completed skeptical foundation review;
+* fifteen accepted Architecture Decision Records;
+* and a detailed `pds-core` integration requirements specification covering
+  released PDS2 routing and academic-registry contracts.
 
-The next phase should:
-
-* convert the accepted Concord architecture into explicit conceptual contracts and representative serialized examples;
-* coordinate the required Core, ScoreForm, Quillan, and Concord migration work;
-* and preserve consistency between the Concord contracts and the shared Core routing implementation.
+Implementation follows the v0.2.0 vertical-slice sequence tracked by
+[`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
+The current package baseline establishes installation and Core compatibility;
+later issues add Concord records, persistence, workflows, routing, review,
+scoring, and publication without collapsing those responsibilities.
 
 ## Recommended Reading Order
 
@@ -102,7 +108,29 @@ Defines the initial conceptual model, including:
 
 The domain model is a design specification. It does not yet prescribe final Python classes, JSON schemas, database tables, or command-line interfaces.
 
-### 5. Architecture Decision Records
+### 5. Conceptual Data Contracts
+
+[`design/conceptual-data-contracts.md`](design/conceptual-data-contracts.md)
+
+Defines the completed implementation-neutral record contracts, identity,
+cardinality, lifecycle, provenance, privacy, and invariants that implementation
+must preserve.
+
+### 6. Representative Contract Examples
+
+[`design/examples/README.md`](design/examples/README.md)
+
+Indexes the exact representative seminar, laboratory, and project contract
+examples and their cross-example validation.
+
+### 7. Skeptical Foundation Review
+
+[`design/foundation-review.md`](design/foundation-review.md)
+
+Records the adversarial review matrix, corrections, final approval verdict, and
+nonblocking follow-up concerns.
+
+### 8. Architecture Decision Records
 
 [`decisions/README.md`](decisions/README.md)
 
@@ -126,7 +154,7 @@ The ADR set covers:
 
 When an ADR conflicts with an earlier exploratory design statement, the accepted ADR governs.
 
-### 6. PDS Core Integration Requirements
+### 9. PDS Core Integration Requirements
 
 [`design/pds-core-integration-requirements.md`](design/pds-core-integration-requirements.md)
 
@@ -222,9 +250,11 @@ They may evolve as classroom workflows become clearer, but one packet model shou
 
 ### Conceptual Contracts
 
-The planned conceptual contracts will define precise record structures, required fields, reference rules, validation behavior, and representative examples.
+The completed conceptual contracts define precise record structures, required
+fields, reference rules, validation behavior, and representative examples.
 
-Once accepted, those contracts will become more specific than the broad domain-model descriptions while remaining subordinate to the ADRs.
+They are more specific than the broad domain-model descriptions while remaining
+subordinate to the ADRs.
 
 Where a conceptual contract depends on Core identity, routing, or provenance, it must also conform to the accepted Core integration requirements and the implemented Core contract version.
 
@@ -266,40 +296,17 @@ Concord consumes shared Core infrastructure and links to sibling modules without
 
 Simple Activities remain simple. Milestones, Work Items, dependencies, Events, subteams, Contribution Claims, Attachments, and similar structures are added only when the Activity requires them.
 
-## Next Documentation Phase
+## Active Implementation Phase
 
-With the Core integration requirements specified, the next Concord documentation phase should define conceptual contracts for the foundational records.
+The conceptual contracts and their representative validation are complete.
+Implementation now follows umbrella issue #22: package and released-Core
+baseline, domain records, persistence, teacher-local workflows, routing,
+Artifact management, Review and Moderation, scoring, publication, consumer
+compatibility, installed acceptance, and final release audit.
 
-A practical sequence is:
-
-1. Activity and Session;
-2. Group, Group Membership, Role Assignment, and Responsibility Assignment;
-3. Template Definition, Template Version, Packet Definition, and Packet Instance;
-4. Artifact Instance, Artifact Page, Artifact Author, and Artifact Subject;
-5. Scan Reference, Artifact Review, Moderation Record, and Correction Record;
-6. Criterion Set, Criterion, Scoring Scale, Score Record, and Score Evidence Link;
-7. External Reference and Attachment;
-8. optional Activity Marker, Work Item, Dependency, Event, and Contribution Claim structures;
-9. shared typed-reference conventions;
-10. lifecycle, privacy, correction, and supersession rules.
-
-The Artifact Page and Scan Reference contracts must align directly with the accepted PDS2 route-locator, route-registration, and Core source-provenance requirements.
-
-Each contract should include:
-
-* purpose;
-* ownership;
-* required and optional fields;
-* field semantics;
-* identifiers;
-* cardinalities;
-* invariants;
-* lifecycle states;
-* correction and supersession behavior;
-* privacy considerations;
-* validation rules;
-* relationships to applicable Core contracts;
-* and representative valid and invalid examples.
+Each implementation issue must preserve the accepted contract ownership,
+read-only import behavior, exact compatibility declarations, privacy-safe test
+data, and the separation between routing, publication, and grading policy.
 
 ## Contribution Guidance
 

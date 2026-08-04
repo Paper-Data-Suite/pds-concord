@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PDS_CORE_WHEEL: ${{ runner.temp }}/core/pds_core-0.6.0-py3-none-any.whl
+      RUFF_CACHE_DIR: ${{ runner.temp }}/ruff-cache
+      MYPY_CACHE_DIR: ${{ runner.temp }}/mypy-cache
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Download official Core release artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}/core" | Out-Null
+          gh release download v0.6.0 `
+            --repo Paper-Data-Suite/pds-core `
+            --pattern pds_core-0.6.0-py3-none-any.whl `
+            --pattern SHA256SUMS.txt `
+            --dir "${{ runner.temp }}/core"
+
+      - name: Authenticate and install Core
+        shell: pwsh
+        run: |
+          python scripts/verify_core_wheel.py "$env:PDS_CORE_WHEEL"
+          python -m pip install "$env:PDS_CORE_WHEEL"
+
+      - name: Install Concord development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Remove checkout build residue
+        shell: pwsh
+        run: |
+          @("build", "dist", "pds_concord.egg-info") | ForEach-Object {
+            if (Test-Path -LiteralPath $_) { Remove-Item -Recurse -Force -LiteralPath $_ }
+          }
+
+      - name: Verify installed dependency boundary
+        shell: pwsh
+        run: |
+          python scripts/verify_core_wheel.py --installed
+          python -m pip check
+
+      - name: Test
+        shell: pwsh
+        run: >-
+          python -m pytest
+          --basetemp "${{ runner.temp }}/pytest"
+          -o cache_dir="${{ runner.temp }}/pytest-cache"
+
+      - name: Lint and type-check
+        shell: pwsh
+        run: |
+          python -m ruff check .
+          python -m mypy --cache-dir "$env:MYPY_CACHE_DIR"
+
+      - name: Check documentation
+        run: python scripts/check_documentation.py
+
+      - name: Build and validate distributions
+        shell: pwsh
+        run: |
+          $dist = "${{ runner.temp }}/dist"
+          python -m build --outdir $dist
+          python -m twine check "$dist/*"
+          $wheel = Get-ChildItem -LiteralPath $dist -Filter "*.whl" -File
+          if ($wheel.Count -ne 1) { throw "Expected exactly one Concord wheel." }
+          python scripts/check_package.py $wheel.FullName
+          python scripts/smoke_test_wheel.py $wheel.FullName "$env:PDS_CORE_WHEEL"
+
+      - name: Verify repository hygiene
+        shell: pwsh
+        run: |
+          git diff --check
+          $residue = git status --porcelain --untracked-files=all
+          if ($residue) {
+            $residue
+            throw "Validation left tracked or untracked repository residue."
+          }

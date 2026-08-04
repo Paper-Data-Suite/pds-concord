@@ -1,19 +1,21 @@
 # PDS Core Integration Requirements
 
-**Status:** Accepted integration architecture record; PDS2 is released, while Core registry and Academic Period integration remain pre-release mainline architecture
+**Status:** Accepted integration architecture record; Core v0.6.0 routing and academic-registry contracts are released
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `Paper-Data-Suite/pds-concord#10`
 **Original date:** July 13, 2026
 **PDS2 reconciliation:** July 24, 2026
 **Registry and Meridian reconciliation:** July 29, 2026
-**Revision:** 3 — incorporates ADR 0015, Core Academic Work Registration and Publication Records, Core Academic Periods, and Meridian ownership
-**Released Core baseline:** `pds-core` 0.5.0, Python 3.11+, PDS2
-**Post-0.5 architecture reviewed:** current `pds-core` mainline Academic Period, Academic Work Registration, Publication Record, withdrawal, and derived-catalog contracts
+**Core v0.6 reconciliation:** August 4, 2026
+**Revision:** 4 — identifies released Core v0.6.0 routing, registry, Academic Period, publication, compatibility, audit, and catalog contracts
+**Released Core baseline:** `pds-core` 0.6.0, Python 3.11+
 
 ## 1. Purpose
 
-This document records the integration requirements that led to the released `pds-core` 0.5/PDS2 architecture and defines the continuing integration boundary among:
+This document records the integration requirements that led to PDS2 and the
+academic registry now released in `pds-core` 0.6.0, and defines the continuing
+integration boundary among:
 
 * Core-owned routing and source-retention infrastructure;
 * Core-owned Academic Period, Academic Work Registration, and publication-registry infrastructure;
@@ -32,7 +34,8 @@ The document was originally written prospectively, before PDS2 and module-qualif
 * how Meridian discovers exact published revisions without importing Concord internals;
 * and which Concord implementation obligations remain after Core supplies the shared infrastructure.
 
-The released Core 0.5 contracts govern the implemented PDS2 foundation. Core mainline now also contains accepted and substantially implemented architecture for:
+The released Core v0.6.0 contracts provide the PDS2 foundation and the following
+public academic-registry architecture for Concord implementation:
 
 * school-year-qualified hierarchical Academic Period calendars;
 * revisioned Academic Work Registrations;
@@ -42,7 +45,10 @@ The released Core 0.5 contracts govern the implemented PDS2 foundation. Core mai
 * idempotent producer-facing registration and publication services;
 * and a disposable, nonauthoritative registry catalog.
 
-Those post-0.5 capabilities are not assumed to be part of the released `pds-core` 0.5 public API. Concord may reconcile its architecture and examples against them now, but runtime dependency ranges and implementation claims must wait for an applicable Core release or another explicitly stabilized integration baseline.
+These capabilities are available through their defining public Core modules.
+Concord still must implement and validate its own behavior before claiming
+routing or publication support; the Core release does not make Concord routable
+or a publication producer automatically.
 
 For current Concord domain, scoring, and publication semantics, the governing Concord documents are:
 
@@ -83,7 +89,10 @@ The current Concord conceptual authorities are:
 
 The relevant released Core authorities include:
 
-* `pds-core` 0.5.0;
+* `pds-core` 0.6.0 and its `docs/releases/v0.6.0.md` compatibility matrix;
+* `docs/pds2_module_integration.md`;
+* `docs/academic_registry_integration.md`;
+* `docs/academic_registry_recovery.md`;
 * the PDS2 payload contract;
 * routing identity models;
 * deterministic module-qualified workspace contracts;
@@ -94,7 +103,7 @@ The relevant released Core authorities include:
 * Core standards contracts;
 * and Core standards module-integration guidance.
 
-The relevant post-0.5 Core authorities reviewed for this reconciliation include:
+The relevant released Core academic-registry authorities include:
 
 * Core ADR 0002, adopting a typed work and reportable-data publication registry;
 * Core ADR 0003, adopting a school-year-scoped hierarchical Academic Period model;
@@ -132,7 +141,8 @@ Concord ADRs and conceptual contracts govern Concord-owned Activity, Artifact, A
 
 Meridian contracts govern Grade eligibility, evidence selection, proficiency, Grade calculation, Academic Period membership, derived overrides, and formal reporting.
 
-When historical language in this document conflicts with released Core 0.5 routing contracts, the released contract governs routing.
+When historical language in this document conflicts with released Core v0.6.0
+contracts, the released contract governs the shared integration surface.
 
 When this document conflicts with a later accepted Core registry contract, the later Core contract governs the shared registry envelope.
 
@@ -2109,39 +2119,43 @@ Meridian uses exact Core Academic Period calendar revisions when assigning Grade
 ---
 ## 18. Versioning and Package Requirements
 
-### 18.1 Released routing baseline
+### 18.1 Released Core baseline
 
-The released baseline remains:
+The released integration baseline is:
 
 ```text
-pds-core 0.5.0
+pds-core 0.6.0
 Python >= 3.11
 QR schema: PDS2
 Route Registration contract: 1
 routing failure/resolution contract: 2
+Academic Work Registration schema: 1
+Publication Record schema: 1
+Publication Withdrawal schema: 1
+publication compatibility contract: 1
+manifest digest: SHA-256
 ```
 
-### 18.2 Post-0.5 registry architecture
+### 18.2 Released registry architecture
 
-Core mainline now contains newer registration, publication, catalog, and Academic Period architecture.
-
-Until Core publishes an applicable release or explicitly stabilizes those producer-facing APIs, Concord must not:
-
-* claim that `pds-core` 0.5 implements them;
-* import unreleased APIs under a production compatibility claim;
-* or widen its dependency range without coordinated verification.
+Core v0.6.0 releases the Academic Period, Academic Work Registration,
+Publication Record, withdrawal, publication-service, compatibility-profile,
+registry-audit, recovery, and derived-catalog contracts. Concord may use those
+public defining modules while retaining responsibility for its native contracts,
+manifests, validators, and truthful compatibility declarations.
 
 ### 18.3 Current Concord dependency range
 
-For the released PDS2-only foundation, Concord may declare:
+Concord declares:
 
 ```toml
 dependencies = [
-    "pds-core>=0.5,<0.6"
+    "pds-core>=0.6,<0.7"
 ]
 ```
 
-Runtime publication implementation will require a later compatible Core range determined by the release that includes the registry contracts.
+The package baseline authenticates exact Core v0.6.0 artifacts in CI while the
+runtime range allows a later compatible 0.6.x patch release.
 
 ### 18.4 Contract axes
 
@@ -2569,9 +2583,9 @@ This integration does not:
 ---
 ## 23. Implementation Status and Remaining Work
 
-### 23.1 Released Core PDS2 foundation
+### 23.1 Released Core v0.6.0 foundation
 
-Core 0.5 provides:
+Core v0.6.0 provides:
 
 1. PDS2 parsing and serialization.
 2. `ModuleWorkRef`, `RouteLocator`, `ModuleRecordRef`, `RouteRegistration`, and route resolution.
@@ -2584,9 +2598,9 @@ Core 0.5 provides:
 9. shared standards libraries, profiles, identifiers, and validation.
 10. package and contract boundaries suitable for independently installed modules.
 
-### 23.2 Core post-0.5 mainline architecture
+### 23.2 Released Core academic-registry architecture
 
-Core mainline contains substantial implementation for:
+Core v0.6.0 releases public implementation for:
 
 1. revisioned Academic Period calendars and exact references;
 2. revisioned Academic Work Registrations;
@@ -2597,7 +2611,9 @@ Core mainline contains substantial implementation for:
 7. canonical registry retrieval;
 8. and a disposable SQLite discovery catalog.
 
-These capabilities require release/version confirmation before Concord claims runtime support.
+These capabilities are available for Concord implementation. Their availability
+does not claim that Concord already implements registration, publication, or
+producer compatibility.
 
 ### 23.3 Completed Concord architecture work
 
@@ -2612,22 +2628,17 @@ Concord has now established:
 * withdrawal semantics;
 * and Meridian ownership boundaries.
 
-### 23.4 Remaining Concord documentation work
+### 23.4 Completed foundation review
 
-Concord must still reconcile:
-
-* cross-case requirements;
-* the high-level conceptual design;
-* cross-references in ADRs 0008 and 0014;
-* representative-example notation;
-* seminar, laboratory, and project examples;
-* and cross-example validation.
+The conceptual data contracts, representative examples, cross-example
+validation, and skeptical foundation review are complete. The review verdict is
+`APPROVED WITH NONBLOCKING FOLLOW-UP`, and all fifteen ADRs are accepted.
 
 ### 23.5 Remaining Concord implementation work
 
 Later implementation issues must:
 
-1. declare the released Core range supporting the required registry APIs;
+1. preserve the released Core v0.6 dependency range and contract probes;
 2. register the Concord routing profile;
 3. create Artifact Pages before rendering;
 4. create PDS2 Route Registrations;

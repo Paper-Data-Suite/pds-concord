@@ -177,9 +177,9 @@ No case treats publication as Grade inclusion or Academic Period membership.
 NOT YET
 ```
 
-The examples do not claim that Core 0.5 exposes released Academic Work Registration, Publication Record, withdrawal, or catalog APIs. They also do not claim that Meridian has a released import or grading runtime.
-
-Runtime implementation must wait for compatible released contracts.
+Core v0.6.0 now exposes released Academic Work Registration, Publication
+Record, withdrawal, and catalog APIs. The examples do not claim that Concord
+implements those APIs or that Meridian has a released import or grading runtime.
 
 ### 4.4 Shared notation and terminology
 
@@ -967,20 +967,20 @@ No additional ADR is required by the examples.
 ### ADR 0015 status
 
 ```text
-DECISION STILL REQUIRED
+ACCEPTED
 ```
 
-Issue #12 validates the proposed design through representative examples. It does not itself change ADR 0015 from Proposed to Accepted.
-
-Issue #13 should explicitly accept, revise, or reject ADR 0015.
+Issue #12 validated the proposed design through representative examples. Issue
+#13 subsequently accepted ADR 0015 after the skeptical foundation review.
 
 ### Released Core and Meridian contracts
 
 ```text
-RELEASE DEPENDENCY
+CORE RELEASE AVAILABLE; CONCORD IMPLEMENTATION PENDING
 ```
 
-Runtime publication work requires released compatible Core registry APIs and Meridian consumption contracts.
+Core v0.6.0 supplies the compatible registry APIs. Concord publication and
+Meridian consumption remain separate implementation work.
 
 ## 31. Representative-Examples README Changes Required
 

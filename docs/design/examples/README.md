@@ -92,19 +92,23 @@ The examples must conform to the current Concord architecture, including:
 * `docs/design/pds-core-integration-requirements.md`;
 * `docs/design/conceptual-data-contracts.md`;
 * the other accepted Concord Architecture Decision Records;
-* the released `pds-core` 0.5/PDS2 routing contracts;
-* the current reviewed Core Academic Work Registration, Publication Record, Publication Withdrawal, and registry contracts;
+* the released `pds-core` v0.6.0 PDS2 routing contracts;
+* the released Core Academic Work Registration, Publication Record, Publication Withdrawal, and registry contracts;
 * and the current Meridian architecture decisions governing grading, Academic Period membership, overrides, and report snapshots.
 
-ADR 0015 is currently **Proposed**. These examples deliberately exercise its publication architecture so issue #12 can test the design. Its presence here does not silently change its status or override an accepted ADR. If maintainers reject or materially revise ADR 0015, the publication examples must be revised accordingly.
+ADR 0015 is Accepted following the issue #13 skeptical foundation review. The
+examples exercise its publication architecture but do not claim a Concord
+runtime implementation.
 
-The current supported `pds-core` release remains the routing baseline for runtime dependency statements. The examples must not claim that unreleased registry APIs are available in `pds-core` 0.5 merely because the current Core repository defines the architecture.
+The released `pds-core` v0.6.0 package is the routing and registry integration
+baseline. The examples remain architecture fixtures, not evidence that Concord
+implements those released APIs.
 
 When two sources appear to conflict, the following precedence applies:
 
 1. accepted or superseding ADRs;
 2. released PDS Core contracts for released Core-owned infrastructure;
-3. the proposed ADR 0015 publication direction together with the current reviewed Core registry contracts, for the explicit purpose of issue #12 validation;
+3. accepted ADR 0015 and released Core v0.6.0 registry contracts;
 4. the current Concord conceptual data contracts;
 5. the current Concord domain model;
 6. the current conceptual design;
