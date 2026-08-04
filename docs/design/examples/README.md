@@ -1,6 +1,6 @@
 # Concord Representative Contract Examples
 
-**Status:** Draft for representative-contract validation  
+**Status:** Accepted representative contract examples; validation complete
 **Project:** Paper Data Suite  
 **Module:** `pds-concord`  
 **Issue:** `#12 — 11. Create representative contract examples`  
@@ -29,7 +29,7 @@ The representative activity families are:
 2. a science laboratory investigation;
 3. a collaborative programming or engineering project.
 
-The examples also validate the proposed academic-result publication chain:
+The examples also validate the accepted academic-result publication chain:
 
 ```text
 Concord Activity and native records

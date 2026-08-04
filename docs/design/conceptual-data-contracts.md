@@ -1,6 +1,6 @@
 # Initial Concord Conceptual Data Contracts
 
-**Status:** Draft for foundation review
+**Status:** Accepted conceptual contracts; foundation review complete
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `#11 — 10. Draft initial conceptual data contracts`

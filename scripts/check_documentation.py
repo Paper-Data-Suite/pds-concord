@@ -15,10 +15,38 @@ STALE_ACTIVE_PHRASES = (
     "Released Core baseline:** `pds-core` 0.5.0",
     "Core registry and Academic Period integration remain pre-release",
 )
+CONTRACT_STATUS = (
+    "**Status:** Accepted conceptual contracts; foundation review complete"
+)
+CONTRACT_DRAFT_STATUS = "**Status:** Draft for foundation review"
+EXAMPLE_STATUS = (
+    "**Status:** Accepted representative contract examples; validation complete"
+)
+EXAMPLE_DRAFT_STATUS = "**Status:** Draft for representative-contract validation"
+PROPOSED_CHAIN = (
+    "The examples also validate the proposed academic-result publication chain"
+)
 
 
 class DocumentationError(ValueError):
     """Raised when repository documentation is internally inconsistent."""
+
+
+def status_failures(
+    text: str,
+    *,
+    label: str,
+    required: str,
+    forbidden: tuple[str, ...],
+) -> list[str]:
+    """Return targeted current-status failures for one active document."""
+    failures: list[str] = []
+    if required not in text:
+        failures.append(f"{label} must contain completed status {required!r}.")
+    for phrase in forbidden:
+        if phrase in text:
+            failures.append(f"{label} contains stale active wording {phrase!r}.")
+    return failures
 
 
 def _link_target(document: Path, raw_target: str) -> Path | None:
@@ -76,6 +104,28 @@ def check_documentation() -> None:
     ).read_text(encoding="utf-8")
     if "Released Core baseline:** `pds-core` 0.6.0" not in integration:
         failures.append("Integration requirements do not identify Core v0.6.0.")
+    contracts = (
+        ROOT / "docs" / "design" / "conceptual-data-contracts.md"
+    ).read_text(encoding="utf-8")
+    failures.extend(
+        status_failures(
+            contracts,
+            label="Conceptual data contracts",
+            required=CONTRACT_STATUS,
+            forbidden=(CONTRACT_DRAFT_STATUS,),
+        )
+    )
+    examples = (ROOT / "docs" / "design" / "examples" / "README.md").read_text(
+        encoding="utf-8"
+    )
+    failures.extend(
+        status_failures(
+            examples,
+            label="Representative examples",
+            required=EXAMPLE_STATUS,
+            forbidden=(EXAMPLE_DRAFT_STATUS, PROPOSED_CHAIN),
+        )
+    )
     if failures:
         raise DocumentationError("\n".join(failures))
 

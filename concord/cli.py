@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 
 from concord import __version__
@@ -28,5 +29,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse baseline CLI arguments and return a process exit status."""
-    build_parser().parse_args(argv)
+    effective_argv = tuple(sys.argv[1:] if argv is None else argv)
+    parser = build_parser()
+    if not effective_argv:
+        parser.print_help()
+        return 0
+    parser.parse_args(effective_argv)
     return 0

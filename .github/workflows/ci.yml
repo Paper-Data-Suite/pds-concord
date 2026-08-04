@@ -29,17 +29,17 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Download official Core release artifacts
+      - name: Download official Core release wheel
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path "${{ runner.temp }}/core" | Out-Null
-          gh release download v0.6.0 `
-            --repo Paper-Data-Suite/pds-core `
-            --pattern pds_core-0.6.0-py3-none-any.whl `
-            --pattern SHA256SUMS.txt `
-            --dir "${{ runner.temp }}/core"
+          Invoke-WebRequest `
+            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.0/pds_core-0.6.0-py3-none-any.whl" `
+            -OutFile "$env:PDS_CORE_WHEEL" `
+            -ErrorAction Stop
+          if (-not (Test-Path -LiteralPath "$env:PDS_CORE_WHEEL" -PathType Leaf)) {
+            throw "Core wheel download did not create $env:PDS_CORE_WHEEL."
+          }
 
       - name: Authenticate and install Core
         shell: pwsh

@@ -52,9 +52,15 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
             ],
             outside,
         )
-        _run([str(concord), "--help"], outside)
-        _run([str(concord), "--version"], outside)
-        _run([str(python), "-m", "concord", "--help"], outside)
+        for command in (
+            [str(concord)],
+            [str(concord), "--help"],
+            [str(concord), "--version"],
+            [str(python), "-m", "concord"],
+            [str(python), "-m", "concord", "--help"],
+            [str(python), "-m", "concord", "--version"],
+        ):
+            _run(command, outside)
 
 
 def main() -> int:

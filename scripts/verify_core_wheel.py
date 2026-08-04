@@ -84,6 +84,17 @@ def verify_installed_core() -> None:
         )
     import pds_core
 
+    missing_version = object()
+    imported_version = getattr(pds_core, "__version__", missing_version)
+    if imported_version is missing_version:
+        raise CoreVerificationError("Imported pds_core.__version__ is missing.")
+    if not isinstance(imported_version, str):
+        raise CoreVerificationError("Imported pds_core.__version__ must be a string.")
+    if imported_version != version:
+        raise CoreVerificationError(
+            "Imported pds_core.__version__ disagrees with installed distribution "
+            f"metadata: {imported_version!r} != {version!r}."
+        )
     if pds_core.__file__ is None:
         raise CoreVerificationError("pds_core does not resolve to a package file.")
     imported = Path(pds_core.__file__).resolve()
