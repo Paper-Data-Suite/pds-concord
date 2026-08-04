@@ -2,12 +2,14 @@
 
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
 created during collaborative classroom Activities. The repository has moved from
-architecture into v0.2.0 implementation, beginning with an installable, typed,
-and testable package baseline.
+architecture into v0.2.0 implementation. The installable Core 0.6 package
+baseline and the immutable native record, exact conversion, and pure validation
+layer are complete.
 
-This baseline is not the complete Activity workflow and is not production-ready.
-It does not yet handle returned Artifact Pages, calculate Grades, publish result
-manifests, or expose either a routing profile or a publication-producer profile.
+The available models do not make the complete Activity workflow operational.
+Storage and teacher workflows remain pending. Concord does not yet handle
+returned Artifact Pages, calculate Grades, publish result manifests, or expose
+either a routing profile or a publication-producer profile.
 
 ## Requirements and installation
 
@@ -44,6 +46,11 @@ The cross-platform equivalent is
 `python scripts/validate_repository.py --core-wheel <wheel>`.
 
 ## Integration boundaries and status
+
+Native model imports are documented in
+[the implementation guide](docs/implementation/native-record-models.md).
+Record bodies can be converted without filesystem access, and relationship
+validation is deterministic and side-effect free.
 
 Core exposes routing through `paper_data_suite.modules` and publication through
 `paper_data_suite.publication_producers`. These are independent surfaces: a

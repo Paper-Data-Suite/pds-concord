@@ -1,0 +1,4 @@
+{
+  "description": "An Effective Context uses a Session owned by a different Activity.",
+  "expected_issue_codes": ["effective_context.session.activity_mismatch"]
+}

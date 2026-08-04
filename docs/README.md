@@ -27,14 +27,25 @@ The repository now contains:
 * complete conceptual data contracts and representative contract examples;
 * a completed skeptical foundation review;
 * fifteen accepted Architecture Decision Records;
-* and a detailed `pds-core` integration requirements specification covering
-  released PDS2 routing and academic-registry contracts.
+* a detailed `pds-core` integration requirements specification covering
+  released PDS2 routing and academic-registry contracts;
+* and an implemented immutable native record, exact mapping-conversion, and pure
+  graph-validation layer.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
-The current package baseline establishes installation and Core compatibility;
-later issues add Concord records, persistence, workflows, routing, review,
-scoring, and publication without collapsing those responsibilities.
+The package baseline and foundational native models are complete. Later issues
+add persistence and teacher workflows, routing, publication, and consumer
+integration without collapsing those responsibilities. No routing or
+publication entry point is currently declared.
+
+### 10. Native model implementation
+
+[`implementation/native-record-models.md`](implementation/native-record-models.md)
+
+Documents the supported Python imports, structural and graph-validation split,
+exact mapping conversion, Core standards validation boundary, controlled
+extensions, supersession semantics, and deliberately deferred operations.
 
 ## Recommended Reading Order
 
