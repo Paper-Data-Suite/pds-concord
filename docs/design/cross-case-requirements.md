@@ -20,8 +20,8 @@ The comparison identifies which concepts belong in Concord’s shared foundation
 
 This matrix originally supplied the basis for the initial Concord domain model. It has since been reconciled with later governing decisions and architecture, including:
 
-* the finalized PDS Core 0.5/PDS2 routing architecture;
-* Core’s post-0.5 Academic Period, Academic Work Registration, and typed Publication Record architecture;
+* the released PDS Core v0.6.0 routing architecture;
+* Core’s released Academic Period, Academic Work Registration, and typed Publication Record architecture;
 * [ADR 0014: Make Standards-Based Scoring the Primary Concord Scoring Model](../decisions/0014-make-standards-based-scoring-the-primary-concord-scoring-model.md);
 * [ADR 0015: Publish Versioned Concord Academic Result Manifests Through the Core Registry](../decisions/0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md);
 * the architecture documented by `pds-meridian` for policy-driven grading and reporting;
@@ -891,9 +891,7 @@ The following do not block the conceptual foundation:
 
 12. What explicit Meridian policies will govern cross-producer overlap, scale mapping, reassessment, and local Score use?
 
-13. When will Core’s post-0.5 registration, publication, and Academic Period APIs be released or declared stable for producer implementation?
-
-14. What minimal Review, scoring, registration, publication, and inspection interfaces will be implemented first?
+13. What minimal Review, scoring, registration, publication, and inspection interfaces will be implemented first?
 
 These questions concern serialized contracts, release compatibility, workflow, and policy. They do not reopen the settled ownership boundaries.
 
@@ -1091,11 +1089,12 @@ This document now supports:
 * the revised initial Concord domain model;
 * the revised conceptual data contracts;
 * the revised Core integration requirements;
-* issue #11 documentation consistency;
-* the required revision of issue #12 representative contract examples;
-* and issue #13 skeptical foundation review after those examples are updated and revalidated.
+* the completed issue #11 documentation consistency work;
+* the completed issue #12 representative contract examples;
+* and the completed issue #13 skeptical foundation review.
 
-The matrix does not claim that Core’s post-0.5 registration and publication APIs are released.
+The matrix recognizes the released Core v0.6.0 registration and publication APIs
+without claiming that Concord has implemented them.
 
 It establishes the architecture and representative requirements that Concord must preserve when implementation begins against a supported Core release.
 

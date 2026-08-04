@@ -5,6 +5,12 @@
 **Issue:** #13 — Conduct a Skeptical Foundation Review  
 **Branch:** `13-conduct-skeptical-foundation-review`
 
+**Historical context:** This document preserves the review evidence and wording
+as evaluated during issue #13. The review is complete, ADR 0015 is Accepted, and
+the released implementation baseline is now `pds-core` v0.6.0. Statements inside
+individual findings about then-proposed decisions or then-unreleased contracts
+remain historical evidence rather than current project status.
+
 ## 1. Purpose
 
 This document records a skeptical review of the proposed Concord conceptual foundation before serialized contracts or implementation begin.

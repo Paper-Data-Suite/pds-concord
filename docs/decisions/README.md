@@ -41,9 +41,9 @@ Numbers are never reused, even when an ADR is later superseded or deprecated.
 | [0012](0012-link-scoreform-and-quillan-without-duplication.md)             | Link ScoreForm and Quillan Without Duplication                | Accepted |
 | [0013](0013-keep-activity-specific-structures-optional.md)                 | Keep Activity-Specific Structures Optional                    | Accepted |
 | [0014](0014-make-standards-based-scoring-the-primary-concord-scoring-model.md) | Make Standards-Based Scoring the Primary Concord Scoring Model | Accepted |
-| [0015](0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md) | Publish Versioned Concord Academic Result Manifests Through the Core Registry | Proposed |
+| [0015](0015-publish-versioned-concord-academic-result-manifests-through-the-core-registry.md) | Publish Versioned Concord Academic Result Manifests Through the Core Registry | Accepted |
 
-ADR 0015 remains **Proposed** until it is explicitly accepted. Proposed ADRs may guide review and coordinated drafting, but they do not supersede accepted decisions merely by appearing in this index.
+All fifteen indexed ADRs are accepted governing decisions.
 
 
 ## Standard ADR Structure
@@ -224,5 +224,8 @@ When documents disagree:
 
 Implementation convenience must not silently override an accepted ADR.
 
-ADR 0014 governs Concord’s standards-scoring semantics. ADR 0015, while Proposed, defines the reviewed publication direction connecting Concord Academic Result Manifests, Core Academic Work Registrations and Publication Records, and Meridian consumption. Its status must be updated explicitly if the maintainers accept it.
+ADRs 0014 and 0015 are both accepted governing decisions. ADR 0014 governs
+Concord’s standards-scoring semantics. ADR 0015 governs the publication
+direction connecting Concord Academic Result Manifests, Core Academic Work
+Registrations and Publication Records, and Meridian consumption.
 
