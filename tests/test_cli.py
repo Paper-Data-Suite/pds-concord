@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 
 import pytest
@@ -25,9 +26,9 @@ def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _console_command() -> str:
-    executable = Path(sys.executable)
+    scripts_directory = Path(sysconfig.get_path("scripts"))
     name = "concord.exe" if os.name == "nt" else "concord"
-    return str(executable.with_name(name))
+    return str(scripts_directory / name)
 
 
 def _assert_help(result: subprocess.CompletedProcess[str]) -> None:
