@@ -28,6 +28,7 @@ from concord.models import (
     ScoringScale,
     Session,
 )
+from concord.record_registry import CONVERSION_KIND_ALIASES, RECORD_DESCRIPTORS
 
 Record = (
     Activity
@@ -51,26 +52,15 @@ Record = (
 )
 
 RECORD_KIND_REGISTRY: dict[str, type[Record]] = {
-    "activity": Activity,
-    "session": Session,
-    "group": Group,
-    "group_membership": GroupMembership,
-    "role_assignment": RoleAssignment,
-    "responsibility_assignment": ResponsibilityAssignment,
-    "artifact_instance": ArtifactInstance,
-    "artifact_page": ArtifactPage,
-    "artifact_author": ArtifactAuthor,
-    "artifact_subject": ArtifactSubject,
-    "artifact_review": ArtifactReview,
-    "moderation_record": ModerationRecord,
-    "criterion_set": CriterionSet,
-    "criterion": Criterion,
-    "scoring_scale": ScoringScale,
-    "score_record": ScoreRecord,
-    "score_evidence_link": ScoreEvidenceLink,
-    "correction": CorrectionRecord,
-    "correction_record": CorrectionRecord,
+    descriptor.kind: cast(type[Record], descriptor.model_type)
+    for descriptor in RECORD_DESCRIPTORS
 }
+RECORD_KIND_REGISTRY.update(
+    {
+        alias: RECORD_KIND_REGISTRY[canonical]
+        for alias, canonical in CONVERSION_KIND_ALIASES.items()
+    }
+)
 
 
 def record_to_dict(record: Record) -> dict[str, Any]:

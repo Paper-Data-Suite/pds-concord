@@ -29,13 +29,15 @@ The repository now contains:
 * fifteen accepted Architecture Decision Records;
 * a detailed `pds-core` integration requirements specification covering
   released PDS2 routing and academic-registry contracts;
-* and an implemented immutable native record, exact mapping-conversion, and pure
-  graph-validation layer.
+* an implemented immutable native record, exact mapping-conversion, and pure
+  graph-validation layer;
+* and canonical guarded persistence with immutable history, atomic snapshots,
+  strict reads, diagnostics, and a disposable catalog.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
-The package baseline and foundational native models are complete. Later issues
-add persistence and teacher workflows, routing, publication, and consumer
+The package baseline, foundational native models, and persistence substrate are
+complete. Later issues add teacher workflows, routing, publication, and consumer
 integration without collapsing those responsibilities. No routing or
 publication entry point is currently declared.
 
@@ -46,6 +48,15 @@ publication entry point is currently declared.
 Documents the supported Python imports, structural and graph-validation split,
 exact mapping conversion, Core standards validation boundary, controlled
 extensions, supersession semantics, and deliberately deferred operations.
+
+### 11. Canonical storage implementation
+
+[`implementation/canonical-storage.md`](implementation/canonical-storage.md)
+
+Documents storage ownership, exact layout and versions, immutable revisions and
+snapshots, atomic pointer semantics, expected-revision commits, strict reads,
+standards validation, catalog nonauthority, diagnostics, interruption, and
+conservative recovery.
 
 ## Recommended Reading Order
 

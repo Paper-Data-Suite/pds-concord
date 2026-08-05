@@ -3,11 +3,11 @@
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
 created during collaborative classroom Activities. The repository has moved from
 architecture into v0.2.0 implementation. The installable Core 0.6 package
-baseline and the immutable native record, exact conversion, and pure validation
-layer are complete.
+baseline, immutable native records, exact conversion, pure validation, and
+canonical guarded persistence layers are complete.
 
-The available models do not make the complete Activity workflow operational.
-Storage and teacher workflows remain pending. Concord does not yet handle
+These layers do not make the complete teacher-local Activity workflow
+operational. Teacher workflows remain pending. Concord does not yet handle
 returned Artifact Pages, calculate Grades, publish result manifests, or expose
 either a routing profile or a publication-producer profile.
 
@@ -51,6 +51,12 @@ Native model imports are documented in
 [the implementation guide](docs/implementation/native-record-models.md).
 Record bodies can be converted without filesystem access, and relationship
 validation is deterministic and side-effect free.
+
+Canonical record history, atomic work snapshots, guarded batch commits, strict
+reads, the disposable SQLite catalog, and conservative recovery rules are
+documented in the
+[canonical storage guide](docs/implementation/canonical-storage.md). The catalog
+is derived state and is never required to reconstruct the current graph.
 
 Core exposes routing through `paper_data_suite.modules` and publication through
 `paper_data_suite.publication_producers`. These are independent surfaces: a

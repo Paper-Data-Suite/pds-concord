@@ -33,6 +33,7 @@ from concord.models import (
     ScoringScale,
     Session,
 )
+from concord.record_registry import RECORD_DESCRIPTORS
 from concord.validation_diagnostics import ConcordRecordGraphError, ValidationIssue
 
 Record = (
@@ -57,45 +58,14 @@ Record = (
 )
 T = TypeVar("T")
 
-_COLLECTIONS: tuple[tuple[str, type[Any], str, str], ...] = (
-    ("activities", Activity, "activity", "activity_id"),
-    ("sessions", Session, "session", "session_id"),
-    ("groups", Group, "group", "group_id"),
-    ("memberships", GroupMembership, "group_membership", "membership_id"),
-    ("role_assignments", RoleAssignment, "role_assignment", "role_assignment_id"),
+_COLLECTIONS: tuple[tuple[str, type[Any], str, str], ...] = tuple(
     (
-        "responsibility_assignments",
-        ResponsibilityAssignment,
-        "responsibility_assignment",
-        "responsibility_assignment_id",
-    ),
-    (
-        "artifact_instances",
-        ArtifactInstance,
-        "artifact_instance",
-        "artifact_instance_id",
-    ),
-    ("artifact_pages", ArtifactPage, "artifact_page", "artifact_page_id"),
-    ("artifact_authors", ArtifactAuthor, "artifact_author", "artifact_author_id"),
-    ("artifact_subjects", ArtifactSubject, "artifact_subject", "artifact_subject_id"),
-    ("artifact_reviews", ArtifactReview, "artifact_review", "artifact_review_id"),
-    (
-        "moderation_records",
-        ModerationRecord,
-        "moderation_record",
-        "moderation_record_id",
-    ),
-    ("criterion_sets", CriterionSet, "criterion_set", "criterion_set_id"),
-    ("criteria", Criterion, "criterion", "criterion_id"),
-    ("scoring_scales", ScoringScale, "scoring_scale", "scoring_scale_id"),
-    ("score_records", ScoreRecord, "score_record", "score_record_id"),
-    (
-        "score_evidence_links",
-        ScoreEvidenceLink,
-        "score_evidence_link",
-        "score_evidence_link_id",
-    ),
-    ("correction_records", CorrectionRecord, "correction", "correction_id"),
+        descriptor.graph_collection,
+        descriptor.model_type,
+        descriptor.kind,
+        descriptor.identity_field,
+    )
+    for descriptor in RECORD_DESCRIPTORS
 )
 
 
