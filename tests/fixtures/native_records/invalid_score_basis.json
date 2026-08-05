@@ -1,0 +1,4 @@
+{
+  "description": "A linked-evidence Score has no active Score Evidence Link.",
+  "expected_issue_codes": ["score.evidence.required"]
+}

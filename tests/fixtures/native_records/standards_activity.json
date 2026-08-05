@@ -1,0 +1,128 @@
+{
+  "expected_issue_codes": [],
+  "semantic_proof": {
+    "author_id": "participant-1",
+    "subject_id": "participant-2",
+    "route_target_id": "page-1",
+    "score_target_id": "participant-2",
+    "group_score_creates_student_scores": false
+  },
+  "records": [
+    {
+      "record_kind": "activity",
+      "body": {
+        "activity_id": "standards-activity",
+        "class_reference": {"module_id": "core", "record_kind": "class", "record_id": "class-1"},
+        "title": "Synthetic standards activity",
+        "activity_type": "local:laboratory",
+        "scoring_orientation": "mixed",
+        "standards_profile_id": "profile-1",
+        "focus_standard_ids": ["standard-1"],
+        "status": "active",
+        "criterion_set_ids": ["criterion-set-1"],
+        "external_reference_ids": [],
+        "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}
+      }
+    },
+    {
+      "record_kind": "session",
+      "body": {"session_id": "session-1", "activity_id": "standards-activity", "sequence": 1, "status": "completed", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "session",
+      "body": {"session_id": "session-2", "activity_id": "standards-activity", "sequence": 2, "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-05T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "group",
+      "body": {"group_id": "group-1", "activity_id": "standards-activity", "label": "Synthetic group", "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "criterion_set",
+      "body": {"criterion_set_id": "criterion-set-1", "lineage_id": "criterion-lineage", "name": "Synthetic criteria", "purpose": "Exercise both scoring contracts.", "revision": 1, "scope": "activity_specific", "criterion_set_kind": "mixed", "standards_profile_id": "profile-1", "criterion_ids": ["criterion-standard", "criterion-local"], "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "criterion",
+      "body": {"criterion_id": "criterion-standard", "criterion_set_id": "criterion-set-1", "key": "standard_reasoning", "label": "Reasoning", "definition": "Uses evidence to support reasoning.", "criterion_kind": "standard_backed", "standard_id": "standard-1", "alignment_standard_ids": [], "supported_target_kinds": ["core_student"], "default_scoring_scale_id": "scale-1", "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "criterion",
+      "body": {"criterion_id": "criterion-local", "criterion_set_id": "criterion-set-1", "key": "collaboration", "label": "Collaboration", "definition": "Coordinates the assigned work.", "criterion_kind": "local", "alignment_standard_ids": [], "supported_target_kinds": ["concord_group"], "default_scoring_scale_id": "scale-1", "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "scoring_scale",
+      "body": {"scoring_scale_id": "scale-1", "lineage_id": "scale-lineage", "name": "Four-level scale", "revision": 1, "scale_type": "ordinal", "levels": [{"value": 1, "label": "Beginning", "meaning": "Beginning evidence", "position": 1}, {"value": 2, "label": "Developing", "meaning": "Developing evidence", "position": 2}, {"value": 3, "label": "Secure", "meaning": "Secure evidence", "position": 3}, {"value": 4, "label": "Extending", "meaning": "Extending evidence", "position": 4}], "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "group_membership",
+      "body": {"membership_id": "membership-1", "group_id": "group-1", "participant_reference": {"participant_kind": "core_student", "participant_id": "participant-1", "owning_system": "core"}, "effective_context": {"activity_id": "standards-activity", "session_ids": ["session-1", "session-2"], "applies_to_remaining_activity": false}, "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "group_membership",
+      "body": {"membership_id": "membership-2", "group_id": "group-1", "participant_reference": {"participant_kind": "core_student", "participant_id": "participant-2", "owning_system": "core"}, "effective_context": {"activity_id": "standards-activity", "session_ids": ["session-1", "session-2"], "applies_to_remaining_activity": false}, "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "role_assignment",
+      "body": {"role_assignment_id": "role-1", "activity_id": "standards-activity", "participant_reference": {"participant_kind": "core_student", "participant_id": "participant-1", "owning_system": "core"}, "role_key": "recorder", "effective_context": {"activity_id": "standards-activity", "session_ids": ["session-1", "session-2"], "applies_to_remaining_activity": false}, "status": "active", "assigned_by": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "membership_id": "membership-1", "group_id": "group-1"}
+    },
+    {
+      "record_kind": "role_assignment",
+      "body": {"role_assignment_id": "role-2", "activity_id": "standards-activity", "participant_reference": {"participant_kind": "core_student", "participant_id": "participant-2", "owning_system": "core"}, "role_key": "observer", "effective_context": {"activity_id": "standards-activity", "session_ids": ["session-1", "session-2"], "applies_to_remaining_activity": false}, "status": "active", "assigned_by": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "membership_id": "membership-2", "group_id": "group-1"}
+    },
+    {
+      "record_kind": "responsibility_assignment",
+      "body": {"responsibility_assignment_id": "responsibility-1", "activity_id": "standards-activity", "assignee_reference": {"record_kind": "group", "record_id": "group-1"}, "description": "Coordinate the shared evidence record.", "effective_context": {"activity_id": "standards-activity", "session_ids": ["session-1", "session-2"], "applies_to_remaining_activity": false}, "status": "active", "assigned_by": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "group_id": "group-1", "expected_output": "One reviewed group artifact."}
+    },
+    {
+      "record_kind": "artifact_instance",
+      "body": {"artifact_instance_id": "artifact-1", "template_version_id": "template-version-1", "activity_id": "standards-activity", "artifact_category": "laboratory_record", "generation_status": "completed", "expected_return_status": "returned_expected", "artifact_status": "returned", "privacy_policy": {"classification": "group_and_teacher", "audience_references": []}, "page_ids": ["page-1"], "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "session_id": "session-1", "group_id": "group-1"}
+    },
+    {
+      "record_kind": "artifact_page",
+      "body": {"artifact_page_id": "page-1", "artifact_instance_id": "artifact-1", "page_number": 1, "page_kind": "primary", "return_expected": true, "route_required": true, "page_status": "returned", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "expected_page_count": 1, "route_id": "route-1", "human_fallback": "Synthetic activity, page 1"}
+    },
+    {
+      "record_kind": "artifact_author",
+      "body": {"artifact_author_id": "author-1", "artifact_instance_id": "artifact-1", "author_reference": {"participant_kind": "core_student", "participant_id": "participant-1", "owning_system": "core"}, "authorship_mode": "recorder_for_group", "attribution_status": "confirmed", "attribution_source": "teacher", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}, "represented_group_id": "group-1", "role_assignment_id": "role-1", "representation_status": "recorder_summary"}
+    },
+    {
+      "record_kind": "artifact_subject",
+      "body": {"artifact_subject_id": "subject-1", "artifact_instance_id": "artifact-1", "subject_reference": {"subject_kind": "core_student", "subject_id": "participant-2", "owning_system": "core"}, "subject_role": "observed_participant", "confirmation_status": "confirmed", "assignment_source": "teacher", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "artifact_subject",
+      "body": {"artifact_subject_id": "subject-2", "artifact_instance_id": "artifact-1", "subject_reference": {"subject_kind": "concord_group", "subject_id": "group-1", "owning_system": "concord"}, "subject_role": "represented_group", "confirmation_status": "confirmed", "assignment_source": "teacher", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}}
+    },
+    {
+      "record_kind": "artifact_review",
+      "body": {"artifact_review_id": "review-1", "artifact_instance_id": "artifact-1", "reviewer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "reviewed_at": "2026-08-05T12:00:00-04:00", "readability_judgment": "readable", "page_completeness_judgment": "complete", "filing_judgment": "correct", "author_judgment": "confirmed", "subject_judgment": "confirmed", "privacy_judgment": "group_and_teacher", "relevance_judgment": "relevant", "moderation_requirement": "required", "scoring_readiness": "ready", "review_outcome": "ready", "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}}
+    },
+    {
+      "record_kind": "moderation_record",
+      "body": {"moderation_record_id": "moderation-1", "target_evidence_reference": {"evidence_kind": "artifact_instance", "owning_system": "concord", "record_id": "artifact-1", "subject_context": [{"subject_kind": "core_student", "subject_id": "participant-2", "owning_system": "core"}], "moderation_requirement": "required"}, "target_subject_references": [{"subject_kind": "core_student", "subject_id": "participant-2", "owning_system": "core"}], "moderator": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "moderated_at": "2026-08-05T12:15:00-04:00", "status": "accepted_with_qualification", "permitted_use": "support_named_subject", "rationale": "The individual observation is clearly identified.", "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "qualification": "Use only the identified participant context."}
+    },
+    {
+      "record_kind": "score_record",
+      "body": {"score_record_id": "score-standard-1", "activity_id": "standards-activity", "target_reference": {"target_kind": "core_student", "target_id": "participant-2", "owning_system": "core"}, "criterion_id": "criterion-standard", "score_kind": "standard_backed", "scoring_scale_id": "scale-1", "disposition": "scored", "basis": "linked_evidence", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T12:30:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "session_id": "session-1", "standard_id": "standard-1", "value": 3}
+    },
+    {
+      "record_kind": "score_evidence_link",
+      "body": {"score_evidence_link_id": "link-1", "score_record_id": "score-standard-1", "evidence_reference": {"evidence_kind": "artifact_instance", "owning_system": "concord", "record_id": "artifact-1", "subject_context": [{"subject_kind": "core_student", "subject_id": "participant-2", "owning_system": "core"}], "moderation_requirement": "required"}, "relevance_description": "The named participant observation supports this individual judgment.", "status": "active", "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-05T12:30:00-04:00", "source_kind": "manual"}, "subject_context": [{"subject_kind": "core_student", "subject_id": "participant-2", "owning_system": "core"}], "significance": "primary", "moderation_record_id": "moderation-1"}
+    },
+    {
+      "record_kind": "score_record",
+      "body": {"score_record_id": "score-group-1", "activity_id": "standards-activity", "target_reference": {"target_kind": "concord_group", "target_id": "group-1", "owning_system": "concord"}, "criterion_id": "criterion-local", "score_kind": "local", "scoring_scale_id": "scale-1", "disposition": "scored", "basis": "professional_judgment", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T12:35:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "group_and_teacher", "audience_references": []}, "value": 3, "rationale": "The judgment applies to the Group target only."}
+    },
+    {
+      "record_kind": "score_record",
+      "body": {"score_record_id": "score-group-nonscore", "activity_id": "standards-activity", "target_reference": {"target_kind": "concord_group", "target_id": "group-1", "owning_system": "concord"}, "criterion_id": "criterion-local", "score_kind": "local", "scoring_scale_id": "scale-1", "disposition": "not_observed", "basis": "professional_judgment", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T12:40:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "rationale": "No separate observation existed for this context."}
+    },
+    {
+      "record_kind": "score_record",
+      "body": {"score_record_id": "score-standard-2", "activity_id": "standards-activity", "target_reference": {"target_kind": "core_student", "target_id": "participant-2", "owning_system": "core"}, "criterion_id": "criterion-standard", "score_kind": "standard_backed", "scoring_scale_id": "scale-1", "disposition": "scored", "basis": "professional_judgment", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T13:00:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "session_id": "session-1", "standard_id": "standard-1", "value": 3, "rationale": "Corrected teacher judgment after reviewing attribution.", "supersedes_score_record_id": "score-standard-1"}
+    },
+    {
+      "record_kind": "correction",
+      "body": {"correction_id": "correction-1", "target_reference": {"record_kind": "score_record", "record_id": "score-standard-1"}, "correction_type": "score_revision", "reason": "Attribution context was clarified.", "correcting_actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "corrected_at": "2026-08-05T13:00:00-04:00", "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "replacement_reference": {"record_kind": "score_record", "record_id": "score-standard-2"}}
+    }
+  ]
+}

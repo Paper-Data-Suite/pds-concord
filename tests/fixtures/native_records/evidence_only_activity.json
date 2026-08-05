@@ -1,0 +1,30 @@
+{
+  "expected_issue_codes": [],
+  "records": [
+    {
+      "record_kind": "activity",
+      "body": {
+        "activity_id": "evidence-activity",
+        "class_reference": {"module_id": "core", "record_kind": "class", "record_id": "class-1"},
+        "title": "Synthetic evidence activity",
+        "activity_type": "local:discussion",
+        "scoring_orientation": "evidence_only",
+        "status": "active",
+        "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"},
+        "focus_standard_ids": [],
+        "criterion_set_ids": [],
+        "external_reference_ids": []
+      }
+    },
+    {
+      "record_kind": "session",
+      "body": {
+        "session_id": "evidence-session-1",
+        "activity_id": "evidence-activity",
+        "sequence": 1,
+        "status": "active",
+        "created_provenance": {"actor": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "timestamp": "2026-08-04T12:00:00-04:00", "source_kind": "manual"}
+      }
+    }
+  ]
+}

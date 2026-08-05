@@ -1,0 +1,4 @@
+{
+  "description": "Two immutable successors identify the same predecessor.",
+  "expected_issue_codes": ["supersession.branch"]
+}
