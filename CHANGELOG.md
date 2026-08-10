@@ -18,4 +18,29 @@ All notable changes to this project will be documented in this file.
 - Persistence durability hardening for complete orphan-free history checks,
   full snapshot-chain proof, structured post-publication and retained-lock
   outcomes, minimized catalog metadata, and native graph diagnostic codes.
+- Typed Activity and Session workflow services with atomic Activity-plus-first-
+  Session creation, standards validation, compact read models, guarded updates,
+  and exact no-op behavior.
+- Activity-specific Group workflows plus Core-roster-backed contextual
+  Membership, Role, and Responsibility add/end/reassignment services.
+- Atomic multi-student Membership addition for an existing Group and atomic
+  Group-plus-initial-Membership creation.
+- Fully noninteractive direct CLI command families for workspace, Activity,
+  Session, Group/Membership, Role, and Responsibility workflows with stable exit
+  codes and exact expected-snapshot protection.
+- Teacher-facing menu with contextual H/B/M/Q navigation, explicit write
+  confirmations, compact pagination, staged screen clearing, reusable in-memory
+  actor context, standards selection, and one/several/remaining-Activity
+  Effective Context choices.
+- Installed-wheel workflow smoke coverage for read-only help, menu launch,
+  synthetic Core class/roster integration, collaboration-context creation,
+  immutable history, and derived-catalog rebuilding.
+
+### Changed
+
+- Group Membership supersession preserves participant identity while allowing
+  explicit reassignment to a different Group/context, matching the accepted
+  collaboration workflow contract.
+- Bare `concord` and `python -m concord` now launch the teacher-facing menu;
+  `--help` and `--version` remain direct and read-only.
 

@@ -1308,7 +1308,7 @@ def _validate_supersession(
             predecessor = index[predecessor_id]
             stable_fields: dict[str, tuple[str, ...]] = {
                 "group": ("activity_id",),
-                "group_membership": ("group_id",),
+                "group_membership": ("participant_reference",),
                 "role_assignment": ("activity_id",),
                 "responsibility_assignment": ("activity_id",),
                 "artifact_instance": ("activity_id",),
