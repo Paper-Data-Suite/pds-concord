@@ -15,6 +15,7 @@ from concord.menu_navigation import (
     navigation_hint_with_help,
     parse_menu_navigation,
 )
+from concord.menu_scan import launch_scan_routing_menu
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -43,6 +44,7 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
     print("1. Activity Management")
     print("2. Open an Activity")
     print("3. Workspace Settings")
+    print("4. Scan Routing")
     print_navigation(back=False, main_menu=False)
     print()
     choice = input("Select an option: ").strip()
@@ -64,6 +66,9 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
         return True
     if choice == "3":
         launch_workspace_menu()
+        return True
+    if choice == "4":
+        launch_scan_routing_menu(state)
         return True
     print(
         navigation_hint_with_help(

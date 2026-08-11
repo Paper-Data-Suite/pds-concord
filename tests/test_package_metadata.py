@@ -34,7 +34,9 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     assert "concord/py.typed" in names
     assert any(name.endswith(".dist-info/licenses/LICENSE") for name in names)
     assert "[console_scripts]\nconcord = concord.cli:main" in entry_points
-    assert "paper_data_suite.modules" not in entry_points
+    assert (
+        "[paper_data_suite.modules]\nconcord = concord.pds_module:get_module_profile"
+    ) in entry_points
     assert "paper_data_suite.publication_producers" not in entry_points
 
 

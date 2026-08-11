@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented for the v0.2.0 collaboration-context workflow in issue #26.
+Implemented through the v0.2.0 PDS2 Artifact Page workflow in issue #27.
 
 ## Two interfaces, one service layer
 
@@ -66,6 +66,16 @@ concord responsibility assign
 concord responsibility list
 concord responsibility end
 concord responsibility reassign
+
+concord artifact page prepare
+concord artifact page list
+concord artifact page show
+concord artifact render
+
+concord scan route
+concord scan review list
+concord scan review show
+concord scan review resolve
 ```
 
 Use `concord <family> <command> --help` for exact flags.
@@ -110,6 +120,10 @@ Memberships are validated and committed in one guarded batch.
 
 Ordinary results go to stdout and errors to stderr. Partial-success reporting
 preserves whether a snapshot was published and its canonical identity.
+Persisted page-level routing failures return 1 because teacher review is still
+required; exit 4 is reserved for durable cross-store/output partial success.
+That includes routing-review redispatch whose handler filed evidence before
+Core resolution metadata failed to persist.
 
 ## Workspace behavior
 
@@ -163,9 +177,15 @@ Concord
 1. Activity Management
 2. Open an Activity
 3. Workspace Settings
+4. Scan Routing
 H. Help
 Q. Quit
 ```
+
+An opened Activity includes Artifact Pages for preparation, compact inspection,
+and rendering. Teacher writes require `CREATE`, `RENDER`, `ROUTE`, or `RESOLVE`
+as applicable. Global routing review remains available when a failed scan has no
+trustworthy Activity locator.
 
 Within controlled submenus:
 
@@ -185,10 +205,11 @@ Teacher writes use staged disclosure:
 menu -> selection -> focused action -> confirmation -> concise result -> menu
 ```
 
-Every teacher write requires one operation-specific confirmation word:
-`CREATE`, `UPDATE`, `ADD`, `END`, or `REASSIGN`. Lists paginate after ten items.
-Raw JSON, dataclass representations, complete record graphs, and full provenance
-are not ordinary menu output.
+Every teacher write requires one operation-specific confirmation word, including
+`CREATE`, `RENDER`, `ROUTE`, and `RESOLVE` for this integration. Artifact Page
+and Routing Review lists both provide next/previous navigation in ten-row pages,
+including selection beyond the first page. Raw JSON, dataclass representations,
+complete record graphs, and full provenance are not ordinary menu output.
 
 Effective Context offers one Session, several selected Sessions, or a starting
 Session through the remaining Activity. Group revision exposes ordinary label,
@@ -206,7 +227,8 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 ## Boundaries
 
-This contract does not add Artifact creation/routing, scans, Author/Subject
-management, Review, Moderation, Criteria/Scale/Score entry, publication,
+This contract adds Artifact Page preparation/routing and retained scan filing,
+but does not add returned Artifact assembly, Author/Subject management, Review,
+Moderation, Criteria/Scale/Score entry, publication,
 Meridian grading policy, Grade calculation, or destructive collaboration-record
 deletion.

@@ -23,6 +23,7 @@ from concord.models import (
     ModerationRecord,
     ResponsibilityAssignment,
     RoleAssignment,
+    ScanReference,
     ScoreEvidenceLink,
     ScoreRecord,
     ScoringScale,
@@ -39,6 +40,7 @@ Record = (
     | ResponsibilityAssignment
     | ArtifactInstance
     | ArtifactPage
+    | ScanReference
     | ArtifactAuthor
     | ArtifactSubject
     | ArtifactReview

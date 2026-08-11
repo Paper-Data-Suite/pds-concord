@@ -95,6 +95,13 @@ Where the contract permits extensions, a value must be a documented built-in or
 a namespace-qualified key such as `local:discussion_mapper`. General record
 identifiers continue to use Core's public identifier validator.
 
+`ScanReference` is the immutable native successful-routing occurrence. It stores
+only the Activity/Page/route identity, Core retained-source scan identity,
+one-based physical page number, containment-safe workspace-relative source path,
+lowercase SHA-256, and dispatch provenance. Graph validation requires the exact
+page/activity/route relationship and rejects duplicate or contradictory physical
+occurrences. It contains no student, Author, Subject, Group, Score, or Grade.
+
 Historical replacement uses explicit `supersedes_*` fields. Graph validation
 requires predecessor resolution and rejects self-reference, branches, cycles,
 and backward Score times. Correction Records explain invalidation or connect a
@@ -104,10 +111,9 @@ timestamp ordering alone.
 
 ## Deliberately deferred
 
-The model layer does not implement Templates or Packets beyond opaque identity
-references, Work Items, Activity Markers, scans, storage, derived indexes,
-teacher editing workflows, QR generation, route registration, publication,
-consumer adapters, grading, reporting, authentication, or user interfaces.
-Those responsibilities remain assigned to issues #25 through #34. Model
-availability therefore does not make the full Activity workflow operational.
+The current layer does not implement Templates or Packets beyond opaque identity
+references, returned Artifact assembly, Author/Subject management workflows,
+Review/Moderation, scoring, publication, consumer adapters, grading, reporting,
+or authentication. Those responsibilities remain assigned to issues #28 through
+#34.
 

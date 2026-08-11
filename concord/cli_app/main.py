@@ -7,15 +7,29 @@ import sys
 from collections.abc import Callable, Sequence
 from typing import cast
 
+from pds_core.module_dispatch import ModuleDispatchError
+from pds_core.module_profiles import ModuleDiscoveryError, ModuleRegistryError
+from pds_core.route_registrations import RouteRegistrationPersistenceError
+from pds_core.scan_failure_metadata import (
+    RoutingFailureMetadataReadError,
+    RoutingFailureMetadataWriteError,
+)
+from pds_core.scan_resolution_metadata import (
+    ScanResolutionMetadataReadError,
+    ScanResolutionMetadataWriteError,
+)
 from pds_core.workspace import WorkspaceRootError
 
 from concord.cli_app.parser import build_parser
+from concord.routing.rendering import RenderPartialSuccessError
+from concord.routing.review import RoutingResolutionPartialSuccessError
 from concord.storage_errors import (
     ConcordStorageConflictError,
     ConcordStorageError,
     ConcordStoragePartialSuccessError,
 )
 from concord.workflows import ConcordWorkflowConflictError, ConcordWorkflowError
+from concord.workflows.artifact_page import ArtifactRoutePreparationPartialSuccessError
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -57,6 +71,27 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         return cast(CommandHandler, handler)(args)
+    except ArtifactRoutePreparationPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(
+            f"Routes verified: {error.result.routes_verified}/"
+            f"{error.result.routes_expected}",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL_SUCCESS
+    except RenderPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(f"Output: {error.output_path}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except RoutingResolutionPartialSuccessError as error:
+        result = error.result
+        print(f"Partial success: {error}", file=sys.stderr)
+        print("Handler dispatch succeeded: yes", file=sys.stderr)
+        print("Evidence filing occurred: yes", file=sys.stderr)
+        print("Routing-resolution metadata persisted: no", file=sys.stderr)
+        print(f"Failure: {result.failure_id}", file=sys.stderr)
+        print(f"Selected route: {result.selected_route.route_id}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
     except ConcordStoragePartialSuccessError as error:
         _print_partial_success(error)
         return EXIT_PARTIAL_SUCCESS
@@ -64,6 +99,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Conflict: {error}", file=sys.stderr)
         return EXIT_CONFLICT
     except (ConcordWorkflowError, ConcordStorageError, WorkspaceRootError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return EXIT_ERROR
+    except (
+        RouteRegistrationPersistenceError,
+        RoutingFailureMetadataReadError,
+        RoutingFailureMetadataWriteError,
+        ScanResolutionMetadataReadError,
+        ScanResolutionMetadataWriteError,
+        ModuleDispatchError,
+        ModuleRegistryError,
+        ModuleDiscoveryError,
+    ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return EXIT_ERROR
     except (OSError, TypeError, ValueError) as error:

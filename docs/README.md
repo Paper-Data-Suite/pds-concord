@@ -36,15 +36,26 @@ The repository now contains:
 * typed Activity, Session, and Group collaboration workflow services;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
-* and a teacher-facing H/B/M/Q menu with low-information-density screens.
+* a teacher-facing H/B/M/Q menu with low-information-density screens;
+* native Scan References with immutable history and catalog projection; and
+* Core PDS2 Artifact Page preparation, rendering, retained scan dispatch, and
+  append-only routing review.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
-teacher-local collaboration-context workflows are complete. Later issues add
-Artifact routing, Artifact management, Review/Moderation, scoring, publication,
-and consumer integration without collapsing those responsibilities. No routing
-or publication entry point is currently declared.
+teacher-local collaboration-context workflows and PDS2 Artifact Page routing are
+complete. Later issues add returned Artifact assembly, Author/Subject workflows,
+Review/Moderation, scoring, publication, and consumer integration. The Concord
+routing entry point is declared; the publication entry point remains absent.
+
+### 14. PDS2 Artifact Page integration
+
+[`implementation/pds2-artifact-page-integration.md`](implementation/pds2-artifact-page-integration.md)
+
+Documents route identity, canonical-before-render ordering, immutable route
+reconciliation, retained-source intake, Scan References, dispatch/replay,
+routing review, privacy, partial success, and the handoff to issue #28.
 
 ### 10. Native model implementation
 

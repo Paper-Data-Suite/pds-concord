@@ -5,6 +5,7 @@ from __future__ import annotations
 from pds_core.standards import StandardsLibrary
 from pds_core.workspace import WorkspaceRootError
 
+from concord.menu_artifact import launch_artifact_page_menu
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group import launch_group_menu
 from concord.menu_navigation import (
@@ -472,7 +473,8 @@ def launch_activity_context_menu(
         print("4. Groups and participants")
         print("5. Roles")
         print("6. Responsibilities")
-        print("7. Edit Activity")
+        print("7. Artifact Pages")
+        print("8. Edit Activity")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -494,6 +496,8 @@ def launch_activity_context_menu(
         elif choice == "6":
             launch_responsibility_menu(activity, session_state)
         elif choice == "7":
+            launch_artifact_page_menu(activity, session_state)
+        elif choice == "8":
             _edit_activity(activity, session_state)
         else:
             print(navigation_hint_with_help())

@@ -13,6 +13,10 @@ license-files = ["LICENSE"]
 authors = [{ name = "Stephen Severino" }]
 dependencies = [
     "pds-core>=0.6,<0.7",
+    "Pillow>=11,<13",
+    "qrcode>=8,<9",
+    "pypdfium2>=4.30,<5",
+    "zxing-cpp>=2.3,<3",
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -36,6 +40,9 @@ dev = [
 
 [project.scripts]
 concord = "concord.cli:main"
+
+[project.entry-points."paper_data_suite.modules"]
+concord = "concord.pds_module:get_module_profile"
 
 [project.urls]
 Documentation = "https://github.com/Paper-Data-Suite/pds-concord/tree/main/docs"
@@ -70,3 +77,7 @@ files = ["concord", "scripts"]
 [[tool.mypy.overrides]]
 module = ["pds_core", "pds_core.*"]
 follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = ["PIL", "PIL.*", "pypdfium2", "qrcode", "zxingcpp"]
+ignore_missing_imports = true
