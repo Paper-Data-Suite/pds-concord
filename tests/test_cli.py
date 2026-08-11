@@ -11,8 +11,6 @@ import pytest
 from concord import __version__
 from concord.cli import main
 
-STATUS_TEXT = "complete Activity workflow"
-
 
 def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -34,31 +32,24 @@ def _console_command() -> str:
 def _assert_help(result: subprocess.CompletedProcess[str]) -> None:
     assert result.returncode == 0
     assert "usage: concord" in result.stdout
-    assert "complete Activity" in result.stdout
-    assert "workflow" in result.stdout
+    assert "Activity workflow" in result.stdout
     assert result.stderr == ""
 
 
-def test_main_empty_arguments_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main([]) == 0
-    captured = capsys.readouterr()
-    assert "usage: concord" in captured.out
-    assert STATUS_TEXT in captured.out.replace("\n", " ")
-    assert captured.err == ""
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
-        [_console_command()],
-        [sys.executable, "-m", "concord"],
-    ],
-    ids=["concord", "python-module"],
-)
-def test_bare_invocation_prints_help_read_only(
-    command: list[str], unchanged_directory: Path
+def test_main_empty_arguments_launches_teacher_menu(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _assert_help(_run(command, unchanged_directory))
+    calls: list[str] = []
+
+    def fake_launch_menu() -> int:
+        calls.append("menu")
+        return 0
+
+    import concord.menu
+
+    monkeypatch.setattr(concord.menu, "launch_menu", fake_launch_menu)
+    assert main([]) == 0
+    assert calls == ["menu"]
 
 
 @pytest.mark.parametrize(
@@ -103,3 +94,17 @@ def test_invalid_argument_returns_usage_error(unchanged_directory: Path) -> None
     result = _run([_console_command(), "--unknown"], unchanged_directory)
     assert result.returncode != 0
     assert "usage:" in result.stderr
+
+
+def test_explicit_menu_command_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_launch_menu() -> int:
+        calls.append("menu")
+        return 0
+
+    import concord.menu
+
+    monkeypatch.setattr(concord.menu, "launch_menu", fake_launch_menu)
+    assert main(["menu"]) == 0
+    assert calls == ["menu"]

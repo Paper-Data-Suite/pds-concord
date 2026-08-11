@@ -31,15 +31,20 @@ The repository now contains:
   released PDS2 routing and academic-registry contracts;
 * an implemented immutable native record, exact mapping-conversion, and pure
   graph-validation layer;
-* and canonical guarded persistence with immutable history, atomic snapshots,
-  strict reads, diagnostics, and a disposable catalog.
+* canonical guarded persistence with immutable history, atomic snapshots,
+  strict reads, diagnostics, and a disposable catalog;
+* typed Activity, Session, and Group collaboration workflow services;
+* contextual Membership, Role, and Responsibility workflow services;
+* a fully noninteractive direct CLI;
+* and a teacher-facing H/B/M/Q menu with low-information-density screens.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
-The package baseline, foundational native models, and persistence substrate are
-complete. Later issues add teacher workflows, routing, publication, and consumer
-integration without collapsing those responsibilities. No routing or
-publication entry point is currently declared.
+The package baseline, foundational native models, persistence substrate, and
+teacher-local collaboration-context workflows are complete. Later issues add
+Artifact routing, Artifact management, Review/Moderation, scoring, publication,
+and consumer integration without collapsing those responsibilities. No routing
+or publication entry point is currently declared.
 
 ### 10. Native model implementation
 
@@ -57,6 +62,23 @@ Documents storage ownership, exact layout and versions, immutable revisions and
 snapshots, atomic pointer semantics, expected-revision commits, strict reads,
 standards validation, catalog nonauthority, diagnostics, interruption, and
 conservative recovery.
+
+### 12. Collaboration workflow implementation
+
+[`implementation/activity-session-group-workflows.md`](implementation/activity-session-group-workflows.md)
+
+Documents Activity, Session, Group, Membership, Role, and Responsibility
+services; Core workspace/class/roster ownership; standards selection; exact
+expected-snapshot concurrency; non-destructive reassignment; teacher workflows;
+and installed-wheel acceptance coverage.
+
+### 13. CLI and teacher-menu contract
+
+[`cli-contract.md`](cli-contract.md)
+
+Documents bare menu behavior, the complete direct command inventory, actor and
+workspace requirements, exit codes, H/B/M/Q navigation, confirmations, and the
+low-information-density interaction contract.
 
 ## Recommended Reading Order
 
@@ -203,14 +225,19 @@ This document should be read after the ADRs because it applies their architectur
 ```text
 docs/
 ├── README.md
+├── cli-contract.md
 ├── concord-conceptual-design-revised.md
 ├── decisions/
 │   ├── README.md
-│   └── 0001-... through 0013-...
+│   └── 0001-... through 0015-...
 ├── design/
 │   ├── cross-case-requirements.md
 │   ├── initial-concord-domain-model.md
 │   └── pds-core-integration-requirements.md
+├── implementation/
+│   ├── native-record-models.md
+│   ├── canonical-storage.md
+│   └── activity-session-group-workflows.md
 └── packet_models/
     ├── socratic-seminar-packet-model.md
     ├── science-laboratory-group-packet-model.md
@@ -282,7 +309,10 @@ Where a conceptual contract depends on Core identity, routing, or provenance, it
 
 ### Implementation Documentation
 
-Future schema, storage, CLI, and workflow documentation will describe how the accepted architecture is implemented.
+Implementation documents describe the native model layer, canonical storage,
+collaboration-context workflows, and CLI/menu contracts that are now implemented.
+Later implementation documents will cover routing, Artifact management, Review,
+Moderation, scoring, publication, and consumer integration as those issues land.
 
 Implementation convenience must not silently change the domain semantics established here.
 
@@ -320,11 +350,12 @@ Simple Activities remain simple. Milestones, Work Items, dependencies, Events, s
 
 ## Active Implementation Phase
 
-The conceptual contracts and their representative validation are complete.
-Implementation now follows umbrella issue #22: package and released-Core
-baseline, domain records, persistence, teacher-local workflows, routing,
-Artifact management, Review and Moderation, scoring, publication, consumer
-compatibility, installed acceptance, and final release audit.
+The conceptual contracts and their representative validation are complete. The
+package/released-Core baseline, domain records, persistence, and teacher-local
+collaboration workflows are implemented. Work now continues through umbrella
+issue #22 with routing, Artifact management, Review and Moderation, scoring,
+publication, consumer compatibility, installed acceptance, and final release
+audit.
 
 Each implementation issue must preserve the accepted contract ownership,
 read-only import behavior, exact compatibility declarations, privacy-safe test
