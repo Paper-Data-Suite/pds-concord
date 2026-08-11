@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Core PDS2 Artifact Page integration with native preallocation, one immutable
+  route per physical page, verified PDF rendering, and an installed Concord
+  `paper_data_suite.modules` profile.
+- Retain-first PDF/image scan intake, mixed installed-module dispatch, native
+  Scan References, exact replay idempotency, and Core v2 append-only routing
+  failure/resolution workflows.
+- Direct Artifact/Page/scan commands and teacher-facing Artifact Pages and
+  global Scan Routing menus over the shared typed services.
+
 - Installable, typed `pds-concord` package baseline for v0.2.0 development.
 - Side-effect-free help and version CLI.
 - Authenticated released-Core integration, packaging, documentation, and CI

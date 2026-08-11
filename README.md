@@ -11,10 +11,14 @@ noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
-Concord does **not** yet generate or route Artifact Pages, process scans,
-assemble returned Artifacts, record Artifact Author or Subject associations,
-perform Review or Moderation, record Scores, publish results, or calculate
-Grades. Routing remains assigned to issue #27 and publication to issue #31.
+PDS2 Artifact Pages can now be prepared, rendered, routed, and recorded as
+returned physical occurrences. Concord exposes a Core `paper_data_suite.modules`
+profile, retains scan sources through Core, and preserves successful occurrences
+as native Scan References.
+
+Concord still does **not** provide returned Artifact assembly, Author/Subject
+management workflows, Artifact Review/Moderation, Scores, publication, or
+Grades. Those remain assigned to issues #28 through #31.
 
 ## Requirements and installation
 
@@ -40,7 +44,8 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, contextual Help, and Quit. Controlled teacher screens use:
+Settings, global Scan Routing, contextual Artifact Pages, Help, and Quit.
+Controlled teacher screens use:
 
 ```text
 H. Help
@@ -50,7 +55,8 @@ Q. Quit
 ```
 
 Every menu write shows a focused review screen and requires the operation word
-`CREATE`, `UPDATE`, `ADD`, `END`, or `REASSIGN`. The menu clears between stages,
+`CREATE`, `RENDER`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`, `END`, or `REASSIGN`.
+The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
 
@@ -67,6 +73,10 @@ concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
+concord artifact page prepare|list|show
+concord artifact render
+concord scan route
+concord scan review list|show|resolve
 ```
 
 Mutating direct commands require explicit actor context. Every write after the
@@ -140,7 +150,8 @@ inspection, isolated installed-wheel workflow/menu smoke tests, and
 
 Core exposes routing through `paper_data_suite.modules` and publication through
 `paper_data_suite.publication_producers`. These remain independent integration
-surfaces, and Concord currently declares neither entry point.
+surfaces. Concord declares exactly the routing entry point; publication remains
+absent until issue #31.
 
 The implementation sequence is tracked by
 [umbrella issue #22](https://github.com/Paper-Data-Suite/pds-concord/issues/22).

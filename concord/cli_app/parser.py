@@ -7,9 +7,11 @@ import argparse
 from concord import __version__
 from concord.cli_app.handlers import (
     activity,
+    artifact,
     group,
     responsibility,
     role,
+    scan,
     session,
     workspace,
 )
@@ -474,6 +476,82 @@ def _workspace_commands(
     reset.set_defaults(handler=workspace.handle_reset)
 
 
+def _artifact_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "artifact", help="Prepare and render Artifact Pages."
+    )
+    actions = parent.add_subparsers(dest="artifact_command", required=True)
+    page = actions.add_parser("page", help="Prepare or inspect physical pages.")
+    page_actions = page.add_subparsers(dest="page_command", required=True)
+    prepare = page_actions.add_parser("prepare", help="Preallocate pages and routes.")
+    _mutating_options(prepare)
+    _class_activity(prepare)
+    prepare.add_argument("--artifact-instance-id", required=True)
+    prepare.add_argument("--template-version-id", required=True)
+    prepare.add_argument("--artifact-category", default="student_work")
+    prepare.add_argument("--page-count", type=int, required=True)
+    prepare.add_argument("--page-id", action="append")
+    prepare.add_argument("--session-id")
+    prepare.add_argument("--group-id")
+    prepare.add_argument("--expected-return-status", default="returned_expected")
+    prepare.add_argument("--privacy-classification", default="teacher_restricted")
+    prepare.set_defaults(handler=artifact.handle_prepare)
+    list_command = page_actions.add_parser("list", help="List Artifact Pages.")
+    _workspace_option(list_command)
+    _class_activity(list_command)
+    list_command.add_argument("--artifact-instance-id")
+    list_command.set_defaults(handler=artifact.handle_list)
+    show = page_actions.add_parser("show", help="Show one Artifact Page.")
+    _workspace_option(show)
+    _class_activity(show)
+    show.add_argument("--artifact-page-id", required=True)
+    show.set_defaults(handler=artifact.handle_show)
+    render = actions.add_parser("render", help="Render verified route-bearing pages.")
+    _workspace_option(render)
+    _expected_option(render)
+    _actor_options(render)
+    _class_activity(render)
+    render.add_argument("--artifact-instance-id", required=True)
+    render.add_argument("--output")
+    render.set_defaults(handler=artifact.handle_render)
+
+
+def _scan_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "scan", help="Route retained scans and review failures."
+    )
+    actions = parent.add_subparsers(dest="scan_command", required=True)
+    route = actions.add_parser("route", help="Retain and route source files.")
+    _workspace_option(route)
+    route.add_argument("source", nargs="+")
+    route.set_defaults(handler=scan.handle_route)
+    review = actions.add_parser("review", help="Inspect append-only routing review.")
+    review_actions = review.add_subparsers(dest="review_command", required=True)
+    list_command = review_actions.add_parser("list")
+    _workspace_option(list_command)
+    list_command.add_argument("--activity-id")
+    list_command.set_defaults(handler=scan.handle_review_list)
+    show = review_actions.add_parser("show")
+    _workspace_option(show)
+    show.add_argument("--failure-id", required=True)
+    show.set_defaults(handler=scan.handle_review_show)
+    resolve = review_actions.add_parser("resolve")
+    _workspace_option(resolve)
+    _actor_options(resolve)
+    resolve.add_argument("--failure-id", required=True)
+    resolve.add_argument("--message", required=True)
+    resolve.add_argument("--defer", action="store_true")
+    resolve.add_argument("--module-id", choices=("concord",), default="concord")
+    resolve.add_argument("--class-id")
+    resolve.add_argument("--work-id")
+    resolve.add_argument("--route-id")
+    resolve.set_defaults(handler=scan.handle_review_resolve, command_parser=resolve)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the complete direct-command parser without touching workspace state."""
     parser = argparse.ArgumentParser(
@@ -498,4 +576,6 @@ def build_parser() -> argparse.ArgumentParser:
     _group_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
+    _artifact_commands(subparsers)
+    _scan_commands(subparsers)
     return parser

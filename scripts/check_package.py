@@ -69,8 +69,11 @@ def validate_wheel(path: str | Path) -> None:
         )
     if "[console_scripts]\nconcord = concord.cli:main" not in entry_points:
         raise PackageValidationError("The concord console script is missing.")
-    if "paper_data_suite.modules" in entry_points:
-        raise PackageValidationError("Premature routing entry point is declared.")
+    expected_routing = (
+        "[paper_data_suite.modules]\nconcord = concord.pds_module:get_module_profile"
+    )
+    if expected_routing not in entry_points:
+        raise PackageValidationError("The Concord routing entry point is missing.")
     if "paper_data_suite.publication_producers" in entry_points:
         raise PackageValidationError("Premature publication entry point is declared.")
     required = {"concord/__init__.py", "concord/cli.py", "concord/py.typed"}

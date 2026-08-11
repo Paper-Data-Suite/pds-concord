@@ -28,6 +28,7 @@ from concord.models import (
     ModerationRecord,
     ResponsibilityAssignment,
     RoleAssignment,
+    ScanReference,
     ScoreEvidenceLink,
     ScoreRecord,
     ScoringScale,
@@ -45,6 +46,7 @@ Record = (
     | ResponsibilityAssignment
     | ArtifactInstance
     | ArtifactPage
+    | ScanReference
     | ArtifactAuthor
     | ArtifactSubject
     | ArtifactReview
@@ -79,6 +81,7 @@ class ConcordRecordGraph:
     responsibility_assignments: tuple[ResponsibilityAssignment, ...] = ()
     artifact_instances: tuple[ArtifactInstance, ...] = ()
     artifact_pages: tuple[ArtifactPage, ...] = ()
+    scan_references: tuple[ScanReference, ...] = ()
     artifact_authors: tuple[ArtifactAuthor, ...] = ()
     artifact_subjects: tuple[ArtifactSubject, ...] = ()
     artifact_reviews: tuple[ArtifactReview, ...] = ()
@@ -214,6 +217,67 @@ def collect_record_graph_issues(
     scales = _index(graph.scoring_scales, "scoring_scale_id")
     scores = _index(graph.score_records, "score_record_id")
     moderations = _index(graph.moderation_records, "moderation_record_id")
+
+    occurrence_targets: dict[tuple[str, int, str], str] = {}
+    physical_targets: dict[tuple[str, int], str] = {}
+    for scan in graph.scan_references:
+        page = pages.get(scan.artifact_page_id)
+        artifact = artifacts.get(page.artifact_instance_id) if page else None
+        if page is None:
+            _issue(
+                issues,
+                "scan_reference.page.missing",
+                "Scan Reference targets a missing Artifact Page.",
+                "scan_reference",
+                scan.scan_reference_id,
+                "artifact_page_id",
+            )
+        elif artifact is None or artifact.activity_id != scan.activity_id:
+            _issue(
+                issues,
+                "scan_reference.activity.mismatch",
+                "Scan Reference and Artifact Page must belong to the same Activity.",
+                "scan_reference",
+                scan.scan_reference_id,
+                "activity_id",
+            )
+        if page is not None and page.route_id != scan.route_id:
+            _issue(
+                issues,
+                "scan_reference.route.mismatch",
+                "Scan Reference route must equal the Artifact Page route.",
+                "scan_reference",
+                scan.scan_reference_id,
+                "route_id",
+            )
+        occurrence = (scan.source_scan_id, scan.source_page_number, scan.route_id)
+        existing = occurrence_targets.setdefault(occurrence, scan.artifact_page_id)
+        if (
+            existing != scan.artifact_page_id
+            or sum(
+                (item.source_scan_id, item.source_page_number, item.route_id)
+                == occurrence
+                for item in graph.scan_references
+            )
+            > 1
+        ):
+            _issue(
+                issues,
+                "scan_reference.occurrence.duplicate",
+                "One exact retained physical occurrence must not be filed twice.",
+                "scan_reference",
+                scan.scan_reference_id,
+            )
+        physical = (scan.source_scan_id, scan.source_page_number)
+        prior_target = physical_targets.setdefault(physical, scan.artifact_page_id)
+        if prior_target != scan.artifact_page_id:
+            _issue(
+                issues,
+                "scan_reference.physical_target.contradiction",
+                "One retained physical page cannot target contradictory pages.",
+                "scan_reference",
+                scan.scan_reference_id,
+            )
 
     session_counts = Counter(session.activity_id for session in graph.sessions)
     for activity in graph.activities:

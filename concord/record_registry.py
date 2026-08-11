@@ -20,6 +20,7 @@ from concord.models import (
     ModerationRecord,
     ResponsibilityAssignment,
     RoleAssignment,
+    ScanReference,
     ScoreEvidenceLink,
     ScoreRecord,
     ScoringScale,
@@ -59,6 +60,9 @@ RECORD_DESCRIPTORS: tuple[RecordDescriptor, ...] = (
     ),
     RecordDescriptor(
         "artifact_page", ArtifactPage, "artifact_page_id", "artifact_pages"
+    ),
+    RecordDescriptor(
+        "scan_reference", ScanReference, "scan_reference_id", "scan_references"
     ),
     RecordDescriptor(
         "artifact_author", ArtifactAuthor, "artifact_author_id", "artifact_authors"

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import date
+from pathlib import PurePosixPath, PureWindowsPath
 
 from concord.models.common import (
     AuthorReference,
@@ -170,6 +173,83 @@ class ArtifactPage:
             )
         if not self.route_required and self.route_id is not None:
             raise ConcordModelError("non-route pages must not carry route_id.")
+
+
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_RETAINED_FILENAME = re.compile(r"^[A-Za-z0-9_.-]+$")
+_SCAN_EXTENSIONS = frozenset({".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff"})
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScanReference:
+    """One successfully routed occurrence of a retained physical source page."""
+
+    scan_reference_id: str
+    activity_id: str
+    artifact_page_id: str
+    route_id: str
+    source_scan_id: str
+    source_page_number: int
+    retained_source_relative_path: str
+    retained_source_sha256: str
+    created_provenance: Provenance
+
+    def __post_init__(self) -> None:
+        for name in (
+            "scan_reference_id",
+            "activity_id",
+            "artifact_page_id",
+            "route_id",
+            "source_scan_id",
+        ):
+            identifier(getattr(self, name), name)
+        positive_int(self.source_page_number, "source_page_number")
+        path = self.retained_source_relative_path
+        if not isinstance(path, str) or not path or path != path.strip():
+            raise ConcordModelError(
+                "retained_source_relative_path must be a nonempty relative path."
+            )
+        posix = PurePosixPath(path)
+        windows = PureWindowsPath(path)
+        parts = path.replace("\\", "/").split("/")
+        if (
+            "\\" in path
+            or posix.is_absolute()
+            or windows.is_absolute()
+            or windows.drive
+            or windows.root
+            or any(part in {"", ".", ".."} for part in parts)
+            or parts[:2] != ["scans", "source"]
+            or len(parts) != 4
+        ):
+            raise ConcordModelError(
+                "retained_source_relative_path must be a containment-safe "
+                "workspace-relative Core retained-source path."
+            )
+        try:
+            if parts[2] != date.fromisoformat(parts[2]).isoformat():
+                raise ValueError
+        except ValueError as error:
+            raise ConcordModelError(
+                "retained_source_relative_path must use a strict Core date bucket."
+            ) from error
+        if (
+            _RETAINED_FILENAME.fullmatch(parts[3]) is None
+            or PurePosixPath(parts[3]).suffix.lower() not in _SCAN_EXTENSIONS
+        ):
+            raise ConcordModelError(
+                "retained_source_relative_path must identify a supported "
+                "Core scan file."
+            )
+        if (
+            not isinstance(self.retained_source_sha256, str)
+            or _SHA256.fullmatch(self.retained_source_sha256) is None
+        ):
+            raise ConcordModelError(
+                "retained_source_sha256 must be a lowercase SHA-256 digest."
+            )
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError("created_provenance must be Provenance.")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

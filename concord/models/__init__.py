@@ -5,6 +5,7 @@ from concord.models.artifacts import (
     ArtifactInstance,
     ArtifactPage,
     ArtifactSubject,
+    ScanReference,
 )
 from concord.models.collaboration import (
     Activity,
@@ -50,6 +51,7 @@ __all__ = [
     "ArtifactPage",
     "ArtifactReview",
     "ArtifactSubject",
+    "ScanReference",
     "AssigneeReference",
     "AuthorReference",
     "ConcordModelError",
