@@ -70,6 +70,10 @@ _ROUTABLE_PAGE_STATUSES: Final[frozenset[str]] = frozenset(
     }
 )
 
+_TERMINAL_ARTIFACT_STATUSES: Final[frozenset[str]] = frozenset(
+    {"completed", "cancelled", "archived", "superseded"}
+)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ArtifactPagePlan:
@@ -162,6 +166,36 @@ def _standards(root: Path) -> StandardsLibrary | None:
         return None
     except ValueError:
         return None
+
+
+def _returned_artifact_state(
+    artifact: ArtifactInstance,
+    graph: ConcordRecordGraph,
+    returned_page: ArtifactPage,
+) -> ArtifactInstance:
+    pages = {item.artifact_page_id: item for item in graph.artifact_pages}
+    required: list[ArtifactPage] = []
+    for page_id in artifact.page_ids:
+        page = (
+            returned_page
+            if page_id == returned_page.artifact_page_id
+            else pages.get(page_id)
+        )
+        if page is None or page.artifact_instance_id != artifact.artifact_instance_id:
+            raise ConcordWorkflowValidationError(
+                "Artifact declared page structure is inconsistent."
+            )
+        if page.return_expected:
+            required.append(page)
+    if not required:
+        return artifact
+    returned_count = sum(page.page_status == "returned" for page in required)
+    if returned_count == 0:
+        return artifact
+    status = "returned" if returned_count == len(required) else "partially_returned"
+    return artifact if artifact.artifact_status == status else replace(
+        artifact, artifact_status=status
+    )
 
 
 def _registration(work: ModuleWorkRef, page: ArtifactPage) -> RouteRegistration:
@@ -533,6 +567,10 @@ def handle_concord_route(
             snapshot_sha256=loaded.snapshot_sha256,
             replayed=True,
         )
+    if artifact.artifact_status in _TERMINAL_ARTIFACT_STATUSES:
+        raise ConcordWorkflowValidationError(
+            "Artifact lifecycle does not allow new return filing."
+        )
     occurrence_key = (
         f"{retained_source.source_scan_id}|{source_page_number}|{page.route_id}"
     ).encode("utf-8")
@@ -562,10 +600,18 @@ def handle_concord_route(
         if page.page_status == "returned"
         else replace(page, page_status="returned")
     )
+    returned_artifact = _returned_artifact_state(artifact, graph, returned_page)
+    records: tuple[
+        ScanReference | ArtifactPage | ArtifactInstance, ...
+    ] = (scan,)
+    if returned_page != page:
+        records += (returned_page,)
+    if returned_artifact != artifact:
+        records += (returned_artifact,)
     commit = commit_record_batch(
         root,
         work,
-        (scan, returned_page),
+        records,
         expected_snapshot_revision=loaded.snapshot_revision,
         standards_library=library,
     )

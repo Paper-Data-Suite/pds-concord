@@ -52,7 +52,12 @@ def _workflow_smoke_code() -> str:
         from pds_core.rosters import create_roster
         from pds_core.workspace import ensure_workspace_root
 
-        from concord.models import EffectiveContext, PrivacyPolicy
+        from concord.models import (
+            EffectiveContext,
+            ParticipantReference,
+            PrivacyPolicy,
+            SubjectReference,
+        )
         from concord.pds_module import get_module_profile
         from concord.routing.rendering import (
             RenderArtifactPagesRequest,
@@ -66,13 +71,19 @@ def _workflow_smoke_code() -> str:
         )
         from concord.storage_catalog import rebuild_catalog, query_catalog_records
         from concord.workflows import (
+            AddArtifactAuthorRequest,
+            AddArtifactSubjectRequest,
             AddMembershipsRequest,
+            AssembleArtifactRequest,
             CreateActivityContextRequest,
             CreateGroupRequest,
             GroupMemberSpec,
             UpdateSessionRequest,
             WorkflowActor,
+            add_artifact_author,
+            add_artifact_subject,
             add_memberships,
+            assemble_returned_artifact,
             create_activity_context,
             create_group,
             update_session,
@@ -237,8 +248,70 @@ def _workflow_smoke_code() -> str:
             assert len(loaded.graph.artifact_pages) == 1
             assert len(loaded.graph.scan_references) == 1
             assert loaded.graph.artifact_pages[0].page_status == "returned"
+            assert loaded.graph.artifact_instances[0].artifact_status == "returned"
             assert not loaded.graph.artifact_authors
             assert not loaded.graph.artifact_subjects
+            assembled = assemble_returned_artifact(
+                AssembleArtifactRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    artifact_instance_id="artifact-smoke",
+                    expected_snapshot_revision=loaded.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            assert assembled.output_path.is_file()
+            assert assembled.manifest_path.is_file()
+            author = add_artifact_author(
+                AddArtifactAuthorRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    artifact_instance_id="artifact-smoke",
+                    artifact_author_id="author-smoke",
+                    author_reference=ParticipantReference(
+                        participant_kind="core_student",
+                        participant_id="student-1",
+                        owning_system="core",
+                    ),
+                    authorship_mode="observer",
+                    attribution_status="confirmed",
+                    attribution_source="teacher",
+                    expected_snapshot_revision=loaded.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            subject = add_artifact_subject(
+                AddArtifactSubjectRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    artifact_instance_id="artifact-smoke",
+                    artifact_subject_id="subject-smoke",
+                    subject_reference=SubjectReference(
+                        subject_kind="core_student",
+                        subject_id="student-2",
+                        owning_system="core",
+                    ),
+                    subject_role="observed_participant",
+                    confirmation_status="confirmed",
+                    assignment_source="teacher",
+                    expected_snapshot_revision=author.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            loaded = load_current_record_graph(root, created.commit.work)
+            assert loaded.snapshot_revision == subject.commit.snapshot_revision
+            assert len(loaded.graph.artifact_authors) == 1
+            assert len(loaded.graph.artifact_subjects) == 1
+            assert not loaded.graph.artifact_reviews
+            assert not loaded.graph.moderation_records
+            assert not loaded.graph.score_records
+            assert loaded.graph.artifact_pages[0].route_id == (
+                prepared.pages[0].route_id
+            )
+            assert assembled.output_path.is_file()
             assert first_snapshot.snapshot_revision == 1
             assert list_record_revisions(
                 root,
@@ -253,7 +326,7 @@ def _workflow_smoke_code() -> str:
             historical = query_catalog_records(
                 root, created.commit.work, snapshot_revision=1
             )
-            assert len(current) == 8 and historical
+            assert len(current) == 10 and historical
 
         package_files_after = {
             path.relative_to(package_root)

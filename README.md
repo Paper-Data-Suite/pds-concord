@@ -11,14 +11,14 @@ noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
-PDS2 Artifact Pages can now be prepared, rendered, routed, and recorded as
-returned physical occurrences. Concord exposes a Core `paper_data_suite.modules`
-profile, retains scan sources through Core, and preserves successful occurrences
-as native Scan References.
+PDS2 Artifact Pages can be prepared, rendered, routed, and recorded as returned
+physical occurrences. Returned pages now roll up to Artifact-level return state
+and can be assembled reproducibly from exact Core-retained Scan Reference
+lineage. Concord also provides explicit zero-to-many Artifact Author and Subject
+management with preserved correction history.
 
-Concord still does **not** provide returned Artifact assembly, Author/Subject
-management workflows, Artifact Review/Moderation, Scores, publication, or
-Grades. Those remain assigned to issues #28 through #31.
+Concord still does **not** provide Artifact Review/Moderation, Scores,
+publication, or Grades. Those remain assigned to issues #29 through #31.
 
 ## Requirements and installation
 
@@ -44,7 +44,7 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, contextual Artifact Pages, Help, and Quit.
+Settings, global Scan Routing, contextual Artifact Pages with assembly, Author, and Subject workflows, Help, and Quit.
 Controlled teacher screens use:
 
 ```text
@@ -55,7 +55,8 @@ Q. Quit
 ```
 
 Every menu write shows a focused review screen and requires the operation word
-`CREATE`, `RENDER`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`, `END`, or `REASSIGN`.
+`CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`,
+`CORRECT`, `END`, or `REASSIGN`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
@@ -73,6 +74,9 @@ concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
+concord artifact list|show|assemble
+concord artifact author add|list|show|update|replace
+concord artifact subject add|list|show|update|replace
 concord artifact page prepare|list|show
 concord artifact render
 concord scan route

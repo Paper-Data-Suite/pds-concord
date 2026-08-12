@@ -8,8 +8,11 @@ from datetime import date
 from pathlib import PurePosixPath, PureWindowsPath
 
 from concord.models.common import (
+    ActorReference,
     AuthorReference,
     ConcordModelError,
+    ConcordRecordReference,
+    ParticipantReference,
     PrivacyPolicy,
     Provenance,
     SubjectReference,
@@ -256,7 +259,7 @@ class ScanReference:
 class ArtifactAuthor:
     artifact_author_id: str
     artifact_instance_id: str
-    author_reference: AuthorReference
+    author_reference: AuthorReference | None = None
     authorship_mode: str
     attribution_status: str
     attribution_source: str
@@ -303,6 +306,17 @@ class ArtifactAuthor:
             "supersedes_artifact_author_id",
         ):
             optional_identifier(getattr(self, name), name)
+        if self.author_reference is not None and not isinstance(
+            self.author_reference,
+            (ParticipantReference, ActorReference, ConcordRecordReference),
+        ):
+            raise ConcordModelError("author_reference is invalid.")
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError("created_provenance must be Provenance.")
+        if self.privacy_policy is not None and not isinstance(
+            self.privacy_policy, PrivacyPolicy
+        ):
+            raise ConcordModelError("privacy_policy must be PrivacyPolicy.")
         if self.representation_status is not None:
             controlled(
                 self.representation_status,
@@ -318,6 +332,28 @@ class ArtifactAuthor:
                         "not_applicable",
                     }
                 ),
+            )
+        if self.authorship_mode == "unknown":
+            if (
+                self.author_reference is not None
+                or self.attribution_status != "unknown"
+            ):
+                raise ConcordModelError(
+                    "unknown authorship requires no author_reference and unknown "
+                    "attribution_status."
+                )
+            if (
+                self.represented_group_id is not None
+                or self.role_assignment_id is not None
+                or self.representation_status is not None
+            ):
+                raise ConcordModelError(
+                    "unknown authorship cannot carry Group, Role, or representation "
+                    "context."
+                )
+        elif self.author_reference is None:
+            raise ConcordModelError(
+                "known authorship modes require an author_reference."
             )
         if (
             self.authorship_mode == "recorder_for_group"
@@ -374,3 +410,9 @@ class ArtifactSubject:
         optional_identifier(
             self.supersedes_artifact_subject_id, "supersedes_artifact_subject_id"
         )
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError("created_provenance must be Provenance.")
+        if self.privacy_policy is not None and not isinstance(
+            self.privacy_policy, PrivacyPolicy
+        ):
+            raise ConcordModelError("privacy_policy must be PrivacyPolicy.")
