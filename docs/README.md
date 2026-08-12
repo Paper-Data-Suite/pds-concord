@@ -39,13 +39,17 @@ The repository now contains:
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
 * native Scan References with immutable history and catalog projection; and
 * Core PDS2 Artifact Page preparation, rendering, retained scan dispatch, and
-  append-only routing review.
+  append-only routing review;
+* Artifact-level return-state reconciliation and reproducible returned-PDF
+  assembly from exact retained Scan Reference lineage; and
+* explicit Artifact Author/Subject creation, state revision, correction, and
+  history workflows.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
-teacher-local collaboration-context workflows and PDS2 Artifact Page routing are
-complete. Later issues add returned Artifact assembly, Author/Subject workflows,
+teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
+assembly, and Author/Subject workflows are complete. Later issues add
 Review/Moderation, scoring, publication, and consumer integration. The Concord
 routing entry point is declared; the publication entry point remains absent.
 
@@ -56,6 +60,15 @@ routing entry point is declared; the publication entry point remains absent.
 Documents route identity, canonical-before-render ordering, immutable route
 reconciliation, retained-source intake, Scan References, dispatch/replay,
 routing review, privacy, partial success, and the handoff to issue #28.
+
+
+### 15. Artifact assembly and Author/Subject management
+
+[`implementation/artifact-assembly-author-subject-management.md`](implementation/artifact-assembly-author-subject-management.md)
+
+Documents Artifact return-state roll-up, exact retained-source assembly,
+immutable lineage manifests, explicit Author/Subject workflows, correction
+history, privacy, identity separation, and the handoff to issue #29.
 
 ### 10. Native model implementation
 

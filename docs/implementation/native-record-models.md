@@ -117,3 +117,12 @@ Review/Moderation, scoring, publication, consumer adapters, grading, reporting,
 or authentication. Those responsibilities remain assigned to issues #28 through
 #34.
 
+## Issue #28 operational refinement
+
+Artifact Author and Subject records now have workflow services for explicit
+creation, state revision, semantic replacement, and current/history readers.
+A genuinely unknown Artifact Author may omit `author_reference` only when both
+`authorship_mode` and `attribution_status` are `unknown`; every other authorship
+mode still requires its typed identity. Semantic Author/Subject corrections
+create explicit successor associations plus immutable `CorrectionRecord`
+history rather than rewriting predecessor identity.

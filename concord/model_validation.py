@@ -13,6 +13,7 @@ from pds_core.standards_selection import resolve_profile_standard_selection
 
 from concord.models import (
     Activity,
+    ActorReference,
     ArtifactAuthor,
     ArtifactInstance,
     ArtifactPage,
@@ -26,6 +27,7 @@ from concord.models import (
     Group,
     GroupMembership,
     ModerationRecord,
+    ParticipantReference,
     ResponsibilityAssignment,
     RoleAssignment,
     ScanReference,
@@ -197,6 +199,397 @@ def _check_context(
             "sequence_end",
         )
 
+
+_PARTICIPANT_AUTHORSHIP_MODES = frozenset(
+    {
+        "individual_author",
+        "co_author",
+        "observer",
+        "recorder",
+        "recorder_for_group",
+    }
+)
+_ACTOR_AUTHORSHIP_MODES = frozenset(
+    {"teacher_author", "authorized_adult_author"}
+)
+_SUBJECT_ROLE_KINDS = {
+    "observed_participant": "core_student",
+    "represented_group": "concord_group",
+    "activity_context": "concord_activity",
+    "session_context": "concord_session",
+    "evaluated_artifact": "concord_artifact_instance",
+}
+_PRE_RETURN_ARTIFACT_STATUSES = frozenset(
+    {"planned", "generated", "distributed"}
+)
+
+
+def _artifact_author_semantic_key(author: ArtifactAuthor) -> tuple[object, ...]:
+    return (
+        author.artifact_instance_id,
+        author.author_reference,
+        author.authorship_mode,
+        author.represented_group_id,
+        author.role_assignment_id,
+        author.representation_status,
+    )
+
+
+def _artifact_subject_semantic_key(subject: ArtifactSubject) -> tuple[object, ...]:
+    return (
+        subject.artifact_instance_id,
+        subject.subject_reference,
+        subject.subject_role,
+        subject.criterion_id,
+    )
+
+
+def _validate_issue28_return_graph(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+    pages: dict[str, ArtifactPage],
+) -> None:
+    for artifact in graph.artifact_instances:
+        declared: list[ArtifactPage] = []
+        complete = True
+        for page_id in artifact.page_ids:
+            page = pages.get(page_id)
+            if (
+                page is None
+                or page.artifact_instance_id != artifact.artifact_instance_id
+            ):
+                complete = False
+                continue
+            if page.return_expected:
+                declared.append(page)
+        if not complete:
+            continue
+        required_count = len(declared)
+        returned_count = sum(page.page_status == "returned" for page in declared)
+        status = artifact.artifact_status
+        coherent = True
+        if status in _PRE_RETURN_ARTIFACT_STATUSES:
+            coherent = returned_count == 0
+        elif status == "partially_returned":
+            coherent = 0 < returned_count < required_count
+        elif status == "returned":
+            coherent = required_count > 0 and returned_count == required_count
+        if not coherent:
+            _issue(
+                issues,
+                "artifact.return_state.incoherent",
+                "Artifact return state disagrees with its return-expected Pages.",
+                "artifact_instance",
+                artifact.artifact_instance_id,
+                "artifact_status",
+            )
+
+
+def _validate_issue28_author_graph(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+    artifacts: dict[str, ArtifactInstance],
+    groups: dict[str, Group],
+    roles: dict[str, RoleAssignment],
+) -> None:
+    predecessor_ids = {
+        item.supersedes_artifact_author_id
+        for item in graph.artifact_authors
+        if item.supersedes_artifact_author_id is not None
+    }
+    current = tuple(
+        item
+        for item in graph.artifact_authors
+        if item.artifact_author_id not in predecessor_ids
+        and item.attribution_status != "superseded"
+    )
+    counts = Counter(_artifact_author_semantic_key(item) for item in current)
+    for author in current:
+        if counts[_artifact_author_semantic_key(author)] > 1:
+            _issue(
+                issues,
+                "author.current.duplicate",
+                "Equivalent current Artifact Author associations are duplicated.",
+                "artifact_author",
+                author.artifact_author_id,
+            )
+
+    for author in graph.artifact_authors:
+        artifact = artifacts.get(author.artifact_instance_id)
+        reference = author.author_reference
+        if (
+            author.authorship_mode in _PARTICIPANT_AUTHORSHIP_MODES
+            and not isinstance(reference, ParticipantReference)
+        ):
+            _issue(
+                issues,
+                "author.reference.mode_mismatch",
+                "Participant authorship mode requires a Participant reference.",
+                "artifact_author",
+                author.artifact_author_id,
+                "author_reference",
+            )
+        if (
+            author.authorship_mode in _ACTOR_AUTHORSHIP_MODES
+            and not isinstance(reference, ActorReference)
+        ):
+            _issue(
+                issues,
+                "author.reference.mode_mismatch",
+                "Adult authorship mode requires an Actor reference.",
+                "artifact_author",
+                author.artifact_author_id,
+                "author_reference",
+            )
+        if isinstance(reference, ActorReference) and (
+            author.authorship_mode in _ACTOR_AUTHORSHIP_MODES
+            and reference.actor_kind != "authorized_adult"
+        ):
+            _issue(
+                issues,
+                "author.actor.invalid",
+                "Teacher/adult authorship requires an authorized-adult Actor.",
+                "artifact_author",
+                author.artifact_author_id,
+                "author_reference",
+            )
+        if author.authorship_mode == "collective_group_author":
+            if not (
+                isinstance(reference, ConcordRecordReference)
+                and reference.record_kind == "group"
+            ):
+                _issue(
+                    issues,
+                    "author.collective_group.invalid",
+                    "Collective Group Author must reference one Concord Group.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "author_reference",
+                )
+        if (
+            isinstance(reference, ConcordRecordReference)
+            and reference.record_kind == "group"
+            and artifact is not None
+        ):
+            group = groups.get(reference.record_id)
+            if group is None or group.activity_id != artifact.activity_id:
+                _issue(
+                    issues,
+                    "author.reference.group_invalid",
+                    "Collective Author Group is invalid for the Artifact Activity.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "author_reference",
+                )
+        if (
+            author.represented_group_id is not None
+            and author.authorship_mode != "recorder_for_group"
+        ):
+            _issue(
+                issues,
+                "author.represented_group.mode_mismatch",
+                "represented_group_id is reserved for recorder-for-Group authorship.",
+                "artifact_author",
+                author.artifact_author_id,
+                "represented_group_id",
+            )
+        if author.authorship_mode == "recorder_for_group":
+            if not isinstance(reference, ParticipantReference):
+                _issue(
+                    issues,
+                    "author.recorder.invalid",
+                    "Recorder-for-Group requires an individual Participant reference.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "author_reference",
+                )
+            if author.representation_status is None:
+                _issue(
+                    issues,
+                    "author.recorder.representation_required",
+                    "Recorder-for-Group requires explicit representation status.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "representation_status",
+                )
+        if author.role_assignment_id is not None:
+            role = roles.get(author.role_assignment_id)
+            if (
+                role is not None
+                and author.represented_group_id is not None
+                and role.group_id is not None
+                and role.group_id != author.represented_group_id
+            ):
+                _issue(
+                    issues,
+                    "author.role.group_mismatch",
+                    "Author Role Group differs from the represented Group.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "role_assignment_id",
+                )
+
+
+def _validate_issue28_subject_graph(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+    activities: dict[str, Activity],
+    sessions: dict[str, Session],
+    groups: dict[str, Group],
+    artifacts: dict[str, ArtifactInstance],
+    criteria: dict[str, Criterion],
+) -> None:
+    predecessor_ids = {
+        item.supersedes_artifact_subject_id
+        for item in graph.artifact_subjects
+        if item.supersedes_artifact_subject_id is not None
+    }
+    current = tuple(
+        item
+        for item in graph.artifact_subjects
+        if item.artifact_subject_id not in predecessor_ids
+        and item.confirmation_status != "superseded"
+    )
+    counts = Counter(_artifact_subject_semantic_key(item) for item in current)
+    for subject in current:
+        if counts[_artifact_subject_semantic_key(subject)] > 1:
+            _issue(
+                issues,
+                "subject.current.duplicate",
+                "Equivalent current Artifact Subject associations are duplicated.",
+                "artifact_subject",
+                subject.artifact_subject_id,
+            )
+
+    for subject in graph.artifact_subjects:
+        artifact = artifacts.get(subject.artifact_instance_id)
+        reference = subject.subject_reference
+        if (
+            reference.subject_kind == "core_student"
+            and reference.owning_system != "core"
+        ):
+            _issue(
+                issues,
+                "subject.reference.owner_mismatch",
+                "Core student Subject must be owned by Core.",
+                "artifact_subject",
+                subject.artifact_subject_id,
+                "subject_reference",
+            )
+        if (
+            reference.subject_kind == "external_record"
+            and reference.owning_system == "concord"
+        ):
+            _issue(
+                issues,
+                "subject.reference.owner_mismatch",
+                "External Subject must not pretend to be Concord-owned.",
+                "artifact_subject",
+                subject.artifact_subject_id,
+                "subject_reference",
+            )
+        target: Activity | Session | Group | ArtifactInstance | None = None
+        if reference.subject_kind == "concord_activity":
+            target = activities.get(reference.subject_id)
+        elif reference.subject_kind == "concord_session":
+            target = sessions.get(reference.subject_id)
+        elif reference.subject_kind == "concord_group":
+            target = groups.get(reference.subject_id)
+        elif reference.subject_kind == "concord_artifact_instance":
+            target = artifacts.get(reference.subject_id)
+        if (
+            artifact is not None
+            and target is not None
+            and target.activity_id != artifact.activity_id
+        ):
+            _issue(
+                issues,
+                "subject.reference.activity_mismatch",
+                "Subject target belongs to another Activity.",
+                "artifact_subject",
+                subject.artifact_subject_id,
+                "subject_reference",
+            )
+        expected_kind = _SUBJECT_ROLE_KINDS.get(subject.subject_role)
+        if expected_kind is not None and reference.subject_kind != expected_kind:
+            _issue(
+                issues,
+                "subject.role.reference_mismatch",
+                "Built-in Subject role is incompatible with its reference kind.",
+                "artifact_subject",
+                subject.artifact_subject_id,
+                "subject_role",
+            )
+        if subject.criterion_id is not None:
+            criterion = criteria.get(subject.criterion_id)
+            if criterion is None:
+                _issue(
+                    issues,
+                    "subject.criterion.missing",
+                    "Artifact Subject references a missing Criterion.",
+                    "artifact_subject",
+                    subject.artifact_subject_id,
+                    "criterion_id",
+                )
+            elif artifact is not None:
+                activity = activities.get(artifact.activity_id)
+                if (
+                    activity is None
+                    or criterion.criterion_set_id not in activity.criterion_set_ids
+                ):
+                    _issue(
+                        issues,
+                        "subject.criterion.activity_mismatch",
+                        "Subject Criterion is outside the Artifact Activity.",
+                        "artifact_subject",
+                        subject.artifact_subject_id,
+                        "criterion_id",
+                    )
+
+
+def _validate_issue28_correction_types(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    expected_targets = {
+        "author_correction": "artifact_author",
+        "subject_correction": "artifact_subject",
+    }
+    expected_types = {
+        "artifact_author": "author_correction",
+        "artifact_subject": "subject_correction",
+    }
+    for correction in graph.correction_records:
+        target_kind = correction.target_reference.record_kind
+        expected_target = expected_targets.get(correction.correction_type)
+        expected_type = expected_types.get(target_kind)
+        if (
+            expected_target is not None
+            and target_kind != expected_target
+        ) or (
+            expected_type is not None
+            and correction.correction_type != expected_type
+        ):
+            _issue(
+                issues,
+                "correction.type.target_mismatch",
+                "Author/Subject correction type disagrees with its target.",
+                "correction",
+                correction.correction_id,
+                "correction_type",
+            )
+        if (
+            correction.correction_type in expected_targets
+            and correction.replacement_reference is None
+        ):
+            _issue(
+                issues,
+                "correction.replacement.required",
+                "Author/Subject semantic correction requires a replacement.",
+                "correction",
+                correction.correction_id,
+                "replacement_reference",
+            )
 
 def collect_record_graph_issues(
     graph: ConcordRecordGraph,
@@ -682,11 +1075,18 @@ def collect_record_graph_issues(
                     author.artifact_author_id,
                     "role_assignment_id",
                 )
-            elif (
-                hasattr(author.author_reference, "participant_id")
-                and author_role.participant_reference.participant_id
-                != author.author_reference.participant_id
+            elif not isinstance(
+                author.author_reference, ParticipantReference
             ):
+                _issue(
+                    issues,
+                    "author.role.reference_invalid",
+                    "Author Role context requires a Participant Author.",
+                    "artifact_author",
+                    author.artifact_author_id,
+                    "author_reference",
+                )
+            elif author_role.participant_reference != author.author_reference:
                 _issue(
                     issues,
                     "author.role.participant_mismatch",
@@ -719,6 +1119,18 @@ def collect_record_graph_issues(
             "artifact_subject",
             subject.artifact_subject_id,
         )
+
+    _validate_issue28_return_graph(issues, graph, pages)
+    _validate_issue28_author_graph(issues, graph, artifacts, groups, roles)
+    _validate_issue28_subject_graph(
+        issues,
+        graph,
+        activities,
+        sessions,
+        groups,
+        artifacts,
+        criteria,
+    )
 
     for review in graph.artifact_reviews:
         if review.artifact_instance_id not in artifacts:
@@ -1072,6 +1484,7 @@ def collect_record_graph_issues(
         if predecessor_field:
             _validate_supersession(issues, values, kind, id_field, predecessor_field)
     _validate_correction_replacements(issues, graph)
+    _validate_issue28_correction_types(issues, graph)
     return tuple(sorted(issues, key=lambda item: item.sort_key))
 
 

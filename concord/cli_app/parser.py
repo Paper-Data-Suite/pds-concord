@@ -480,9 +480,154 @@ def _artifact_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parent = subparsers.add_parser(
-        "artifact", help="Prepare and render Artifact Pages."
+        "artifact", help="Manage Artifacts, attribution, and physical pages."
     )
     actions = parent.add_subparsers(dest="artifact_command", required=True)
+
+    list_artifacts = actions.add_parser("list", help="List Artifact Instances.")
+    _workspace_option(list_artifacts)
+    _class_activity(list_artifacts)
+    list_artifacts.set_defaults(handler=artifact.handle_artifact_list)
+
+    show_artifact = actions.add_parser("show", help="Show one Artifact Instance.")
+    _workspace_option(show_artifact)
+    _class_activity(show_artifact)
+    show_artifact.add_argument("--artifact-instance-id", required=True)
+    show_artifact.set_defaults(handler=artifact.handle_artifact_show)
+
+    assemble = actions.add_parser(
+        "assemble", help="Assemble exact returned physical-page evidence."
+    )
+    _workspace_option(assemble)
+    _expected_option(assemble)
+    _actor_options(assemble)
+    _class_activity(assemble)
+    assemble.add_argument("--artifact-instance-id", required=True)
+    assemble.add_argument(
+        "--select",
+        action="append",
+        help=(
+            "Exact ambiguous occurrence selection as "
+            "ARTIFACT_PAGE_ID=SCAN_REFERENCE_ID; repeat when needed."
+        ),
+    )
+    assemble.set_defaults(
+        handler=artifact.handle_assemble,
+        command_parser=assemble,
+    )
+
+    author = actions.add_parser("author", help="Manage Artifact Authors.")
+    author_actions = author.add_subparsers(dest="author_command", required=True)
+
+    author_add = author_actions.add_parser("add", help="Add an explicit Author.")
+    _mutating_options(author_add)
+    _class_activity(author_add)
+    author_add.add_argument("--artifact-instance-id", required=True)
+    author_add.add_argument("--artifact-author-id", required=True)
+    _artifact_author_semantic_options(author_add)
+    author_add.set_defaults(
+        handler=artifact.handle_author_add,
+        command_parser=author_add,
+    )
+
+    author_list = author_actions.add_parser("list", help="List Artifact Authors.")
+    _workspace_option(author_list)
+    _class_activity(author_list)
+    author_list.add_argument("--artifact-instance-id")
+    author_list.add_argument("--include-historical", action="store_true")
+    author_list.set_defaults(handler=artifact.handle_author_list)
+
+    author_show = author_actions.add_parser("show", help="Show one Artifact Author.")
+    _workspace_option(author_show)
+    _class_activity(author_show)
+    author_show.add_argument("--artifact-author-id", required=True)
+    author_show.set_defaults(handler=artifact.handle_author_show)
+
+    author_update = author_actions.add_parser(
+        "update", help="Update the state of the same Author association."
+    )
+    _mutating_options(author_update)
+    _class_activity(author_update)
+    author_update.add_argument("--artifact-author-id", required=True)
+    author_update.add_argument(
+        "--attribution-status",
+        required=True,
+        choices=("proposed", "confirmed", "disputed", "unknown"),
+    )
+    author_update.set_defaults(handler=artifact.handle_author_update)
+
+    author_replace = author_actions.add_parser(
+        "replace", help="Create a corrected successor Author association."
+    )
+    _mutating_options(author_replace)
+    _class_activity(author_replace)
+    author_replace.add_argument("--artifact-author-id", required=True)
+    author_replace.add_argument("--replacement-artifact-author-id", required=True)
+    author_replace.add_argument("--correction-id", required=True)
+    author_replace.add_argument("--reason", required=True)
+    _artifact_author_semantic_options(author_replace)
+    author_replace.add_argument("--correction-privacy-classification")
+    author_replace.set_defaults(
+        handler=artifact.handle_author_replace,
+        command_parser=author_replace,
+    )
+
+    subject = actions.add_parser("subject", help="Manage Artifact Subjects.")
+    subject_actions = subject.add_subparsers(dest="subject_command", required=True)
+
+    subject_add = subject_actions.add_parser("add", help="Add an explicit Subject.")
+    _mutating_options(subject_add)
+    _class_activity(subject_add)
+    subject_add.add_argument("--artifact-instance-id", required=True)
+    subject_add.add_argument("--artifact-subject-id", required=True)
+    _artifact_subject_semantic_options(subject_add)
+    subject_add.set_defaults(
+        handler=artifact.handle_subject_add,
+        command_parser=subject_add,
+    )
+
+    subject_list = subject_actions.add_parser("list", help="List Artifact Subjects.")
+    _workspace_option(subject_list)
+    _class_activity(subject_list)
+    subject_list.add_argument("--artifact-instance-id")
+    subject_list.add_argument("--include-historical", action="store_true")
+    subject_list.set_defaults(handler=artifact.handle_subject_list)
+
+    subject_show = subject_actions.add_parser("show", help="Show one Artifact Subject.")
+    _workspace_option(subject_show)
+    _class_activity(subject_show)
+    subject_show.add_argument("--artifact-subject-id", required=True)
+    subject_show.set_defaults(handler=artifact.handle_subject_show)
+
+    subject_update = subject_actions.add_parser(
+        "update", help="Update the state of the same Subject association."
+    )
+    _mutating_options(subject_update)
+    _class_activity(subject_update)
+    subject_update.add_argument("--artifact-subject-id", required=True)
+    subject_update.add_argument(
+        "--confirmation-status",
+        required=True,
+        choices=("proposed", "confirmed", "disputed", "unresolved"),
+    )
+    subject_update.set_defaults(handler=artifact.handle_subject_update)
+
+    subject_replace = subject_actions.add_parser(
+        "replace", help="Create a corrected successor Subject association."
+    )
+    _mutating_options(subject_replace)
+    _class_activity(subject_replace)
+    subject_replace.add_argument("--artifact-subject-id", required=True)
+    subject_replace.add_argument("--replacement-artifact-subject-id", required=True)
+    subject_replace.add_argument("--correction-id", required=True)
+    subject_replace.add_argument("--reason", required=True)
+    _artifact_subject_semantic_options(subject_replace)
+    subject_replace.add_argument("--correction-privacy-classification")
+    subject_replace.set_defaults(
+        handler=artifact.handle_subject_replace,
+        command_parser=subject_replace,
+    )
+
     page = actions.add_parser("page", help="Prepare or inspect physical pages.")
     page_actions = page.add_subparsers(dest="page_command", required=True)
     prepare = page_actions.add_parser("prepare", help="Preallocate pages and routes.")
@@ -508,6 +653,7 @@ def _artifact_commands(
     _class_activity(show)
     show.add_argument("--artifact-page-id", required=True)
     show.set_defaults(handler=artifact.handle_show)
+
     render = actions.add_parser("render", help="Render verified route-bearing pages.")
     _workspace_option(render)
     _expected_option(render)
@@ -517,6 +663,93 @@ def _artifact_commands(
     render.add_argument("--output")
     render.set_defaults(handler=artifact.handle_render)
 
+
+def _artifact_author_semantic_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--author-kind",
+        required=True,
+        choices=(
+            "core_student",
+            "concord_group",
+            "current_actor",
+            "authorized_adult",
+            "unknown",
+        ),
+    )
+    parser.add_argument("--author-id")
+    parser.add_argument("--author-owner")
+    parser.add_argument("--author-label")
+    parser.add_argument(
+        "--authorship-mode",
+        required=True,
+        choices=(
+            "individual_author",
+            "co_author",
+            "observer",
+            "recorder",
+            "recorder_for_group",
+            "collective_group_author",
+            "teacher_author",
+            "authorized_adult_author",
+            "unknown",
+        ),
+    )
+    parser.add_argument(
+        "--attribution-status",
+        default="confirmed",
+        choices=("proposed", "confirmed", "disputed", "unknown"),
+    )
+    parser.add_argument(
+        "--attribution-source",
+        default="teacher",
+        choices=("teacher", "participant", "imported", "system", "unknown"),
+    )
+    parser.add_argument("--represented-group-id")
+    parser.add_argument("--role-assignment-id")
+    parser.add_argument(
+        "--representation-status",
+        choices=(
+            "individual_view",
+            "recorder_summary",
+            "majority_position",
+            "unanimous_position",
+            "multiple_named_positions",
+            "no_consensus",
+            "not_applicable",
+        ),
+    )
+    parser.add_argument("--privacy-classification")
+
+
+def _artifact_subject_semantic_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--subject-kind",
+        required=True,
+        choices=(
+            "core_student",
+            "concord_group",
+            "concord_session",
+            "concord_activity",
+            "concord_artifact_instance",
+            "external_record",
+        ),
+    )
+    parser.add_argument("--subject-id", required=True)
+    parser.add_argument("--subject-owner")
+    parser.add_argument("--subject-contract-version")
+    parser.add_argument("--subject-role", required=True)
+    parser.add_argument(
+        "--confirmation-status",
+        default="confirmed",
+        choices=("proposed", "confirmed", "disputed", "unresolved"),
+    )
+    parser.add_argument(
+        "--assignment-source",
+        default="teacher",
+        choices=("teacher", "participant", "imported", "system"),
+    )
+    parser.add_argument("--criterion-id")
+    parser.add_argument("--privacy-classification")
 
 def _scan_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],

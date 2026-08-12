@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Returned Artifact state roll-up and reproducible PDF assembly from exact
+  Core-retained Scan Reference lineage, with immutable derivative manifests.
+- Explicit zero-to-many Artifact Author and Artifact Subject workflow services,
+  including true unknown Author state, status revision, semantic correction,
+  durable supersession, and correction history.
+- Direct Artifact/assembly/Author/Subject CLI commands and teacher-facing
+  Artifact, assembly, Author, and Subject menus.
 - Core PDS2 Artifact Page integration with native preallocation, one immutable
   route per physical page, verified PDF rendering, and an installed Concord
   `paper_data_suite.modules` profile.

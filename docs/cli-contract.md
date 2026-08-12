@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.2.0 PDS2 Artifact Page workflow in issue #27.
+Implemented through the v0.2.0 Artifact assembly and Author/Subject workflow in issue #28.
 
 ## Two interfaces, one service layer
 
@@ -66,6 +66,22 @@ concord responsibility assign
 concord responsibility list
 concord responsibility end
 concord responsibility reassign
+
+concord artifact list
+concord artifact show
+concord artifact assemble
+
+concord artifact author add
+concord artifact author list
+concord artifact author show
+concord artifact author update
+concord artifact author replace
+
+concord artifact subject add
+concord artifact subject list
+concord artifact subject show
+concord artifact subject update
+concord artifact subject replace
 
 concord artifact page prepare
 concord artifact page list
@@ -182,10 +198,11 @@ H. Help
 Q. Quit
 ```
 
-An opened Activity includes Artifact Pages for preparation, compact inspection,
-and rendering. Teacher writes require `CREATE`, `RENDER`, `ROUTE`, or `RESOLVE`
-as applicable. Global routing review remains available when a failed scan has no
-trustworthy Activity locator.
+An opened Activity includes page preparation/inspection/rendering, Artifact
+inspection and returned assembly, and explicit Author/Subject management.
+Teacher writes require operation-specific words such as `CREATE`, `RENDER`,
+`ASSEMBLE`, `ADD`, `UPDATE`, and `CORRECT`. Global routing review remains
+available when a failed scan has no trustworthy Activity locator.
 
 Within controlled submenus:
 
@@ -227,8 +244,7 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 ## Boundaries
 
-This contract adds Artifact Page preparation/routing and retained scan filing,
-but does not add returned Artifact assembly, Author/Subject management, Review,
-Moderation, Criteria/Scale/Score entry, publication,
-Meridian grading policy, Grade calculation, or destructive collaboration-record
-deletion.
+This contract includes returned Artifact assembly and Author/Subject management,
+but does not add Artifact Review, Moderation, Criteria/Scale/Score entry,
+publication, Meridian grading policy, Grade calculation, or destructive
+collaboration-record deletion.
