@@ -43,14 +43,16 @@ The repository now contains:
 * Artifact-level return-state reconciliation and reproducible returned-PDF
   assembly from exact retained Scan Reference lineage; and
 * explicit Artifact Author/Subject creation, state revision, correction, and
-  history workflows.
+  history workflows; and
+* explicit Artifact Review and evidence Moderation with preserved history,
+  exact evidence/Subject scope, and a guarded Score handoff.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
 teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
-assembly, and Author/Subject workflows are complete. Later issues add
-Review/Moderation, scoring, publication, and consumer integration. The Concord
+assembly, Author/Subject, and Review/Moderation workflows are complete. Later
+issues add scoring, publication, and consumer integration. The Concord
 routing entry point is declared; the publication entry point remains absent.
 
 ### 14. PDS2 Artifact Page integration
@@ -69,6 +71,14 @@ routing review, privacy, partial success, and the handoff to issue #28.
 Documents Artifact return-state roll-up, exact retained-source assembly,
 immutable lineage manifests, explicit Author/Subject workflows, correction
 history, privacy, identity separation, and the handoff to issue #29.
+
+### 16. Artifact Review and Moderation
+
+[`implementation/artifact-review-moderation.md`](implementation/artifact-review-moderation.md)
+
+Documents explicit human Review, Moderation evidence and Subject scope, preserved
+decision history, Core Publication-reference verification, direct/menu
+workflows, Score-handoff validation, and installed-wheel acceptance.
 
 ### 10. Native model implementation
 

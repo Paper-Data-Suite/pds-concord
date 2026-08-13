@@ -104,7 +104,8 @@ occurrences. It contains no student, Author, Subject, Group, Score, or Grade.
 
 Historical replacement uses explicit `supersedes_*` fields. Graph validation
 requires predecessor resolution and rejects self-reference, branches, cycles,
-and backward Score times. Correction Records explain invalidation or connect a
+and backward Score, Review, or Moderation decision times. Correction Records
+explain invalidation or connect a
 target to a same-history successor; they never retarget or delete historical
 references. Current state is derived from an explicit chain, not identifier or
 timestamp ordering alone.
@@ -112,10 +113,9 @@ timestamp ordering alone.
 ## Deliberately deferred
 
 The current layer does not implement Templates or Packets beyond opaque identity
-references, returned Artifact assembly, Author/Subject management workflows,
-Review/Moderation, scoring, publication, consumer adapters, grading, reporting,
-or authentication. Those responsibilities remain assigned to issues #28 through
-#34.
+references, scoring workflows, publication, consumer adapters, grading,
+reporting, or authentication. Those responsibilities remain assigned to later
+v0.2.0 issues.
 
 ## Issue #28 operational refinement
 
@@ -126,3 +126,17 @@ A genuinely unknown Artifact Author may omit `author_reference` only when both
 mode still requires its typed identity. Semantic Author/Subject corrections
 create explicit successor associations plus immutable `CorrectionRecord`
 history rather than rewriting predecessor identity.
+
+## Issue #29 operational refinement
+
+Artifact Review now has one explicit administrative lineage per Artifact.
+Contradictory readiness/outcome combinations are rejected, current state derives
+from supersession rather than recency, and Review replacement requires an exact
+`review_correction`.
+
+Moderation now uses exact `EvidenceReference` plus canonical Subject scope as its
+semantic current-state key. External immutable lineage may be bound to an exact
+Core Publication Record through Core's public registry service. Moderation
+revision preserves exact evidence/scope and requires an exact
+`moderation_revision`. Score-link graph validation enforces current applicable
+Moderation without creating Scores.

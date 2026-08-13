@@ -591,6 +591,564 @@ def _validate_issue28_correction_types(
                 "replacement_reference",
             )
 
+
+def _review_heads(graph: ConcordRecordGraph) -> tuple[ArtifactReview, ...]:
+    predecessor_ids = {
+        item.supersedes_artifact_review_id
+        for item in graph.artifact_reviews
+        if item.supersedes_artifact_review_id is not None
+    }
+    return tuple(
+        item
+        for item in graph.artifact_reviews
+        if item.artifact_review_id not in predecessor_ids
+    )
+
+
+def _moderation_scope_key(
+    record: ModerationRecord,
+) -> tuple[object, tuple[object, ...]]:
+    return (
+        record.target_evidence_reference,
+        tuple(record.target_subject_references),
+    )
+
+
+def _moderation_heads(graph: ConcordRecordGraph) -> tuple[ModerationRecord, ...]:
+    predecessor_ids = {
+        item.supersedes_moderation_record_id
+        for item in graph.moderation_records
+        if item.supersedes_moderation_record_id is not None
+    }
+    return tuple(
+        item
+        for item in graph.moderation_records
+        if item.moderation_record_id not in predecessor_ids
+    )
+
+
+def _moderation_activity_id(
+    graph: ConcordRecordGraph,
+    record: ModerationRecord,
+    artifacts: dict[str, ArtifactInstance],
+    pages: dict[str, ArtifactPage],
+) -> str | None:
+    reference = record.target_evidence_reference
+    if reference.owning_system == "concord":
+        if reference.evidence_kind == "artifact_instance":
+            artifact = artifacts.get(reference.record_id)
+            return None if artifact is None else artifact.activity_id
+        if reference.evidence_kind == "artifact_page":
+            page = pages.get(reference.record_id)
+            artifact = (
+                artifacts.get(page.artifact_instance_id)
+                if page is not None
+                else None
+            )
+            return None if artifact is None else artifact.activity_id
+    if len(graph.activities) == 1:
+        return graph.activities[0].activity_id
+    return None
+
+
+def _subject_activity_id(
+    reference: Any,
+    activities: dict[str, Activity],
+    sessions: dict[str, Session],
+    groups: dict[str, Group],
+    artifacts: dict[str, ArtifactInstance],
+) -> str | None:
+    if reference.subject_kind == "concord_activity":
+        return reference.subject_id if reference.subject_id in activities else None
+    if reference.subject_kind == "concord_session":
+        session = sessions.get(reference.subject_id)
+        return None if session is None else session.activity_id
+    if reference.subject_kind == "concord_group":
+        group = groups.get(reference.subject_id)
+        return None if group is None else group.activity_id
+    if reference.subject_kind == "concord_artifact_instance":
+        artifact = artifacts.get(reference.subject_id)
+        return None if artifact is None else artifact.activity_id
+    return None
+
+
+def _validate_issue29_review_graph(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    heads = _review_heads(graph)
+    counts = Counter(item.artifact_instance_id for item in heads)
+    for review in heads:
+        if counts[review.artifact_instance_id] > 1:
+            _issue(
+                issues,
+                "review.current.multiple_heads",
+                "Artifact has more than one current Review head.",
+                "artifact_review",
+                review.artifact_review_id,
+                "supersedes_artifact_review_id",
+            )
+
+
+def _validate_issue29_moderation_graph(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+    activities: dict[str, Activity],
+    sessions: dict[str, Session],
+    groups: dict[str, Group],
+    artifacts: dict[str, ArtifactInstance],
+    pages: dict[str, ArtifactPage],
+) -> None:
+    heads = _moderation_heads(graph)
+    counts = Counter(_moderation_scope_key(item) for item in heads)
+    for moderation in heads:
+        if counts[_moderation_scope_key(moderation)] > 1:
+            _issue(
+                issues,
+                "moderation.current.duplicate_scope",
+                "Evidence and Subject scope has competing current Moderation heads.",
+                "moderation_record",
+                moderation.moderation_record_id,
+            )
+
+    for moderation in graph.moderation_records:
+        activity_id = _moderation_activity_id(
+            graph,
+            moderation,
+            artifacts,
+            pages,
+        )
+        for index, subject in enumerate(moderation.target_subject_references):
+            _validate_subject(
+                issues,
+                subject.subject_kind,
+                subject.subject_id,
+                subject.owning_system,
+                activities,
+                sessions,
+                groups,
+                artifacts,
+                "moderation_record",
+                moderation.moderation_record_id,
+            )
+            subject_activity_id = _subject_activity_id(
+                subject,
+                activities,
+                sessions,
+                groups,
+                artifacts,
+            )
+            if (
+                activity_id is not None
+                and subject_activity_id is not None
+                and subject_activity_id != activity_id
+            ):
+                _issue(
+                    issues,
+                    "moderation.subject.activity_mismatch",
+                    "Moderation Subject belongs to another Activity.",
+                    "moderation_record",
+                    moderation.moderation_record_id,
+                    "target_subject_references",
+                    index,
+                )
+
+
+def _validate_issue29_correction_types(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    expected_targets = {
+        "review_correction": "artifact_review",
+        "moderation_revision": "moderation_record",
+    }
+    expected_types = {
+        "artifact_review": "review_correction",
+        "moderation_record": "moderation_revision",
+    }
+    for correction in graph.correction_records:
+        target_kind = correction.target_reference.record_kind
+        expected_target = expected_targets.get(correction.correction_type)
+        expected_type = expected_types.get(target_kind)
+        if (
+            expected_target is not None
+            and target_kind != expected_target
+        ) or (
+            expected_type is not None
+            and correction.correction_type != expected_type
+        ):
+            _issue(
+                issues,
+                "correction.type.target_mismatch",
+                "Review/Moderation correction type disagrees with its target.",
+                "correction",
+                correction.correction_id,
+                "correction_type",
+            )
+        if (
+            correction.correction_type in expected_targets
+            and correction.replacement_reference is None
+        ):
+            _issue(
+                issues,
+                "correction.replacement.required",
+                "Review/Moderation revision requires a replacement.",
+                "correction",
+                correction.correction_id,
+                "replacement_reference",
+            )
+
+
+
+def _issue29_revision_correction_exists(
+    graph: ConcordRecordGraph,
+    *,
+    correction_type: str,
+    record_kind: str,
+    predecessor_id: str,
+    successor_id: str,
+) -> bool:
+    return any(
+        correction.correction_type == correction_type
+        and correction.target_reference.record_kind == record_kind
+        and correction.target_reference.record_id == predecessor_id
+        and correction.replacement_reference is not None
+        and correction.replacement_reference.record_kind == record_kind
+        and correction.replacement_reference.record_id == successor_id
+        for correction in graph.correction_records
+    )
+
+
+def _validate_issue29_revision_audits(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    for review in graph.artifact_reviews:
+        predecessor_id = review.supersedes_artifact_review_id
+        if predecessor_id is None:
+            continue
+        if not _issue29_revision_correction_exists(
+            graph,
+            correction_type="review_correction",
+            record_kind="artifact_review",
+            predecessor_id=predecessor_id,
+            successor_id=review.artifact_review_id,
+        ):
+            _issue(
+                issues,
+                "review.correction.missing",
+                "Review successor lacks its exact review_correction audit record.",
+                "artifact_review",
+                review.artifact_review_id,
+                "supersedes_artifact_review_id",
+            )
+
+    for moderation in graph.moderation_records:
+        predecessor_id = moderation.supersedes_moderation_record_id
+        if predecessor_id is None:
+            continue
+        if not _issue29_revision_correction_exists(
+            graph,
+            correction_type="moderation_revision",
+            record_kind="moderation_record",
+            predecessor_id=predecessor_id,
+            successor_id=moderation.moderation_record_id,
+        ):
+            _issue(
+                issues,
+                "moderation.correction.missing",
+                "Moderation successor lacks its exact revision audit record.",
+                "moderation_record",
+                moderation.moderation_record_id,
+                "supersedes_moderation_record_id",
+            )
+
+
+def _validate_issue29_moderation_reference_integrity(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    for moderation in graph.moderation_records:
+        reference = moderation.target_evidence_reference
+        if (
+            reference.owning_system == "concord"
+            and reference.evidence_kind not in {"artifact_instance", "artifact_page"}
+        ):
+            _issue(
+                issues,
+                "moderation.evidence.local_kind_invalid",
+                "Concord-owned Moderation evidence must be an Artifact or Page.",
+                "moderation_record",
+                moderation.moderation_record_id,
+                "target_evidence_reference",
+            )
+        if (
+            reference.owning_system != "concord"
+            and reference.evidence_kind in {"artifact_instance", "artifact_page"}
+        ):
+            _issue(
+                issues,
+                "moderation.evidence.owner_mismatch",
+                "Artifact evidence used by Moderation must be Concord-owned.",
+                "moderation_record",
+                moderation.moderation_record_id,
+                "target_evidence_reference",
+            )
+        for index, subject in enumerate(moderation.target_subject_references):
+            if (
+                subject.subject_kind == "core_student"
+                and subject.owning_system != "core"
+            ):
+                _issue(
+                    issues,
+                    "moderation.subject.owner_mismatch",
+                    "Core-student Moderation Subject must be owned by Core.",
+                    "moderation_record",
+                    moderation.moderation_record_id,
+                    "target_subject_references",
+                    index,
+                )
+            if (
+                subject.subject_kind == "external_record"
+                and subject.owning_system == "concord"
+            ):
+                _issue(
+                    issues,
+                    "moderation.subject.owner_mismatch",
+                    "External Moderation Subject must not be Concord-owned.",
+                    "moderation_record",
+                    moderation.moderation_record_id,
+                    "target_subject_references",
+                    index,
+                )
+
+
+def _artifact_for_issue29_evidence(
+    reference: Any,
+    artifacts: dict[str, ArtifactInstance],
+    pages: dict[str, ArtifactPage],
+) -> ArtifactInstance | None:
+    if reference.owning_system != "concord":
+        return None
+    if reference.evidence_kind == "artifact_instance":
+        return artifacts.get(reference.record_id)
+    if reference.evidence_kind == "artifact_page":
+        page = pages.get(reference.record_id)
+        return None if page is None else artifacts.get(page.artifact_instance_id)
+    return None
+
+
+def _issue29_review_requires_moderation(
+    graph: ConcordRecordGraph,
+    reference: Any,
+    artifacts: dict[str, ArtifactInstance],
+    pages: dict[str, ArtifactPage],
+) -> bool:
+    artifact = _artifact_for_issue29_evidence(reference, artifacts, pages)
+    if artifact is None:
+        return False
+    return any(
+        review.artifact_instance_id == artifact.artifact_instance_id
+        and review.moderation_requirement == "required"
+        for review in _review_heads(graph)
+    )
+
+
+def _issue29_subject_matches_score_target(
+    subject: Any,
+    score: ScoreRecord,
+) -> bool:
+    target = score.target_reference
+    expected_owner = "core" if target.target_kind == "core_student" else "concord"
+    return bool(
+        subject.subject_kind == target.target_kind
+        and subject.subject_id == target.target_id
+        and subject.owning_system == expected_owner
+    )
+
+
+def _issue29_moderation_scope_applies(
+    moderation: ModerationRecord,
+    link: ScoreEvidenceLink,
+    score: ScoreRecord | None,
+) -> bool:
+    scope = frozenset(moderation.target_subject_references)
+    if not scope:
+        return True
+    context = frozenset(link.subject_context)
+    if context and scope <= context:
+        return True
+    return (
+        score is not None
+        and len(scope) == 1
+        and _issue29_subject_matches_score_target(next(iter(scope)), score)
+    )
+
+
+def _issue29_moderation_use_matches_target(
+    moderation: ModerationRecord,
+    score: ScoreRecord | None,
+) -> bool:
+    if moderation.permitted_use == "support_named_subject":
+        return (
+            score is not None
+            and score.target_reference.target_kind == "core_student"
+            and any(
+                _issue29_subject_matches_score_target(subject, score)
+                for subject in moderation.target_subject_references
+            )
+        )
+    if moderation.permitted_use == "support_group_score":
+        return (
+            score is not None
+            and score.target_reference.target_kind == "concord_group"
+            and any(
+                _issue29_subject_matches_score_target(subject, score)
+                for subject in moderation.target_subject_references
+            )
+        )
+    return True
+
+
+def _validate_issue29_score_link_moderation(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+    link: ScoreEvidenceLink,
+    scores: dict[str, ScoreRecord],
+    moderations: dict[str, ModerationRecord],
+    artifacts: dict[str, ArtifactInstance],
+    pages: dict[str, ArtifactPage],
+) -> None:
+    moderation = moderations.get(link.moderation_record_id or "")
+    current_ids = {
+        record.moderation_record_id for record in _moderation_heads(graph)
+    }
+    score = scores.get(link.score_record_id)
+
+    evidence_requires = link.evidence_reference.moderation_requirement == "required"
+    review_requires = _issue29_review_requires_moderation(
+        graph,
+        link.evidence_reference,
+        artifacts,
+        pages,
+    )
+    required = evidence_requires or review_requires
+
+    if link.moderation_record_id and moderation is None:
+        _issue(
+            issues,
+            "score.evidence.moderation_missing",
+            "Evidence Link references a missing Moderation Record.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+
+    current = (
+        moderation is not None
+        and moderation.moderation_record_id in current_ids
+    )
+    evidence_matches = (
+        moderation is not None
+        and moderation.target_evidence_reference == link.evidence_reference
+    )
+    scope_applies = (
+        moderation is not None
+        and _issue29_moderation_scope_applies(moderation, link, score)
+    )
+    target_use_matches = (
+        moderation is not None
+        and _issue29_moderation_use_matches_target(moderation, score)
+    )
+    status_satisfies_required = (
+        moderation is not None
+        and moderation.status in {"accepted", "accepted_with_qualification"}
+    )
+    scoring_use_allowed = (
+        moderation is not None
+        and moderation.permitted_use
+        not in {"not_be_used_for_scoring", "formative_only"}
+    )
+
+    if moderation is not None and not current:
+        _issue(
+            issues,
+            "moderation.current.required",
+            "Score Evidence Link references a historical Moderation decision.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+    if moderation is not None and not evidence_matches:
+        _issue(
+            issues,
+            "moderation.evidence.mismatch",
+            "Moderation Record concerns different evidence.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+    if moderation is not None and not scope_applies:
+        _issue(
+            issues,
+            "moderation.subject_scope.not_applicable",
+            "Moderation Subject scope does not apply to this Score evidence use.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+    if moderation is not None and not target_use_matches:
+        _issue(
+            issues,
+            "moderation.use.target_mismatch",
+            "Moderation permitted use does not match the Score target.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+    if moderation is not None and not scoring_use_allowed:
+        _issue(
+            issues,
+            "moderation.use.not_permitted",
+            "Moderation decision forbids this consequential evidence use.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+
+    satisfies_required = (
+        current
+        and evidence_matches
+        and scope_applies
+        and target_use_matches
+        and status_satisfies_required
+        and scoring_use_allowed
+    )
+    if required and not satisfies_required:
+        _issue(
+            issues,
+            "score.evidence.moderation_required",
+            "Evidence use requires an applicable current Moderation Record.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+    if (
+        required
+        and moderation is not None
+        and not status_satisfies_required
+        and scoring_use_allowed
+    ):
+        _issue(
+            issues,
+            "moderation.use.not_permitted",
+            "Moderation status does not satisfy required consequential use.",
+            "score_evidence_link",
+            link.score_evidence_link_id,
+            "moderation_record_id",
+        )
+
+
 def collect_record_graph_issues(
     graph: ConcordRecordGraph,
 ) -> tuple[ValidationIssue, ...]:
@@ -1151,6 +1709,18 @@ def collect_record_graph_issues(
             "moderation_record",
             moderation.moderation_record_id,
         )
+    _validate_issue29_review_graph(issues, graph)
+    _validate_issue29_moderation_graph(
+        issues,
+        graph,
+        activities,
+        sessions,
+        groups,
+        artifacts,
+        pages,
+    )
+    _validate_issue29_moderation_reference_integrity(issues, graph)
+    _validate_issue29_revision_audits(issues, graph)
 
     for criterion_set in graph.criterion_sets:
         members = [criteria.get(item) for item in criterion_set.criterion_ids]
@@ -1232,53 +1802,15 @@ def collect_record_graph_issues(
             "score_evidence_link",
             link.score_evidence_link_id,
         )
-        if link.evidence_reference.moderation_requirement == "required":
-            link_moderation = moderations.get(link.moderation_record_id or "")
-            if link_moderation is None:
-                _issue(
-                    issues,
-                    "score.evidence.moderation_required",
-                    "Evidence use requires an applicable Moderation Record.",
-                    "score_evidence_link",
-                    link.score_evidence_link_id,
-                    "moderation_record_id",
-                )
-            elif link_moderation.status not in {
-                "accepted",
-                "accepted_with_qualification",
-            } or link_moderation.permitted_use in {
-                "not_be_used_for_scoring",
-                "formative_only",
-            }:
-                _issue(
-                    issues,
-                    "moderation.use.not_permitted",
-                    "Moderation decision does not permit this "
-                    "consequential evidence use.",
-                    "score_evidence_link",
-                    link.score_evidence_link_id,
-                    "moderation_record_id",
-                )
-        if link.moderation_record_id and link.moderation_record_id not in moderations:
-            _issue(
-                issues,
-                "score.evidence.moderation_missing",
-                "Evidence Link references a missing Moderation Record.",
-                "score_evidence_link",
-                link.score_evidence_link_id,
-                "moderation_record_id",
-            )
-        elif link.moderation_record_id:
-            link_moderation = moderations[link.moderation_record_id]
-            if link_moderation.target_evidence_reference != link.evidence_reference:
-                _issue(
-                    issues,
-                    "moderation.evidence.mismatch",
-                    "Moderation Record concerns different evidence.",
-                    "score_evidence_link",
-                    link.score_evidence_link_id,
-                    "moderation_record_id",
-                )
+        _validate_issue29_score_link_moderation(
+            issues,
+            graph,
+            link,
+            scores,
+            moderations,
+            artifacts,
+            pages,
+        )
 
     for score_id, score_links in active_links.items():
         source_counts = Counter(
@@ -1485,6 +2017,7 @@ def collect_record_graph_issues(
             _validate_supersession(issues, values, kind, id_field, predecessor_field)
     _validate_correction_replacements(issues, graph)
     _validate_issue28_correction_types(issues, graph)
+    _validate_issue29_correction_types(issues, graph)
     return tuple(sorted(issues, key=lambda item: item.sort_key))
 
 
@@ -1792,6 +2325,10 @@ def _validate_supersession(
                 "artifact_author": ("artifact_instance_id",),
                 "artifact_subject": ("artifact_instance_id",),
                 "artifact_review": ("artifact_instance_id",),
+                "moderation_record": (
+                    "target_evidence_reference",
+                    "target_subject_references",
+                ),
                 "criterion_set": ("lineage_id",),
                 "scoring_scale": ("lineage_id",),
                 "score_record": ("activity_id",),
@@ -1809,19 +2346,25 @@ def _validate_supersession(
                     record_id,
                     predecessor_field,
                 )
-        if kind == "score_record" and predecessor_id in index:
-            before = datetime.fromisoformat(
-                index[predecessor_id].scored_at.replace("Z", "+00:00")
-            )
-            after = datetime.fromisoformat(value.scored_at.replace("Z", "+00:00"))
+        time_fields = {
+            "score_record": "scored_at",
+            "artifact_review": "reviewed_at",
+            "moderation_record": "moderated_at",
+        }
+        time_field = time_fields.get(kind)
+        if time_field is not None and predecessor_id in index:
+            before_value = getattr(index[predecessor_id], time_field)
+            after_value = getattr(value, time_field)
+            before = datetime.fromisoformat(before_value.replace("Z", "+00:00"))
+            after = datetime.fromisoformat(after_value.replace("Z", "+00:00"))
             if after < before:
                 _issue(
                     issues,
                     "supersession.time.backward",
-                    "Successor Score time precedes predecessor.",
+                    "Successor decision time precedes predecessor.",
                     kind,
                     record_id,
-                    "scored_at",
+                    time_field,
                 )
     for predecessor_id, following in successors.items():
         if len(following) > 1:
