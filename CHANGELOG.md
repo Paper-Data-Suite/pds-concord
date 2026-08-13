@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Explicit Artifact Review workflows with coherent readiness/outcome state,
+  one current supersession lineage per Artifact, and auditable Review
+  correction history.
+- Evidence Moderation workflows with exact immutable evidence lineage,
+  canonical zero/one/many Subject scope, permitted-use restrictions, public
+  Core Publication verification, and deterministic applicability readers.
+- Direct and teacher-facing Review/Moderation interfaces plus installed-wheel
+  persistence and nonmutation acceptance coverage.
 - Returned Artifact state roll-up and reproducible PDF assembly from exact
   Core-retained Scan Reference lineage, with immutable derivative manifests.
 - Explicit zero-to-many Artifact Author and Artifact Subject workflow services,

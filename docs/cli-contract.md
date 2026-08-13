@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.2.0 Artifact assembly and Author/Subject workflow in issue #28.
+Implemented through the v0.2.0 Artifact Review and Moderation workflow in issue #29.
 
 ## Two interfaces, one service layer
 
@@ -82,6 +82,16 @@ concord artifact subject list
 concord artifact subject show
 concord artifact subject update
 concord artifact subject replace
+
+concord artifact review add
+concord artifact review list
+concord artifact review show
+concord artifact review replace
+
+concord moderation add
+concord moderation list
+concord moderation show
+concord moderation replace
 
 concord artifact page prepare
 concord artifact page list
@@ -199,9 +209,10 @@ Q. Quit
 ```
 
 An opened Activity includes page preparation/inspection/rendering, Artifact
-inspection and returned assembly, and explicit Author/Subject management.
-Teacher writes require operation-specific words such as `CREATE`, `RENDER`,
-`ASSEMBLE`, `ADD`, `UPDATE`, and `CORRECT`. Global routing review remains
+inspection and returned assembly, explicit Author/Subject management, Artifact
+Review, and evidence Moderation. Teacher writes require operation-specific
+words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`, `UPDATE`, `CORRECT`,
+`REVIEW`, `MODERATE`, and `REVISE`. Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 
 Within controlled submenus:
@@ -244,7 +255,7 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 ## Boundaries
 
-This contract includes returned Artifact assembly and Author/Subject management,
-but does not add Artifact Review, Moderation, Criteria/Scale/Score entry,
-publication, Meridian grading policy, Grade calculation, or destructive
+This contract includes returned Artifact assembly, Author/Subject management,
+Artifact Review, and evidence Moderation. It does not add Criterion/Scale/Score
+entry, publication, Meridian grading policy, Grade calculation, or destructive
 collaboration-record deletion.

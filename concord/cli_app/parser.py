@@ -10,6 +10,7 @@ from concord.cli_app.handlers import (
     artifact,
     group,
     responsibility,
+    review_moderation,
     role,
     scan,
     session,
@@ -628,6 +629,65 @@ def _artifact_commands(
         command_parser=subject_replace,
     )
 
+    review = actions.add_parser(
+        "review",
+        help="Record and inspect human Artifact Review decisions.",
+    )
+    review_actions = review.add_subparsers(dest="review_command", required=True)
+
+    review_add = review_actions.add_parser(
+        "add",
+        help="Record the first/current Review for an Artifact.",
+    )
+    _mutating_options(review_add)
+    _class_activity(review_add)
+    review_add.add_argument("--artifact-instance-id", required=True)
+    review_add.add_argument("--artifact-review-id", required=True)
+    _artifact_review_options(review_add)
+    review_add.set_defaults(handler=review_moderation.handle_review_add)
+
+    review_list = review_actions.add_parser(
+        "list",
+        help="List current or historical Artifact Reviews.",
+    )
+    _workspace_option(review_list)
+    _class_activity(review_list)
+    review_list.add_argument("--artifact-instance-id")
+    review_list.add_argument("--include-historical", action="store_true")
+    review_list.set_defaults(handler=review_moderation.handle_review_list)
+
+    review_show = review_actions.add_parser(
+        "show",
+        help="Show one exact Artifact Review.",
+    )
+    _workspace_option(review_show)
+    _class_activity(review_show)
+    review_show.add_argument("--artifact-review-id", required=True)
+    review_show.set_defaults(handler=review_moderation.handle_review_show)
+
+    review_replace = review_actions.add_parser(
+        "replace",
+        help="Record a corrected/successor Artifact Review.",
+    )
+    _mutating_options(review_replace)
+    _class_activity(review_replace)
+    review_replace.add_argument("--artifact-review-id", required=True)
+    review_replace.add_argument("--replacement-artifact-review-id", required=True)
+    review_replace.add_argument("--correction-id", required=True)
+    review_replace.add_argument("--reason", required=True)
+    _artifact_review_options(review_replace)
+    review_replace.add_argument(
+        "--correction-privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+    review_replace.set_defaults(handler=review_moderation.handle_review_replace)
+
     page = actions.add_parser("page", help="Prepare or inspect physical pages.")
     page_actions = page.add_subparsers(dest="page_command", required=True)
     prepare = page_actions.add_parser("prepare", help="Preallocate pages and routes.")
@@ -751,6 +811,221 @@ def _artifact_subject_semantic_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--criterion-id")
     parser.add_argument("--privacy-classification")
 
+
+def _artifact_review_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--readability-judgment",
+        required=True,
+        choices=("readable", "partially_readable", "unreadable", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--page-completeness-judgment",
+        required=True,
+        choices=("complete", "partially_complete", "incomplete", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--filing-judgment",
+        required=True,
+        choices=("correct", "misfiled", "duplicate", "unresolved", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--author-judgment",
+        required=True,
+        choices=("confirmed", "qualified", "disputed", "unknown", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--subject-judgment",
+        required=True,
+        choices=("confirmed", "qualified", "disputed", "unresolved", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--privacy-judgment",
+        required=True,
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+    parser.add_argument(
+        "--relevance-judgment",
+        required=True,
+        choices=("relevant", "partially_relevant", "not_relevant", "not_reviewed"),
+    )
+    parser.add_argument(
+        "--moderation-requirement",
+        required=True,
+        choices=("required", "not_required", "completed"),
+    )
+    parser.add_argument(
+        "--scoring-readiness",
+        required=True,
+        choices=("ready", "ready_with_qualification", "not_ready"),
+    )
+    parser.add_argument(
+        "--review-outcome",
+        required=True,
+        choices=(
+            "ready",
+            "ready_with_qualification",
+            "incomplete",
+            "unreadable",
+            "misrouted",
+            "duplicate",
+            "awaiting_correction",
+            "awaiting_additional_evidence",
+            "moderation_required",
+            "not_suitable_for_scoring",
+        ),
+    )
+    parser.add_argument("--notes")
+    parser.add_argument(
+        "--privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+
+
+def _moderation_evidence_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--evidence-kind",
+        required=True,
+        choices=(
+            "artifact_instance",
+            "artifact_page",
+            "teacher_rationale",
+            "scoreform_result",
+            "quillan_response",
+            "external_record",
+        ),
+    )
+    parser.add_argument("--evidence-owner", required=True)
+    parser.add_argument("--evidence-record-id", required=True)
+    parser.add_argument("--evidence-contract-version")
+    parser.add_argument("--source-publication-id")
+    parser.add_argument("--source-publication-schema-version")
+    parser.add_argument("--immutable-source-version")
+    parser.add_argument(
+        "--evidence-moderation-requirement",
+        choices=("required", "not_required"),
+    )
+
+
+def _moderation_decision_options(parser: argparse.ArgumentParser) -> None:
+    _moderation_evidence_options(parser)
+    parser.add_argument(
+        "--target-subject",
+        action="append",
+        help=(
+            "Typed Subject as KIND,OWNER,ID[,CONTRACT_VERSION]; "
+            "repeat for several Subjects."
+        ),
+    )
+    parser.add_argument(
+        "--status",
+        required=True,
+        choices=(
+            "accepted",
+            "accepted_with_qualification",
+            "insufficient",
+            "disputed",
+            "rejected",
+            "not_used_for_scoring",
+        ),
+    )
+    parser.add_argument(
+        "--permitted-use",
+        required=True,
+        choices=(
+            "support_group_score",
+            "support_named_subject",
+            "corroborate_only",
+            "formative_only",
+            "not_independently_determine_score",
+            "not_be_used_for_scoring",
+        ),
+    )
+    parser.add_argument("--rationale", required=True)
+    parser.add_argument("--qualification")
+    parser.add_argument(
+        "--privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+
+
+def _moderation_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "moderation",
+        help="Manage human evidence Moderation decisions.",
+    )
+    actions = parent.add_subparsers(dest="moderation_command", required=True)
+
+    add = actions.add_parser("add", help="Record a Moderation decision.")
+    _mutating_options(add)
+    _class_activity(add)
+    add.add_argument("--moderation-record-id", required=True)
+    _moderation_decision_options(add)
+    add.set_defaults(
+        handler=review_moderation.handle_moderation_add,
+        command_parser=add,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List current or historical Moderation decisions.",
+    )
+    _workspace_option(list_command)
+    _class_activity(list_command)
+    list_command.add_argument("--include-historical", action="store_true")
+    list_command.set_defaults(handler=review_moderation.handle_moderation_list)
+
+    show = actions.add_parser("show", help="Show one exact Moderation decision.")
+    _workspace_option(show)
+    _class_activity(show)
+    show.add_argument("--moderation-record-id", required=True)
+    show.set_defaults(handler=review_moderation.handle_moderation_show)
+
+    replace = actions.add_parser(
+        "replace",
+        help="Record a successor decision for the same evidence and Subject scope.",
+    )
+    _mutating_options(replace)
+    _class_activity(replace)
+    replace.add_argument("--moderation-record-id", required=True)
+    replace.add_argument("--replacement-moderation-record-id", required=True)
+    replace.add_argument("--correction-id", required=True)
+    replace.add_argument("--reason", required=True)
+    _moderation_decision_options(replace)
+    replace.add_argument(
+        "--correction-privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+    replace.set_defaults(
+        handler=review_moderation.handle_moderation_replace,
+        command_parser=replace,
+    )
+
+
 def _scan_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -810,5 +1085,6 @@ def build_parser() -> argparse.ArgumentParser:
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
     _artifact_commands(subparsers)
+    _moderation_commands(subparsers)
     _scan_commands(subparsers)
     return parser

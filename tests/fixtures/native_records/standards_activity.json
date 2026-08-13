@@ -94,7 +94,7 @@
     },
     {
       "record_kind": "artifact_review",
-      "body": {"artifact_review_id": "review-1", "artifact_instance_id": "artifact-1", "reviewer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "reviewed_at": "2026-08-05T12:00:00-04:00", "readability_judgment": "readable", "page_completeness_judgment": "complete", "filing_judgment": "correct", "author_judgment": "confirmed", "subject_judgment": "confirmed", "privacy_judgment": "group_and_teacher", "relevance_judgment": "relevant", "moderation_requirement": "required", "scoring_readiness": "ready", "review_outcome": "ready", "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}}
+      "body": {"artifact_review_id": "review-1", "artifact_instance_id": "artifact-1", "reviewer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "reviewed_at": "2026-08-05T12:00:00-04:00", "readability_judgment": "readable", "page_completeness_judgment": "complete", "filing_judgment": "correct", "author_judgment": "confirmed", "subject_judgment": "confirmed", "privacy_judgment": "group_and_teacher", "relevance_judgment": "relevant", "moderation_requirement": "required", "scoring_readiness": "not_ready", "review_outcome": "moderation_required", "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}}
     },
     {
       "record_kind": "moderation_record",

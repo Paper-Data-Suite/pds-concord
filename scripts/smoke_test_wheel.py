@@ -36,7 +36,9 @@ def _workflow_smoke_code() -> str:
     return textwrap.dedent(
         """
         from datetime import datetime, timezone
+        from importlib.metadata import entry_points
         from pathlib import Path
+        import hashlib
         import tempfile
 
         import concord
@@ -54,6 +56,7 @@ def _workflow_smoke_code() -> str:
 
         from concord.models import (
             EffectiveContext,
+            EvidenceReference,
             ParticipantReference,
             PrivacyPolicy,
             SubjectReference,
@@ -72,7 +75,9 @@ def _workflow_smoke_code() -> str:
         from concord.storage_catalog import rebuild_catalog, query_catalog_records
         from concord.workflows import (
             AddArtifactAuthorRequest,
+            AddArtifactReviewRequest,
             AddArtifactSubjectRequest,
+            AddModerationRecordRequest,
             AddMembershipsRequest,
             AssembleArtifactRequest,
             CreateActivityContextRequest,
@@ -81,11 +86,16 @@ def _workflow_smoke_code() -> str:
             UpdateSessionRequest,
             WorkflowActor,
             add_artifact_author,
+            add_artifact_review,
             add_artifact_subject,
             add_memberships,
+            add_moderation_record,
+            assess_moderation_requirement,
             assemble_returned_artifact,
             create_activity_context,
             create_group,
+            current_artifact_review,
+            list_applicable_moderation_records,
             update_session,
         )
         from concord.workflows.artifact_page import (
@@ -308,10 +318,127 @@ def _workflow_smoke_code() -> str:
             assert not loaded.graph.artifact_reviews
             assert not loaded.graph.moderation_records
             assert not loaded.graph.score_records
+            assert not loaded.graph.score_evidence_links
+
+            artifacts_before_review = loaded.graph.artifact_instances
+            pages_before_review = loaded.graph.artifact_pages
+            scans_before_review = loaded.graph.scan_references
+            authors_before_review = loaded.graph.artifact_authors
+            subjects_before_review = loaded.graph.artifact_subjects
+            retained_path = root / scans_before_review[0].retained_source_relative_path
+            retained_digest = hashlib.sha256(retained_path.read_bytes()).hexdigest()
+
+            review = add_artifact_review(
+                AddArtifactReviewRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    artifact_instance_id="artifact-smoke",
+                    artifact_review_id="review-smoke",
+                    readability_judgment="readable",
+                    page_completeness_judgment="complete",
+                    filing_judgment="correct",
+                    author_judgment="confirmed",
+                    subject_judgment="confirmed",
+                    privacy_judgment="teacher_restricted",
+                    relevance_judgment="relevant",
+                    moderation_requirement="required",
+                    scoring_readiness="not_ready",
+                    review_outcome="moderation_required",
+                    notes="Synthetic installed-wheel Review.",
+                    privacy_policy=PrivacyPolicy(
+                        classification="teacher_restricted"
+                    ),
+                    expected_snapshot_revision=subject.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            evidence = EvidenceReference(
+                evidence_kind="artifact_instance",
+                owning_system="concord",
+                record_id="artifact-smoke",
+                moderation_requirement="not_required",
+            )
+            subject_context = (
+                SubjectReference(
+                    subject_kind="core_student",
+                    subject_id="student-2",
+                    owning_system="core",
+                ),
+            )
+            requirement = assess_moderation_requirement(
+                "class-smoke",
+                "activity-smoke",
+                evidence,
+                subject_context=subject_context,
+                workspace_root=root,
+            )
+            assert requirement.required
+            assert requirement.artifact_review_requires_moderation
+            assert not requirement.evidence_reference_requires_moderation
+
+            moderation = add_moderation_record(
+                AddModerationRecordRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    moderation_record_id="moderation-smoke",
+                    target_evidence_reference=evidence,
+                    target_subject_references=subject_context,
+                    status="accepted_with_qualification",
+                    permitted_use="support_named_subject",
+                    rationale="Synthetic installed-wheel Moderation.",
+                    qualification="Use only for the named Subject.",
+                    privacy_policy=PrivacyPolicy(
+                        classification="teacher_restricted"
+                    ),
+                    expected_snapshot_revision=review.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            applicable = list_applicable_moderation_records(
+                "class-smoke",
+                "activity-smoke",
+                evidence,
+                subject_context=subject_context,
+                workspace_root=root,
+            )
+            assert [item.moderation_record_id for item in applicable] == [
+                "moderation-smoke"
+            ]
+            current_review = current_artifact_review(
+                "class-smoke",
+                "activity-smoke",
+                "artifact-smoke",
+                workspace_root=root,
+            )
+            assert current_review is not None
+            assert current_review.artifact_review_id == "review-smoke"
+
+            loaded = load_current_record_graph(root, created.commit.work)
+            assert loaded.snapshot_revision == moderation.commit.snapshot_revision
+            assert loaded.graph.artifact_instances == artifacts_before_review
+            assert loaded.graph.artifact_pages == pages_before_review
+            assert loaded.graph.scan_references == scans_before_review
+            assert loaded.graph.artifact_authors == authors_before_review
+            assert loaded.graph.artifact_subjects == subjects_before_review
+            assert len(loaded.graph.artifact_reviews) == 1
+            assert len(loaded.graph.moderation_records) == 1
+            assert not loaded.graph.score_records
+            assert not loaded.graph.score_evidence_links
+            assert hashlib.sha256(retained_path.read_bytes()).hexdigest() == (
+                retained_digest
+            )
             assert loaded.graph.artifact_pages[0].route_id == (
                 prepared.pages[0].route_id
             )
             assert assembled.output_path.is_file()
+            assert not any(
+                entry.name == "concord"
+                for entry in entry_points(
+                    group="paper_data_suite.publication_producers"
+                )
+            )
             assert first_snapshot.snapshot_revision == 1
             assert list_record_revisions(
                 root,
@@ -326,7 +453,7 @@ def _workflow_smoke_code() -> str:
             historical = query_catalog_records(
                 root, created.commit.work, snapshot_revision=1
             )
-            assert len(current) == 10 and historical
+            assert len(current) == 12 and historical
 
         package_files_after = {
             path.relative_to(package_root)

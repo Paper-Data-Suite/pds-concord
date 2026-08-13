@@ -17,8 +17,10 @@ and can be assembled reproducibly from exact Core-retained Scan Reference
 lineage. Concord also provides explicit zero-to-many Artifact Author and Subject
 management with preserved correction history.
 
-Concord still does **not** provide Artifact Review/Moderation, Scores,
-publication, or Grades. Those remain assigned to issues #29 through #31.
+Concord now provides explicit Artifact Review and evidence Moderation with
+preserved history, exact Subject scope, immutable external-evidence lineage,
+and a guarded handoff to later Score recording. Concord still does **not**
+create Scores, publication, or Grades; those remain assigned to later issues.
 
 ## Requirements and installation
 
@@ -44,7 +46,8 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, contextual Artifact Pages with assembly, Author, and Subject workflows, Help, and Quit.
+Settings, global Scan Routing, contextual Artifact Pages with assembly,
+Author/Subject, Review, and Moderation workflows, Help, and Quit.
 Controlled teacher screens use:
 
 ```text
@@ -56,7 +59,7 @@ Q. Quit
 
 Every menu write shows a focused review screen and requires the operation word
 `CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`,
-`CORRECT`, `END`, or `REASSIGN`.
+`CORRECT`, `REVIEW`, `MODERATE`, `REVISE`, `END`, or `REASSIGN`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
@@ -77,6 +80,8 @@ concord responsibility assign|list|end|reassign
 concord artifact list|show|assemble
 concord artifact author add|list|show|update|replace
 concord artifact subject add|list|show|update|replace
+concord artifact review add|list|show|replace
+concord moderation add|list|show|replace
 concord artifact page prepare|list|show
 concord artifact render
 concord scan route

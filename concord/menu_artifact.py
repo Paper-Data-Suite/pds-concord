@@ -17,6 +17,7 @@ from concord.menu_navigation import (
 )
 from concord.menu_prompts import (
     choose_student,
+    choose_students,
     confirm_write,
     handle_write_error,
     prompt_positive_int,
@@ -33,6 +34,8 @@ from concord.menu_ui import (
 from concord.models import (
     ActorReference,
     ConcordRecordReference,
+    CorePublicationReference,
+    EvidenceReference,
     ParticipantReference,
     PrivacyPolicy,
     SubjectReference,
@@ -85,7 +88,27 @@ from concord.workflows.artifact_page import (
     list_artifact_pages,
     prepare_artifact_pages,
 )
+from concord.workflows.artifact_review import (
+    AddArtifactReviewRequest,
+    ArtifactReviewSummary,
+    ReplaceArtifactReviewRequest,
+    add_artifact_review,
+    current_artifact_review,
+    list_artifact_reviews,
+    replace_artifact_review,
+    show_artifact_review,
+)
 from concord.workflows.context import actor_reference
+from concord.workflows.moderation import (
+    AddModerationRecordRequest,
+    ModerationSummary,
+    ReplaceModerationRecordRequest,
+    add_moderation_record,
+    list_applicable_moderation_records,
+    list_moderation_records,
+    replace_moderation_record,
+    show_moderation_record,
+)
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -1198,6 +1221,1021 @@ def _launch_subject_menu(
             _handle_error(activity, error, title="Artifact Subject Error")
 
 
+
+def _review_choice(title: str, values: tuple[str, ...], help_text: str) -> str:
+    return select_one(
+        title,
+        values,
+        tuple(item.replace("_", " ").title() for item in values),
+        help_text=help_text,
+    )
+
+
+def _review_values() -> tuple[
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str | None,
+    PrivacyPolicy,
+]:
+    readability = _review_choice(
+        "Review Readability",
+        ("readable", "partially_readable", "unreadable", "not_reviewed"),
+        "Record the human readability judgment; Concord does not infer it.",
+    )
+    completeness = _review_choice(
+        "Review Page Completeness",
+        ("complete", "partially_complete", "incomplete", "not_reviewed"),
+        "Judge evidence completeness independently from Artifact return status.",
+    )
+    filing = _review_choice(
+        "Review Filing",
+        ("correct", "misfiled", "duplicate", "unresolved", "not_reviewed"),
+        "Review may flag filing without rerouting or rewriting evidence.",
+    )
+    author = _review_choice(
+        "Review Author Attribution",
+        ("confirmed", "qualified", "disputed", "unknown", "not_reviewed"),
+        "Review attribution without editing the explicit Author relationship.",
+    )
+    subject = _review_choice(
+        "Review Subject Attribution",
+        ("confirmed", "qualified", "disputed", "unresolved", "not_reviewed"),
+        "Review Subject attribution without editing the Subject relationship.",
+    )
+    privacy = _review_choice(
+        "Review Evidence Privacy",
+        (
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+        "Judge the evidence privacy classification explicitly.",
+    )
+    relevance = _review_choice(
+        "Review Relevance",
+        ("relevant", "partially_relevant", "not_relevant", "not_reviewed"),
+        "Record whether the evidence is relevant to its intended use.",
+    )
+    moderation = _review_choice(
+        "Review Moderation Requirement",
+        ("required", "not_required", "completed"),
+        "Review may require Moderation but does not create it automatically.",
+    )
+    readiness = _review_choice(
+        "Review Scoring Readiness",
+        ("ready", "ready_with_qualification", "not_ready"),
+        "Readiness only permits later consideration; it does not create a Score.",
+    )
+    outcome = _review_choice(
+        "Review Outcome",
+        (
+            "ready",
+            "ready_with_qualification",
+            "incomplete",
+            "unreadable",
+            "misrouted",
+            "duplicate",
+            "awaiting_correction",
+            "awaiting_additional_evidence",
+            "moderation_required",
+            "not_suitable_for_scoring",
+        ),
+        "Choose the overall human Review outcome.",
+    )
+    notes = prompt_text(
+        "Review Notes",
+        "Notes",
+        help_text="Record a concise Review explanation when useful.",
+        optional=outcome != "ready_with_qualification",
+    )
+    review_privacy = _review_choice(
+        "Review Record Privacy",
+        (
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+        "This protects the Review record itself, independently from the evidence.",
+    )
+    return (
+        readability,
+        completeness,
+        filing,
+        author,
+        subject,
+        privacy,
+        relevance,
+        moderation,
+        readiness,
+        outcome,
+        notes,
+        PrivacyPolicy(classification=review_privacy),
+    )
+
+
+def _review_label(item: ArtifactReviewSummary) -> str:
+    state = "current" if item.is_current else "historical"
+    return (
+        f"{item.artifact_instance_id} - {item.review_outcome.replace('_', ' ')} - "
+        f"{item.scoring_readiness.replace('_', ' ')} [{state}]"
+    )
+
+
+def _show_review_detail(item: ArtifactReviewSummary) -> None:
+    show_result(
+        "Artifact Review Detail",
+        (
+            f"Artifact: {item.artifact_instance_id}",
+            f"Review: {item.artifact_review_id}",
+            f"Reviewer: {item.reviewer_display_label or '-'}",
+            f"Reviewed at: {item.reviewed_at}",
+            f"Readability: {item.readability_judgment}",
+            f"Page completeness: {item.page_completeness_judgment}",
+            f"Filing: {item.filing_judgment}",
+            f"Author judgment: {item.author_judgment}",
+            f"Subject judgment: {item.subject_judgment}",
+            f"Privacy judgment: {item.privacy_judgment}",
+            f"Relevance: {item.relevance_judgment}",
+            f"Moderation: {item.moderation_requirement}",
+            f"Scoring readiness: {item.scoring_readiness}",
+            f"Outcome: {item.review_outcome}",
+            f"Notes: {item.notes or '-'}",
+            f"Review privacy: {item.privacy_policy.classification}",
+            f"Current: {'yes' if item.is_current else 'no'}",
+        ),
+    )
+
+
+def _view_current_review(activity: ActivitySummary) -> None:
+    artifact = _choose_artifact(activity, title="View Current Artifact Review")
+    item = current_artifact_review(
+        activity.class_id,
+        activity.activity_id,
+        artifact.artifact_instance_id,
+    )
+    if item is None:
+        show_result(
+            "Artifact Review",
+            (f"Artifact {artifact.artifact_instance_id} has no current Review.",),
+        )
+        return
+    _show_review_detail(item)
+
+
+def _view_review_history(activity: ActivitySummary) -> None:
+    items = list_artifact_reviews(
+        activity.class_id,
+        activity.activity_id,
+        include_historical=True,
+    )
+    selected = select_one(
+        "Artifact Review History",
+        items,
+        [_review_label(item) for item in items],
+        help_text="Choose an exact preserved Review record to inspect.",
+    )
+    _show_review_detail(
+        show_artifact_review(
+            activity.class_id,
+            activity.activity_id,
+            selected.artifact_review_id,
+        )
+    )
+
+
+def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Record Artifact Review")
+    detail = show_artifact(
+        current.class_id,
+        current.activity_id,
+        artifact.artifact_instance_id,
+    )
+    show_result(
+        "Artifact Review Context",
+        (
+            f"Artifact: {artifact.artifact_instance_id}",
+            f"Status: {artifact.artifact_status}",
+            (
+                "Returned required pages: "
+                f"{artifact.returned_required_page_count}/"
+                f"{artifact.required_return_page_count}"
+            ),
+            f"Current Authors: {artifact.current_author_count}",
+            f"Current Subjects: {artifact.current_subject_count}",
+            f"Artifact privacy: {detail.privacy_classification}",
+            "These facts are context only; Review judgments remain explicit.",
+        ),
+    )
+    review_id = prompt_text(
+        "Record Artifact Review",
+        "Artifact Review ID",
+        help_text="Use an opaque durable Review identifier.",
+        default=f"review_{uuid4().hex}",
+    )
+    assert review_id is not None
+    (
+        readability,
+        completeness,
+        filing,
+        author,
+        subject,
+        privacy,
+        relevance,
+        moderation,
+        readiness,
+        outcome,
+        notes,
+        review_privacy,
+    ) = _review_values()
+    if not confirm_write(
+        "Record Artifact Review",
+        "REVIEW",
+        (
+            f"Artifact: {artifact.artifact_instance_id}",
+            f"Outcome: {outcome}",
+            f"Scoring readiness: {readiness}",
+            f"Moderation requirement: {moderation}",
+        ),
+    ):
+        return
+    result = add_artifact_review(
+        AddArtifactReviewRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            artifact_instance_id=artifact.artifact_instance_id,
+            artifact_review_id=review_id,
+            readability_judgment=readability,
+            page_completeness_judgment=completeness,
+            filing_judgment=filing,
+            author_judgment=author,
+            subject_judgment=subject,
+            privacy_judgment=privacy,
+            relevance_judgment=relevance,
+            moderation_requirement=moderation,
+            scoring_readiness=readiness,
+            review_outcome=outcome,
+            notes=notes,
+            privacy_policy=review_privacy,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Artifact Review Recorded",
+        (
+            f"Review: {result.artifact_review_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _replace_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    current = _latest(activity)
+    items = list_artifact_reviews(
+        current.class_id,
+        current.activity_id,
+        include_historical=False,
+    )
+    predecessor = select_one(
+        "Revise Current Artifact Review",
+        items,
+        [_review_label(item) for item in items],
+        help_text="Only a current Review head may receive a successor.",
+    )
+    replacement_id = prompt_text(
+        "Revise Artifact Review",
+        "Replacement Review ID",
+        help_text="Create a new opaque durable Review successor identifier.",
+        default=f"review_{uuid4().hex}",
+    )
+    correction_id = prompt_text(
+        "Revise Artifact Review",
+        "Correction ID",
+        help_text="Create the audit record that connects predecessor and successor.",
+        default=f"correction_{uuid4().hex}",
+    )
+    reason = prompt_text(
+        "Revise Artifact Review",
+        "Reason",
+        help_text="State why a successor Review is being recorded.",
+    )
+    assert replacement_id is not None
+    assert correction_id is not None
+    assert reason is not None
+    (
+        readability,
+        completeness,
+        filing,
+        author,
+        subject,
+        privacy,
+        relevance,
+        moderation,
+        readiness,
+        outcome,
+        notes,
+        review_privacy,
+    ) = _review_values()
+    if not confirm_write(
+        "Revise Artifact Review",
+        "REVISE",
+        (
+            f"Predecessor: {predecessor.artifact_review_id}",
+            f"Successor: {replacement_id}",
+            f"Outcome: {outcome}",
+            f"Moderation requirement: {moderation}",
+        ),
+    ):
+        return
+    result = replace_artifact_review(
+        ReplaceArtifactReviewRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            artifact_review_id=predecessor.artifact_review_id,
+            replacement_artifact_review_id=replacement_id,
+            correction_id=correction_id,
+            reason=reason,
+            readability_judgment=readability,
+            page_completeness_judgment=completeness,
+            filing_judgment=filing,
+            author_judgment=author,
+            subject_judgment=subject,
+            privacy_judgment=privacy,
+            relevance_judgment=relevance,
+            moderation_requirement=moderation,
+            scoring_readiness=readiness,
+            review_outcome=outcome,
+            notes=notes,
+            privacy_policy=review_privacy,
+            correction_privacy_policy=PrivacyPolicy(
+                classification="teacher_restricted"
+            ),
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Artifact Review Revised",
+        (
+            f"Successor: {result.artifact_review_id}",
+            f"Correction: {correction_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _launch_review_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    while True:
+        clear_screen()
+        print_menu_header("Artifact Review")
+        print("1. View current Review")
+        print("2. View Review history")
+        print("3. Record Review")
+        print("4. Record successor / corrected Review")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                show_result(
+                    "Artifact Review Help",
+                    (
+                        "Review records explicit human evidence-readiness judgments.",
+                        (
+                            "Returned evidence is not automatically reviewed "
+                            "or score-ready."
+                        ),
+                        (
+                            "Review does not rewrite evidence, Authors, Subjects, "
+                            "or Scores."
+                        ),
+                    ),
+                )
+            elif navigation is NavigationChoice.BACK:
+                return
+            elif choice == "1":
+                _view_current_review(activity)
+            elif choice == "2":
+                _view_review_history(activity)
+            elif choice == "3":
+                _record_review(activity, state)
+            elif choice == "4":
+                _replace_review(activity, state)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+            raise
+        except Exception as error:
+            _handle_error(activity, error, title="Artifact Review Error")
+
+
+def _evidence_requirement() -> str:
+    return select_one(
+        "Evidence Moderation Requirement",
+        ("not_required", "required"),
+        ("Not required by the evidence reference", "Required"),
+        help_text=(
+            "This flag is explicit evidence metadata. Current Artifact Review "
+            "requirements remain independently effective."
+        ),
+    )
+
+
+def _choose_moderation_evidence(activity: ActivitySummary) -> EvidenceReference:
+    kind = select_one(
+        "Moderation Evidence",
+        ("artifact", "page", "external"),
+        ("Artifact Instance", "Artifact Page", "External evidence"),
+        help_text="Choose the exact immutable evidence relationship to moderate.",
+    )
+    requirement = _evidence_requirement()
+    if kind == "artifact":
+        artifact = _choose_artifact(activity, title="Moderation Artifact Evidence")
+        return EvidenceReference(
+            evidence_kind="artifact_instance",
+            owning_system="concord",
+            record_id=artifact.artifact_instance_id,
+            moderation_requirement=requirement,
+        )
+    if kind == "page":
+        pages = list_artifact_pages(activity.class_id, activity.activity_id)
+        page = select_one(
+            "Moderation Artifact Page Evidence",
+            pages,
+            [
+                f"{item.artifact_page_id} - page {item.page_number} "
+                f"[{item.page_status}]"
+                for item in pages
+            ],
+            help_text="Choose the exact Artifact Page evidence record.",
+        )
+        return EvidenceReference(
+            evidence_kind="artifact_page",
+            owning_system="concord",
+            record_id=page.artifact_page_id,
+            moderation_requirement=requirement,
+        )
+
+    evidence_kind = select_one(
+        "External Evidence Type",
+        ("scoreform_result", "quillan_response", "external_record"),
+        ("ScoreForm result", "Quillan response", "External record"),
+        help_text="Concord references external evidence without importing its package.",
+    )
+    owner = prompt_text(
+        "External Moderation Evidence",
+        "Owning system",
+        help_text="Enter the lowercase source-system identifier.",
+    )
+    record_id = prompt_text(
+        "External Moderation Evidence",
+        "Record ID",
+        help_text="Enter the exact source-system evidence record identifier.",
+    )
+    contract = prompt_text(
+        "External Moderation Evidence",
+        "Contract version",
+        help_text="Optional immutable evidence contract/version identifier.",
+        optional=True,
+    )
+    lineage_kind = select_one(
+        "External Evidence Lineage",
+        ("version", "publication"),
+        ("Exact immutable source version", "Core Publication reference"),
+        help_text="External evidence must preserve immutable source lineage.",
+    )
+    immutable_version = None
+    publication = None
+    if lineage_kind == "version":
+        immutable_version = prompt_text(
+            "External Evidence Lineage",
+            "Immutable source version",
+            help_text=(
+                "Enter the exact immutable source revision, never latest/current."
+            ),
+        )
+    else:
+        publication_id = prompt_text(
+            "External Evidence Lineage",
+            "Core Publication ID",
+            help_text="Enter the exact Core Publication Record identifier.",
+        )
+        schema_version = prompt_text(
+            "External Evidence Lineage",
+            "Publication schema version",
+            help_text="Optional exact publication schema version.",
+            optional=True,
+        )
+        assert publication_id is not None
+        publication = CorePublicationReference(
+            publication_id=publication_id,
+            publication_schema_version=schema_version,
+        )
+    assert owner is not None and record_id is not None
+    return EvidenceReference(
+        evidence_kind=evidence_kind,
+        owning_system=owner,
+        record_id=record_id,
+        contract_version=contract,
+        source_publication_reference=publication,
+        immutable_source_version=immutable_version,
+        moderation_requirement=requirement,
+    )
+
+
+def _choose_moderation_subjects(
+    activity: ActivitySummary,
+) -> tuple[SubjectReference, ...]:
+    kind = select_one(
+        "Moderation Subject Scope",
+        (
+            "general",
+            "students",
+            "group",
+            "session",
+            "activity",
+            "artifact",
+            "external",
+        ),
+        (
+            "General evidence decision - no Subject scope",
+            "One or more students",
+            "Group",
+            "Session",
+            "Activity",
+            "Artifact",
+            "External record",
+        ),
+        help_text=(
+            "Subject scope is explicit and is never inferred from Authors, "
+            "Artifact Subjects, or Group Membership."
+        ),
+    )
+    if kind == "general":
+        return ()
+    if kind == "students":
+        students = choose_students(_require_workspace(), activity.class_id)
+        return tuple(
+            SubjectReference(
+                subject_kind="core_student",
+                subject_id=student.student_id,
+                owning_system="core",
+            )
+            for student in students
+        )
+    if kind == "group":
+        groups = list_groups(activity.class_id, activity.activity_id)
+        group = select_one(
+            "Moderation Group Scope",
+            groups,
+            [f"{item.label} ({item.group_id})" for item in groups],
+            help_text="Choose the exact Concord Group scope.",
+        )
+        return (
+            SubjectReference(
+                subject_kind="concord_group",
+                subject_id=group.group_id,
+                owning_system="concord",
+            ),
+        )
+    if kind == "session":
+        sessions = list_sessions(activity.class_id, activity.activity_id)
+        session = select_one(
+            "Moderation Session Scope",
+            sessions,
+            [
+                f"{item.label or item.session_id} ({item.session_id})"
+                for item in sessions
+            ],
+            help_text="Choose the exact Concord Session scope.",
+        )
+        return (
+            SubjectReference(
+                subject_kind="concord_session",
+                subject_id=session.session_id,
+                owning_system="concord",
+            ),
+        )
+    if kind == "activity":
+        return (
+            SubjectReference(
+                subject_kind="concord_activity",
+                subject_id=activity.activity_id,
+                owning_system="concord",
+            ),
+        )
+    if kind == "artifact":
+        artifact = _choose_artifact(activity, title="Moderation Artifact Subject Scope")
+        return (
+            SubjectReference(
+                subject_kind="concord_artifact_instance",
+                subject_id=artifact.artifact_instance_id,
+                owning_system="concord",
+            ),
+        )
+    subject_id = prompt_text(
+        "External Moderation Subject",
+        "External record ID",
+        help_text="Enter the exact external Subject identifier.",
+    )
+    owner = prompt_text(
+        "External Moderation Subject",
+        "Owning system",
+        help_text="Enter the lowercase external owning system.",
+    )
+    contract = prompt_text(
+        "External Moderation Subject",
+        "Contract version",
+        help_text="Optional external Subject contract/version.",
+        optional=True,
+    )
+    assert subject_id is not None and owner is not None
+    return (
+        SubjectReference(
+            subject_kind="external_record",
+            subject_id=subject_id,
+            owning_system=owner,
+            contract_version=contract,
+        ),
+    )
+
+
+def _moderation_values() -> tuple[str, str, str, str | None, PrivacyPolicy]:
+    status = select_one(
+        "Moderation Status",
+        (
+            "accepted",
+            "accepted_with_qualification",
+            "insufficient",
+            "disputed",
+            "rejected",
+            "not_used_for_scoring",
+        ),
+        (
+            "Accepted",
+            "Accepted with qualification",
+            "Insufficient",
+            "Disputed",
+            "Rejected",
+            "Not used for scoring",
+        ),
+        help_text="Record the human reliability/fairness decision.",
+    )
+    permitted_use = select_one(
+        "Moderation Permitted Use",
+        (
+            "support_group_score",
+            "support_named_subject",
+            "corroborate_only",
+            "formative_only",
+            "not_independently_determine_score",
+            "not_be_used_for_scoring",
+        ),
+        (
+            "Support Group Score",
+            "Support named Subject",
+            "Corroborate only",
+            "Formative only",
+            "May not independently determine Score",
+            "Must not be used for scoring",
+        ),
+        help_text="Permission limits later evidence use; it does not create a Score.",
+    )
+    rationale = prompt_text(
+        "Moderation Rationale",
+        "Rationale",
+        help_text="Record the explicit human reason for this Moderation decision.",
+    )
+    qualification = prompt_text(
+        "Moderation Qualification",
+        "Qualification",
+        help_text="Required for accepted-with-qualification; optional otherwise.",
+        optional=status != "accepted_with_qualification",
+    )
+    privacy = select_one(
+        "Moderation Record Privacy",
+        (
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+        (
+            "Teacher restricted",
+            "Teacher and Subjects",
+            "Group and teacher",
+            "Classroom shared",
+        ),
+        help_text="Moderation privacy is independent from the evidence privacy.",
+    )
+    assert rationale is not None
+    return status, permitted_use, rationale, qualification, PrivacyPolicy(
+        classification=privacy
+    )
+
+
+def _moderation_label(item: ModerationSummary) -> str:
+    evidence = item.evidence_reference
+    scope = ", ".join(
+        f"{subject.subject_kind}:{subject.subject_id}"
+        for subject in item.target_subject_references
+    )
+    state = "current" if item.is_current else "historical"
+    return (
+        f"{evidence.owning_system}:{evidence.evidence_kind}:{evidence.record_id} - "
+        f"{scope or 'general'} - {item.status} - {item.permitted_use} [{state}]"
+    )
+
+
+def _show_moderation(activity: ActivitySummary) -> None:
+    items = list_moderation_records(
+        activity.class_id,
+        activity.activity_id,
+        include_historical=True,
+    )
+    selected = select_one(
+        "Moderation Decisions",
+        items,
+        [_moderation_label(item) for item in items],
+        help_text="Choose one exact Moderation decision to inspect.",
+    )
+    detail = show_moderation_record(
+        activity.class_id,
+        activity.activity_id,
+        selected.moderation_record_id,
+    )
+    item = detail.summary
+    evidence = item.evidence_reference
+    show_result(
+        "Moderation Detail",
+        (
+            f"Moderation: {item.moderation_record_id}",
+            (
+                "Evidence: "
+                f"{evidence.owning_system}:{evidence.evidence_kind}:"
+                f"{evidence.record_id}"
+            ),
+            (
+                "Subject scope: "
+                + (
+                    ", ".join(
+                        f"{subject.subject_kind}:{subject.subject_id}"
+                        for subject in item.target_subject_references
+                    )
+                    or "general"
+                )
+            ),
+            f"Status: {item.status}",
+            f"Permitted use: {item.permitted_use}",
+            f"Qualification: {item.qualification or '-'}",
+            f"Rationale: {detail.rationale}",
+            f"Privacy: {item.privacy_policy.classification}",
+            f"Current: {'yes' if item.is_current else 'no'}",
+        ),
+    )
+
+
+def _record_moderation(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    current = _latest(activity)
+    evidence = _choose_moderation_evidence(current)
+    subjects = _choose_moderation_subjects(current)
+    moderation_id = prompt_text(
+        "Record Moderation",
+        "Moderation Record ID",
+        help_text="Use an opaque durable Moderation identifier.",
+        default=f"moderation_{uuid4().hex}",
+    )
+    assert moderation_id is not None
+    status, permitted_use, rationale, qualification, privacy = _moderation_values()
+    if not confirm_write(
+        "Record Moderation",
+        "MODERATE",
+        (
+            (
+                "Evidence: "
+                f"{evidence.owning_system}:{evidence.evidence_kind}:"
+                f"{evidence.record_id}"
+            ),
+            f"Subject scope count: {len(subjects)}",
+            f"Status: {status}",
+            f"Permitted use: {permitted_use}",
+        ),
+    ):
+        return
+    result = add_moderation_record(
+        AddModerationRecordRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            moderation_record_id=moderation_id,
+            target_evidence_reference=evidence,
+            target_subject_references=subjects,
+            status=status,
+            permitted_use=permitted_use,
+            rationale=rationale,
+            qualification=qualification,
+            privacy_policy=privacy,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Moderation Recorded",
+        (
+            f"Moderation: {result.moderation_record_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _replace_moderation(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    current = _latest(activity)
+    items = list_moderation_records(
+        current.class_id,
+        current.activity_id,
+        include_historical=False,
+    )
+    predecessor = select_one(
+        "Revise Current Moderation",
+        items,
+        [_moderation_label(item) for item in items],
+        help_text=(
+            "Revision preserves the predecessor's exact evidence and Subject scope."
+        ),
+    )
+    replacement_id = prompt_text(
+        "Revise Moderation",
+        "Replacement Moderation ID",
+        help_text="Create a new opaque durable successor identifier.",
+        default=f"moderation_{uuid4().hex}",
+    )
+    correction_id = prompt_text(
+        "Revise Moderation",
+        "Correction ID",
+        help_text="Create the audit record connecting predecessor and successor.",
+        default=f"correction_{uuid4().hex}",
+    )
+    reason = prompt_text(
+        "Revise Moderation",
+        "Reason",
+        help_text="State why the Moderation decision is being revised.",
+    )
+    assert replacement_id is not None
+    assert correction_id is not None
+    assert reason is not None
+    status, permitted_use, rationale, qualification, privacy = _moderation_values()
+    if not confirm_write(
+        "Revise Moderation",
+        "REVISE",
+        (
+            f"Predecessor: {predecessor.moderation_record_id}",
+            f"Successor: {replacement_id}",
+            "Evidence and Subject scope: preserved exactly",
+            f"New status: {status}",
+            f"New permitted use: {permitted_use}",
+        ),
+    ):
+        return
+    result = replace_moderation_record(
+        ReplaceModerationRecordRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            moderation_record_id=predecessor.moderation_record_id,
+            replacement_moderation_record_id=replacement_id,
+            correction_id=correction_id,
+            reason=reason,
+            target_evidence_reference=predecessor.evidence_reference,
+            target_subject_references=predecessor.target_subject_references,
+            status=status,
+            permitted_use=permitted_use,
+            rationale=rationale,
+            qualification=qualification,
+            privacy_policy=privacy,
+            correction_privacy_policy=PrivacyPolicy(
+                classification="teacher_restricted"
+            ),
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Moderation Revised",
+        (
+            f"Successor: {result.moderation_record_id}",
+            f"Correction: {correction_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _view_applicable_moderation(activity: ActivitySummary) -> None:
+    evidence = _choose_moderation_evidence(activity)
+    subjects = _choose_moderation_subjects(activity)
+    items = list_applicable_moderation_records(
+        activity.class_id,
+        activity.activity_id,
+        evidence,
+        subject_context=subjects,
+    )
+    if not items:
+        show_result(
+            "Applicable Moderation",
+            ("No current Moderation decisions apply to this exact evidence/scope.",),
+        )
+        return
+    selected = select_one(
+        "Applicable Moderation",
+        items,
+        [_moderation_label(item) for item in items],
+        help_text=(
+            "All applicable current decisions are returned; Concord does not "
+            "choose one by timestamp or ID."
+        ),
+    )
+    show_result(
+        "Applicable Moderation Decision",
+        (
+            f"Moderation: {selected.moderation_record_id}",
+            f"Status: {selected.status}",
+            f"Permitted use: {selected.permitted_use}",
+            f"Qualification: {selected.qualification or '-'}",
+            "Rationale is available only through explicit Moderation detail.",
+        ),
+    )
+
+
+def _launch_moderation_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    while True:
+        clear_screen()
+        print_menu_header("Evidence Moderation")
+        print("1. List / inspect Moderation decisions")
+        print("2. Record Moderation")
+        print("3. Record successor / revised Moderation")
+        print("4. Find decisions applicable to evidence")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                show_result(
+                    "Moderation Help",
+                    (
+                        "Moderation judges reliability, fairness, and permitted use.",
+                        (
+                            "It does not choose a Criterion, Score target, Score, "
+                            "or Grade."
+                        ),
+                        "Subject scope is explicit and never inferred from Authors.",
+                    ),
+                )
+            elif navigation is NavigationChoice.BACK:
+                return
+            elif choice == "1":
+                _show_moderation(activity)
+            elif choice == "2":
+                _record_moderation(activity, state)
+            elif choice == "3":
+                _replace_moderation(activity, state)
+            elif choice == "4":
+                _view_applicable_moderation(activity)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+            raise
+        except Exception as error:
+            _handle_error(activity, error, title="Moderation Error")
+
+
 def launch_artifact_page_menu(
     activity: ActivitySummary, state: MenuSessionContext
 ) -> None:
@@ -1213,6 +2251,8 @@ def launch_artifact_page_menu(
         print("5. Assemble returned Artifact")
         print("6. Authors")
         print("7. Subjects")
+        print("8. Review")
+        print("9. Moderation")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1248,6 +2288,10 @@ def launch_artifact_page_menu(
                 _launch_author_menu(activity, state)
             elif choice == "7":
                 _launch_subject_menu(activity, state)
+            elif choice == "8":
+                _launch_review_menu(activity, state)
+            elif choice == "9":
+                _launch_moderation_menu(activity, state)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
