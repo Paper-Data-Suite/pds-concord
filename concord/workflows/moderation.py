@@ -547,12 +547,17 @@ def list_moderation_records(
     *,
     include_historical: bool = True,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[ModerationSummary, ...]:
     """List Moderation summaries without exposing rationale."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root,
+        work_ref(class_id, activity_id),
+        standards_library,
+    )
     current_ids = frozenset(
         item.moderation_record_id for item in _moderation_heads(graph)
     )
@@ -573,6 +578,7 @@ def show_moderation_record(
     moderation_record_id: str,
     *,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> ModerationDetail:
     """Show one exact Moderation decision including its private rationale."""
     root = resolve_read_workspace_root(workspace_root)
@@ -580,7 +586,11 @@ def show_moderation_record(
         raise ConcordWorkflowNotFoundError(
             f"Moderation Record is not available: {moderation_record_id}"
         )
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root,
+        work_ref(class_id, activity_id),
+        standards_library,
+    )
     record = _require_moderation(graph, moderation_record_id)
     current_ids = frozenset(
         item.moderation_record_id for item in _moderation_heads(graph)
@@ -614,12 +624,17 @@ def list_applicable_moderation_records(
     *,
     subject_context: tuple[SubjectReference, ...] = (),
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[ModerationSummary, ...]:
     """Return all current decisions applicable to exact evidence and Subject context."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root,
+        work_ref(class_id, activity_id),
+        standards_library,
+    )
     _validate_evidence_lineage(root, graph, activity_id, evidence_reference)
     _validate_subjects(root, class_id, graph, activity_id, subject_context)
     records = _applicable_records(graph, evidence_reference, subject_context)
@@ -637,12 +652,17 @@ def assess_moderation_requirement(
     *,
     subject_context: tuple[SubjectReference, ...] = (),
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> ModerationRequirementAssessment:
     """Expose effective required-Moderation state for the later Score workflow."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         raise ConcordWorkflowNotFoundError(f"Activity is not available: {activity_id}")
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root,
+        work_ref(class_id, activity_id),
+        standards_library,
+    )
     artifact = _validate_evidence_lineage(
         root,
         graph,

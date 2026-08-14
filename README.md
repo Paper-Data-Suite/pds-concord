@@ -19,8 +19,10 @@ management with preserved correction history.
 
 Concord now provides explicit Artifact Review and evidence Moderation with
 preserved history, exact Subject scope, immutable external-evidence lineage,
-and a guarded handoff to later Score recording. Concord still does **not**
-create Scores, publication, or Grades; those remain assigned to later issues.
+plus teacher-controlled Criterion Sets, Scoring Scales, Score Records, Score
+Evidence Links, non-score dispositions, and Score revision history. Concord
+still does **not** publish academic results or calculate Grades; publication is
+issue #31 and Meridian owns downstream grading/reporting policy.
 
 ## Requirements and installation
 
@@ -47,7 +49,7 @@ concord menu
 
 The main menu provides Activity Management, Activity opening, Workspace
 Settings, global Scan Routing, contextual Artifact Pages with assembly,
-Author/Subject, Review, and Moderation workflows, Help, and Quit.
+Author/Subject, Review, Moderation, and Scoring workflows, Help, and Quit.
 Controlled teacher screens use:
 
 ```text
@@ -59,7 +61,7 @@ Q. Quit
 
 Every menu write shows a focused review screen and requires the operation word
 `CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`,
-`CORRECT`, `REVIEW`, `MODERATE`, `REVISE`, `END`, or `REASSIGN`.
+`CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `END`, or `REASSIGN`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
@@ -77,6 +79,9 @@ concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
+concord criterion-set create|list|show|revise|select
+concord scale create|list|show|revise
+concord score add|list|show|replace
 concord artifact list|show|assemble
 concord artifact author add|list|show|update|replace
 concord artifact subject add|list|show|update|replace
@@ -134,6 +139,8 @@ configuration.
 
 Detailed behavior is documented in the
 [workflow implementation guide](docs/implementation/activity-session-group-workflows.md).
+Criterion, Scale, and Score behavior is documented in the
+[scoring implementation guide](docs/implementation/criterion-scale-score-recording.md).
 Canonical persistence and recovery rules remain documented in the
 [canonical storage guide](docs/implementation/canonical-storage.md).
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.2.0 Artifact Review and Moderation workflow in issue #29.
+Implemented through the v0.2.0 Criterion, Scale, and Score workflow in issue #30.
 
 ## Two interfaces, one service layer
 
@@ -66,6 +66,22 @@ concord responsibility assign
 concord responsibility list
 concord responsibility end
 concord responsibility reassign
+
+concord criterion-set create
+concord criterion-set list
+concord criterion-set show
+concord criterion-set revise
+concord criterion-set select
+
+concord scale create
+concord scale list
+concord scale show
+concord scale revise
+
+concord score add
+concord score list
+concord score show
+concord score replace
 
 concord artifact list
 concord artifact show
@@ -210,9 +226,10 @@ Q. Quit
 
 An opened Activity includes page preparation/inspection/rendering, Artifact
 inspection and returned assembly, explicit Author/Subject management, Artifact
-Review, and evidence Moderation. Teacher writes require operation-specific
-words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`, `UPDATE`, `CORRECT`,
-`REVIEW`, `MODERATE`, and `REVISE`. Global routing review remains
+Review, evidence Moderation, and Criterion/Scale/Score workflows. Teacher
+writes require operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`,
+`ADD`, `UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, and `REVISE`.
+Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 
 Within controlled submenus:
@@ -256,6 +273,6 @@ commit success remains valid if disposable catalog rebuilding later fails.
 ## Boundaries
 
 This contract includes returned Artifact assembly, Author/Subject management,
-Artifact Review, and evidence Moderation. It does not add Criterion/Scale/Score
-entry, publication, Meridian grading policy, Grade calculation, or destructive
-collaboration-record deletion.
+Artifact Review, evidence Moderation, Criterion Set and Scoring Scale management,
+and explicit Score entry/revision. It does not add Concord publication, Meridian
+grading policy, Grade calculation, or destructive collaboration-record deletion.

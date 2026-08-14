@@ -45,14 +45,16 @@ The repository now contains:
 * explicit Artifact Author/Subject creation, state revision, correction, and
   history workflows; and
 * explicit Artifact Review and evidence Moderation with preserved history,
-  exact evidence/Subject scope, and a guarded Score handoff.
+  exact evidence/Subject scope, and a guarded Score handoff; and
+* teacher-controlled Criterion Set, Scoring Scale, Score Record, Score Evidence
+  Link, non-score disposition, and Score revision workflows.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
 teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
-assembly, Author/Subject, and Review/Moderation workflows are complete. Later
-issues add scoring, publication, and consumer integration. The Concord
+assembly, Author/Subject, Review/Moderation, and Criterion/Scale/Score workflows
+are complete. Later issues add publication and consumer integration. The Concord
 routing entry point is declared; the publication entry point remains absent.
 
 ### 14. PDS2 Artifact Page integration
@@ -79,6 +81,15 @@ history, privacy, identity separation, and the handoff to issue #29.
 Documents explicit human Review, Moderation evidence and Subject scope, preserved
 decision history, Core Publication-reference verification, direct/menu
 workflows, Score-handoff validation, and installed-wheel acceptance.
+
+### 17. Criterion, Scale, and Score recording
+
+[`implementation/criterion-scale-score-recording.md`](implementation/criterion-scale-score-recording.md)
+
+Documents immutable Criterion Set and Scale revisions, explicit Activity Set
+selection, type-sensitive native Scale values, teacher-approved Score and
+non-score workflows, durable evidence links, Review/Moderation handoff, Score
+history, direct/menu surfaces, and installed-wheel acceptance.
 
 ### 10. Native model implementation
 
@@ -344,9 +355,10 @@ Where a conceptual contract depends on Core identity, routing, or provenance, it
 ### Implementation Documentation
 
 Implementation documents describe the native model layer, canonical storage,
-collaboration-context workflows, and CLI/menu contracts that are now implemented.
-Later implementation documents will cover routing, Artifact management, Review,
-Moderation, scoring, publication, and consumer integration as those issues land.
+collaboration-context workflows, routing, Artifact management, Review,
+Moderation, Criterion/Scale/Score recording, and CLI/menu contracts that are now
+implemented. Later implementation documents will cover publication and consumer
+integration as those issues land.
 
 Implementation convenience must not silently change the domain semantics established here.
 

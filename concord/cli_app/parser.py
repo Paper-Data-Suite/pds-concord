@@ -13,6 +13,7 @@ from concord.cli_app.handlers import (
     review_moderation,
     role,
     scan,
+    scoring,
     session,
     workspace,
 )
@@ -1026,6 +1027,277 @@ def _moderation_commands(
     )
 
 
+
+def _definition_file_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--definition",
+        required=True,
+        help="Narrow JSON definition file for this immutable record revision.",
+    )
+
+
+def _criterion_set_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "criterion-set",
+        help="Manage immutable Criterion Sets and Activity selection.",
+    )
+    actions = parent.add_subparsers(dest="criterion_set_command", required=True)
+
+    create = actions.add_parser(
+        "create",
+        help="Create one Criterion Set revision and its ordered Criteria.",
+    )
+    _mutating_options(create)
+    _class_activity(create)
+    create.add_argument("--criterion-set-id", required=True)
+    create.add_argument("--lineage-id", required=True)
+    _definition_file_option(create)
+    create.set_defaults(
+        handler=scoring.handle_criterion_set_create,
+        command_parser=create,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List Criterion Set revisions.",
+    )
+    _workspace_option(list_command)
+    _standards_option(list_command)
+    _class_activity(list_command)
+    list_command.add_argument("--current-only", action="store_true")
+    list_command.set_defaults(handler=scoring.handle_criterion_set_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one exact Criterion Set revision and ordered Criteria.",
+    )
+    _workspace_option(show)
+    _standards_option(show)
+    _class_activity(show)
+    show.add_argument("--criterion-set-id", required=True)
+    show.set_defaults(handler=scoring.handle_criterion_set_show)
+
+    revise = actions.add_parser(
+        "revise",
+        help="Create an explicit successor Criterion Set revision.",
+    )
+    _mutating_options(revise)
+    _class_activity(revise)
+    revise.add_argument("--criterion-set-id", required=True)
+    revise.add_argument("--replacement-criterion-set-id", required=True)
+    _definition_file_option(revise)
+    revise.set_defaults(
+        handler=scoring.handle_criterion_set_revise,
+        command_parser=revise,
+    )
+
+    select = actions.add_parser(
+        "select",
+        help="Select exact Criterion Set revisions for future scoring.",
+    )
+    _mutating_options(select)
+    _class_activity(select)
+    select.add_argument(
+        "--criterion-set-id",
+        action="append",
+        required=True,
+        help="Exact Criterion Set revision; repeat to select several.",
+    )
+    select.set_defaults(handler=scoring.handle_criterion_set_select)
+
+
+def _scale_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "scale",
+        help="Manage immutable native Scoring Scales.",
+    )
+    actions = parent.add_subparsers(dest="scale_command", required=True)
+
+    create = actions.add_parser(
+        "create",
+        help="Create one exact Scoring Scale revision.",
+    )
+    _mutating_options(create)
+    _class_activity(create)
+    create.add_argument("--scoring-scale-id", required=True)
+    create.add_argument("--lineage-id", required=True)
+    _definition_file_option(create)
+    create.set_defaults(
+        handler=scoring.handle_scale_create,
+        command_parser=create,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List Scoring Scale revisions.",
+    )
+    _workspace_option(list_command)
+    _standards_option(list_command)
+    _class_activity(list_command)
+    list_command.add_argument("--current-only", action="store_true")
+    list_command.set_defaults(handler=scoring.handle_scale_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one exact Scoring Scale revision.",
+    )
+    _workspace_option(show)
+    _standards_option(show)
+    _class_activity(show)
+    show.add_argument("--scoring-scale-id", required=True)
+    show.set_defaults(handler=scoring.handle_scale_show)
+
+    revise = actions.add_parser(
+        "revise",
+        help="Create an explicit successor Scoring Scale revision.",
+    )
+    _mutating_options(revise)
+    _class_activity(revise)
+    revise.add_argument("--scoring-scale-id", required=True)
+    revise.add_argument("--replacement-scoring-scale-id", required=True)
+    _definition_file_option(revise)
+    revise.set_defaults(
+        handler=scoring.handle_scale_revise,
+        command_parser=revise,
+    )
+
+
+def _score_semantic_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--target-kind",
+        required=True,
+        choices=(
+            "core_student",
+            "concord_group",
+            "concord_session",
+            "concord_activity",
+            "concord_artifact_instance",
+        ),
+    )
+    parser.add_argument("--target-owner", required=True)
+    parser.add_argument("--target-id", required=True)
+    parser.add_argument("--target-contract-version")
+    parser.add_argument("--criterion-id", required=True)
+    parser.add_argument("--scoring-scale-id", required=True)
+    parser.add_argument(
+        "--disposition",
+        required=True,
+        choices=(
+            "scored",
+            "insufficient_evidence",
+            "absent",
+            "excused",
+            "not_observed",
+            "not_applicable",
+            "deferred",
+        ),
+    )
+    parser.add_argument(
+        "--value-json",
+        help=(
+            "Exact JSON scalar Score value. Required for scored; "
+            "forbidden for non-score dispositions."
+        ),
+    )
+    parser.add_argument(
+        "--basis",
+        required=True,
+        choices=("linked_evidence", "professional_judgment", "mixed_basis"),
+    )
+    parser.add_argument("--session-id")
+    parser.add_argument("--rationale")
+    parser.add_argument(
+        "--evidence-links",
+        help=(
+            "Narrow JSON array describing the complete initial "
+            "Score Evidence Link set."
+        ),
+    )
+    parser.add_argument("--status-reason-note")
+    parser.add_argument("--status-related-kind")
+    parser.add_argument("--status-related-id")
+    parser.add_argument(
+        "--privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+
+
+def _score_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "score",
+        help="Record explicit teacher-approved Scores.",
+    )
+    actions = parent.add_subparsers(dest="score_command", required=True)
+
+    add = actions.add_parser(
+        "add",
+        help="Atomically record one Score and its complete evidence-link set.",
+    )
+    _mutating_options(add)
+    _class_activity(add)
+    add.add_argument("--score-record-id", required=True)
+    _score_semantic_options(add)
+    add.set_defaults(handler=scoring.handle_score_add, command_parser=add)
+
+    list_command = actions.add_parser(
+        "list",
+        help="List compact current or historical Score summaries.",
+    )
+    _workspace_option(list_command)
+    _standards_option(list_command)
+    _class_activity(list_command)
+    list_command.add_argument("--criterion-id")
+    list_command.add_argument("--current-only", action="store_true")
+    list_command.set_defaults(handler=scoring.handle_score_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one exact Score, rationale, and Evidence Links.",
+    )
+    _workspace_option(show)
+    _standards_option(show)
+    _class_activity(show)
+    show.add_argument("--score-record-id", required=True)
+    show.set_defaults(handler=scoring.handle_score_show)
+
+    replace = actions.add_parser(
+        "replace",
+        help="Record an explicit successor Score with fresh Evidence Links.",
+    )
+    _mutating_options(replace)
+    _class_activity(replace)
+    replace.add_argument("--score-record-id", required=True)
+    replace.add_argument("--replacement-score-record-id", required=True)
+    replace.add_argument("--correction-id", required=True)
+    replace.add_argument("--reason", required=True)
+    _score_semantic_options(replace)
+    replace.add_argument(
+        "--correction-privacy-classification",
+        default="teacher_restricted",
+        choices=(
+            "teacher_restricted",
+            "teacher_and_subjects",
+            "group_and_teacher",
+            "classroom_shared",
+        ),
+    )
+    replace.set_defaults(
+        handler=scoring.handle_score_replace,
+        command_parser=replace,
+    )
+
 def _scan_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -1084,6 +1356,9 @@ def build_parser() -> argparse.ArgumentParser:
     _group_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
+    _criterion_set_commands(subparsers)
+    _scale_commands(subparsers)
+    _score_commands(subparsers)
     _artifact_commands(subparsers)
     _moderation_commands(subparsers)
     _scan_commands(subparsers)
