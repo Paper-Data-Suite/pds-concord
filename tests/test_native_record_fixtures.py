@@ -39,6 +39,10 @@ def test_integrated_fixture_keeps_semantic_identities_distinct() -> None:
     assert isinstance(proof, dict)
     assert proof["author_id"] != proof["subject_id"]
     assert proof["route_target_id"] != proof["score_target_id"]
+    assert proof["standard_score_criterion_id"] == "criterion-standard"
+    assert proof["standard_score_scale_id"] == "scale-1"
+    assert proof["non_score_disposition"] == "not_observed"
+    assert proof["score_revision_predecessor_id"] == "score-standard-1"
     assert proof["group_score_creates_student_scores"] is False
 
 

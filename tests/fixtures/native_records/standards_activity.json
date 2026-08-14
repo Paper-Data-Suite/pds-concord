@@ -5,6 +5,10 @@
     "subject_id": "participant-2",
     "route_target_id": "page-1",
     "score_target_id": "participant-2",
+    "standard_score_criterion_id": "criterion-standard",
+    "standard_score_scale_id": "scale-1",
+    "non_score_disposition": "not_observed",
+    "score_revision_predecessor_id": "score-standard-1",
     "group_score_creates_student_scores": false
   },
   "records": [
@@ -114,7 +118,7 @@
     },
     {
       "record_kind": "score_record",
-      "body": {"score_record_id": "score-group-nonscore", "activity_id": "standards-activity", "target_reference": {"target_kind": "concord_group", "target_id": "group-1", "owning_system": "concord"}, "criterion_id": "criterion-local", "score_kind": "local", "scoring_scale_id": "scale-1", "disposition": "not_observed", "basis": "professional_judgment", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T12:40:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "rationale": "No separate observation existed for this context."}
+      "body": {"score_record_id": "score-group-nonscore", "activity_id": "standards-activity", "target_reference": {"target_kind": "concord_group", "target_id": "group-1", "owning_system": "concord"}, "criterion_id": "criterion-local", "score_kind": "local", "scoring_scale_id": "scale-1", "disposition": "not_observed", "basis": "professional_judgment", "scorer": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "scored_at": "2026-08-05T12:40:00-04:00", "moderation_complete": true, "privacy_policy": {"classification": "teacher_restricted", "audience_references": []}, "rationale": "No separate observation existed for this context.", "status_reason": {"reason_code": "not_observed", "recorded_by": {"actor_kind": "authorized_adult", "actor_id": "actor-1", "owning_system": "core"}, "recorded_at": "2026-08-05T12:40:00-04:00", "note": "No separate observation existed for this context."}}
     },
     {
       "record_kind": "score_record",

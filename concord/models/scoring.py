@@ -70,6 +70,10 @@ class CriterionSet:
         optional_identifier(
             self.supersedes_criterion_set_id, "supersedes_criterion_set_id"
         )
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError(
+                "created_provenance must be Provenance."
+            )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -131,6 +135,10 @@ class Criterion:
             raise ConcordModelError("standard-backed Criterion requires standard_id.")
         if kind == "local" and self.standard_id is not None:
             raise ConcordModelError("local Criterion forbids standard_id.")
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError(
+                "created_provenance must be Provenance."
+            )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -169,7 +177,7 @@ class ScoringScale:
         identifier(self.lineage_id, "lineage_id")
         require_text(self.name, "name")
         positive_int(self.revision, "revision")
-        controlled(
+        scale_type = controlled(
             self.scale_type,
             "scale_type",
             frozenset(
@@ -190,6 +198,28 @@ class ScoringScale:
         )
         if len(set(positions)) != len(positions):
             raise ConcordModelError("Scale level positions must be unique.")
+        if positions and len(positions) != len(levels):
+            raise ConcordModelError(
+                "Scale level positions must be either complete or absent."
+            )
+        if scale_type == "numeric" and any(
+            isinstance(level.value, bool)
+            or not isinstance(level.value, (int, float))
+            for level in levels
+        ):
+            raise ConcordModelError(
+                "numeric Scale levels require finite int or float values."
+            )
+        if scale_type == "ordinal" and any(
+            level.position is None for level in levels
+        ):
+            raise ConcordModelError(
+                "ordinal Scale levels require explicit positions."
+            )
+        if scale_type == "binary" and len(levels) != 2:
+            raise ConcordModelError(
+                "binary Scale requires exactly two levels."
+            )
         optional_text(self.intended_use, "intended_use")
         optional_text(self.aggregation_guidance, "aggregation_guidance")
         controlled(
@@ -200,6 +230,10 @@ class ScoringScale:
         optional_identifier(
             self.supersedes_scoring_scale_id, "supersedes_scoring_scale_id"
         )
+        if not isinstance(self.created_provenance, Provenance):
+            raise ConcordModelError(
+                "created_provenance must be Provenance."
+            )
 
     def level_for_value(self, value: JsonScalar) -> ScoringScaleLevel | None:
         key = scalar_key(value)
@@ -265,6 +299,12 @@ class ScoreRecord:
             raise ConcordModelError("scorer must be ActorReference.")
         timestamp(self.scored_at, "scored_at")
         optional_text(self.rationale, "rationale")
+        if self.status_reason is not None and not isinstance(
+            self.status_reason, StatusReason
+        ):
+            raise ConcordModelError("status_reason must be StatusReason.")
+        if not isinstance(self.privacy_policy, PrivacyPolicy):
+            raise ConcordModelError("privacy_policy must be PrivacyPolicy.")
         require_bool(self.moderation_complete, "moderation_complete")
         optional_identifier(
             self.supersedes_score_record_id, "supersedes_score_record_id"
@@ -273,6 +313,14 @@ class ScoreRecord:
             if self.value is None:
                 raise ConcordModelError("scored disposition requires value.")
             scalar_key(self.value)
+            if self.status_reason is not None:
+                raise ConcordModelError(
+                    "scored disposition forbids status_reason."
+                )
+            if not self.moderation_complete:
+                raise ConcordModelError(
+                    "scored disposition requires moderation_complete."
+                )
         elif self.value is not None:
             raise ConcordModelError("non-score dispositions forbid value.")
         if kind == "standard_backed" and self.standard_id is None:

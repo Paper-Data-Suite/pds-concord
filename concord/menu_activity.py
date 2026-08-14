@@ -29,6 +29,7 @@ from concord.menu_prompts import (
 )
 from concord.menu_responsibility import launch_responsibility_menu
 from concord.menu_role import launch_role_menu
+from concord.menu_scoring import launch_scoring_menu
 from concord.menu_session import launch_session_menu
 from concord.menu_ui import (
     clear_screen,
@@ -474,7 +475,8 @@ def launch_activity_context_menu(
         print("5. Roles")
         print("6. Responsibilities")
         print("7. Artifact Pages")
-        print("8. Edit Activity")
+        print("8. Scoring")
+        print("9. Edit Activity")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -498,6 +500,8 @@ def launch_activity_context_menu(
         elif choice == "7":
             launch_artifact_page_menu(activity, session_state)
         elif choice == "8":
+            launch_scoring_menu(activity, session_state)
+        elif choice == "9":
             _edit_activity(activity, session_state)
         else:
             print(navigation_hint_with_help())

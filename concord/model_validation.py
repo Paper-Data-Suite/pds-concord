@@ -1018,6 +1018,8 @@ def _validate_issue29_score_link_moderation(
     moderations: dict[str, ModerationRecord],
     artifacts: dict[str, ArtifactInstance],
     pages: dict[str, ArtifactPage],
+    *,
+    score_is_current: bool,
 ) -> None:
     moderation = moderations.get(link.moderation_record_id or "")
     current_ids = {
@@ -1033,6 +1035,8 @@ def _validate_issue29_score_link_moderation(
         pages,
     )
     required = evidence_requires or review_requires
+    consequential = score is not None and score.disposition == "scored"
+    current_consequential = score_is_current and consequential
 
     if link.moderation_record_id and moderation is None:
         _issue(
@@ -1070,7 +1074,7 @@ def _validate_issue29_score_link_moderation(
         not in {"not_be_used_for_scoring", "formative_only"}
     )
 
-    if moderation is not None and not current:
+    if current_consequential and moderation is not None and not current:
         _issue(
             issues,
             "moderation.current.required",
@@ -1106,7 +1110,7 @@ def _validate_issue29_score_link_moderation(
             link.score_evidence_link_id,
             "moderation_record_id",
         )
-    if moderation is not None and not scoring_use_allowed:
+    if consequential and moderation is not None and not scoring_use_allowed:
         _issue(
             issues,
             "moderation.use.not_permitted",
@@ -1117,14 +1121,14 @@ def _validate_issue29_score_link_moderation(
         )
 
     satisfies_required = (
-        current
+        (current or not score_is_current)
         and evidence_matches
         and scope_applies
         and target_use_matches
         and status_satisfies_required
         and scoring_use_allowed
     )
-    if required and not satisfies_required:
+    if consequential and required and not satisfies_required:
         _issue(
             issues,
             "score.evidence.moderation_required",
@@ -1134,7 +1138,8 @@ def _validate_issue29_score_link_moderation(
             "moderation_record_id",
         )
     if (
-        required
+        consequential
+        and required
         and moderation is not None
         and not status_satisfies_required
         and scoring_use_allowed
@@ -1147,6 +1152,211 @@ def _validate_issue29_score_link_moderation(
             link.score_evidence_link_id,
             "moderation_record_id",
         )
+
+
+def _validate_issue30_definition_revisions(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    definitions: tuple[
+        tuple[str, tuple[Any, ...], str, str, str, str],
+        ...,
+    ] = (
+        (
+            "criterion_set",
+            graph.criterion_sets,
+            "criterion_set_id",
+            "lineage_id",
+            "revision",
+            "supersedes_criterion_set_id",
+        ),
+        (
+            "scoring_scale",
+            graph.scoring_scales,
+            "scoring_scale_id",
+            "lineage_id",
+            "revision",
+            "supersedes_scoring_scale_id",
+        ),
+    )
+    for (
+        kind,
+        records,
+        identity_field,
+        lineage_field,
+        revision_field,
+        predecessor_field,
+    ) in definitions:
+        index = {
+            str(getattr(record, identity_field)): record
+            for record in records
+        }
+        superseded = {
+            str(getattr(record, predecessor_field))
+            for record in records
+            if getattr(record, predecessor_field) is not None
+        }
+        heads: defaultdict[str, list[Any]] = defaultdict(list)
+        for record in records:
+            record_id = str(getattr(record, identity_field))
+            lineage_id = str(getattr(record, lineage_field))
+            if record_id not in superseded:
+                heads[lineage_id].append(record)
+            predecessor_id = getattr(record, predecessor_field)
+            if predecessor_id is None:
+                continue
+            predecessor = index.get(str(predecessor_id))
+            if predecessor is None:
+                continue
+            if getattr(record, lineage_field) != getattr(
+                predecessor, lineage_field
+            ):
+                _issue(
+                    issues,
+                    f"{kind}.lineage.mismatch",
+                    "Definition successor must preserve its lineage.",
+                    kind,
+                    record_id,
+                    lineage_field,
+                )
+            if (
+                getattr(record, revision_field)
+                <= getattr(predecessor, revision_field)
+            ):
+                _issue(
+                    issues,
+                    f"{kind}.revision.not_advanced",
+                    "Successor revision must advance within its lineage.",
+                    kind,
+                    record_id,
+                    revision_field,
+                )
+        for current in heads.values():
+            if len(current) <= 1:
+                continue
+            for record in current:
+                _issue(
+                    issues,
+                    f"{kind}.current.multiple_heads",
+                    "Definition lineage has multiple current heads.",
+                    kind,
+                    str(getattr(record, identity_field)),
+                    lineage_field,
+                )
+
+
+def _issue30_score_revision_correction_exists(
+    graph: ConcordRecordGraph,
+    predecessor_id: str,
+    successor_id: str,
+) -> bool:
+    return any(
+        correction.correction_type == "score_revision"
+        and correction.target_reference.record_kind == "score_record"
+        and correction.target_reference.record_id == predecessor_id
+        and correction.replacement_reference is not None
+        and correction.replacement_reference.record_kind == "score_record"
+        and correction.replacement_reference.record_id == successor_id
+        for correction in graph.correction_records
+    )
+
+
+def _validate_issue30_score_audits(
+    issues: list[ValidationIssue],
+    graph: ConcordRecordGraph,
+) -> None:
+    scores = {item.score_record_id: item for item in graph.score_records}
+    for correction in graph.correction_records:
+        target_kind = correction.target_reference.record_kind
+        if (
+            correction.correction_type == "score_revision"
+            and target_kind != "score_record"
+        ) or (
+            target_kind == "score_record"
+            and correction.correction_type != "score_revision"
+        ):
+            _issue(
+                issues,
+                "correction.type.target_mismatch",
+                "Score correction type disagrees with its target.",
+                "correction",
+                correction.correction_id,
+                "correction_type",
+            )
+        if (
+            correction.correction_type == "score_revision"
+            and (
+                correction.replacement_reference is None
+                or correction.replacement_reference.record_kind
+                != "score_record"
+            )
+        ):
+            _issue(
+                issues,
+                "correction.replacement.required",
+                "Score revision requires a replacement Score reference.",
+                "correction",
+                correction.correction_id,
+                "replacement_reference",
+            )
+
+    for score in graph.score_records:
+        predecessor_id = score.supersedes_score_record_id
+        if predecessor_id is None:
+            continue
+        predecessor = scores.get(predecessor_id)
+        if predecessor is not None:
+            before = datetime.fromisoformat(
+                predecessor.scored_at.replace("Z", "+00:00")
+            )
+            after = datetime.fromisoformat(
+                score.scored_at.replace("Z", "+00:00")
+            )
+            if after < before:
+                _issue(
+                    issues,
+                    "score.supersession.time_backwards",
+                    "Score successor cannot precede its predecessor.",
+                    "score_record",
+                    score.score_record_id,
+                    "scored_at",
+                )
+        if not _issue30_score_revision_correction_exists(
+            graph,
+            predecessor_id,
+            score.score_record_id,
+        ):
+            _issue(
+                issues,
+                "score.correction.missing",
+                "Score successor lacks its exact score_revision audit record.",
+                "score_record",
+                score.score_record_id,
+                "supersedes_score_record_id",
+            )
+
+    links = {
+        item.score_evidence_link_id: item
+        for item in graph.score_evidence_links
+    }
+    for link in graph.score_evidence_links:
+        predecessor_id = link.supersedes_score_evidence_link_id
+        if predecessor_id is None:
+            continue
+        predecessor_link = links.get(predecessor_id)
+        if (
+            predecessor_link is not None
+            and predecessor_link.score_record_id != link.score_record_id
+        ):
+            _issue(
+                issues,
+                "score_evidence.supersession.score_mismatch",
+                "Evidence Link successor must preserve its parent Score.",
+                "score_evidence_link",
+                link.score_evidence_link_id,
+                "score_record_id",
+            )
+
 
 
 def collect_record_graph_issues(
@@ -1721,6 +1931,8 @@ def collect_record_graph_issues(
     )
     _validate_issue29_moderation_reference_integrity(issues, graph)
     _validate_issue29_revision_audits(issues, graph)
+    _validate_issue30_definition_revisions(issues, graph)
+    _validate_issue30_score_audits(issues, graph)
 
     for criterion_set in graph.criterion_sets:
         members = [criteria.get(item) for item in criterion_set.criterion_ids]
@@ -1782,6 +1994,16 @@ def collect_record_graph_issues(
             )
 
     active_links: defaultdict[str, list[ScoreEvidenceLink]] = defaultdict(list)
+    superseded_link_ids = {
+        item.supersedes_score_evidence_link_id
+        for item in graph.score_evidence_links
+        if item.supersedes_score_evidence_link_id is not None
+    }
+    superseded_score_ids = {
+        item.supersedes_score_record_id
+        for item in graph.score_records
+        if item.supersedes_score_record_id is not None
+    }
     for link in graph.score_evidence_links:
         if link.score_record_id not in scores:
             _issue(
@@ -1792,7 +2014,8 @@ def collect_record_graph_issues(
                 link.score_evidence_link_id,
                 "score_record_id",
             )
-        if link.status == "active":
+        is_current = link.score_evidence_link_id not in superseded_link_ids
+        if is_current and link.status == "active":
             active_links[link.score_record_id].append(link)
         _validate_evidence_reference(
             issues,
@@ -1802,15 +2025,19 @@ def collect_record_graph_issues(
             "score_evidence_link",
             link.score_evidence_link_id,
         )
-        _validate_issue29_score_link_moderation(
-            issues,
-            graph,
-            link,
-            scores,
-            moderations,
-            artifacts,
-            pages,
-        )
+        if is_current and link.status == "active":
+            _validate_issue29_score_link_moderation(
+                issues,
+                graph,
+                link,
+                scores,
+                moderations,
+                artifacts,
+                pages,
+                score_is_current=(
+                    link.score_record_id not in superseded_score_ids
+                ),
+            )
 
     for score_id, score_links in active_links.items():
         source_counts = Counter(
@@ -1859,6 +2086,20 @@ def collect_record_graph_issues(
                     score.score_record_id,
                     "session_id",
                 )
+        target = score.target_reference
+        expected_owner = (
+            "core" if target.target_kind == "core_student" else "concord"
+        )
+        if target.owning_system != expected_owner:
+            _issue(
+                issues,
+                "score.target.owner_mismatch",
+                "Score target ownership is incompatible with its target kind.",
+                "score_record",
+                score.score_record_id,
+                "target_reference",
+                "owning_system",
+            )
         if criterion is None:
             _issue(
                 issues,
@@ -1900,6 +2141,30 @@ def collect_record_graph_issues(
                     "target_reference",
                     "target_kind",
                 )
+        if score_activity and criterion is not None:
+            if criterion.criterion_set_id not in score_activity.criterion_set_ids:
+                _issue(
+                    issues,
+                    "score.criterion.not_selected",
+                    "Score Criterion Set is not selected by the Activity.",
+                    "score_record",
+                    score.score_record_id,
+                    "criterion_id",
+                )
+        if (
+            score.disposition != "scored"
+            and score.status_reason is not None
+            and score.status_reason.reason_code != score.disposition
+        ):
+            _issue(
+                issues,
+                "score.status_reason.mismatch",
+                "Non-score StatusReason must match the Score disposition.",
+                "score_record",
+                score.score_record_id,
+                "status_reason",
+                "reason_code",
+            )
         if score_activity:
             if (
                 score.score_kind == "standard_backed"

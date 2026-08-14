@@ -59,6 +59,8 @@ def _workflow_smoke_code() -> str:
             EvidenceReference,
             ParticipantReference,
             PrivacyPolicy,
+            ScoreTargetReference,
+            ScoringScaleLevel,
             SubjectReference,
         )
         from concord.pds_module import get_module_profile
@@ -79,10 +81,15 @@ def _workflow_smoke_code() -> str:
             AddArtifactSubjectRequest,
             AddModerationRecordRequest,
             AddMembershipsRequest,
+            AddScoreRequest,
             AssembleArtifactRequest,
             CreateActivityContextRequest,
+            CreateCriterionSetRequest,
             CreateGroupRequest,
+            CreateScoringScaleRequest,
+            CriterionSpec,
             GroupMemberSpec,
+            SelectActivityCriterionSetsRequest,
             UpdateSessionRequest,
             WorkflowActor,
             add_artifact_author,
@@ -90,12 +97,16 @@ def _workflow_smoke_code() -> str:
             add_artifact_subject,
             add_memberships,
             add_moderation_record,
+            add_score,
             assess_moderation_requirement,
             assemble_returned_artifact,
             create_activity_context,
+            create_criterion_set,
             create_group,
+            create_scoring_scale,
             current_artifact_review,
             list_applicable_moderation_records,
+            select_activity_criterion_sets,
             update_session,
         )
         from concord.workflows.artifact_page import (
@@ -144,7 +155,7 @@ def _workflow_smoke_code() -> str:
                     activity_id="activity-smoke",
                     title="Synthetic smoke activity",
                     activity_type="project",
-                    scoring_orientation="evidence_only",
+                    scoring_orientation="local_criteria_only",
                     session_id="session-smoke",
                     actor=actor,
                     activity_status="active",
@@ -433,6 +444,134 @@ def _workflow_smoke_code() -> str:
                 prepared.pages[0].route_id
             )
             assert assembled.output_path.is_file()
+
+            scale = create_scoring_scale(
+                CreateScoringScaleRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    scoring_scale_id="scale-smoke",
+                    lineage_id="scale-lineage-smoke",
+                    name="Synthetic smoke scale",
+                    revision=1,
+                    scale_type="ordinal",
+                    levels=(
+                        ScoringScaleLevel(
+                            value=1,
+                            label="Beginning",
+                            meaning="Beginning synthetic evidence.",
+                            position=1,
+                        ),
+                        ScoringScaleLevel(
+                            value=2,
+                            label="Developing",
+                            meaning="Developing synthetic evidence.",
+                            position=2,
+                        ),
+                        ScoringScaleLevel(
+                            value=3,
+                            label="Secure",
+                            meaning="Secure synthetic evidence.",
+                            position=3,
+                        ),
+                    ),
+                    status="active",
+                    expected_snapshot_revision=moderation.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            criterion_set = create_criterion_set(
+                CreateCriterionSetRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    criterion_set_id="criterion-set-smoke",
+                    lineage_id="criterion-lineage-smoke",
+                    name="Synthetic smoke criteria",
+                    purpose="Exercise installed-wheel Score persistence.",
+                    revision=1,
+                    scope="activity_specific",
+                    criterion_set_kind="local",
+                    criteria=(
+                        CriterionSpec(
+                            criterion_id="criterion-smoke",
+                            key="collaboration",
+                            label="Collaboration",
+                            definition="Coordinates the synthetic group work.",
+                            criterion_kind="local",
+                            supported_target_kinds=("concord_group",),
+                            default_scoring_scale_id="scale-smoke",
+                        ),
+                    ),
+                    status="active",
+                    expected_snapshot_revision=scale.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            selected_sets = select_activity_criterion_sets(
+                SelectActivityCriterionSetsRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    criterion_set_ids=("criterion-set-smoke",),
+                    expected_snapshot_revision=(
+                        criterion_set.commit.snapshot_revision
+                    ),
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            score = add_score(
+                AddScoreRequest(
+                    class_id="class-smoke",
+                    activity_id="activity-smoke",
+                    score_record_id="score-group-smoke",
+                    target_reference=ScoreTargetReference(
+                        target_kind="concord_group",
+                        target_id="group-smoke",
+                        owning_system="concord",
+                    ),
+                    criterion_id="criterion-smoke",
+                    scoring_scale_id="scale-smoke",
+                    disposition="scored",
+                    value=3,
+                    basis="professional_judgment",
+                    rationale=(
+                        "Synthetic installed-wheel teacher judgment for the "
+                        "Group target only."
+                    ),
+                    privacy_policy=PrivacyPolicy(
+                        classification="group_and_teacher"
+                    ),
+                    expected_snapshot_revision=(
+                        selected_sets.commit.snapshot_revision
+                    ),
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            loaded = load_current_record_graph(root, created.commit.work)
+            assert loaded.snapshot_revision == score.commit.snapshot_revision
+            assert len(loaded.graph.scoring_scales) == 1
+            assert len(loaded.graph.criterion_sets) == 1
+            assert len(loaded.graph.criteria) == 1
+            assert len(loaded.graph.score_records) == 1
+            installed_score = loaded.graph.score_records[0]
+            assert installed_score.score_record_id == "score-group-smoke"
+            assert installed_score.target_reference.target_kind == "concord_group"
+            assert installed_score.target_reference.target_id == "group-smoke"
+            assert installed_score.value == 3
+            assert installed_score.moderation_complete
+            assert not loaded.graph.score_evidence_links
+            assert not any(
+                item.target_reference.target_kind == "core_student"
+                for item in loaded.graph.score_records
+            )
+            assert loaded.graph.artifact_instances == artifacts_before_review
+            assert loaded.graph.artifact_pages == pages_before_review
+            assert loaded.graph.scan_references == scans_before_review
+            assert loaded.graph.artifact_authors == authors_before_review
+            assert loaded.graph.artifact_subjects == subjects_before_review
+
             assert not any(
                 entry.name == "concord"
                 for entry in entry_points(
@@ -453,7 +592,7 @@ def _workflow_smoke_code() -> str:
             historical = query_catalog_records(
                 root, created.commit.work, snapshot_revision=1
             )
-            assert len(current) == 12 and historical
+            assert len(current) == 16 and historical
 
         package_files_after = {
             path.relative_to(package_root)
