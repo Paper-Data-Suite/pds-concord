@@ -37,7 +37,13 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     assert (
         "[paper_data_suite.modules]\nconcord = concord.pds_module:get_module_profile"
     ) in entry_points
-    assert "paper_data_suite.publication_producers" not in entry_points
+    assert (
+        "[paper_data_suite.publication_producers]\n"
+        "concord = concord.pds_publication:get_publication_producer_profile"
+    ) in entry_points
+    assert entry_points.count(
+        "concord = concord.pds_publication:get_publication_producer_profile"
+    ) == 1
 
 
 def test_wheel_contains_only_concord_package(built_wheel: Path) -> None:
@@ -56,5 +62,6 @@ def test_wheel_contains_only_concord_package(built_wheel: Path) -> None:
         "quillan/",
         "portia/",
         "meridian/",
+        "vitrine/",
     )
     assert not any(name.lower().startswith(forbidden) for name in names)

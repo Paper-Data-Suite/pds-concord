@@ -46,6 +46,66 @@ def test_integrated_fixture_keeps_semantic_identities_distinct() -> None:
     assert proof["group_score_creates_student_scores"] is False
 
 
+def test_integrated_fixture_declares_publication_expectations() -> None:
+    fixture = _load(FIXTURES / "standards_activity.json")
+    expected = fixture["expected_academic_result_manifest_projection"]
+    assert isinstance(expected, dict)
+    assert expected["contract_version"] == "concord_academic_result_manifest_v1"
+    assert expected["record_type"] == "concord_academic_result_manifest"
+    work = expected["work"]
+    assert isinstance(work, dict)
+    assert work == {
+        "module_id": "concord",
+        "class_id": "class-1",
+        "work_id": "standards-activity",
+    }
+    assert expected["expected_capabilities"] == [
+        "criterion_scores",
+        "moderated_scores",
+        "standards_ratings",
+    ]
+    assert expected["score_projection"] == [
+        {"score_record_id": "score-standard-1", "current_state": "superseded"},
+        {"score_record_id": "score-standard-2", "current_state": "current"},
+        {
+            "score_record_id": "score-group-1",
+            "current_state": "current",
+            "target_kind": "concord_group",
+        },
+        {
+            "score_record_id": "score-group-nonscore",
+            "current_state": "current",
+            "disposition": "not_observed",
+            "value_present": False,
+        },
+    ]
+    assert expected["standards_result_score_ids"] == [
+        "score-standard-1",
+        "score-standard-2",
+    ]
+    lineage = expected["external_evidence_lineage_examples"]
+    assert isinstance(lineage, list)
+    assert len(lineage) == 2
+    assert all(isinstance(item, dict) for item in lineage)
+    assert {
+        item["owning_system"]
+        for item in lineage
+        if isinstance(item, dict)
+    } == {"scoreform", "quillan"}
+    values = expected["type_sensitive_scale_values"]
+    assert isinstance(values, list)
+    assert [type(value) for value in values] == [int, float, str, bool]
+    excluded = expected["private_fields_excluded"]
+    assert isinstance(excluded, list)
+    assert "score_record.rationale" in excluded
+    assert "status_reason.note" in excluded
+    assert "moderation_record.rationale" in excluded
+    assert "evidence_locator.note" in excluded
+    policy = expected["downstream_policy_excluded"]
+    assert isinstance(policy, list)
+    assert {"grade", "proficiency", "mastery"} <= set(policy)
+
+
 def test_integrated_fixture_is_a_valid_record_graph() -> None:
     fixture = _load(FIXTURES / "standards_activity.json")
     records = fixture["records"]

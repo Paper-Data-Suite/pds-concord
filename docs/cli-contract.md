@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.2.0 Criterion, Scale, and Score workflow in issue #30.
+Implemented through the v0.2.0 Academic Result Publication workflow in issue #31.
 
 ## Two interfaces, one service layer
 
@@ -118,6 +118,20 @@ concord scan route
 concord scan review list
 concord scan review show
 concord scan review resolve
+
+concord publication register
+concord publication registration-show
+concord publication registration-update
+concord publication manifest-preview
+concord publication manifest-generate
+concord publication manifest-list
+concord publication manifest-show
+concord publication publish
+concord publication supersede
+concord publication withdraw
+concord publication series-show
+concord publication catalog-list
+concord publication catalog-rebuild
 ```
 
 Use `concord <family> <command> --help` for exact flags.
@@ -226,9 +240,11 @@ Q. Quit
 
 An opened Activity includes page preparation/inspection/rendering, Artifact
 inspection and returned assembly, explicit Author/Subject management, Artifact
-Review, evidence Moderation, and Criterion/Scale/Score workflows. Teacher
-writes require operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`,
-`ADD`, `UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, and `REVISE`.
+Review, evidence Moderation, Criterion/Scale/Score workflows, and an explicit
+Publication surface immediately after Scoring. Teacher writes require
+operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`,
+`UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
+`GENERATE`, `PUBLISH`, `WITHDRAW`, and `REBUILD`.
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 
@@ -274,5 +290,6 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 This contract includes returned Artifact assembly, Author/Subject management,
 Artifact Review, evidence Moderation, Criterion Set and Scoring Scale management,
-and explicit Score entry/revision. It does not add Concord publication, Meridian
-grading policy, Grade calculation, or destructive collaboration-record deletion.
+explicit Score entry/revision, and explicit Academic Result Publication. It does
+not add the issue #32 consumer-neutral reader, Meridian grading policy, Grade or
+proficiency calculation, or destructive collaboration-record deletion.

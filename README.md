@@ -20,9 +20,12 @@ management with preserved correction history.
 Concord now provides explicit Artifact Review and evidence Moderation with
 preserved history, exact Subject scope, immutable external-evidence lineage,
 plus teacher-controlled Criterion Sets, Scoring Scales, Score Records, Score
-Evidence Links, non-score dispositions, and Score revision history. Concord
-still does **not** publish academic results or calculate Grades; publication is
-issue #31 and Meridian owns downstream grading/reporting policy.
+Evidence Links, non-score dispositions, and Score revision history. Concord now
+also publishes explicitly registered Activity results as immutable
+`concord_academic_result_manifest_v1` revisions through Core Publication Records
+and the derived academic catalog. Concord does **not** calculate Grades or
+proficiency; Meridian owns downstream grading/reporting policy, and issue #32
+owns the consumer-neutral manifest reader.
 
 ## Requirements and installation
 
@@ -49,7 +52,8 @@ concord menu
 
 The main menu provides Activity Management, Activity opening, Workspace
 Settings, global Scan Routing, contextual Artifact Pages with assembly,
-Author/Subject, Review, Moderation, and Scoring workflows, Help, and Quit.
+Author/Subject, Review, Moderation, Scoring, and explicit Publication workflows,
+Help, and Quit.
 Controlled teacher screens use:
 
 ```text
@@ -61,7 +65,8 @@ Q. Quit
 
 Every menu write shows a focused review screen and requires the operation word
 `CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`,
-`CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `END`, or `REASSIGN`.
+`CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `END`, `REASSIGN`,
+`REGISTER`, `GENERATE`, `PUBLISH`, `WITHDRAW`, or `REBUILD`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
@@ -91,6 +96,10 @@ concord artifact page prepare|list|show
 concord artifact render
 concord scan route
 concord scan review list|show|resolve
+concord publication register|registration-show|registration-update
+concord publication manifest-preview|manifest-generate|manifest-list|manifest-show
+concord publication publish|supersede|withdraw|series-show
+concord publication catalog-list|catalog-rebuild
 ```
 
 Mutating direct commands require explicit actor context. Every write after the
@@ -141,6 +150,9 @@ Detailed behavior is documented in the
 [workflow implementation guide](docs/implementation/activity-session-group-workflows.md).
 Criterion, Scale, and Score behavior is documented in the
 [scoring implementation guide](docs/implementation/criterion-scale-score-recording.md).
+Academic-result registration, manifest generation, publication lifecycle, and
+catalog reconciliation are documented in the
+[publication implementation guide](docs/implementation/academic-result-publication.md).
 Canonical persistence and recovery rules remain documented in the
 [canonical storage guide](docs/implementation/canonical-storage.md).
 
@@ -166,8 +178,9 @@ inspection, isolated installed-wheel workflow/menu smoke tests, and
 
 Core exposes routing through `paper_data_suite.modules` and publication through
 `paper_data_suite.publication_producers`. These remain independent integration
-surfaces. Concord declares exactly the routing entry point; publication remains
-absent until issue #31.
+surfaces. Concord declares exactly one routing profile and one separate
+publication-producer profile. Publication profile discovery is metadata-only and
+does not require a sibling PDS package or mutate the workspace.
 
 The implementation sequence is tracked by
 [umbrella issue #22](https://github.com/Paper-Data-Suite/pds-concord/issues/22).

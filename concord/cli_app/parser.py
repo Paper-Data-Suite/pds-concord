@@ -9,6 +9,7 @@ from concord.cli_app.handlers import (
     activity,
     artifact,
     group,
+    publication,
     responsibility,
     review_moderation,
     role,
@@ -1332,6 +1333,174 @@ def _scan_commands(
     resolve.set_defaults(handler=scan.handle_review_resolve, command_parser=resolve)
 
 
+def _publication_projection_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _standards_option(parser)
+    _expected_option(parser)
+    _actor_options(parser)
+    _class_activity(parser)
+    parser.add_argument(
+        "--revision-reason",
+        required=True,
+        choices=(
+            "initial",
+            "native_state_change",
+            "evidence_lineage_change",
+            "moderation_change",
+            "projection_correction",
+            "privacy_correction",
+            "contract_migration",
+        ),
+    )
+
+
+def _publication_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "publication",
+        help="Register and publish Concord academic-result manifests.",
+    )
+    actions = parent.add_subparsers(dest="publication_command", required=True)
+
+    register = actions.add_parser(
+        "register", help="Register one Activity as explicit Core academic work."
+    )
+    _workspace_option(register)
+    _class_activity(register)
+    register.add_argument(
+        "--academic-intent",
+        required=True,
+        choices=(
+            "formative",
+            "summative",
+            "diagnostic",
+            "practice",
+            "feedback_only",
+            "reporting_only",
+        ),
+    )
+    register.add_argument(
+        "--lifecycle",
+        required=True,
+        choices=("planned", "active", "closed", "cancelled"),
+    )
+    register.set_defaults(handler=publication.handle_register)
+
+    registration_show = actions.add_parser(
+        "registration-show", help="Show the current Core registration."
+    )
+    _workspace_option(registration_show)
+    _class_activity(registration_show)
+    registration_show.set_defaults(handler=publication.handle_registration_show)
+
+    registration_update = actions.add_parser(
+        "registration-update", help="Create an explicit registration revision."
+    )
+    _workspace_option(registration_update)
+    _class_activity(registration_update)
+    registration_update.add_argument(
+        "--expected-registration-revision", type=int, required=True
+    )
+    registration_update.add_argument(
+        "--academic-intent",
+        required=True,
+        choices=(
+            "formative",
+            "summative",
+            "diagnostic",
+            "practice",
+            "feedback_only",
+            "reporting_only",
+        ),
+    )
+    registration_update.add_argument(
+        "--lifecycle",
+        required=True,
+        choices=("planned", "active", "closed", "cancelled"),
+    )
+    registration_update.set_defaults(
+        handler=publication.handle_registration_update
+    )
+
+    preview = actions.add_parser(
+        "manifest-preview", help="Preview generation without writing a manifest."
+    )
+    _publication_projection_options(preview)
+    preview.set_defaults(handler=publication.handle_manifest_preview)
+
+    generate = actions.add_parser(
+        "manifest-generate", help="Generate or reuse the immutable producer head."
+    )
+    _publication_projection_options(generate)
+    generate.set_defaults(handler=publication.handle_manifest_generate)
+
+    manifest_list = actions.add_parser(
+        "manifest-list", help="List immutable producer manifest revisions."
+    )
+    _workspace_option(manifest_list)
+    _class_activity(manifest_list)
+    manifest_list.set_defaults(handler=publication.handle_manifest_list)
+
+    manifest_show = actions.add_parser(
+        "manifest-show", help="Show one exact publication-safe manifest revision."
+    )
+    _workspace_option(manifest_show)
+    _class_activity(manifest_show)
+    manifest_show.add_argument("--revision", type=int, required=True)
+    manifest_show.set_defaults(handler=publication.handle_manifest_show)
+
+    publish = actions.add_parser(
+        "publish", help="Create or reconcile the first Core Publication Record."
+    )
+    _publication_projection_options(publish)
+    publish.set_defaults(handler=publication.handle_publish)
+
+    supersede = actions.add_parser(
+        "supersede", help="Explicitly supersede the expected Core series head."
+    )
+    _publication_projection_options(supersede)
+    supersede.add_argument("--expected-current-publication-id", required=True)
+    supersede.set_defaults(handler=publication.handle_supersede)
+
+    withdraw = actions.add_parser(
+        "withdraw", help="Withdraw one exact Core Publication Record."
+    )
+    _workspace_option(withdraw)
+    _class_activity(withdraw)
+    withdraw.add_argument("--publication-id", required=True)
+    withdraw.add_argument("--reason", required=True)
+    withdraw.set_defaults(handler=publication.handle_withdraw)
+
+    series_show = actions.add_parser(
+        "series-show", help="Show canonical producer/Core publication state."
+    )
+    _workspace_option(series_show)
+    _class_activity(series_show)
+    series_show.set_defaults(handler=publication.handle_series_show)
+
+    catalog_list = actions.add_parser(
+        "catalog-list", help="List derived Core catalog rows for the Activity."
+    )
+    _workspace_option(catalog_list)
+    _class_activity(catalog_list)
+    catalog_list.add_argument(
+        "--state",
+        choices=("current", "series_heads", "historical", "withdrawn", "all"),
+        default="current",
+    )
+    catalog_list.add_argument("--required-capability", action="append")
+    catalog_list.set_defaults(handler=publication.handle_catalog_list)
+
+    catalog_rebuild = actions.add_parser(
+        "catalog-rebuild", help="Rebuild Core's full disposable academic catalog."
+    )
+    _workspace_option(catalog_rebuild)
+    _class_activity(catalog_rebuild)
+    catalog_rebuild.add_argument("--publication-id")
+    catalog_rebuild.set_defaults(handler=publication.handle_catalog_rebuild)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the complete direct-command parser without touching workspace state."""
     parser = argparse.ArgumentParser(
@@ -1359,6 +1528,7 @@ def build_parser() -> argparse.ArgumentParser:
     _criterion_set_commands(subparsers)
     _scale_commands(subparsers)
     _score_commands(subparsers)
+    _publication_commands(subparsers)
     _artifact_commands(subparsers)
     _moderation_commands(subparsers)
     _scan_commands(subparsers)

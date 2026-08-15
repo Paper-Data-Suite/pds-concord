@@ -26,6 +26,25 @@ EXAMPLE_DRAFT_STATUS = "**Status:** Draft for representative-contract validation
 PROPOSED_CHAIN = (
     "The examples also validate the proposed academic-result publication chain"
 )
+PUBLICATION_DOC = ROOT / "docs" / "implementation" / "academic-result-publication.md"
+STALE_PUBLICATION_PHRASES = (
+    "still does **not** publish academic results",
+    "publication remains absent until issue #31",
+    "Later issues add publication and consumer integration",
+    "the publication entry point remains absent",
+    "It does not add Concord publication",
+    "Implemented through the v0.2.0 Criterion, Scale, and Score workflow in issue #30.",
+)
+REQUIRED_PUBLICATION_DOC_PHRASES = (
+    "concord_academic_work_v1",
+    "concord_activity_v1",
+    "concord_academic_result_manifest_v1",
+    "academic_results",
+    "paper_data_suite.publication_producers",
+    "Issue #32",
+    "Issue #33",
+    "Meridian",
+)
 
 
 class DocumentationError(ValueError):
@@ -99,6 +118,29 @@ def check_documentation() -> None:
     for phrase in STALE_ACTIVE_PHRASES:
         if phrase in active_text:
             failures.append(f"Stale active-status phrase remains: {phrase!r}")
+    if not PUBLICATION_DOC.is_file():
+        failures.append(
+            "Academic result publication implementation document is missing."
+        )
+    else:
+        publication_doc = PUBLICATION_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_PUBLICATION_DOC_PHRASES:
+            if phrase not in publication_doc:
+                failures.append(
+                    "Publication implementation document is missing required "
+                    f"contract wording {phrase!r}."
+                )
+    publication_active_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "README.md",
+            ROOT / "docs" / "README.md",
+            ROOT / "docs" / "cli-contract.md",
+        )
+    )
+    for phrase in STALE_PUBLICATION_PHRASES:
+        if phrase in publication_active_text:
+            failures.append(f"Stale publication-status phrase remains: {phrase!r}")
     integration = (
         ROOT / "docs" / "design" / "pds-core-integration-requirements.md"
     ).read_text(encoding="utf-8")

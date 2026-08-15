@@ -18,10 +18,18 @@ FORBIDDEN_PREFIXES = (
     "quillan/",
     "portia/",
     "meridian/",
+    "vitrine/",
     ".venv/",
     "build/",
 )
 FORBIDDEN_PARTS = ("__pycache__", ".pytest_cache", ".mypy_cache", "credentials")
+FORBIDDEN_RUNTIME_DEPENDENCIES = {
+    "pds-scoreform",
+    "pds-quillan",
+    "pds-portia",
+    "pds-meridian",
+    "pds-vitrine",
+}
 
 
 class PackageValidationError(ValueError):
@@ -42,7 +50,7 @@ def _metadata(archive: zipfile.ZipFile, names: list[str]) -> Message:
 
 
 def validate_wheel(path: str | Path) -> None:
-    """Validate metadata, intended files, and deliberately absent entry points."""
+    """Validate metadata, intended files, and required integration entry points."""
     wheel = Path(path)
     try:
         with zipfile.ZipFile(wheel) as archive:
@@ -67,6 +75,13 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(
             "Runtime Core requirement must be pds-core>=0.6,<0.7."
         )
+    runtime_names = {item.name for item in requirements if item.marker is None}
+    forbidden_runtime = runtime_names & FORBIDDEN_RUNTIME_DEPENDENCIES
+    if forbidden_runtime:
+        raise PackageValidationError(
+            "Sibling PDS runtime dependencies are forbidden: "
+            + ", ".join(sorted(forbidden_runtime))
+        )
     if "[console_scripts]\nconcord = concord.cli:main" not in entry_points:
         raise PackageValidationError("The concord console script is missing.")
     expected_routing = (
@@ -74,8 +89,20 @@ def validate_wheel(path: str | Path) -> None:
     )
     if expected_routing not in entry_points:
         raise PackageValidationError("The Concord routing entry point is missing.")
-    if "paper_data_suite.publication_producers" in entry_points:
-        raise PackageValidationError("Premature publication entry point is declared.")
+    expected_publication = (
+        "[paper_data_suite.publication_producers]\n"
+        "concord = concord.pds_publication:get_publication_producer_profile"
+    )
+    if expected_publication not in entry_points:
+        raise PackageValidationError(
+            "The Concord publication-producer entry point is missing."
+        )
+    if entry_points.count(
+        "concord = concord.pds_publication:get_publication_producer_profile"
+    ) != 1:
+        raise PackageValidationError(
+            "The Concord publication-producer entry point must occur exactly once."
+        )
     required = {"concord/__init__.py", "concord/cli.py", "concord/py.typed"}
     if not required.issubset(names):
         raise PackageValidationError("Wheel is missing intended Concord package files.")
