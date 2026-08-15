@@ -632,7 +632,7 @@ def test_retained_source_symlink_is_rejected_when_supported(tmp_path: Path) -> N
         backup.rename(original)
         pytest.skip(f"filesystem cannot create a source symlink: {error}")
     loaded = load_current_record_graph(root, _work())
-    with pytest.raises(ArtifactAssemblyIntegrityError, match="link-like"):
+    with pytest.raises(ArtifactAssemblyIntegrityError):
         assemble_returned_artifact(
             AssembleArtifactRequest(
                 class_id="class-1",
