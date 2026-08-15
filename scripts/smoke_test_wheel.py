@@ -606,6 +606,224 @@ def _workflow_smoke_code() -> str:
     )
 
 
+def _reader_smoke_code() -> str:
+    return textwrap.dedent(
+        """
+        import sys
+        from datetime import datetime, timezone
+
+        from pds_core.routing_models import ModuleRecordRef, ModuleWorkRef
+
+        from concord.academic_result_artifacts import (
+            AcademicResultArtifactAuthorizationDecision,
+            AuthorizedAcademicResultArtifact,
+            read_authorized_academic_result_artifact,
+        )
+        from concord.academic_result_manifest import (
+            ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+            ACADEMIC_RESULT_MANIFEST_RECORD_TYPE,
+            AcademicResultManifest,
+            ActivityContextProjection,
+            CriterionProjection,
+            CriterionSetProjection,
+            ManifestProjection,
+            ManifestRecordSet,
+            PrivacyProjection,
+            PublicActor,
+            ScaleLevelProjection,
+            ScoreProjection,
+            ScoringScaleProjection,
+            TargetReferenceProjection,
+            academic_result_manifest_to_bytes,
+            with_semantic_projection_digest,
+        )
+        from concord.academic_result_reader import (
+            list_academic_result_scores_for_target,
+            lookup_academic_result_criterion,
+            lookup_academic_result_scale_level,
+            lookup_academic_result_score,
+            lookup_academic_result_scoring_scale,
+            read_academic_result_manifest,
+            validate_academic_result_manifest,
+        )
+
+        actor = PublicActor(
+            actor_kind="authorized_adult",
+            actor_id="teacher-smoke",
+            owning_system="concord",
+        )
+        work = ModuleWorkRef("concord", "class-smoke", "activity-smoke")
+        target = TargetReferenceProjection(
+            target_kind="concord_group",
+            target_id="group-smoke",
+            owning_system="concord",
+            contract_version=None,
+        )
+        criterion_set = CriterionSetProjection(
+            criterion_set_id="set-smoke",
+            lineage_id="set-lineage-smoke",
+            revision=1,
+            criterion_set_kind="local",
+            scope="activity_specific",
+            criterion_ids=("criterion-smoke",),
+            status="active",
+            supersedes_criterion_set_id=None,
+            standards_profile_id=None,
+        )
+        criterion = CriterionProjection(
+            criterion_id="criterion-smoke",
+            criterion_set_id="set-smoke",
+            key="collaboration",
+            label="Collaboration",
+            definition="Synthetic installed reader criterion.",
+            criterion_kind="local",
+            supported_target_kinds=("concord_group",),
+            status="active",
+            standard_id=None,
+            alignment_standard_ids=(),
+            default_scoring_scale_id="scale-smoke",
+        )
+        scale = ScoringScaleProjection(
+            scoring_scale_id="scale-smoke",
+            lineage_id="scale-lineage-smoke",
+            name="Type-sensitive smoke scale",
+            revision=1,
+            scale_type="teacher_defined",
+            levels=(
+                ScaleLevelProjection(
+                    value=1,
+                    label="Integer",
+                    meaning="Integer one.",
+                    position=None,
+                    description=None,
+                ),
+                ScaleLevelProjection(
+                    value=1.0,
+                    label="Float",
+                    meaning="Float one.",
+                    position=None,
+                    description=None,
+                ),
+                ScaleLevelProjection(
+                    value="1",
+                    label="Text",
+                    meaning="Text one.",
+                    position=None,
+                    description=None,
+                ),
+                ScaleLevelProjection(
+                    value=True,
+                    label="Boolean",
+                    meaning="Boolean true.",
+                    position=None,
+                    description=None,
+                ),
+            ),
+            status="active",
+            supersedes_scoring_scale_id=None,
+        )
+        score = ScoreProjection(
+            score_record_id="score-smoke",
+            activity_id="activity-smoke",
+            session_id=None,
+            target_reference=target,
+            criterion_id="criterion-smoke",
+            score_kind="local",
+            standard_id=None,
+            scoring_scale_id="scale-smoke",
+            disposition="scored",
+            value=True,
+            basis="professional_judgment",
+            scorer=actor,
+            scored_at=datetime(2026, 8, 15, 17, 0, tzinfo=timezone.utc),
+            moderation_complete=True,
+            status_reason=None,
+            supersedes_score_record_id=None,
+            current_state="current",
+        )
+        candidate = AcademicResultManifest(
+            record_type=ACADEMIC_RESULT_MANIFEST_RECORD_TYPE,
+            contract_version=ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+            producer_module_id="concord",
+            generated_at=datetime(2026, 8, 15, 17, 5, tzinfo=timezone.utc),
+            record_set=ManifestRecordSet("academic_results", 1),
+            work=work,
+            source_activity=ModuleRecordRef(
+                module_id="concord",
+                record_kind="activity",
+                record_id="activity-smoke",
+                contract_version="concord_activity_v1",
+            ),
+            projection=ManifestProjection(
+                source_snapshot_revision=1,
+                projection_digest_algorithm="sha256",
+                projection_digest="0" * 64,
+                generated_by=actor,
+                revision_reason="initial",
+            ),
+            activity_context=ActivityContextProjection(
+                activity_id="activity-smoke",
+                class_id="class-smoke",
+                title="Synthetic installed reader Activity",
+                scoring_orientation="local_criteria_only",
+                standards_profile_id=None,
+                focus_standard_ids=(),
+                criterion_set_ids=("set-smoke",),
+            ),
+            criterion_sets=(criterion_set,),
+            criteria=(criterion,),
+            scoring_scales=(scale,),
+            scores=(score,),
+            score_evidence_links=(),
+            moderation_records=(),
+            standards_result_projection=(),
+            privacy=PrivacyProjection(
+                classification="teacher_restricted",
+                audience_references=(),
+                policy_reference=None,
+                inherited_from=None,
+            ),
+        )
+        manifest = with_semantic_projection_digest(candidate)
+        raw = academic_result_manifest_to_bytes(manifest)
+        restored = read_academic_result_manifest(raw)
+        assert restored == manifest
+        assert validate_academic_result_manifest(restored) is restored
+        assert lookup_academic_result_criterion(
+            restored, "criterion-smoke"
+        ) == criterion
+        assert lookup_academic_result_scoring_scale(
+            restored, "scale-smoke"
+        ) == scale
+        assert lookup_academic_result_scale_level(
+            restored, "scale-smoke", 1
+        ).label == "Integer"
+        assert lookup_academic_result_scale_level(
+            restored, "scale-smoke", 1.0
+        ).label == "Float"
+        assert lookup_academic_result_scale_level(
+            restored, "scale-smoke", "1"
+        ).label == "Text"
+        assert lookup_academic_result_scale_level(
+            restored, "scale-smoke", True
+        ).label == "Boolean"
+        assert lookup_academic_result_score(restored, "score-smoke") == score
+        assert list_academic_result_scores_for_target(restored, target) == (score,)
+
+        decision = AcademicResultArtifactAuthorizationDecision("allowed")
+        assert decision.status == "allowed"
+        assert AuthorizedAcademicResultArtifact.__module__ == (
+            "concord.academic_result_artifacts"
+        )
+        assert callable(read_authorized_academic_result_artifact)
+
+        forbidden = {"scoreform", "quillan", "portia", "meridian", "vitrine"}
+        loaded = {name.split(".")[0].lower() for name in sys.modules}
+        assert forbidden.isdisjoint(loaded)
+        """
+    )
+
+
 def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
     """Install exact local wheels and exercise read-only, menu, and workflow paths."""
     with tempfile.TemporaryDirectory(prefix="pds-concord-smoke-") as raw_temp:
@@ -724,6 +942,14 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
         if profile_workspace.exists():
             raise RuntimeError(
                 "Publication-profile discovery unexpectedly created a workspace."
+            )
+
+        reader_workspace = root / "reader-workspace"
+        reader_env = {"PDS_WORKSPACE_ROOT": str(reader_workspace)}
+        _run([str(python), "-c", _reader_smoke_code()], outside, env=reader_env)
+        if reader_workspace.exists():
+            raise RuntimeError(
+                "Public reader smoke unexpectedly created a workspace."
             )
 
         absent_workspace = root / "read-only-workspace"

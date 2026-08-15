@@ -50,16 +50,18 @@ The repository now contains:
   Link, non-score disposition, and Score revision workflows; and
 * explicit Core Academic Work Registration, immutable Concord Academic Result
   Manifest generation, Publication Record supersession/withdrawal, publication
-  producer discovery, and Core academic-catalog reconciliation.
+  producer discovery, and Core academic-catalog reconciliation; and
+* a consumer-neutral canonical Academic Result Manifest reader plus a separately
+  authorization-gated, historical-snapshot-bound bounded Artifact reader.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
 teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
 assembly, Author/Subject, Review/Moderation, Criterion/Scale/Score, and academic
-publication workflows are complete. Concord declares separate routing and
-publication-producer entry points. Issue #32 adds the consumer-neutral reader;
-issue #33 owns the full installed Activity-to-publication acceptance.
+publication workflows and the issue #32 consumer-neutral readers are complete.
+Concord declares separate routing and publication-producer entry points. Issue #33
+owns the full installed Activity-to-publication-to-consumer acceptance path.
 
 ### 14. PDS2 Artifact Page integration
 
@@ -105,6 +107,15 @@ producer revisioning, privacy minimization, publication-producer compatibility,
 first publication, replay, supersession, withdrawal, catalog reconciliation,
 partial-success recovery, direct CLI/menu behavior, and the #32/#33/Meridian
 boundaries.
+
+### 19. Academic result consumer reader
+
+[`implementation/academic-result-reader.md`](implementation/academic-result-reader.md)
+
+Documents canonical immutable manifest reading, exact producer-native lookup,
+type-sensitive Scale values, authorization-before-I/O, historical snapshot
+binding, bounded Artifact PDF representations, retained-source integrity,
+privacy minimization, consumer ownership boundaries, and the #33 handoff.
 
 ### 10. Native model implementation
 
@@ -371,9 +382,8 @@ Where a conceptual contract depends on Core identity, routing, or provenance, it
 
 Implementation documents describe the native model layer, canonical storage,
 collaboration-context workflows, routing, Artifact management, Review,
-Moderation, Criterion/Scale/Score recording, and CLI/menu contracts that are now
-implemented. Later implementation documents will cover publication and consumer
-integration as those issues land.
+Moderation, Criterion/Scale/Score recording, publication, consumer-neutral
+manifest/Artifact reading, and CLI/menu contracts that are now implemented.
 
 Implementation convenience must not silently change the domain semantics established here.
 

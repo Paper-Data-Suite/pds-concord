@@ -103,7 +103,14 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(
             "The Concord publication-producer entry point must occur exactly once."
         )
-    required = {"concord/__init__.py", "concord/cli.py", "concord/py.typed"}
+    required = {
+        "concord/__init__.py",
+        "concord/academic_result_artifacts.py",
+        "concord/academic_result_reader.py",
+        "concord/artifact_rendering.py",
+        "concord/cli.py",
+        "concord/py.typed",
+    }
     if not required.issubset(names):
         raise PackageValidationError("Wheel is missing intended Concord package files.")
     if not any(name.endswith(".dist-info/licenses/LICENSE") for name in names):

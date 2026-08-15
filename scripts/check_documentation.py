@@ -27,6 +27,7 @@ PROPOSED_CHAIN = (
     "The examples also validate the proposed academic-result publication chain"
 )
 PUBLICATION_DOC = ROOT / "docs" / "implementation" / "academic-result-publication.md"
+READER_DOC = ROOT / "docs" / "implementation" / "academic-result-reader.md"
 STALE_PUBLICATION_PHRASES = (
     "still does **not** publish academic results",
     "publication remains absent until issue #31",
@@ -44,6 +45,17 @@ REQUIRED_PUBLICATION_DOC_PHRASES = (
     "Issue #32",
     "Issue #33",
     "Meridian",
+)
+REQUIRED_READER_DOC_PHRASES = (
+    "concord.academic_result_reader",
+    "concord.academic_result_artifacts",
+    "read_academic_result_manifest",
+    "AcademicResultArtifactAuthorizationGate",
+    "source_snapshot_revision",
+    "returned_artifact_pdf",
+    "Issue #33",
+    "Meridian",
+    "Vitrine",
 )
 
 
@@ -128,6 +140,16 @@ def check_documentation() -> None:
             if phrase not in publication_doc:
                 failures.append(
                     "Publication implementation document is missing required "
+                    f"contract wording {phrase!r}."
+                )
+    if not READER_DOC.is_file():
+        failures.append("Academic result consumer reader document is missing.")
+    else:
+        reader_doc = READER_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_READER_DOC_PHRASES:
+            if phrase not in reader_doc:
+                failures.append(
+                    "Consumer reader implementation document is missing required "
                     f"contract wording {phrase!r}."
                 )
     publication_active_text = "\n".join(

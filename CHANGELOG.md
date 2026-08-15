@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- A pure `concord.academic_result_reader` facade for exact canonical Academic
+  Result Manifest v1 bytes, whole-model validation, exact producer-native
+  lookups, and type-sensitive Scoring Scale values.
+- A separate `concord.academic_result_artifacts` authorization-gated reader for
+  exact historical Concord Artifact evidence with authorization-before-I/O,
+  bounded page/Artifact PDF representation, retained-source integrity, and
+  privacy-minimized Author/Subject projection.
+- A shared neutral Artifact rendering layer used by both consumer reads and the
+  existing teacher assembly workflow, including verified-byte rendering and
+  fail-closed missing/ambiguous retained evidence.
+- Isolated-wheel reader smoke coverage and explicit wheel-content checks for the
+  public reader modules without adding sibling PDS runtime dependencies.
+
 - Explicit Core Academic Work Registration for Concord Activities plus immutable
   `concord_academic_result_manifest_v1` generation with semantic no-churn
   revisioning and publication-safe projection.

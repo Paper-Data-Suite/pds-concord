@@ -23,9 +23,11 @@ plus teacher-controlled Criterion Sets, Scoring Scales, Score Records, Score
 Evidence Links, non-score dispositions, and Score revision history. Concord now
 also publishes explicitly registered Activity results as immutable
 `concord_academic_result_manifest_v1` revisions through Core Publication Records
-and the derived academic catalog. Concord does **not** calculate Grades or
-proficiency; Meridian owns downstream grading/reporting policy, and issue #32
-owns the consumer-neutral manifest reader.
+and the derived academic catalog. Concord now also exposes a consumer-neutral
+canonical manifest reader and a separately authorization-gated, bounded Artifact
+reader. Concord does **not** calculate Grades or proficiency; Meridian owns
+downstream grading/reporting policy. The complete clean-wheel producer-to-consumer
+acceptance path remains assigned to issue #33.
 
 ## Requirements and installation
 
@@ -153,6 +155,9 @@ Criterion, Scale, and Score behavior is documented in the
 Academic-result registration, manifest generation, publication lifecycle, and
 catalog reconciliation are documented in the
 [publication implementation guide](docs/implementation/academic-result-publication.md).
+Consumer-neutral manifest interpretation and authorization-gated bounded Artifact
+access are documented in the
+[consumer reader guide](docs/implementation/academic-result-reader.md).
 Canonical persistence and recovery rules remain documented in the
 [canonical storage guide](docs/implementation/canonical-storage.md).
 
@@ -173,7 +178,7 @@ python scripts/validate_repository.py --core-wheel <wheel>
 
 The validator authenticates the exact Core v0.6.0 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
-inspection, isolated installed-wheel workflow/menu smoke tests, and
+inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
 `git diff --check`.
 
 Core exposes routing through `paper_data_suite.modules` and publication through
