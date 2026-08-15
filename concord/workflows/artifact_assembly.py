@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import os
 import shutil
 import stat as stat_module
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
 from pds_core.routes import safe_module_work_descendant
 from pds_core.routing_models import ModuleWorkRef
 
+from concord.artifact_rendering import (
+    ReturnedArtifactRenderIntegrityError,
+    VerifiedRetainedSource,
+    encode_returned_artifact_pdf,
+    render_retained_source_page,
+    validate_retained_source,
+)
 from concord.model_validation import ConcordRecordGraph
 from concord.models import ArtifactInstance, ArtifactPage, ScanReference
 from concord.storage import load_current_record_graph
@@ -175,123 +180,29 @@ def _assert_no_link_like_ancestors(path: Path, *, stop: Path) -> None:
         current = current.parent
 
 
-def _validate_retained_source(root: Path, scan: ScanReference) -> Path:
-    root_resolved = root.resolve(strict=True)
-    candidate = root / scan.retained_source_relative_path
-    _assert_no_link_like_ancestors(candidate, stop=root)
+def _validate_retained_source(
+    root: Path,
+    scan: ScanReference,
+) -> VerifiedRetainedSource:
     try:
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(root_resolved)
-    except (OSError, RuntimeError, ValueError) as error:
-        raise ArtifactAssemblyIntegrityError(
-            "retained source is missing or outside the workspace."
-        ) from error
-    if _is_link_like(candidate) or not candidate.is_file():
-        raise ArtifactAssemblyIntegrityError(
-            "retained source must be an ordinary non-link file."
-        )
-    try:
-        digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
-    except OSError as error:
-        raise ArtifactAssemblyIntegrityError(
-            "retained source could not be read."
-        ) from error
-    if digest != scan.retained_source_sha256:
-        raise ArtifactAssemblyIntegrityError(
-            "retained-source digest does not match the canonical Scan Reference."
-        )
-    return candidate
+        return validate_retained_source(root, scan)
+    except ReturnedArtifactRenderIntegrityError as error:
+        raise ArtifactAssemblyIntegrityError(str(error)) from error
 
-
-def _page_image(path: Path, source_page_number: int) -> Any:
-    suffix = path.suffix.lower()
+def _page_image(
+    source: VerifiedRetainedSource,
+    source_page_number: int,
+) -> Any:
     try:
-        from PIL import Image
-    except ImportError as error:  # pragma: no cover - dependency installation guard
-        raise ArtifactAssemblyIntegrityError(
-            "Pillow is required for returned-Artifact assembly."
-        ) from error
-
-    if suffix in _IMAGE_EXTENSIONS:
-        if source_page_number != 1:
-            raise ArtifactAssemblyIntegrityError(
-                "image retained sources contain only physical page 1."
-            )
-        try:
-            with Image.open(path) as image:
-                return image.convert("RGB").copy()
-        except (OSError, ValueError) as error:
-            raise ArtifactAssemblyIntegrityError(
-                "retained image could not be decoded."
-            ) from error
-
-    if suffix != ".pdf":
-        raise ArtifactAssemblyIntegrityError(
-            f"unsupported retained-source extension: {suffix}"
-        )
-    try:
-        import pypdfium2
-    except ImportError as error:  # pragma: no cover - dependency installation guard
-        raise ArtifactAssemblyIntegrityError(
-            "pypdfium2 is required for PDF returned-Artifact assembly."
-        ) from error
-    try:
-        document = pypdfium2.PdfDocument(str(path))
-    except Exception as error:
-        raise ArtifactAssemblyIntegrityError(
-            "retained PDF could not be opened."
-        ) from error
-    try:
-        page_count = len(document)
-        if source_page_number < 1 or source_page_number > page_count:
-            raise ArtifactAssemblyIntegrityError(
-                "Scan Reference physical page is outside the retained PDF."
-            )
-        page = document[source_page_number - 1]
-        return page.render(scale=2).to_pil().convert("RGB").copy()
-    except ArtifactAssemblyIntegrityError:
-        raise
-    except Exception as error:
-        raise ArtifactAssemblyIntegrityError(
-            "retained PDF physical page could not be rendered."
-        ) from error
-    finally:
-        document.close()
-
+        return render_retained_source_page(source, source_page_number)
+    except ReturnedArtifactRenderIntegrityError as error:
+        raise ArtifactAssemblyIntegrityError(str(error)) from error
 
 def _pdf_bytes(images: tuple[Any, ...], created_at: str) -> bytes:
-    if not images:
-        raise ArtifactAssemblyIntegrityError("assembly requires at least one page.")
     try:
-        canonical_time = datetime.fromisoformat(
-            created_at.replace("Z", "+00:00")
-        ).astimezone(timezone.utc).timetuple()
-    except ValueError as error:
-        raise ArtifactAssemblyIntegrityError(
-            "Artifact creation provenance has an invalid timestamp."
-        ) from error
-    output = io.BytesIO()
-    try:
-        images[0].save(
-            output,
-            "PDF",
-            save_all=True,
-            append_images=list(images[1:]),
-            resolution=150.0,
-            creationDate=canonical_time,
-            modDate=canonical_time,
-        )
-    except Exception as error:
-        raise ArtifactAssemblyIntegrityError(
-            "returned Artifact PDF could not be encoded."
-        ) from error
-    data = output.getvalue()
-    if not data.startswith(b"%PDF"):
-        raise ArtifactAssemblyIntegrityError(
-            "returned Artifact encoder did not produce PDF bytes."
-        )
-    return data
-
+        return encode_returned_artifact_pdf(images, created_at)
+    except ReturnedArtifactRenderIntegrityError as error:
+        raise ArtifactAssemblyIntegrityError(str(error)) from error
 
 def _selection_map(
     selections: tuple[AssemblyPageSelection, ...],

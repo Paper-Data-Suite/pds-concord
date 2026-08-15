@@ -691,9 +691,18 @@ class ScoringScaleProjection:
             "scoring_scale.supersedes_scoring_scale_id",
         )
 
-    def has_value(self, value: JsonScalar) -> bool:
+    def level_for_value(
+        self, value: JsonScalar
+    ) -> ScaleLevelProjection | None:
+        """Return the exact type-sensitive Scale level for one JSON scalar."""
         key = _scalar_key(value)
-        return any(_scalar_key(level.value) == key for level in self.levels)
+        return next(
+            (level for level in self.levels if _scalar_key(level.value) == key),
+            None,
+        )
+
+    def has_value(self, value: JsonScalar) -> bool:
+        return self.level_for_value(value) is not None
 
 
 @dataclass(frozen=True, slots=True)

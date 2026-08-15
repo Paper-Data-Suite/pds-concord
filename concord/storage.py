@@ -153,18 +153,26 @@ def load_work_marker(
     return value
 
 
-def load_record_revision(
-    workspace_root: str | Path,
+def _record_revision_from_bytes(
+    data: bytes,
+    *,
     work: ModuleWorkRef,
     record_kind: str,
     record_id: str,
     record_revision: int,
 ) -> tuple[Record, ConcordRecordRevision]:
+    """Parse and verify one already-read immutable record revision."""
     descriptor = descriptor_for_kind(record_kind)
-    path = record_revision_path(
-        workspace_root, work, record_kind, record_id, record_revision
-    )
-    envelope, _ = _parse(path, revision_from_dict, missing=True)
+    try:
+        envelope = revision_from_dict(strict_json_loads(data))
+    except (
+        ConcordStorageReadError,
+        ConcordStorageValidationError,
+        ValueError,
+    ) as error:
+        raise ConcordStorageReadError(
+            "invalid canonical record revision bytes."
+        ) from error
     if (
         envelope.work != work
         or envelope.record_kind != record_kind
@@ -174,7 +182,12 @@ def load_record_revision(
         raise ConcordStorageIntegrityError(
             "record envelope identity disagrees with its canonical path."
         )
-    record = record_from_dict(record_kind, envelope.body)
+    try:
+        record = record_from_dict(record_kind, envelope.body)
+    except ValueError as error:
+        raise ConcordStorageReadError(
+            "invalid canonical record body."
+        ) from error
     if (
         getattr(record, descriptor.identity_field) != record_id
         or record_to_dict(record) != envelope.body
@@ -184,6 +197,25 @@ def load_record_revision(
         )
     return record, envelope
 
+
+def load_record_revision(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    record_kind: str,
+    record_id: str,
+    record_revision: int,
+) -> tuple[Record, ConcordRecordRevision]:
+    path = record_revision_path(
+        workspace_root, work, record_kind, record_id, record_revision
+    )
+    data = read_canonical_bytes(path, missing=True)
+    return _record_revision_from_bytes(
+        data,
+        work=work,
+        record_kind=record_kind,
+        record_id=record_id,
+        record_revision=record_revision,
+    )
 
 def _visible(path: Path, description: str) -> tuple[Path, ...]:
     try:
@@ -290,21 +322,32 @@ def _load_snapshot_chain(
     return target, target_bytes
 
 
-def load_work_snapshot(
-    workspace_root: str | Path, work: ModuleWorkRef, snapshot_revision: int
-) -> tuple[ConcordWorkSnapshot, str]:
-    value, data = _load_snapshot_chain(workspace_root, work, snapshot_revision)
+def _validated_snapshot_graph(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    snapshot: ConcordWorkSnapshot,
+) -> ConcordRecordGraph:
+    """Materialize a graph from the exact bytes bound by one snapshot."""
     selected_records: list[Record] = []
-    for ref in value.records:
+    for ref in snapshot.records:
         record_path = record_revision_path(
-            workspace_root, work, ref.record_kind, ref.record_id, ref.record_revision
+            workspace_root,
+            work,
+            ref.record_kind,
+            ref.record_id,
+            ref.record_revision,
         )
-        if _sha(read_canonical_bytes(record_path, missing=True)) != ref.sha256:
+        data = read_canonical_bytes(record_path, missing=True)
+        if _sha(data) != ref.sha256:
             raise ConcordStorageIntegrityError(
                 f"record digest mismatch for {ref.record_kind}:{ref.record_id}."
             )
-        record, _ = load_record_revision(
-            workspace_root, work, ref.record_kind, ref.record_id, ref.record_revision
+        record, _ = _record_revision_from_bytes(
+            data,
+            work=work,
+            record_kind=ref.record_kind,
+            record_id=ref.record_id,
+            record_revision=ref.record_revision,
         )
         selected_records.append(record)
     try:
@@ -324,8 +367,35 @@ def load_work_snapshot(
         raise ConcordStorageIntegrityError(
             f"snapshot graph is invalid: {error}"
         ) from error
+    return graph
+
+
+def load_work_snapshot(
+    workspace_root: str | Path, work: ModuleWorkRef, snapshot_revision: int
+) -> tuple[ConcordWorkSnapshot, str]:
+    value, data = _load_snapshot_chain(workspace_root, work, snapshot_revision)
+    _validated_snapshot_graph(workspace_root, work, value)
     return value, _sha(data)
 
+
+def load_record_graph_at_snapshot(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    snapshot_revision: int,
+) -> ConcordLoadedRecordGraph:
+    """Load one exact immutable historical graph without consulting current.json."""
+    load_work_marker(workspace_root, work)
+    snapshot, snapshot_bytes = _load_snapshot_chain(
+        workspace_root,
+        work,
+        snapshot_revision,
+    )
+    graph = _validated_snapshot_graph(workspace_root, work, snapshot)
+    return ConcordLoadedRecordGraph(
+        graph,
+        snapshot.snapshot_revision,
+        _sha(snapshot_bytes),
+    )
 
 def list_work_snapshots(
     workspace_root: str | Path, work: ModuleWorkRef
@@ -367,24 +437,17 @@ def load_current_record_graph(
 ) -> ConcordLoadedRecordGraph:
     load_work_marker(workspace_root, work)
     current = load_current_snapshot(workspace_root, work)
-    snapshot, _ = load_work_snapshot(workspace_root, work, current.snapshot_revision)
-    collections: dict[str, list[Record]] = {
-        d.graph_collection: [] for d in RECORD_DESCRIPTORS
-    }
-    for ref in snapshot.records:
-        record, _ = load_record_revision(
-            workspace_root, work, ref.record_kind, ref.record_id, ref.record_revision
-        )
-        collections[descriptor_for_kind(ref.record_kind).graph_collection].append(
-            record
-        )
-    graph = ConcordRecordGraph(
-        **cast(Any, {key: tuple(values) for key, values in collections.items()})
+    snapshot, snapshot_bytes = _load_snapshot_chain(
+        workspace_root,
+        work,
+        current.snapshot_revision,
     )
-    if len(graph.activities) != 1 or graph.activities[0].work_reference != work:
+    snapshot_sha256 = _sha(snapshot_bytes)
+    if snapshot_sha256 != current.snapshot_sha256:
         raise ConcordStorageIntegrityError(
-            "snapshot must contain exactly one matching Activity."
+            "current pointer snapshot digest mismatch."
         )
+    graph = _validated_snapshot_graph(workspace_root, work, snapshot)
     try:
         validate_record_graph(graph)
         requires_standards = (
@@ -409,20 +472,32 @@ def load_current_record_graph(
             f"current graph is invalid: {error}"
         ) from error
     return ConcordLoadedRecordGraph(
-        graph, current.snapshot_revision, current.snapshot_sha256
+        graph,
+        current.snapshot_revision,
+        snapshot_sha256,
     )
 
-
 def load_current_record(
-    workspace_root: str | Path, work: ModuleWorkRef, record_kind: str, record_id: str
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    record_kind: str,
+    record_id: str,
 ) -> tuple[Record, ConcordRecordRevision]:
     current = load_current_snapshot(workspace_root, work)
-    snapshot, _ = load_work_snapshot(workspace_root, work, current.snapshot_revision)
+    snapshot, snapshot_bytes = _load_snapshot_chain(
+        workspace_root,
+        work,
+        current.snapshot_revision,
+    )
+    if _sha(snapshot_bytes) != current.snapshot_sha256:
+        raise ConcordStorageIntegrityError(
+            "current pointer snapshot digest mismatch."
+        )
     ref = next(
         (
-            r
-            for r in snapshot.records
-            if (r.record_kind, r.record_id) == (record_kind, record_id)
+            item
+            for item in snapshot.records
+            if (item.record_kind, item.record_id) == (record_kind, record_id)
         ),
         None,
     )
@@ -430,10 +505,25 @@ def load_current_record(
         raise ConcordStorageNotFoundError(
             f"record is not selected by current snapshot: {record_kind}:{record_id}"
         )
-    return load_record_revision(
-        workspace_root, work, record_kind, record_id, ref.record_revision
+    path = record_revision_path(
+        workspace_root,
+        work,
+        ref.record_kind,
+        ref.record_id,
+        ref.record_revision,
     )
-
+    data = read_canonical_bytes(path, missing=True)
+    if _sha(data) != ref.sha256:
+        raise ConcordStorageIntegrityError(
+            f"record digest mismatch for {ref.record_kind}:{ref.record_id}."
+        )
+    return _record_revision_from_bytes(
+        data,
+        work=work,
+        record_kind=ref.record_kind,
+        record_id=ref.record_id,
+        record_revision=ref.record_revision,
+    )
 
 def list_activity_work_refs(
     workspace_root: str | Path, class_id: str

@@ -119,6 +119,7 @@ def test_integrated_fixture_is_a_valid_record_graph() -> None:
         "responsibility_assignment": "responsibility_assignments",
         "artifact_instance": "artifact_instances",
         "artifact_page": "artifact_pages",
+        "scan_reference": "scan_references",
         "artifact_author": "artifact_authors",
         "artifact_subject": "artifact_subjects",
         "artifact_review": "artifact_reviews",
@@ -144,3 +145,46 @@ def test_integrated_fixture_is_a_valid_record_graph() -> None:
         **{name: tuple(values) for name, values in collections.items()}
     )
     assert collect_record_graph_issues(graph) == ()
+
+def test_integrated_fixture_declares_issue32_artifact_reader_proof() -> None:
+    fixture = _load(FIXTURES / "standards_activity.json")
+    proof = fixture["artifact_reader_proof"]
+    assert isinstance(proof, dict)
+    assert proof["artifact_instance_link_id"] == "link-1"
+    assert proof["artifact_page_link_id"] == "link-page-1"
+    moderation_ids = {
+        item["body"]["moderation_record_id"]
+        for item in fixture["records"]
+        if isinstance(item, dict)
+        and item.get("record_kind") == "moderation_record"
+    }
+    assert "moderation-page-1" in moderation_ids
+    assert proof["type_sensitive_scale_id"] == "scale-typed"
+    assert proof["retained_source_relative_path"] == (
+        "scans/source/2026-08-15/standards-page-1.png"
+    )
+    assert len(proof["retained_source_sha256"]) == 64
+
+    records = fixture["records"]
+    assert isinstance(records, list)
+    kinds = [item["record_kind"] for item in records if isinstance(item, dict)]
+    assert "scan_reference" in kinds
+    links = [
+        item["body"]
+        for item in records
+        if isinstance(item, dict) and item.get("record_kind") == "score_evidence_link"
+    ]
+    assert {item["score_evidence_link_id"] for item in links} >= {
+        "link-1",
+        "link-page-1",
+        "link-scoreform-1",
+        "link-quillan-1",
+    }
+    scales = [
+        item["body"]
+        for item in records
+        if isinstance(item, dict) and item.get("record_kind") == "scoring_scale"
+    ]
+    typed = next(item for item in scales if item["scoring_scale_id"] == "scale-typed")
+    values = [level["value"] for level in typed["levels"]]
+    assert [type(value) for value in values] == [int, float, str, bool]
