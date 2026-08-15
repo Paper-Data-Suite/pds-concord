@@ -11,6 +11,67 @@
     "score_revision_predecessor_id": "score-standard-1",
     "group_score_creates_student_scores": false
   },
+  "expected_academic_result_manifest_projection": {
+    "contract_version": "concord_academic_result_manifest_v1",
+    "record_type": "concord_academic_result_manifest",
+    "record_set": {"record_set_id": "academic_results", "revision": 1},
+    "work": {
+      "module_id": "concord",
+      "class_id": "class-1",
+      "work_id": "standards-activity"
+    },
+    "source_activity": {
+      "module_id": "concord",
+      "record_kind": "activity",
+      "record_id": "standards-activity",
+      "contract_version": "concord_activity_v1"
+    },
+    "expected_capabilities": [
+      "criterion_scores",
+      "moderated_scores",
+      "standards_ratings"
+    ],
+    "score_projection": [
+      {"score_record_id": "score-standard-1", "current_state": "superseded"},
+      {"score_record_id": "score-standard-2", "current_state": "current"},
+      {"score_record_id": "score-group-1", "current_state": "current", "target_kind": "concord_group"},
+      {"score_record_id": "score-group-nonscore", "current_state": "current", "disposition": "not_observed", "value_present": false}
+    ],
+    "standards_result_score_ids": ["score-standard-1", "score-standard-2"],
+    "moderation_record_ids": ["moderation-1"],
+    "external_evidence_lineage_examples": [
+      {
+        "owning_system": "scoreform",
+        "evidence_kind": "scoreform_result",
+        "record_id": "synthetic-scoreform-result-1",
+        "contract_version": "synthetic_scoreform_result_v1",
+        "immutable_source_version": "1"
+      },
+      {
+        "owning_system": "quillan",
+        "evidence_kind": "quillan_response",
+        "record_id": "synthetic-quillan-response-1",
+        "contract_version": "synthetic_quillan_response_v1",
+        "immutable_source_version": "1"
+      }
+    ],
+    "type_sensitive_scale_values": [1, 1.0, "1", true],
+    "private_fields_excluded": [
+      "score_record.rationale",
+      "status_reason.note",
+      "moderation_record.rationale",
+      "evidence_locator.note",
+      "artifact_content",
+      "source_bytes"
+    ],
+    "downstream_policy_excluded": [
+      "grade",
+      "proficiency",
+      "mastery",
+      "academic_period_id",
+      "weight"
+    ]
+  },
   "records": [
     {
       "record_kind": "activity",

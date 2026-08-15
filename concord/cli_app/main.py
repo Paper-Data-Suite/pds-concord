@@ -9,6 +9,11 @@ from typing import cast
 
 from pds_core.module_dispatch import ModuleDispatchError
 from pds_core.module_profiles import ModuleDiscoveryError, ModuleRegistryError
+from pds_core.registry_services import (
+    RegistryServiceConflictError,
+    RegistryServiceError,
+    RegistryServicePartialSuccessError,
+)
 from pds_core.route_registrations import RouteRegistrationPersistenceError
 from pds_core.scan_failure_metadata import (
     RoutingFailureMetadataReadError,
@@ -20,6 +25,19 @@ from pds_core.scan_resolution_metadata import (
 )
 from pds_core.workspace import WorkspaceRootError
 
+from concord.academic_result_manifest_generation import (
+    ConcordManifestGenerationConflictError,
+    ConcordManifestGenerationError,
+    ConcordManifestGenerationPartialSuccessError,
+)
+from concord.academic_result_publication import (
+    ConcordAcademicResultPublicationConflictError,
+    ConcordAcademicResultPublicationError,
+    ConcordAcademicResultPublicationPartialSuccessError,
+)
+from concord.academic_work_registration import (
+    ConcordAcademicWorkRegistrationError,
+)
 from concord.cli_app.parser import build_parser
 from concord.routing.rendering import RenderPartialSuccessError
 from concord.routing.review import RoutingResolutionPartialSuccessError
@@ -71,6 +89,45 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         return cast(CommandHandler, handler)(args)
+    except ConcordAcademicResultPublicationPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(
+            f"Canonical state: {error.state.canonical_state}",
+            file=sys.stderr,
+        )
+        print(error.state.recommended_next_action, file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except ConcordManifestGenerationPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(f"Manifest revision: {error.state.revision}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except RegistryServicePartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except (
+        ConcordAcademicResultPublicationConflictError,
+        ConcordManifestGenerationConflictError,
+        RegistryServiceConflictError,
+    ) as error:
+        print(f"Conflict: {error}", file=sys.stderr)
+        return EXIT_CONFLICT
+    except ConcordAcademicWorkRegistrationError as error:
+        name = error.__class__.__name__
+        if name.endswith("PartialSuccessError"):
+            print(f"Partial success: {error}", file=sys.stderr)
+            return EXIT_PARTIAL_SUCCESS
+        if name.endswith("ConflictError"):
+            print(f"Conflict: {error}", file=sys.stderr)
+            return EXIT_CONFLICT
+        print(f"Error: {error}", file=sys.stderr)
+        return EXIT_ERROR
+    except (
+        ConcordAcademicResultPublicationError,
+        ConcordManifestGenerationError,
+        RegistryServiceError,
+    ) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return EXIT_ERROR
     except ArtifactRoutePreparationPartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)
         print(

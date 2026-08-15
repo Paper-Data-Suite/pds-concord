@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Explicit Core Academic Work Registration for Concord Activities plus immutable
+  `concord_academic_result_manifest_v1` generation with semantic no-churn
+  revisioning and publication-safe projection.
+- A separate `paper_data_suite.publication_producers` Concord profile, explicit
+  first publication/supersession/withdrawal, Core catalog reconciliation,
+  deterministic publication-series status, and partial-success recovery.
+- Direct `concord publication ...` commands and an Activity-scoped teacher
+  Publication menu with read-only preview, deliberate confirmations, and no
+  implicit publication from scoring mutations.
 - Explicit Artifact Review workflows with coherent readiness/outcome state,
   one current supersession lineage per Artifact, and auditable Review
   correction history.

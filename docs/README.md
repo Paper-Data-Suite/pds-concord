@@ -47,15 +47,19 @@ The repository now contains:
 * explicit Artifact Review and evidence Moderation with preserved history,
   exact evidence/Subject scope, and a guarded Score handoff; and
 * teacher-controlled Criterion Set, Scoring Scale, Score Record, Score Evidence
-  Link, non-score disposition, and Score revision workflows.
+  Link, non-score disposition, and Score revision workflows; and
+* explicit Core Academic Work Registration, immutable Concord Academic Result
+  Manifest generation, Publication Record supersession/withdrawal, publication
+  producer discovery, and Core academic-catalog reconciliation.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 The package baseline, foundational native models, persistence substrate, and
 teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
-assembly, Author/Subject, Review/Moderation, and Criterion/Scale/Score workflows
-are complete. Later issues add publication and consumer integration. The Concord
-routing entry point is declared; the publication entry point remains absent.
+assembly, Author/Subject, Review/Moderation, Criterion/Scale/Score, and academic
+publication workflows are complete. Concord declares separate routing and
+publication-producer entry points. Issue #32 adds the consumer-neutral reader;
+issue #33 owns the full installed Activity-to-publication acceptance.
 
 ### 14. PDS2 Artifact Page integration
 
@@ -90,6 +94,17 @@ Documents immutable Criterion Set and Scale revisions, explicit Activity Set
 selection, type-sensitive native Scale values, teacher-approved Score and
 non-score workflows, durable evidence links, Review/Moderation handoff, Score
 history, direct/menu surfaces, and installed-wheel acceptance.
+
+### 18. Academic result publication
+
+[`implementation/academic-result-publication.md`](implementation/academic-result-publication.md)
+
+Documents explicit Core Academic Work Registration, the immutable
+`concord_academic_result_manifest_v1` projection, semantic projection digests,
+producer revisioning, privacy minimization, publication-producer compatibility,
+first publication, replay, supersession, withdrawal, catalog reconciliation,
+partial-success recovery, direct CLI/menu behavior, and the #32/#33/Meridian
+boundaries.
 
 ### 10. Native model implementation
 

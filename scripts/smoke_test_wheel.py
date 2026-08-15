@@ -572,12 +572,14 @@ def _workflow_smoke_code() -> str:
             assert loaded.graph.artifact_authors == authors_before_review
             assert loaded.graph.artifact_subjects == subjects_before_review
 
-            assert not any(
-                entry.name == "concord"
+            publication_entries = tuple(
+                entry
                 for entry in entry_points(
                     group="paper_data_suite.publication_producers"
                 )
+                if entry.name == "concord"
             )
+            assert len(publication_entries) == 1
             assert first_snapshot.snapshot_revision == 1
             assert list_record_revisions(
                 root,
@@ -653,6 +655,76 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
             ],
             outside,
         )
+
+        profile_workspace = root / "publication-profile-workspace"
+        profile_env = {"PDS_WORKSPACE_ROOT": str(profile_workspace)}
+        _run(
+            [
+                str(python),
+                "-c",
+                textwrap.dedent(
+                    """
+                    import sys
+                    from pds_core.publication_compatibility import (
+                        discover_publication_producer_profiles,
+                        validate_publication_producer_profile,
+                    )
+
+                    profiles = discover_publication_producer_profiles()
+                    assert len(profiles) == 1
+                    profile = profiles[0]
+                    assert validate_publication_producer_profile(profile) == profile
+                    assert profile.module_id == "concord"
+                    assert profile.display_name == "Concord"
+                    assert (
+                        profile.supported_core_publication_schema_versions
+                        == frozenset({"1"})
+                    )
+                    assert (
+                        profile.supported_academic_work_contract_versions
+                        == frozenset({"concord_academic_work_v1"})
+                    )
+                    assert len(profile.publication_contracts) == 1
+                    contract = profile.publication_contracts[0]
+                    assert contract.publication_kind == "academic_result_set"
+                    assert (
+                        contract.manifest_contract_versions
+                        == frozenset({"concord_academic_result_manifest_v1"})
+                    )
+                    assert contract.supported_capabilities == frozenset(
+                        {
+                            "criterion_scores",
+                            "moderated_scores",
+                            "standards_ratings",
+                        }
+                    )
+                    assert contract.allows_missing_source_record is False
+                    assert len(contract.source_record_contracts) == 1
+                    source = contract.source_record_contracts[0]
+                    assert source.record_kind == "activity"
+                    assert source.contract_versions == frozenset(
+                        {"concord_activity_v1"}
+                    )
+                    assert source.allows_unversioned is False
+                    forbidden = {
+                        "scoreform",
+                        "quillan",
+                        "portia",
+                        "meridian",
+                        "vitrine",
+                    }
+                    loaded = {name.split(".")[0].lower() for name in sys.modules}
+                    assert forbidden.isdisjoint(loaded)
+                    """
+                ),
+            ],
+            outside,
+            env=profile_env,
+        )
+        if profile_workspace.exists():
+            raise RuntimeError(
+                "Publication-profile discovery unexpectedly created a workspace."
+            )
 
         absent_workspace = root / "read-only-workspace"
         read_only_env = {"PDS_WORKSPACE_ROOT": str(absent_workspace)}
