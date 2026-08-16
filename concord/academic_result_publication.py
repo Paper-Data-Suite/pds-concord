@@ -745,7 +745,9 @@ def _verify_publication(
         )
 
     expected_source = _source_record(generation.manifest.work)
-    expected_capabilities = derive_manifest_capabilities(generation.manifest)
+    expected_capabilities = tuple(
+        sorted(derive_manifest_capabilities(generation.manifest))
+    )
     _validate_manifest_identity(
         generation.manifest,
         work=canonical.work,
@@ -1215,7 +1217,7 @@ def _stored_manifest_for_publication(
     if (
         publication.source_record != source_record
         or publication.capabilities
-        != derive_manifest_capabilities(stored.manifest)
+        != tuple(sorted(derive_manifest_capabilities(stored.manifest)))
         or publication.record_set_revision != stored.revision
         or publication.manifest_path != stored.relative_path
         or publication.manifest_digest != stored.sha256

@@ -8,7 +8,11 @@ import subprocess
 import tempfile
 import textwrap
 import venv
+import zipfile
+from email.parser import BytesParser
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run(
@@ -30,6 +34,19 @@ def _run(
             **({} if env is None else env),
         },
     )
+
+
+def _wheel_version(path: Path) -> str:
+    with zipfile.ZipFile(path) as archive:
+        names = tuple(
+            name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+        )
+        if len(names) != 1:
+            raise RuntimeError("Concord wheel must contain exactly one METADATA file.")
+        value = BytesParser().parsebytes(archive.read(names[0]))["Version"]
+    if not value:
+        raise RuntimeError("Concord wheel metadata does not declare a version.")
+    return value
 
 
 def _workflow_smoke_code() -> str:
@@ -974,6 +991,24 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
             raise RuntimeError("Quit-only menu smoke unexpectedly created a workspace.")
 
         _run([str(python), "-c", _workflow_smoke_code()], outside)
+
+        producer_workspace = root / "producer-acceptance-workspace"
+        producer_workspace.mkdir()
+        _run(
+            [
+                str(python),
+                str(ROOT / "scripts" / "verify_installed_producer_acceptance.py"),
+                "--workspace",
+                str(producer_workspace),
+                "--repository",
+                str(ROOT),
+                "--version",
+                _wheel_version(concord_wheel),
+                "--expected-core-version",
+                "0.6.0",
+            ],
+            outside,
+        )
 
 
 def main() -> int:

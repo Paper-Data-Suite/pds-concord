@@ -28,6 +28,7 @@ PROPOSED_CHAIN = (
 )
 PUBLICATION_DOC = ROOT / "docs" / "implementation" / "academic-result-publication.md"
 READER_DOC = ROOT / "docs" / "implementation" / "academic-result-reader.md"
+ACCEPTANCE_DOC = ROOT / "docs" / "implementation" / "installed-end-to-end-acceptance.md"
 STALE_PUBLICATION_PHRASES = (
     "still does **not** publish academic results",
     "publication remains absent until issue #31",
@@ -56,6 +57,15 @@ REQUIRED_READER_DOC_PHRASES = (
     "Issue #33",
     "Meridian",
     "Vitrine",
+)
+REQUIRED_ACCEPTANCE_DOC_PHRASES = (
+    "pds_core-0.6.0-py3-none-any.whl",
+    "be28c061b38463ef59ebc328ed1aa443767fe7f2c626babb769c2d8e5932f308",
+    "scripts/verify_installed_producer_acceptance.py",
+    "source_snapshot_revision",
+    "audit_academic_registry",
+    "manifest authorization != Artifact authorization",
+    "issue #34",
 )
 
 
@@ -151,6 +161,16 @@ def check_documentation() -> None:
                 failures.append(
                     "Consumer reader implementation document is missing required "
                     f"contract wording {phrase!r}."
+                )
+    if not ACCEPTANCE_DOC.is_file():
+        failures.append("Installed end-to-end acceptance document is missing.")
+    else:
+        acceptance_doc = ACCEPTANCE_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_ACCEPTANCE_DOC_PHRASES:
+            if phrase not in acceptance_doc:
+                failures.append(
+                    "Installed acceptance document is missing required "
+                    f"boundary wording {phrase!r}."
                 )
     publication_active_text = "\n".join(
         path.read_text(encoding="utf-8")
