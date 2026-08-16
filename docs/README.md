@@ -52,7 +52,10 @@ The repository now contains:
   Manifest generation, Publication Record supersession/withdrawal, publication
   producer discovery, and Core academic-catalog reconciliation; and
 * a consumer-neutral canonical Academic Result Manifest reader plus a separately
-  authorization-gated, historical-snapshot-bound bounded Artifact reader.
+  authorization-gated, historical-snapshot-bound bounded Artifact reader; and
+* clean-wheel installed producer acceptance spanning synthetic collaboration,
+  PDS2 return, registration, two manifest/publication revisions, Core
+  verification, authorized historical Artifact access, withdrawal, and audit.
 
 Implementation follows the v0.2.0 vertical-slice sequence tracked by
 [`Paper-Data-Suite/pds-concord#22`](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
@@ -60,8 +63,9 @@ The package baseline, foundational native models, persistence substrate, and
 teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifact
 assembly, Author/Subject, Review/Moderation, Criterion/Scale/Score, and academic
 publication workflows and the issue #32 consumer-neutral readers are complete.
-Concord declares separate routing and publication-producer entry points. Issue #33
-owns the full installed Activity-to-publication-to-consumer acceptance path.
+Concord declares separate routing and publication-producer entry points. The
+issue #33 full installed Activity-to-publication-to-consumer acceptance path is
+complete; issue #34 owns final release audit and closeout.
 
 ### 14. PDS2 Artifact Page integration
 
@@ -116,6 +120,15 @@ Documents canonical immutable manifest reading, exact producer-native lookup,
 type-sensitive Scale values, authorization-before-I/O, historical snapshot
 binding, bounded Artifact PDF representations, retained-source integrity,
 privacy minimization, consumer ownership boundaries, and the #33 handoff.
+
+### 20. Installed end-to-end acceptance
+
+[`implementation/installed-end-to-end-acceptance.md`](implementation/installed-end-to-end-acceptance.md)
+
+Documents clean-wheel isolation, the exact Core qualification artifact, the
+complete two-revision producer lifecycle, separately authorized historical
+Artifact access, Core catalog/audit expectations, immutable-history checks, and
+the policy deliberately left outside issue #33.
 
 ### 10. Native model implementation
 

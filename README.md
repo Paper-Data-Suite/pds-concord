@@ -158,6 +158,9 @@ catalog reconciliation are documented in the
 Consumer-neutral manifest interpretation and authorization-gated bounded Artifact
 access are documented in the
 [consumer reader guide](docs/implementation/academic-result-reader.md).
+The clean installed-wheel producer lifecycle and its Core verification,
+authorization, audit, and immutability boundaries are documented in the
+[installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
 Canonical persistence and recovery rules remain documented in the
 [canonical storage guide](docs/implementation/canonical-storage.md).
 
@@ -179,6 +182,7 @@ python scripts/validate_repository.py --core-wheel <wheel>
 The validator authenticates the exact Core v0.6.0 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
 inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
+the full installed Activity-to-publication producer acceptance before
 `git diff --check`.
 
 Core exposes routing through `paper_data_suite.modules` and publication through

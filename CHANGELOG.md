@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Clean-wheel installed producer acceptance against the authenticated Core
+  0.6.0 wheel, covering the complete synthetic collaborative Activity,
+  retained Artifact, Score/non-score, registration, two-revision publication,
+  Core verification, authorized historical Artifact, withdrawal, registry
+  audit, and immutable-history lifecycle.
+
+### Fixed
+
+- Canonicalize derived Concord capability ordering when verifying Core
+  Publication Records, including historical reload for supersession, so mixed
+  `criterion_scores`, `standards_ratings`, and `moderated_scores` manifests
+  agree with Core's canonical capability tuple.
+
+### Added
+
 - A pure `concord.academic_result_reader` facade for exact canonical Academic
   Result Manifest v1 bytes, whole-model validation, exact producer-native
   lookups, and type-sensitive Scoring Scale values.
