@@ -108,6 +108,9 @@ jobs:
       - name: Check documentation
         run: python scripts/check_documentation.py
 
+      - name: Verify release compatibility
+        run: python scripts/verify_release_compatibility.py
+
       - name: Build and validate distributions
         shell: pwsh
         run: |
@@ -130,6 +133,7 @@ jobs:
           $concordWheel = $wheels[0].FullName
 
           python scripts/check_package.py "$concordWheel"
+          python scripts/verify_release_artifacts.py "$dist"
           python scripts/smoke_test_wheel.py `
             "$concordWheel" `
             "$env:PDS_CORE_WHEEL"

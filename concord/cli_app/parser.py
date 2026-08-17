@@ -1507,7 +1507,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="concord",
         description=(
             "Concord is the Paper Data Suite module for paper-first collaborative "
-            "classroom evidence. The complete Activity workflow is being built as "
+            "classroom evidence. The complete Activity workflow is available through "
             "a shared direct-command and teacher-menu surface."
         ),
     )

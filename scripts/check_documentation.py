@@ -29,6 +29,12 @@ PROPOSED_CHAIN = (
 PUBLICATION_DOC = ROOT / "docs" / "implementation" / "academic-result-publication.md"
 READER_DOC = ROOT / "docs" / "implementation" / "academic-result-reader.md"
 ACCEPTANCE_DOC = ROOT / "docs" / "implementation" / "installed-end-to-end-acceptance.md"
+RELEASE_DOCUMENTS = (
+    ROOT / "docs" / "v0.2.0-release-audit.md",
+    ROOT / "docs" / "v0.2.0-release-compatibility.md",
+    ROOT / "docs" / "release_checklist.md",
+)
+FUTURE_PLAN = ROOT / "docs" / "pds-group-planning-interoperability-development-plan.md"
 STALE_PUBLICATION_PHRASES = (
     "still does **not** publish academic results",
     "publication remains absent until issue #31",
@@ -140,6 +146,30 @@ def check_documentation() -> None:
     for phrase in STALE_ACTIVE_PHRASES:
         if phrase in active_text:
             failures.append(f"Stale active-status phrase remains: {phrase!r}")
+    docs_index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    for release_document in RELEASE_DOCUMENTS:
+        if not release_document.is_file():
+            relative = release_document.relative_to(ROOT)
+            failures.append(
+                f"Required release document is missing: {relative}"
+            )
+        elif release_document.name not in docs_index:
+            failures.append(
+                f"Documentation index does not link {release_document.name}."
+            )
+    if not FUTURE_PLAN.is_file():
+        failures.append("Future v0.3.0 Group Planning plan is missing.")
+    else:
+        future_text = FUTURE_PLAN.read_text(encoding="utf-8")
+        if "v0.3.0" not in future_text or "future" not in future_text.lower():
+            failures.append(
+                "Group Planning interoperability plan must remain classified as "
+                "future v0.3.0 work."
+            )
+        if FUTURE_PLAN.name not in docs_index:
+            failures.append(
+                "Documentation index does not retain the future v0.3.0 plan."
+            )
     if not PUBLICATION_DOC.is_file():
         failures.append(
             "Academic result publication implementation document is missing."
@@ -188,9 +218,9 @@ def check_documentation() -> None:
     ).read_text(encoding="utf-8")
     if "Released Core baseline:** `pds-core` 0.6.0" not in integration:
         failures.append("Integration requirements do not identify Core v0.6.0.")
-    contracts = (
-        ROOT / "docs" / "design" / "conceptual-data-contracts.md"
-    ).read_text(encoding="utf-8")
+    contracts = (ROOT / "docs" / "design" / "conceptual-data-contracts.md").read_text(
+        encoding="utf-8"
+    )
     failures.extend(
         status_failures(
             contracts,

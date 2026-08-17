@@ -52,6 +52,7 @@ def validate(core_wheel: Path, *, allow_dirty: bool) -> None:
             [python, "-m", "ruff", "check", "."],
             [python, "-m", "mypy"],
             [python, "scripts/check_documentation.py"],
+            [python, "scripts/verify_release_compatibility.py"],
         ]
         for command in commands:
             print("+", subprocess.list2cmdline(command), flush=True)
@@ -80,6 +81,7 @@ def validate(core_wheel: Path, *, allow_dirty: bool) -> None:
         if len(wheels) != 1:
             raise RuntimeError("Expected exactly one built Concord wheel.")
         _run([python, "scripts/check_package.py", str(wheels[0])])
+        _run([python, "scripts/verify_release_artifacts.py", str(dist)])
         _run([python, "scripts/smoke_test_wheel.py", str(wheels[0]), str(core_wheel)])
     _run(["git", "diff", "--check"])
     if not allow_dirty:
