@@ -1,8 +1,10 @@
 # pds-concord
 
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
-created during collaborative classroom Activities. The repository is in v0.2.0
-development against the released `pds-core` v0.6.0 integration baseline.
+created during collaborative classroom Activities. Version 0.2.0 is qualified
+against the released `pds-core` v0.6.0 integration baseline. Official release
+artifacts are distributed through GitHub Releases only after independent review,
+hosted CI, merge, and exact-main requalification.
 
 The package now includes the collaboration-context workflow required to create
 and manage Activities, Sessions, Groups, contextual Group Memberships, Roles,
@@ -26,8 +28,9 @@ also publishes explicitly registered Activity results as immutable
 and the derived academic catalog. Concord now also exposes a consumer-neutral
 canonical manifest reader and a separately authorization-gated, bounded Artifact
 reader. Concord does **not** calculate Grades or proficiency; Meridian owns
-downstream grading/reporting policy. The complete clean-wheel producer-to-consumer
-acceptance path remains assigned to issue #33.
+downstream grading/reporting policy. The complete clean-wheel
+producer-to-consumer acceptance path established by issue #33 is part of the
+authoritative release qualification.
 
 ## Requirements and installation
 
@@ -42,6 +45,21 @@ python scripts/verify_core_wheel.py path\to\pds_core-0.6.0-py3-none-any.whl
 python -m pip install path\to\pds_core-0.6.0-py3-none-any.whl
 python -m pip install -e ".[dev]"
 ```
+
+An official v0.2.0 installation uses the authenticated Core wheel and the
+Concord wheel from the corresponding GitHub Release:
+
+```powershell
+python scripts/verify_core_wheel.py path\to\pds_core-0.6.0-py3-none-any.whl
+python -m pip install path\to\pds_core-0.6.0-py3-none-any.whl
+python -m pip install path\to\pds_concord-0.2.0-py3-none-any.whl
+python -m pip check
+concord --version
+```
+
+The Concord wheel and checksum file are distributed through the v0.2.0 GitHub
+Release and must be authenticated against its published `SHA256SUMS.txt`. Before
+those release assets exist, use the source-installation procedure above.
 
 ## Teacher menu
 
@@ -195,4 +213,8 @@ The implementation sequence is tracked by
 [umbrella issue #22](https://github.com/Paper-Data-Suite/pds-concord/issues/22).
 See the [documentation index](docs/README.md), the
 [accepted ADR index](docs/decisions/README.md), and the
-[foundation review](docs/design/foundation-review.md) for governing design.
+[foundation review](docs/design/foundation-review.md) for governing design. The
+[release audit](docs/v0.2.0-release-audit.md),
+[compatibility freeze](docs/v0.2.0-release-compatibility.md), and
+[four-phase release checklist](docs/release_checklist.md) record the v0.2.0
+release boundary.

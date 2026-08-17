@@ -11,6 +11,7 @@ from pathlib import Path
 from packaging.requirements import Requirement
 
 EXPECTED_CORE_REQUIREMENT = Requirement("pds-core>=0.6,<0.7")
+EXPECTED_VERSION = "0.2.0"
 FORBIDDEN_PREFIXES = (
     "tests/",
     "pds_core/",
@@ -65,6 +66,8 @@ def validate_wheel(path: str | Path) -> None:
 
     if metadata["Name"] != "pds-concord":
         raise PackageValidationError("Distribution name must be pds-concord.")
+    if metadata["Version"] != EXPECTED_VERSION:
+        raise PackageValidationError(f"Version must be {EXPECTED_VERSION}.")
     if metadata["Requires-Python"] != ">=3.11":
         raise PackageValidationError("Requires-Python must be >=3.11.")
     requirements = [Requirement(item) for item in metadata.get_all("Requires-Dist", [])]

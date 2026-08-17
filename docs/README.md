@@ -14,9 +14,10 @@ Concord is the Paper Data Suite module responsible for paper-first evidence gene
 ## Current Status
 
 The architecture and conceptual-contract phase is complete. The skeptical
-foundation review concluded with the verdict `APPROVED WITH NONBLOCKING FOLLOW-UP`,
-and v0.2.0 implementation is now active against the released `pds-core` v0.6.0
-integration baseline.
+foundation review concluded with the verdict `APPROVED WITH NONBLOCKING FOLLOW-UP`.
+The v0.2.0 vertical slice and issue #33 installed acceptance are complete.
+Issue #34 governs the release audit, compatibility freeze, qualification, and
+release closeout against the released `pds-core` v0.6.0 integration baseline.
 
 The repository now contains:
 
@@ -66,6 +67,37 @@ publication workflows and the issue #32 consumer-neutral readers are complete.
 Concord declares separate routing and publication-producer entry points. The
 issue #33 full installed Activity-to-publication-to-consumer acceptance path is
 complete; issue #34 owns final release audit and closeout.
+
+### 21. v0.2.0 release audit
+
+[`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)
+
+Records the implementation evidence and result for every accepted ADR, the #22
+exit-condition audit, privacy/policy observations, and deliberately deferred
+surfaces.
+
+### 22. v0.2.0 release compatibility
+
+[`v0.2.0-release-compatibility.md`](v0.2.0-release-compatibility.md)
+
+Freezes the exact distribution, Core range, Academic Work/Activity/manifest
+contracts, producer profile, reader, and separate Artifact authorization
+boundary expected by downstream consumers.
+
+### 23. Release checklist
+
+[`release_checklist.md`](release_checklist.md)
+
+Separates release-preparation PR work, exact post-merge qualification,
+tag/GitHub Release publication, and fresh-download verification.
+
+### Future v0.3.0 Group Planning / Template / Packet plan
+
+[`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
+
+This remains future v0.3.0 planning. It is not current v0.2.0 implementation
+and does not add production models, a Meridian dependency, or packet-oriented
+teacher UI in issue #34.
 
 ### 14. PDS2 Artifact Page integration
 
@@ -432,14 +464,13 @@ Concord consumes shared Core infrastructure and links to sibling modules without
 
 Simple Activities remain simple. Milestones, Work Items, dependencies, Events, subteams, Contribution Claims, Attachments, and similar structures are added only when the Activity requires them.
 
-## Active Implementation Phase
+## v0.2.0 Release-Closeout Contract
 
-The conceptual contracts and their representative validation are complete. The
-package/released-Core baseline, domain records, persistence, and teacher-local
-collaboration workflows are implemented. Work now continues through umbrella
-issue #22 with routing, Artifact management, Review and Moderation, scoring,
-publication, consumer compatibility, installed acceptance, and final release
-audit.
+The complete v0.2.0 teacher-local vertical slice and installed producer
+acceptance are implemented. Issue #34 governs the release audit, compatibility
+freeze, packaging qualification, exact-main qualification, release publication,
+and post-release verification. Tagging and GitHub Release publication occur
+only after review, hosted CI, merge, and exact-main requalification.
 
 Each implementation issue must preserve the accepted contract ownership,
 read-only import behavior, exact compatibility declarations, privacy-safe test
