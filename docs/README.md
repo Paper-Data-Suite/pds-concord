@@ -15,9 +15,11 @@ Concord is the Paper Data Suite module responsible for paper-first evidence gene
 
 The architecture and conceptual-contract phase is complete. The skeptical
 foundation review concluded with the verdict `APPROVED WITH NONBLOCKING FOLLOW-UP`.
-The v0.2.0 vertical slice and issue #33 installed acceptance are complete.
-Issue #34 governs the release audit, compatibility freeze, qualification, and
-release closeout against the released `pds-core` v0.6.0 integration baseline.
+The v0.2.0 vertical slice, installed acceptance, release audit, compatibility
+freeze, and milestone closeout are complete against the released `pds-core`
+v0.6.0 integration baseline. Phase 1 v0.3.0 work is tracked by umbrella #47;
+issue #48 freezes reusable-versus-instance boundaries before the GroupPlan,
+Template, Packet, Activity-copy, preset, and guided-setup implementation work.
 
 The repository now contains:
 
@@ -65,8 +67,9 @@ teacher-local collaboration-context, PDS2 Artifact Page routing, returned Artifa
 assembly, Author/Subject, Review/Moderation, Criterion/Scale/Score, and academic
 publication workflows and the issue #32 consumer-neutral readers are complete.
 Concord declares separate routing and publication-producer entry points. The
-issue #33 full installed Activity-to-publication-to-consumer acceptance path is
-complete; issue #34 owns final release audit and closeout.
+issue #33 full installed Activity-to-publication-to-consumer acceptance path and
+issue #34 release closeout are complete. The current v0.3.0 work adds reusable
+planning/setup layers without rewriting the accepted v0.2.0 operational history.
 
 ### 21. v0.2.0 release audit
 
@@ -90,6 +93,14 @@ boundary expected by downstream consumers.
 
 Separates release-preparation PR work, exact post-merge qualification,
 tag/GitHub Release publication, and fresh-download verification.
+
+### 24. v0.3.0 reusable-versus-instance boundary audit
+
+[`v0.3.0-reusable-instance-boundary-audit.md`](v0.3.0-reusable-instance-boundary-audit.md)
+
+Freezes which current and planned fields are reusable definitions/defaults,
+Activity-specific configuration, planning-only state, shared references, or
+operational/history state. It is the normative #48 handoff for #50-#64.
 
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
@@ -343,6 +354,7 @@ docs/
 ├── README.md
 ├── cli-contract.md
 ├── concord-conceptual-design-revised.md
+├── v0.3.0-reusable-instance-boundary-audit.md
 ├── decisions/
 │   ├── README.md
 │   └── 0001-... through 0015-...
@@ -466,11 +478,11 @@ Simple Activities remain simple. Milestones, Work Items, dependencies, Events, s
 
 ## v0.2.0 Release-Closeout Contract
 
-The complete v0.2.0 teacher-local vertical slice and installed producer
-acceptance are implemented. Issue #34 governs the release audit, compatibility
-freeze, packaging qualification, exact-main qualification, release publication,
-and post-release verification. Tagging and GitHub Release publication occur
-only after review, hosted CI, merge, and exact-main requalification.
+The complete v0.2.0 teacher-local vertical slice, installed producer
+acceptance, release audit, compatibility freeze, and milestone closeout are
+complete. The v0.3.0 work begins from that released boundary and must preserve
+its operational identities, immutable history, and downstream consumer contract
+while adding reusable planning/setup layers deliberately.
 
 Each implementation issue must preserve the accepted contract ownership,
 read-only import behavior, exact compatibility declarations, privacy-safe test
