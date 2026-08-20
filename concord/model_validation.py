@@ -26,6 +26,7 @@ from concord.models import (
     CriterionSet,
     Group,
     GroupMembership,
+    GroupPlan,
     ModerationRecord,
     ParticipantReference,
     ResponsibilityAssignment,
@@ -42,6 +43,7 @@ from concord.validation_diagnostics import ConcordRecordGraphError, ValidationIs
 Record = (
     Activity
     | Session
+    | GroupPlan
     | Group
     | GroupMembership
     | RoleAssignment
@@ -77,6 +79,7 @@ _COLLECTIONS: tuple[tuple[str, type[Any], str, str], ...] = tuple(
 class ConcordRecordGraph:
     activities: tuple[Activity, ...] = ()
     sessions: tuple[Session, ...] = ()
+    group_plans: tuple[GroupPlan, ...] = ()
     groups: tuple[Group, ...] = ()
     memberships: tuple[GroupMembership, ...] = ()
     role_assignments: tuple[RoleAssignment, ...] = ()
@@ -1505,6 +1508,50 @@ def collect_record_graph_issues(
                 session.session_id,
                 "activity_id",
             )
+
+    for plan in graph.group_plans:
+        plan_activity = activities.get(plan.activity_id)
+        if plan_activity is None:
+            _issue(
+                issues,
+                "group_plan.activity.missing",
+                "GroupPlan references a missing Activity.",
+                "group_plan",
+                plan.group_plan_id,
+                "activity_id",
+            )
+        elif plan.class_reference != plan_activity.class_reference:
+            _issue(
+                issues,
+                "group_plan.class.mismatch",
+                "GroupPlan Core class differs from its Activity class.",
+                "group_plan",
+                plan.group_plan_id,
+                "class_reference",
+            )
+        for index, proposed_group in enumerate(plan.proposed_groups):
+            context = proposed_group.effective_context
+            if context is None:
+                continue
+            _check_context(
+                issues,
+                context,
+                sessions,
+                "group_plan",
+                plan.group_plan_id,
+            )
+            if context.activity_id != plan.activity_id:
+                _issue(
+                    issues,
+                    "group_plan.context.activity_mismatch",
+                    "PlannedGroup context belongs to another Activity.",
+                    "group_plan",
+                    plan.group_plan_id,
+                    "proposed_groups",
+                    index,
+                    "effective_context",
+                    "activity_id",
+                )
 
     for group in graph.groups:
         if group.activity_id not in activities:

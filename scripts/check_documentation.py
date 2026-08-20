@@ -38,6 +38,15 @@ FUTURE_PLAN = ROOT / "docs" / "pds-group-planning-interoperability-development-p
 GROUPING_SIGNAL_DOC = (
     ROOT / "docs" / "v0.3.0-core-grouping-signal-integration.md"
 )
+GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-group-plan-contract.md"
+REQUIRED_GROUP_PLAN_DOC_PHRASES = (
+    "GroupPlan != Group",
+    "record kind: group_plan",
+    "draft -> previewed -> approved -> applied",
+    "grouping_signal_set_v1",
+    "teacher-restricted",
+    "#56",
+)
 REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
     "pds-core>=0.6.1,<0.7",
     "grouping_signal_set_v1",
@@ -199,6 +208,29 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the grouping-signal "
                 "integration document."
+            )
+    if not GROUP_PLAN_DOC.is_file():
+        failures.append("Current v0.3.0 GroupPlan contract document is missing.")
+    else:
+        group_plan_doc = GROUP_PLAN_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_GROUP_PLAN_DOC_PHRASES:
+            if phrase not in group_plan_doc:
+                failures.append(
+                    "GroupPlan contract document is missing required boundary "
+                    f"wording {phrase!r}."
+                )
+        if GROUP_PLAN_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the GroupPlan contract document."
+            )
+    for stale_phrase in (
+        "lifecycle application services remain staged within #50",
+        "does not make GroupPlan lifecycle/application services",
+    ):
+        if stale_phrase in docs_index:
+            failures.append(
+                "Documentation index contains stale GroupPlan wording "
+                f"{stale_phrase!r}."
             )
     if not PUBLICATION_DOC.is_file():
         failures.append(

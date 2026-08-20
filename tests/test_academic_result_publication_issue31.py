@@ -40,7 +40,12 @@ from concord.academic_result_publication import (
     withdraw_concord_academic_result_publication,
 )
 from concord.academic_work_registration import register_concord_academic_work
-from concord.models import PrivacyPolicy, ScoreTargetReference, ScoringScaleLevel
+from concord.models import (
+    PlannedGroup,
+    PrivacyPolicy,
+    ScoreTargetReference,
+    ScoringScaleLevel,
+)
 from concord.pds_contract import (
     CONCORD_ACADEMIC_RESULT_RECORD_SET_ID,
     CONCORD_ACADEMIC_WORK_CONTRACT_VERSION,
@@ -54,6 +59,7 @@ from concord.workflows import (
     AddScoreRequest,
     CreateActivityContextRequest,
     CreateCriterionSetRequest,
+    CreateGroupPlanRequest,
     CreateScoringScaleRequest,
     CriterionSpec,
     ReplaceScoreRequest,
@@ -62,6 +68,7 @@ from concord.workflows import (
     add_score,
     create_activity_context,
     create_criterion_set,
+    create_group_plan,
     create_scoring_scale,
     replace_score,
     select_activity_criterion_sets,
@@ -1142,3 +1149,54 @@ def test_catalog_failure_after_canonical_publish_is_recoverable_partial_success(
     )
     assert len(final_state.publications) == 1
     assert final_state.catalog_available
+
+
+def test_group_plan_is_excluded_from_publication_record_metadata(
+    tmp_path: Path,
+) -> None:
+    root, snapshot_revision = _workspace(tmp_path)
+    plan = create_group_plan(
+        CreateGroupPlanRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            group_plan_id="private-plan-marker",
+            strategy="similar_signal",
+            expected_snapshot_revision=snapshot_revision,
+            actor=_actor(),
+            proposed_groups=(
+                PlannedGroup(
+                    planned_group_key="private-planned-group-marker",
+                    label="Private Planning Group",
+                    student_ids=("student-1",),
+                ),
+            ),
+            target_group_count=1,
+            source_signal_set_id="private-signal-set",
+            source_signal_set_digest="f" * 64,
+            source_signal_dimension_id="private-dimension",
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(14),
+    )
+    created = publish_concord_academic_results(
+        _request(plan.commit.snapshot_revision),
+        workspace_root=root,
+        clock=lambda: _clock(15),
+    )
+
+    publication_path = (
+        root
+        / "registry"
+        / "publications"
+        / f"{created.publication.publication_id}.json"
+    )
+    publication_bytes = publication_path.read_bytes()
+    manifest_bytes = created.manifest_generation.content
+    for private_marker in (
+        b"private-plan-marker",
+        b"private-planned-group-marker",
+        b"private-signal-set",
+        b"private-dimension",
+    ):
+        assert private_marker not in publication_bytes
+        assert private_marker not in manifest_bytes

@@ -20,6 +20,7 @@ from concord.models import (
     CriterionSet,
     Group,
     GroupMembership,
+    GroupPlan,
     ModerationRecord,
     ResponsibilityAssignment,
     RoleAssignment,
@@ -34,6 +35,7 @@ from concord.record_registry import CONVERSION_KIND_ALIASES, RECORD_DESCRIPTORS
 Record = (
     Activity
     | Session
+    | GroupPlan
     | Group
     | GroupMembership
     | RoleAssignment

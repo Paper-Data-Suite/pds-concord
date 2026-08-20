@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Native planning-only `GroupPlan` and `PlannedGroup` contracts registered in
+  Concord's descriptor-driven record graph, with exact mapping conversion,
+  Activity/class/context validation, existing immutable record-history
+  qualification, and no canonical Group/Membership side effects.
+- Typed GroupPlan create, full-proposal replacement, privacy-minimized list/show,
+  explicit preview, guarded approval, and cancellation services with exact Core
+  roster drift checks, native expected-snapshot concurrency, and no generic
+  `applied` transition before #56.
 - Authenticated Core v0.6.1 `grouping_signal_set_v1` compatibility fixtures, public-contract tests, immutable exchange/digest coverage, exact roster diagnostics, and producer/Meridian isolation checks for Concord's future GroupPlan workflows.
 - A Core grouping-fixture verifier that authenticates the vendored golden payload and, when supplied, the exact released fixture ZIP asset.
 

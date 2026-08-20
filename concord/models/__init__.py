@@ -33,6 +33,7 @@ from concord.models.common import (
     SubjectReference,
 )
 from concord.models.corrections import CorrectionRecord
+from concord.models.group_planning import GroupPlan, PlannedGroup
 from concord.models.review import ArtifactReview, ModerationRecord
 from concord.models.scoring import (
     Criterion,
@@ -65,8 +66,10 @@ __all__ = [
     "EvidenceReference",
     "Group",
     "GroupMembership",
+    "GroupPlan",
     "ModerationRecord",
     "ParticipantReference",
+    "PlannedGroup",
     "PrivacyPolicy",
     "Provenance",
     "ResponsibilityAssignment",
