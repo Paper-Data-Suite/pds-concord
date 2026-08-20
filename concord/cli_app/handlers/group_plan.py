@@ -17,6 +17,7 @@ from concord.workflows import (
     ArrangementImportResult,
     CancelGroupPlanRequest,
     CreateManualGroupPlanRequest,
+    CreateRandomGroupPlanRequest,
     EditPlannedGroupRequest,
     GroupPlanDetail,
     GroupPlanEditResult,
@@ -32,6 +33,7 @@ from concord.workflows import (
     approve_group_plan,
     cancel_group_plan,
     create_manual_group_plan,
+    create_random_group_plan,
     edit_planned_group,
     import_arrangement_group_plan,
     list_group_plans,
@@ -144,6 +146,39 @@ def handle_create_manual(args: argparse.Namespace) -> int:
     print_commit(result.commit)
     print(f"GroupPlan: {result.group_plan_id}")
     print(f"Status: {result.status}")
+    return 0
+
+
+def handle_create_random(args: argparse.Namespace) -> int:
+    result = create_random_group_plan(
+        CreateRandomGroupPlanRequest(
+            class_id=args.class_id,
+            activity_id=args.activity_id,
+            group_plan_id=args.group_plan_id,
+            expected_snapshot_revision=args.expected_snapshot,
+            actor=workflow_actor(args),
+            seed=args.seed,
+            target_group_size=args.target_group_size,
+            target_group_count=args.target_group_count,
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    mutation = result.mutation
+    print_commit(mutation.commit)
+    print(f"GroupPlan: {mutation.group_plan_id}")
+    print("Strategy: random")
+    print(f"Status: {mutation.status}")
+    if args.target_group_size is not None:
+        print(f"Target group size: {args.target_group_size}")
+    else:
+        print(f"Target group count: {args.target_group_count}")
+    print(f"Seed: {args.seed}")
+    print(f"Generated groups: {result.group_count}")
+    print(f"Assigned students: {result.assigned_student_count}")
+    print("Unresolved students: 0")
+    print(f"Group sizes: {','.join(str(size) for size in result.group_sizes)}")
+    print("Canonical Groups created: no")
     return 0
 
 

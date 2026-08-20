@@ -359,6 +359,19 @@ def _group_plan_commands(
     target.add_argument("--target-group-count", type=int)
     create.set_defaults(handler=group_plan.handle_create_manual)
 
+    random_create = actions.add_parser(
+        "create-random",
+        help="Create a deterministic seeded random draft GroupPlan.",
+    )
+    _mutating_options(random_create)
+    _class_activity(random_create)
+    random_create.add_argument("--group-plan-id", required=True)
+    random_create.add_argument("--seed", required=True)
+    random_target = random_create.add_mutually_exclusive_group(required=True)
+    random_target.add_argument("--target-group-size", type=int)
+    random_target.add_argument("--target-group-count", type=int)
+    random_create.set_defaults(handler=group_plan.handle_create_random)
+
     add = actions.add_parser("add-group", help="Add an empty plan-local group.")
     _mutating_options(add)
     _class_activity(add)

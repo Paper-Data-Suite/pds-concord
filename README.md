@@ -12,8 +12,9 @@ The package now includes the collaboration-context workflow required to create
 and manage Activities, Sessions, Groups, contextual Group Memberships, Roles,
 and Responsibilities. The v0.3 development line also includes teacher-restricted
 `GroupPlan` authoring with manual plan-local groups, exact Core-roster placement,
-explicit roster refresh, and strict `student_id,group` arrangement CSV import.
-Planning remains separate from canonical Group/Membership application, which is
+explicit roster refresh, strict `student_id,group` arrangement CSV import, and
+deterministic seeded random proposals using exact size/count targets. Planning
+remains separate from canonical Group/Membership application, which is
 reserved for issue #56. The same typed service layer supports a fully
 noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
@@ -106,7 +107,7 @@ concord activity create|list|show|update|set-status
 concord session add|list|show|update|set-status
 concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
-concord group-plan list|show|create-manual|add-group|edit-group|remove-group
+concord group-plan list|show|create-manual|create-random|add-group|edit-group|remove-group
 concord group-plan place-student|unassign-student|refresh-roster
 concord group-plan import-arrangement|replace-arrangement|preview|approve|cancel
 concord role assign|list|end|reassign
@@ -190,6 +191,9 @@ The planning-only record/lifecycle foundation is documented in the
 authoring, arrangement CSV, direct CLI, menu, roster-refresh, and privacy
 boundaries are documented in the
 [manual Group planning guide](docs/v0.3.0-manual-group-planning.md).
+Issue #52's exact seeded SHA-256 ranking, balanced partitioning, direct CLI/menu
+creation, refresh behavior, and privacy boundaries are documented in the
+[deterministic random planning guide](docs/v0.3.0-random-group-planning.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
@@ -202,7 +206,7 @@ Run focused checks with `python -m pytest`, `python -m ruff check .`, and
 `python -m mypy`. Run the complete repository validation on Windows with:
 
 ```powershell
-.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.0-py3-none-any.whl
+.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.1-py3-none-any.whl
 ```
 
 The cross-platform equivalent is:
@@ -211,7 +215,7 @@ The cross-platform equivalent is:
 python scripts/validate_repository.py --core-wheel <wheel>
 ```
 
-The validator authenticates the exact Core v0.6.0 wheel, runs pytest, Ruff,
+The validator authenticates the exact Core v0.6.1 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
 inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
 the full installed Activity-to-publication producer acceptance before

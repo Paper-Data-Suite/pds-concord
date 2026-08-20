@@ -17,6 +17,8 @@ from concord.menu_prompts import (
     choose_student,
     confirm_write,
     handle_write_error,
+    prompt_exact_text,
+    prompt_positive_int,
     prompt_text,
     select_one,
     show_result,
@@ -36,6 +38,7 @@ from concord.workflows import (
     CancelGroupPlanRequest,
     ConcordWorkflowError,
     CreateManualGroupPlanRequest,
+    CreateRandomGroupPlanRequest,
     EditPlannedGroupRequest,
     GroupPlanDetail,
     GroupPlanSummary,
@@ -50,6 +53,7 @@ from concord.workflows import (
     approve_group_plan,
     cancel_group_plan,
     create_manual_group_plan,
+    create_random_group_plan,
     edit_planned_group,
     import_arrangement_group_plan,
     list_group_plans,
@@ -125,6 +129,12 @@ def _show_detail(detail: GroupPlanDetail) -> None:
     print(f"Record revision: {detail.record_revision}")
     print(f"Planned groups: {len(plan.proposed_groups)}")
     print(f"Unresolved students: {len(plan.unresolved_student_ids)}")
+    if plan.target_group_size is not None:
+        print(f"Target group size: {plan.target_group_size}")
+    if plan.target_group_count is not None:
+        print(f"Target group count: {plan.target_group_count}")
+    if plan.seed is not None:
+        print(f"Seed: {plan.seed}")
     print()
     for group in plan.proposed_groups:
         print(
@@ -198,6 +208,110 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
                 f"GroupPlan: {result.group_plan_id}",
                 f"Status: {result.status}",
                 f"Snapshot: {result.commit.snapshot_revision}",
+                "Canonical Groups created: no",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, "GroupPlan Error", error)
+
+
+def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    try:
+        current = _latest(activity)
+        plan_id = prompt_text(
+            "Create Random GroupPlan",
+            "GroupPlan ID",
+            help_text="Use a durable identifier for this planning proposal.",
+            default=slug_identifier(f"{current.activity_id}-random", "group-plan"),
+        )
+        assert plan_id is not None
+        target_kind = select_one(
+            "Random Group Target",
+            ("size", "count"),
+            ("Target group size", "Target group count"),
+            help_text=(
+                "Choose whether Concord should derive the group count from a maximum "
+                "target size or create an exact requested number of groups."
+            ),
+        )
+        if target_kind == "size":
+            target_group_size = prompt_positive_int(
+                "Create Random GroupPlan",
+                "Target group size",
+                help_text=(
+                    "Concord will use ceil(roster size / target size) groups and "
+                    "balance their sizes as evenly as possible."
+                ),
+                default=4,
+            )
+            target_group_count = None
+            target_line = f"Target group size: {target_group_size}"
+        else:
+            target_group_count = prompt_positive_int(
+                "Create Random GroupPlan",
+                "Target group count",
+                help_text=(
+                    "Concord will create exactly this many nonempty groups; the count "
+                    "cannot exceed the current roster size."
+                ),
+                default=4,
+            )
+            target_group_size = None
+            target_line = f"Target group count: {target_group_count}"
+        seed = prompt_exact_text(
+            "Create Random GroupPlan",
+            "Seed",
+            help_text=(
+                "Enter an explicit reproducibility seed. Leading or trailing "
+                "whitespace is invalid and will be rejected rather than trimmed. "
+                "The same exact roster, target, and seed reproduce the same v0.3 "
+                "arrangement."
+            ),
+        )
+        assert seed is not None
+        if not confirm_write(
+            "Create Random GroupPlan",
+            "CREATE",
+            (
+                f"Activity: {current.title}",
+                f"GroupPlan: {plan_id}",
+                target_line,
+                f"Seed: {seed}",
+                "The current Core roster will be assigned exactly once.",
+                "This is a deterministic random proposal, not an optimized grouping.",
+                "No canonical Groups or Memberships will be created.",
+            ),
+        ):
+            return
+        result = create_random_group_plan(
+            CreateRandomGroupPlanRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                group_plan_id=plan_id,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=state.require_actor(),
+                seed=seed,
+                target_group_size=target_group_size,
+                target_group_count=target_group_count,
+            )
+        )
+        mutation = result.mutation
+        show_result(
+            "GroupPlan Result",
+            (
+                "Random GroupPlan created.",
+                f"GroupPlan: {mutation.group_plan_id}",
+                "Strategy: random",
+                f"Status: {mutation.status}",
+                target_line,
+                f"Seed: {seed}",
+                f"Generated groups: {result.group_count}",
+                f"Assigned students: {result.assigned_student_count}",
+                "Unresolved students: 0",
+                f"Group sizes: {','.join(str(size) for size in result.group_sizes)}",
+                f"Snapshot: {mutation.commit.snapshot_revision}",
                 "Canonical Groups created: no",
             ),
         )
@@ -750,8 +864,9 @@ def launch_group_plan_menu(
         print()
         print("1. List GroupPlans")
         print("2. Create a manual GroupPlan")
-        print("3. Import an arrangement CSV")
-        print("4. Open a GroupPlan")
+        print("3. Create a random GroupPlan")
+        print("4. Import an arrangement CSV")
+        print("5. Open a GroupPlan")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -771,8 +886,10 @@ def launch_group_plan_menu(
         elif choice == "2":
             _create_manual(current, state)
         elif choice == "3":
-            _import_arrangement(current, state)
+            _create_random(current, state)
         elif choice == "4":
+            _import_arrangement(current, state)
+        elif choice == "5":
             try:
                 selected = _select_plan(current, title="Open a GroupPlan")
                 _open_plan(current, selected, state)

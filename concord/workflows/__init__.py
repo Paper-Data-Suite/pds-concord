@@ -150,6 +150,11 @@ from concord.workflows.group_plan_manual import (
     replace_group_plan_from_arrangement,
     unassign_student_from_plan,
 )
+from concord.workflows.group_plan_random import (
+    CreateRandomGroupPlanRequest,
+    RandomGroupPlanCreationResult,
+    create_random_group_plan,
+)
 from concord.workflows.models import (
     ActivityContextResult,
     ActivityDetail,
@@ -476,4 +481,7 @@ __all__ = [
     "remove_planned_group",
     "replace_group_plan_from_arrangement",
     "unassign_student_from_plan",
+    "CreateRandomGroupPlanRequest",
+    "RandomGroupPlanCreationResult",
+    "create_random_group_plan",
 ]
