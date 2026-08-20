@@ -10,7 +10,11 @@ review, hosted CI, merge, and exact-main requalification.
 
 The package now includes the collaboration-context workflow required to create
 and manage Activities, Sessions, Groups, contextual Group Memberships, Roles,
-and Responsibilities. The same typed service layer supports a fully
+and Responsibilities. The v0.3 development line also includes teacher-restricted
+`GroupPlan` authoring with manual plan-local groups, exact Core-roster placement,
+explicit roster refresh, and strict `student_id,group` arrangement CSV import.
+Planning remains separate from canonical Group/Membership application, which is
+reserved for issue #56. The same typed service layer supports a fully
 noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
@@ -71,9 +75,9 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, contextual Artifact Pages with assembly,
-Author/Subject, Review, Moderation, Scoring, and explicit Publication workflows,
-Help, and Quit.
+Settings, global Scan Routing, contextual Group planning versus operational
+Group/Membership management, Artifact Pages with assembly, Author/Subject,
+Review, Moderation, Scoring, and explicit Publication workflows, Help, and Quit.
 Controlled teacher screens use:
 
 ```text
@@ -102,6 +106,9 @@ concord activity create|list|show|update|set-status
 concord session add|list|show|update|set-status
 concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
+concord group-plan list|show|create-manual|add-group|edit-group|remove-group
+concord group-plan place-student|unassign-student|refresh-roster
+concord group-plan import-arrangement|replace-arrangement|preview|approve|cancel
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
 concord criterion-set create|list|show|revise|select
@@ -178,6 +185,11 @@ access are documented in the
 [consumer reader guide](docs/implementation/academic-result-reader.md). The v0.3
 Core 0.6.1 dependency and neutral grouping-signal boundary are documented in the
 [grouping-signal integration guide](docs/v0.3.0-core-grouping-signal-integration.md).
+The planning-only record/lifecycle foundation is documented in the
+[GroupPlan contract](docs/v0.3.0-group-plan-contract.md), and issue #51's manual
+authoring, arrangement CSV, direct CLI, menu, roster-refresh, and privacy
+boundaries are documented in the
+[manual Group planning guide](docs/v0.3.0-manual-group-planning.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

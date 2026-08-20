@@ -14,11 +14,24 @@ All notable changes to this project will be documented in this file.
   explicit preview, guarded approval, and cancellation services with exact Core
   roster drift checks, native expected-snapshot concurrency, and no generic
   `applied` transition before #56.
+- Teacher-controlled manual GroupPlan authoring with stable plan-local groups,
+  exact Core-roster student placement/movement/unassignment, explicit roster
+  refresh, preview-to-draft edit behavior, and exact no-op history suppression.
+- Strict deterministic UTF-8/BOM-aware `student_id,group` arrangement CSV
+  parsing plus atomic new-plan import and existing-plan replacement with bounded
+  row diagnostics, no identity normalization, and no persisted source-file data.
+- A complete noninteractive `concord group-plan ...` command family and bounded
+  teacher-menu `Plan groups` path sharing the same typed services while keeping
+  operational Group/Membership management separate and first-class.
 - Authenticated Core v0.6.1 `grouping_signal_set_v1` compatibility fixtures, public-contract tests, immutable exchange/digest coverage, exact roster diagnostics, and producer/Meridian isolation checks for Concord's future GroupPlan workflows.
 - A Core grouping-fixture verifier that authenticates the vendored golden payload and, when supplied, the exact released fixture ZIP asset.
 
 ### Changed
 
+- The teacher-facing `Groups and Participants` screen now distinguishes planning
+  (`GroupPlan`/`PlannedGroup`) from operational Group/Membership management;
+  GroupPlan approval still creates no canonical Groups and issue #56 remains the
+  sole planned application boundary.
 - Began the v0.3 development line as `0.3.0.dev0` and raised the Core runtime minimum to `pds-core>=0.6.1,<0.7`; active CI/package/installed acceptance qualifies against the exact released Core v0.6.1 wheel while historical v0.2.0 release evidence remains bound to Core v0.6.0.
 
 
