@@ -26,7 +26,7 @@ def test_installed_core_version_agreement_is_accepted() -> None:
 def test_imported_core_version_mismatch_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pds_core, "__version__", "0.6.1")
+    monkeypatch.setattr(pds_core, "__version__", "0.6.0")
     with pytest.raises(CoreVerificationError, match="disagrees with installed"):
         verify_installed_core()
 

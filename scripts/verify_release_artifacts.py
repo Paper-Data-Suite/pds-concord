@@ -1,4 +1,4 @@
-"""Validate the exact Concord v0.2.0 wheel and source distribution."""
+"""Validate the current Concord v0.3.0.dev0 development artifacts."""
 
 from __future__ import annotations
 
@@ -19,11 +19,11 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-RELEASE_VERSION = "0.2.0"
-EXPECTED_WHEEL = "pds_concord-0.2.0-py3-none-any.whl"
-EXPECTED_SDIST = "pds_concord-0.2.0.tar.gz"
-EXPECTED_DIST_INFO = "pds_concord-0.2.0.dist-info"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
+RELEASE_VERSION = "0.3.0.dev0"
+EXPECTED_WHEEL = "pds_concord-0.3.0.dev0-py3-none-any.whl"
+EXPECTED_SDIST = "pds_concord-0.3.0.dev0.tar.gz"
+EXPECTED_DIST_INFO = "pds_concord-0.3.0.dev0.dist-info"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.1,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_ENTRY_POINTS = {
     "console_scripts": {"concord": "concord.cli:main"},
@@ -124,11 +124,21 @@ def normalized_member(name: str) -> PurePosixPath:
     return member
 
 
+def _is_vendored_grouping_fixture(member: PurePosixPath) -> bool:
+    needle = ("tests", "fixtures", "core_grouping_signals", "v1")
+    lowered = tuple(part.lower() for part in member.parts)
+    return any(
+        lowered[index : index + len(needle)] == needle
+        for index in range(len(lowered) - len(needle) + 1)
+    )
+
+
 def validate_member_names(names: list[str]) -> None:
     if len(names) != len(set(names)):
         raise ArtifactValidationError("artifact contains duplicate member names")
     for name in names:
         member = normalized_member(name)
+        grouping_fixture = _is_vendored_grouping_fixture(member)
         lowered_parts = {part.lower() for part in member.parts}
         lowered_name = member.name.lower()
         siblings = sorted(lowered_parts & FORBIDDEN_SIBLING_PARTS)
@@ -136,9 +146,9 @@ def validate_member_names(names: list[str]) -> None:
             raise ArtifactValidationError(
                 f"artifact bundles Core/sibling package {siblings[0]}: {name}"
             )
-        if lowered_parts & FORBIDDEN_PARTS:
+        if lowered_parts & FORBIDDEN_PARTS and not grouping_fixture:
             raise ArtifactValidationError(f"forbidden build/workspace member: {name}")
-        if lowered_name in FORBIDDEN_FILENAMES:
+        if lowered_name in FORBIDDEN_FILENAMES and not grouping_fixture:
             raise ArtifactValidationError(
                 f"forbidden generated/credential member: {name}"
             )
@@ -173,7 +183,7 @@ def validate_requirements(values: list[str], label: str) -> None:
     ]
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ArtifactValidationError(
-            f"{label} must require exactly pds-core>=0.6,<0.7"
+            f"{label} must require exactly pds-core>=0.6.1,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ArtifactValidationError(

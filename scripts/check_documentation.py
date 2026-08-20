@@ -35,6 +35,19 @@ RELEASE_DOCUMENTS = (
     ROOT / "docs" / "release_checklist.md",
 )
 FUTURE_PLAN = ROOT / "docs" / "pds-group-planning-interoperability-development-plan.md"
+GROUPING_SIGNAL_DOC = (
+    ROOT / "docs" / "v0.3.0-core-grouping-signal-integration.md"
+)
+REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
+    "pds-core>=0.6.1,<0.7",
+    "grouping_signal_set_v1",
+    "pds_core.grouping_signal_storage",
+    "pds_core.grouping_signal_diagnostics",
+    "source.snapshot_digest",
+    "dimension_projection",
+    "Meridian",
+    "Issue #53",
+)
 STALE_PUBLICATION_PHRASES = (
     "still does **not** publish academic results",
     "publication remains absent until issue #31",
@@ -170,6 +183,23 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not retain the future v0.3.0 plan."
             )
+    if not GROUPING_SIGNAL_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 grouping-signal integration document is missing."
+        )
+    else:
+        grouping_doc = GROUPING_SIGNAL_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_GROUPING_SIGNAL_DOC_PHRASES:
+            if phrase not in grouping_doc:
+                failures.append(
+                    "Grouping-signal integration document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if GROUPING_SIGNAL_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the grouping-signal "
+                "integration document."
+            )
     if not PUBLICATION_DOC.is_file():
         failures.append(
             "Academic result publication implementation document is missing."
@@ -216,8 +246,11 @@ def check_documentation() -> None:
     integration = (
         ROOT / "docs" / "design" / "pds-core-integration-requirements.md"
     ).read_text(encoding="utf-8")
-    if "Released Core baseline:** `pds-core` 0.6.0" not in integration:
-        failures.append("Integration requirements do not identify Core v0.6.0.")
+    if "Current development Core baseline:** `pds-core` 0.6.1" not in integration:
+        failures.append(
+            "Integration requirements do not identify Core v0.6.1 "
+            "for v0.3 development."
+        )
     contracts = (ROOT / "docs" / "design" / "conceptual-data-contracts.md").read_text(
         encoding="utf-8"
     )

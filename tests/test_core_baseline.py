@@ -37,7 +37,7 @@ from concord.constants import CONCORD_MODULE_ID
 
 def test_core_version_and_contract_values() -> None:
     version = Version(importlib.metadata.version("pds-core"))
-    assert Version("0.6") <= version < Version("0.7")
+    assert Version("0.6.1") <= version < Version("0.7")
     assert CORE_ROUTING_CONTRACT_VERSION == "1"
     assert PDS2_SCHEMA == "PDS2"
     assert ROUTE_REGISTRATION_SCHEMA_VERSION == "1"

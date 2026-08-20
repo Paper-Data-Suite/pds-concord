@@ -38,12 +38,19 @@ jobs:
 
           $coreWheel = Join-Path `
             $coreDirectory `
-            "pds_core-0.6.0-py3-none-any.whl"
+            "pds_core-0.6.1-py3-none-any.whl"
+
+          $coreGroupingFixtures = Join-Path `
+            $coreDirectory `
+            "pds-core-0.6.1-grouping-signal-fixtures.zip"
 
           $ruffCache = Join-Path $env:RUNNER_TEMP "ruff-cache"
           $mypyCache = Join-Path $env:RUNNER_TEMP "mypy-cache"
 
           "PDS_CORE_WHEEL=$coreWheel" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          "PDS_CORE_GROUPING_FIXTURES=$coreGroupingFixtures" |
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           "RUFF_CACHE_DIR=$ruffCache" |
@@ -56,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest `
-            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.0/pds_core-0.6.0-py3-none-any.whl" `
+            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.1/pds_core-0.6.1-py3-none-any.whl" `
             -OutFile $env:PDS_CORE_WHEEL `
             -ErrorAction Stop
 
@@ -64,10 +71,20 @@ jobs:
             throw "Core wheel download did not create $env:PDS_CORE_WHEEL."
           }
 
+          Invoke-WebRequest `
+            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.1/pds-core-0.6.1-grouping-signal-fixtures.zip" `
+            -OutFile $env:PDS_CORE_GROUPING_FIXTURES `
+            -ErrorAction Stop
+
+          if (-not (Test-Path -LiteralPath $env:PDS_CORE_GROUPING_FIXTURES -PathType Leaf)) {
+            throw "Core grouping fixture download did not create $env:PDS_CORE_GROUPING_FIXTURES."
+          }
+
       - name: Authenticate and install Core
         shell: pwsh
         run: |
           python scripts/verify_core_wheel.py "$env:PDS_CORE_WHEEL"
+          python scripts/verify_core_grouping_fixtures.py "$env:PDS_CORE_GROUPING_FIXTURES"
           python -m pip install "$env:PDS_CORE_WHEEL"
 
       - name: Install Concord development dependencies

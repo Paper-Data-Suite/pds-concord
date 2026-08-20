@@ -27,6 +27,7 @@ def validate(core_wheel: Path, *, allow_dirty: bool) -> None:
     """Run tests, static checks, builds, package checks, and smoke validation."""
     python = sys.executable
     _run([python, "scripts/verify_core_wheel.py", str(core_wheel), "--installed"])
+    _run([python, "scripts/verify_core_grouping_fixtures.py"])
     _run([python, "-m", "pip", "check"])
     with tempfile.TemporaryDirectory(prefix="pds-concord-validation-") as raw_temp:
         temp = Path(raw_temp)

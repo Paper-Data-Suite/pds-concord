@@ -430,9 +430,9 @@ def _installed_provenance(
         "installed Concord metadata version disagrees.",
     )
     _require(
-        metadata.version("pds-core") == core_version == "0.6.0",
+        metadata.version("pds-core") == core_version == "0.6.1",
         "installed provenance",
-        "installed Core version is not exactly 0.6.0.",
+        "installed Core version is not exactly 0.6.1.",
     )
     _require(
         getattr(pds_core, "__version__", None) == core_version,
@@ -449,7 +449,7 @@ def _installed_provenance(
         len(core_requirements) == 1
         and Version(core_version) in core_requirements[0].specifier,
         "installed provenance",
-        "Concord dependency metadata rejects Core 0.6.0.",
+        "Concord dependency metadata rejects Core 0.6.1.",
     )
     modules = (
         "concord",
@@ -1808,7 +1808,7 @@ def main() -> int:
     parser.add_argument("--workspace", required=True, type=Path)
     parser.add_argument("--repository", required=True, type=Path)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--expected-core-version", default="0.6.0")
+    parser.add_argument("--expected-core-version", default="0.6.1")
     args = parser.parse_args()
     try:
         run_acceptance(

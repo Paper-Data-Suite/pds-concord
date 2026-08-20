@@ -6,7 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Authenticated Core v0.6.1 `grouping_signal_set_v1` compatibility fixtures, public-contract tests, immutable exchange/digest coverage, exact roster diagnostics, and producer/Meridian isolation checks for Concord's future GroupPlan workflows.
+- A Core grouping-fixture verifier that authenticates the vendored golden payload and, when supplied, the exact released fixture ZIP asset.
+
 ### Changed
+
+- Began the v0.3 development line as `0.3.0.dev0` and raised the Core runtime minimum to `pds-core>=0.6.1,<0.7`; active CI/package/installed acceptance qualifies against the exact released Core v0.6.1 wheel while historical v0.2.0 release evidence remains bound to Core v0.6.0.
+
 
 ### Fixed
 
