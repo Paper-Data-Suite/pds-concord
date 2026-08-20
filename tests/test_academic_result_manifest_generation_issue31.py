@@ -32,6 +32,7 @@ from concord.academic_work_registration import (
     register_concord_academic_work,
 )
 from concord.models import (
+    PlannedGroup,
     PrivacyPolicy,
     ScoreTargetReference,
     ScoringScaleLevel,
@@ -42,6 +43,7 @@ from concord.workflows import (
     AddScoreRequest,
     CreateActivityContextRequest,
     CreateCriterionSetRequest,
+    CreateGroupPlanRequest,
     CreateGroupRequest,
     CreateScoringScaleRequest,
     CriterionSpec,
@@ -53,6 +55,7 @@ from concord.workflows import (
     create_activity_context,
     create_criterion_set,
     create_group,
+    create_group_plan,
     create_scoring_scale,
     replace_score,
     select_activity_criterion_sets,
@@ -592,3 +595,54 @@ def test_manifest_path_helper_is_exact() -> None:
         "classes/class-1/modules/concord/work/activity-1/"
         "exports/manifests/academic_results/7.json"
     )
+
+
+def test_group_plan_native_change_is_excluded_from_manifest_projection(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace(tmp_path)
+    first = generate_academic_result_manifest(
+        _request(revision),
+        workspace_root=root,
+        clock=lambda: _clock(16),
+    )
+    plan = create_group_plan(
+        CreateGroupPlanRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            group_plan_id="private-plan-marker",
+            strategy="similar_signal",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+            proposed_groups=(
+                PlannedGroup(
+                    planned_group_key="private-planned-group-marker",
+                    label="Private Planning Group",
+                    student_ids=("student-1",),
+                ),
+            ),
+            target_group_count=1,
+            source_signal_set_id="private-signal-set",
+            source_signal_set_digest="f" * 64,
+            source_signal_dimension_id="private-dimension",
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(17),
+    )
+    second = generate_academic_result_manifest(
+        _request(
+            plan.commit.snapshot_revision,
+            reason="native_state_change",
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(18),
+    )
+
+    assert second.disposition == "existing"
+    assert second.revision == first.revision == 1
+    assert second.content == first.content
+    assert second.source_snapshot_revision == revision
+    assert b"private-plan-marker" not in second.content
+    assert b"private-planned-group-marker" not in second.content
+    assert b"private-signal-set" not in second.content
+    assert b"private-dimension" not in second.content

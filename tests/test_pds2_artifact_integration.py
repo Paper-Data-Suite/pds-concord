@@ -9,11 +9,13 @@ from pds_core.class_metadata import (
     create_class_metadata,
     write_class_metadata_for_class,
 )
+from pds_core.classes import write_class_roster
 from pds_core.module_profiles import (
     CORE_ROUTING_CONTRACT_VERSION,
     build_module_registry,
 )
 from pds_core.pds2 import parse_pds2_payload
+from pds_core.rosters import create_roster
 from pds_core.route_registrations import (
     load_route_registration,
     resolve_route_registration,
@@ -26,6 +28,7 @@ from concord.model_conversion import record_from_dict, record_to_dict
 from concord.models import (
     ActorReference,
     ConcordModelError,
+    PlannedGroup,
     PrivacyPolicy,
     Provenance,
     ScanReference,
@@ -36,8 +39,10 @@ from concord.routing.scan_intake import route_scan_sources
 from concord.storage import load_current_record_graph
 from concord.workflows import (
     CreateActivityContextRequest,
+    CreateGroupPlanRequest,
     WorkflowActor,
     create_activity_context,
+    create_group_plan,
 )
 from concord.workflows.artifact_page import (
     ArtifactPagePlan,
@@ -232,3 +237,104 @@ def test_rendered_pdf_round_trips_through_retention_decode_and_dispatch(
     ).graph
     assert len(graph.scan_references) == 2
     assert {item.source_page_number for item in graph.scan_references} == {1, 2}
+
+
+def test_group_plan_is_excluded_from_artifact_and_pds2_metadata(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(tmp_path)
+    write_class_roster(
+        root,
+        create_roster(
+            "class-1",
+            (
+                {
+                    "student_id": "student-1",
+                    "last_name": "One",
+                    "first_name": "Alex",
+                    "period": "1",
+                },
+            ),
+        ),
+    )
+    plan = create_group_plan(
+        CreateGroupPlanRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            group_plan_id="private-plan-marker",
+            strategy="similar_signal",
+            expected_snapshot_revision=1,
+            actor=WorkflowActor(actor_id="teacher-1"),
+            proposed_groups=(
+                PlannedGroup(
+                    planned_group_key="private-planned-group-marker",
+                    label="Private Planning Group",
+                    student_ids=("student-1",),
+                ),
+            ),
+            target_group_count=1,
+            source_signal_set_id="private-signal-set",
+            source_signal_set_digest="f" * 64,
+            source_signal_dimension_id="private-dimension",
+        ),
+        workspace_root=root,
+        clock=_clock,
+    )
+    prepared = prepare_artifact_pages(
+        PrepareArtifactPagesRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-private-check",
+            template_version_id="template-1",
+            artifact_category="observation",
+            expected_snapshot_revision=plan.commit.snapshot_revision,
+            actor=WorkflowActor(actor_id="teacher-1"),
+            pages=(
+                ArtifactPagePlan(
+                    page_number=1,
+                    artifact_page_id="page-private-check",
+                ),
+            ),
+            privacy_policy=PrivacyPolicy(classification="teacher_restricted"),
+        ),
+        workspace_root=root,
+        clock=_clock,
+    )
+
+    payload = prepared.pages[0].pds2_payload
+    assert payload is not None
+    locator = parse_pds2_payload(payload)
+    registration = load_route_registration(root, locator)
+    graph = load_current_record_graph(root, locator.work).graph
+    artifact = next(
+        item
+        for item in graph.artifact_instances
+        if item.artifact_instance_id == "artifact-private-check"
+    )
+    page = next(
+        item
+        for item in graph.artifact_pages
+        if item.artifact_page_id == "page-private-check"
+    )
+
+    observable = "\n".join(
+        (
+            payload,
+            repr(registration.module_details),
+            repr(record_to_dict(artifact)),
+            repr(record_to_dict(page)),
+        )
+    )
+    for private_marker in (
+        "private-plan-marker",
+        "private-planned-group-marker",
+        "private-signal-set",
+        "private-dimension",
+    ):
+        assert private_marker not in observable
+    assert set(registration.module_details) == {
+        "activity_id",
+        "artifact_instance_id",
+        "artifact_page_id",
+        "page_number",
+    }

@@ -17,6 +17,7 @@ from concord.models import (
     CriterionSet,
     Group,
     GroupMembership,
+    GroupPlan,
     ModerationRecord,
     ResponsibilityAssignment,
     RoleAssignment,
@@ -39,6 +40,7 @@ class RecordDescriptor:
 RECORD_DESCRIPTORS: tuple[RecordDescriptor, ...] = (
     RecordDescriptor("activity", Activity, "activity_id", "activities"),
     RecordDescriptor("session", Session, "session_id", "sessions"),
+    RecordDescriptor("group_plan", GroupPlan, "group_plan_id", "group_plans"),
     RecordDescriptor("group", Group, "group_id", "groups"),
     RecordDescriptor(
         "group_membership", GroupMembership, "membership_id", "memberships"

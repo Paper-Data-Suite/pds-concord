@@ -20,7 +20,10 @@ freeze, and milestone closeout remain historically qualified against `pds-core`
 v0.6.0. Phase 1 v0.3.0 work is tracked by umbrella #47. Issue #48 froze the
 reusable-versus-instance boundaries; issue #49 establishes `0.3.0.dev0`,
 `pds-core>=0.6.1,<0.7`, and the neutral Core `grouping_signal_set_v1` consumer
-baseline without adding a Meridian runtime dependency or GroupPlan behavior.
+baseline without adding a Meridian runtime dependency. Issue #50 now adds the
+native planning-only GroupPlan/PlannedGroup record, immutable history, and typed
+create/replace/read/preview/approve/cancel lifecycle services. Canonical plan
+application remains reserved for #56.
 
 The repository now contains:
 
@@ -38,6 +41,8 @@ The repository now contains:
 * canonical guarded persistence with immutable history, atomic snapshots,
   strict reads, diagnostics, and a disposable catalog;
 * typed Activity, Session, and Group collaboration workflow services;
+* a native planning-only GroupPlan/PlannedGroup contract integrated with the
+  existing immutable record-revision and Activity-work snapshot machinery;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -113,14 +118,26 @@ synthetic fixtures, immutable signal identity/digest semantics, contextual
 ordinal bands, exact roster diagnostics, privacy constraints, and the #50/#53
 planning handoff without a Meridian runtime dependency.
 
+### 26. v0.3.0 GroupPlan contract
+
+[`v0.3.0-group-plan-contract.md`](v0.3.0-group-plan-contract.md)
+
+Defines the planning-only GroupPlan/PlannedGroup native contract, stable
+identity through native record revisions, exact roster coverage, strategy and
+signal-reference boundaries, lifecycle invariants, privacy exclusions, and the
+#51-#56 handoffs. Issue #50 implements the native contract plus typed
+create/replace/read/preview/approve/cancel services; `approved -> applied`
+remains reserved for #56.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
-This remains the roadmap for future v0.3.0 issues beyond the currently
-implemented #48/#49 foundations. It does not make GroupPlan, Template, Packet,
-or guided teacher UI behavior implemented merely because the integration
-baseline exists.
+This remains the roadmap for future v0.3.0 issues beyond the implemented
+#48/#49 foundations and #50 GroupPlan contract/lifecycle foundation. It does not
+make the #51-#56 planning algorithms, signal workflow, missing-signal policy, or
+canonical application implemented, nor does it make Template, Packet, or guided
+teacher UI behavior implemented merely because their contracts are documented.
 
 ### 14. PDS2 Artifact Page integration
 
