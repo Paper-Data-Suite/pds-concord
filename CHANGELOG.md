@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Deterministic seeded random GroupPlan generation over the exact Core roster,
+  with the versioned `pds-concord:group-plan-random:v1` SHA-256 ranking contract,
+  exact size/count targets, balanced nonempty groups, and exact-roster race
+  protection.
+- Direct `concord group-plan create-random` and bounded teacher-menu random-plan
+  creation over the same typed workflow, preserving manual-edit/preview/approval
+  behavior while creating no canonical Group/Membership or signal dependency.
 - Native planning-only `GroupPlan` and `PlannedGroup` contracts registered in
   Concord's descriptor-driven record graph, with exact mapping conversion,
   Activity/class/context validation, existing immutable record-history

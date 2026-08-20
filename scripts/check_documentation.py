@@ -40,6 +40,7 @@ GROUPING_SIGNAL_DOC = (
 )
 GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-group-plan-contract.md"
 MANUAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-manual-group-planning.md"
+RANDOM_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-random-group-planning.md"
 REQUIRED_GROUP_PLAN_DOC_PHRASES = (
     "GroupPlan != Group",
     "record kind: group_plan",
@@ -57,6 +58,17 @@ REQUIRED_MANUAL_GROUP_PLAN_DOC_PHRASES = (
     "Plan groups",
     "GroupPlan approval != Group creation",
     "#56",
+)
+REQUIRED_RANDOM_GROUP_PLAN_DOC_PHRASES = (
+    "create_random_group_plan",
+    "pds-concord:group-plan-random:v1",
+    "sha256",
+    "ceil(N / S)",
+    "random-1",
+    "concord group-plan create-random",
+    "Canonical Groups created: no",
+    "Issue #53",
+    "Issue #56",
 )
 REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
     "pds-core>=0.6.1,<0.7",
@@ -247,6 +259,22 @@ def check_documentation() -> None:
         if MANUAL_GROUP_PLAN_DOC.name not in docs_index:
             failures.append(
                 "Documentation index does not link the manual Group planning document."
+            )
+    if not RANDOM_GROUP_PLAN_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 deterministic random Group planning document is missing."
+        )
+    else:
+        random_group_plan_doc = RANDOM_GROUP_PLAN_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_RANDOM_GROUP_PLAN_DOC_PHRASES:
+            if phrase not in random_group_plan_doc:
+                failures.append(
+                    "Random Group planning document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if RANDOM_GROUP_PLAN_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the random Group planning document."
             )
     for active_path in (
         ROOT / "README.md",

@@ -86,6 +86,33 @@ def prompt_text(
             return None
 
 
+def prompt_exact_text(
+    title: str,
+    label: str,
+    *,
+    help_text: str,
+) -> str:
+    """Prompt for exact text while preserving whitespace for validation."""
+    while True:
+        clear_screen()
+        print_menu_header(title)
+        print_navigation()
+        print()
+        raw = input(f"{label}: ")
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header(f"{title} Help")
+            print(help_text)
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw != "":
+            return raw
+
+
 def prompt_positive_int(
     title: str,
     label: str,

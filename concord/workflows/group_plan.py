@@ -56,6 +56,7 @@ class CreateGroupPlanRequest:
     source_signal_set_id: str | None = None
     source_signal_set_digest: str | None = None
     source_signal_dimension_id: str | None = None
+    expected_roster_student_ids: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -342,6 +343,13 @@ def create_group_plan(
         "GroupPlan",
     )
     roster_student_ids = _roster_student_ids(root, request.class_id)
+    if (
+        request.expected_roster_student_ids is not None
+        and roster_student_ids != request.expected_roster_student_ids
+    ):
+        raise ConcordWorkflowConflictError(
+            "Core roster changed while preparing the GroupPlan; reload and retry."
+        )
     unresolved = _validate_proposed_students(
         request.proposed_groups,
         roster_student_ids,

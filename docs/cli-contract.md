@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 manual GroupPlan authoring workflow in issue #51.
+Implemented through the v0.3.0 deterministic random GroupPlan workflow in issue #52.
 
 ## Two interfaces, one service layer
 
@@ -60,6 +60,7 @@ concord group member reassign
 concord group-plan list
 concord group-plan show
 concord group-plan create-manual
+concord group-plan create-random
 concord group-plan add-group
 concord group-plan edit-group
 concord group-plan remove-group
@@ -247,8 +248,14 @@ operational `Group`/`GroupMembership` command family.
 
 The `group-plan` family supports manual draft creation, plan-local group metadata,
 exact roster-student placement/movement/unassignment, explicit roster refresh,
-strict arrangement CSV import/replacement, and the existing preview/approve/cancel
-lifecycle.
+strict arrangement CSV import/replacement, deterministic seeded random creation,
+and the existing preview/approve/cancel lifecycle.
+
+`group-plan create-random` requires an explicit seed and exactly one of
+`--target-group-size` or `--target-group-count`. The same exact roster, target,
+and seed use the documented `pds-concord:group-plan-random:v1` SHA-256 ranking
+and balanced partitioning contract. Random creation assigns the complete current
+roster, creates a `draft`, and creates no canonical Group or Membership.
 
 Targeted plan edits reject Core-roster drift instead of silently refreshing it.
 `refresh-roster` is the explicit operation that preserves remaining placements,
