@@ -9,6 +9,7 @@ from concord.cli_app.handlers import (
     activity,
     artifact,
     group,
+    group_plan,
     publication,
     responsibility,
     review_moderation,
@@ -321,6 +322,148 @@ def _group_commands(
     )
     _context_options(reassign, required=True)
     reassign.set_defaults(handler=group.handle_member_reassign)
+
+
+def _group_plan_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "group-plan",
+        help="Author, preview, and approve planning-only GroupPlans.",
+    )
+    actions = parent.add_subparsers(dest="group_plan_command", required=True)
+
+    list_command = actions.add_parser("list", help="List GroupPlan summaries.")
+    _workspace_option(list_command)
+    _class_activity(list_command)
+    list_command.set_defaults(handler=group_plan.handle_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one exact teacher-restricted GroupPlan.",
+    )
+    _workspace_option(show)
+    _class_activity(show)
+    show.add_argument("--group-plan-id", required=True)
+    show.set_defaults(handler=group_plan.handle_show)
+
+    create = actions.add_parser(
+        "create-manual",
+        help="Create a manual draft GroupPlan.",
+    )
+    _mutating_options(create)
+    _class_activity(create)
+    create.add_argument("--group-plan-id", required=True)
+    target = create.add_mutually_exclusive_group()
+    target.add_argument("--target-group-size", type=int)
+    target.add_argument("--target-group-count", type=int)
+    create.set_defaults(handler=group_plan.handle_create_manual)
+
+    add = actions.add_parser("add-group", help="Add an empty plan-local group.")
+    _mutating_options(add)
+    _class_activity(add)
+    add.add_argument("--group-plan-id", required=True)
+    add.add_argument("--planned-group-key", required=True)
+    add.add_argument("--label", required=True)
+    add.add_argument("--description")
+    _context_options(add, required=False)
+    add.set_defaults(handler=group_plan.handle_add_group)
+
+    edit = actions.add_parser("edit-group", help="Edit plan-local group metadata.")
+    _mutating_options(edit)
+    _class_activity(edit)
+    edit.add_argument("--group-plan-id", required=True)
+    edit.add_argument("--planned-group-key", required=True)
+    edit.add_argument("--label")
+    edit.add_argument("--description")
+    edit.add_argument("--clear-description", action="store_true")
+    _context_options(edit, required=False)
+    edit.add_argument("--clear-context", action="store_true")
+    edit.set_defaults(handler=group_plan.handle_edit_group)
+
+    remove = actions.add_parser("remove-group", help="Remove a plan-local group.")
+    _mutating_options(remove)
+    _class_activity(remove)
+    remove.add_argument("--group-plan-id", required=True)
+    remove.add_argument("--planned-group-key", required=True)
+    remove.set_defaults(handler=group_plan.handle_remove_group)
+
+    place = actions.add_parser(
+        "place-student",
+        help="Place or move one exact roster student.",
+    )
+    _mutating_options(place)
+    _class_activity(place)
+    place.add_argument("--group-plan-id", required=True)
+    place.add_argument("--student-id", required=True)
+    place.add_argument("--planned-group-key", required=True)
+    place.set_defaults(handler=group_plan.handle_place_student)
+
+    unassign = actions.add_parser(
+        "unassign-student",
+        help="Return one exact roster student to unresolved planning state.",
+    )
+    _mutating_options(unassign)
+    _class_activity(unassign)
+    unassign.add_argument("--group-plan-id", required=True)
+    unassign.add_argument("--student-id", required=True)
+    unassign.set_defaults(handler=group_plan.handle_unassign_student)
+
+    refresh = actions.add_parser(
+        "refresh-roster",
+        help="Explicitly reconcile an editable GroupPlan to the current Core roster.",
+    )
+    _mutating_options(refresh)
+    _class_activity(refresh)
+    refresh.add_argument("--group-plan-id", required=True)
+    refresh.set_defaults(handler=group_plan.handle_refresh_roster)
+
+    import_command = actions.add_parser(
+        "import-arrangement",
+        help="Create an imported-arrangement draft from exact student_id,group CSV.",
+    )
+    _mutating_options(import_command)
+    _class_activity(import_command)
+    import_command.add_argument("--group-plan-id", required=True)
+    import_command.add_argument("--csv-path", required=True)
+    import_command.set_defaults(handler=group_plan.handle_import_arrangement)
+
+    replace = actions.add_parser(
+        "replace-arrangement",
+        help="Replace one editable proposal from exact student_id,group CSV.",
+    )
+    _mutating_options(replace)
+    _class_activity(replace)
+    replace.add_argument("--group-plan-id", required=True)
+    replace.add_argument("--csv-path", required=True)
+    replace.set_defaults(handler=group_plan.handle_replace_arrangement)
+
+    preview = actions.add_parser(
+        "preview",
+        help="Persist the exact proposal for teacher preview.",
+    )
+    _mutating_options(preview)
+    _class_activity(preview)
+    preview.add_argument("--group-plan-id", required=True)
+    preview.set_defaults(handler=group_plan.handle_preview)
+
+    approve = actions.add_parser(
+        "approve",
+        help="Approve the exact previewed GroupPlan.",
+    )
+    _mutating_options(approve)
+    _class_activity(approve)
+    approve.add_argument("--group-plan-id", required=True)
+    approve.set_defaults(handler=group_plan.handle_approve)
+
+    cancel = actions.add_parser(
+        "cancel",
+        help="Cancel a GroupPlan without deleting history.",
+    )
+    _mutating_options(cancel)
+    _class_activity(cancel)
+    cancel.add_argument("--group-plan-id", required=True)
+    cancel.set_defaults(handler=group_plan.handle_cancel)
 
 
 def _role_commands(
@@ -1523,6 +1666,7 @@ def build_parser() -> argparse.ArgumentParser:
     _activity_commands(subparsers)
     _session_commands(subparsers)
     _group_commands(subparsers)
+    _group_plan_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
     _criterion_set_commands(subparsers)

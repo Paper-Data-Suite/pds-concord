@@ -22,8 +22,11 @@ reusable-versus-instance boundaries; issue #49 establishes `0.3.0.dev0`,
 `pds-core>=0.6.1,<0.7`, and the neutral Core `grouping_signal_set_v1` consumer
 baseline without adding a Meridian runtime dependency. Issue #50 now adds the
 native planning-only GroupPlan/PlannedGroup record, immutable history, and typed
-create/replace/read/preview/approve/cancel lifecycle services. Canonical plan
-application remains reserved for #56.
+create/replace/read/preview/approve/cancel lifecycle services. Issue #51 now
+implements manual plan-local authoring, exact roster placement and refresh,
+strict `student_id,group` arrangement import/replacement, the direct
+`concord group-plan ...` family, and a bounded teacher-menu planning path.
+Canonical plan application remains reserved for #56.
 
 The repository now contains:
 
@@ -43,6 +46,9 @@ The repository now contains:
 * typed Activity, Session, and Group collaboration workflow services;
 * a native planning-only GroupPlan/PlannedGroup contract integrated with the
   existing immutable record-revision and Activity-work snapshot machinery;
+* teacher-controlled manual GroupPlan editing, explicit Core-roster refresh,
+  strict deterministic arrangement CSV import/replacement, and shared direct/menu
+  planning surfaces with no canonical Group/Membership side effects;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -129,15 +135,25 @@ signal-reference boundaries, lifecycle invariants, privacy exclusions, and the
 create/replace/read/preview/approve/cancel services; `approved -> applied`
 remains reserved for #56.
 
+### 27. v0.3.0 manual Group planning and arrangement import
+
+[`v0.3.0-manual-group-planning.md`](v0.3.0-manual-group-planning.md)
+
+Documents issue #51's manual GroupPlan authoring, plan-local group editing,
+exact Core-roster student placement, fail-closed roster drift, explicit roster
+refresh, strict deterministic `student_id,group` CSV import/replacement,
+direct CLI and bounded teacher-menu surfaces, lifecycle reuse, privacy
+constraints, and the hard separation from canonical Group/Membership creation.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48/#49 foundations and #50 GroupPlan contract/lifecycle foundation. It does not
-make the #51-#56 planning algorithms, signal workflow, missing-signal policy, or
-canonical application implemented, nor does it make Template, Packet, or guided
-teacher UI behavior implemented merely because their contracts are documented.
+#48-#51 foundations. It does not make the #52-#56 random/signal planning,
+missing-signal policy, or canonical application implemented, nor does it make
+Template, Packet, guided Activity setup, or final integrated teacher UI behavior
+implemented merely because their contracts are documented.
 
 ### 14. PDS2 Artifact Page integration
 

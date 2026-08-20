@@ -7,6 +7,7 @@ import uuid
 from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_group_plan import launch_group_plan_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -516,8 +517,10 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
         _handle_error(activity, "Membership Error", error)
 
 
-def launch_group_menu(activity: ActivitySummary, state: MenuSessionContext) -> None:
-    """Manage Activity-specific Groups and contextual Memberships."""
+def launch_direct_group_menu(
+    activity: ActivitySummary, state: MenuSessionContext
+) -> None:
+    """Manage canonical Activity-specific Groups and Memberships."""
     while True:
         clear_screen()
         print_menu_header("Groups and Participants")
@@ -559,6 +562,44 @@ def launch_group_menu(activity: ActivitySummary, state: MenuSessionContext) -> N
             _end_member(activity, state)
         elif choice == "7":
             _reassign_member(activity, state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def launch_group_menu(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    """Choose planning proposals or direct canonical Group management."""
+    while True:
+        clear_screen()
+        print_menu_header("Groups and Participants")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. Plan groups")
+        print("2. Manage Groups and Memberships")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Groups and Participants Help")
+            print("Plan groups creates or edits GroupPlan proposals.")
+            print(
+                "Manage Groups and Memberships edits canonical classroom "
+                "Group state directly."
+            )
+            print(
+                "A GroupPlan never becomes canonical Group state merely by "
+                "preview or approval."
+            )
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_group_plan_menu(activity, state)
+        elif choice == "2":
+            launch_direct_group_menu(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

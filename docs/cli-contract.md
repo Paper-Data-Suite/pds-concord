@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.2.0 Academic Result Publication workflow in issue #31.
+Implemented through the v0.3.0 manual GroupPlan authoring workflow in issue #51.
 
 ## Two interfaces, one service layer
 
@@ -56,6 +56,21 @@ concord group member add
 concord group member list
 concord group member end
 concord group member reassign
+
+concord group-plan list
+concord group-plan show
+concord group-plan create-manual
+concord group-plan add-group
+concord group-plan edit-group
+concord group-plan remove-group
+concord group-plan place-student
+concord group-plan unassign-student
+concord group-plan refresh-roster
+concord group-plan import-arrangement
+concord group-plan replace-arrangement
+concord group-plan preview
+concord group-plan approve
+concord group-plan cancel
 
 concord role assign
 concord role list
@@ -164,6 +179,12 @@ There is no force-overwrite option. A stale expected snapshot is a conflict.
 `--membership-id` values must have the same cardinality and order. All selected
 Memberships are validated and committed in one guarded batch.
 
+`group-plan` mutations also require the exact expected Activity snapshot.
+Plan-local edits never allocate canonical `Group` or `GroupMembership` records.
+Arrangement import uses the exact case-sensitive two-column `student_id,group`
+contract documented in `v0.3.0-manual-group-planning.md`; no delimiter sniffing,
+identity normalization, quick approval, or quick application occurs.
+
 ## Exit codes
 
 ```text
@@ -218,6 +239,28 @@ Responsibility contexts contain one or more existing Sessions.
 Membership add uses Core roster identities. Reassignment creates a new durable
 Membership ID with `supersedes_membership_id`; it does not rewrite the historical
 Membership into a different identity.
+
+## Group planning versus operational Groups
+
+`GroupPlan` is teacher-restricted proposal state and remains distinct from the
+operational `Group`/`GroupMembership` command family.
+
+The `group-plan` family supports manual draft creation, plan-local group metadata,
+exact roster-student placement/movement/unassignment, explicit roster refresh,
+strict arrangement CSV import/replacement, and the existing preview/approve/cancel
+lifecycle.
+
+Targeted plan edits reject Core-roster drift instead of silently refreshing it.
+`refresh-roster` is the explicit operation that preserves remaining placements,
+drops departed students, adds newcomers unresolved, preserves empty planned
+groups, and creates a draft revision when the roster changed.
+
+Preview and approval remain separate writes. Approval creates no canonical Group
+or Membership, and there is no `group-plan apply` command in issue #51. The
+`approved -> applied` transaction remains reserved for issue #56.
+
+Within the teacher menu, `Groups and Participants` exposes separate `Plan groups`
+and `Manage Groups and Memberships` paths over the same shared service layer.
 
 Role and Responsibility reassignment use the corresponding explicit successor
 fields. Assignment records are contextual facts, not proof of authorship,

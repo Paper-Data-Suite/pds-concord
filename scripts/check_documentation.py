@@ -39,12 +39,23 @@ GROUPING_SIGNAL_DOC = (
     ROOT / "docs" / "v0.3.0-core-grouping-signal-integration.md"
 )
 GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-group-plan-contract.md"
+MANUAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-manual-group-planning.md"
 REQUIRED_GROUP_PLAN_DOC_PHRASES = (
     "GroupPlan != Group",
     "record kind: group_plan",
     "draft -> previewed -> approved -> applied",
     "grouping_signal_set_v1",
     "teacher-restricted",
+    "#56",
+)
+REQUIRED_MANUAL_GROUP_PLAN_DOC_PHRASES = (
+    "student_id,group",
+    "create_manual_group_plan",
+    "refresh_group_plan_roster",
+    "replace_group_plan_from_arrangement",
+    "concord group-plan",
+    "Plan groups",
+    "GroupPlan approval != Group creation",
     "#56",
 )
 REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
@@ -223,9 +234,33 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the GroupPlan contract document."
             )
+    if not MANUAL_GROUP_PLAN_DOC.is_file():
+        failures.append("Current v0.3.0 manual Group planning document is missing.")
+    else:
+        manual_group_plan_doc = MANUAL_GROUP_PLAN_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_MANUAL_GROUP_PLAN_DOC_PHRASES:
+            if phrase not in manual_group_plan_doc:
+                failures.append(
+                    "Manual Group planning document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if MANUAL_GROUP_PLAN_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the manual Group planning document."
+            )
+    for active_path in (
+        ROOT / "README.md",
+        ROOT / "docs" / "cli-contract.md",
+    ):
+        active_group_plan_text = active_path.read_text(encoding="utf-8")
+        if "concord group-plan" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose the GroupPlan CLI."
+            )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
+        "make the #51-#56 planning algorithms",
     ):
         if stale_phrase in docs_index:
             failures.append(
