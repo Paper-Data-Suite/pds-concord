@@ -7,7 +7,7 @@ import concord
 
 
 def test_initial_version() -> None:
-    assert concord.__version__ == "0.2.0"
+    assert concord.__version__ == "0.3.0.dev0"
 
 
 def test_version_has_one_authoritative_literal() -> None:
@@ -26,4 +26,4 @@ def test_version_has_one_authoritative_literal() -> None:
                 and isinstance(node.value.value, str)
             ):
                 declarations.append((path, node.value.value))
-    assert declarations == [(root / "concord" / "_version.py", "0.2.0")]
+    assert declarations == [(root / "concord" / "_version.py", "0.3.0.dev0")]

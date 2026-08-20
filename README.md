@@ -1,10 +1,12 @@
 # pds-concord
 
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
-created during collaborative classroom Activities. Version 0.2.0 is qualified
-against the released `pds-core` v0.6.0 integration baseline. Official release
-artifacts are distributed through GitHub Releases only after independent review,
-hosted CI, merge, and exact-main requalification.
+created during collaborative classroom Activities. The released v0.2.0 artifact
+remains historically qualified against `pds-core` v0.6.0. Current source is the
+v0.3.0 development line (`0.3.0.dev0`) and requires `pds-core>=0.6.1,<0.7`
+because v0.3 consumes Core's neutral `grouping_signal_set_v1` contract. Official
+release artifacts are distributed through GitHub Releases only after independent
+review, hosted CI, merge, and exact-main requalification.
 
 The package now includes the collaboration-context workflow required to create
 and manage Activities, Sessions, Groups, contextual Group Memberships, Roles,
@@ -34,32 +36,30 @@ authoritative release qualification.
 
 ## Requirements and installation
 
-Concord requires Python 3.11 or newer and `pds-core>=0.6,<0.7`. Core v0.6 is
-distributed as an authenticated GitHub Release wheel rather than through PyPI.
-Download `pds_core-0.6.0-py3-none-any.whl` and `SHA256SUMS.txt` from the
-[pds-core v0.6.0 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.0),
-verify the wheel, and install it before installing Concord from source:
+Current Concord development requires Python 3.11 or newer and
+`pds-core>=0.6.1,<0.7`. Core is distributed as authenticated GitHub Release
+artifacts rather than through PyPI. For v0.3 development, download the released
+`pds_core-0.6.1-py3-none-any.whl` and, when qualifying the external fixture
+asset, `pds-core-0.6.1-grouping-signal-fixtures.zip` from the
+[pds-core v0.6.1 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.1),
+then verify/install the wheel before installing Concord from source:
 
 ```powershell
-python scripts/verify_core_wheel.py path\to\pds_core-0.6.0-py3-none-any.whl
-python -m pip install path\to\pds_core-0.6.0-py3-none-any.whl
+python scripts/verify_core_wheel.py path\to\pds_core-0.6.1-py3-none-any.whl
+python scripts/verify_core_grouping_fixtures.py path\to\pds-core-0.6.1-grouping-signal-fixtures.zip
+python -m pip install path\to\pds_core-0.6.1-py3-none-any.whl
 python -m pip install -e ".[dev]"
 ```
 
-An official v0.2.0 installation uses the authenticated Core wheel and the
-Concord wheel from the corresponding GitHub Release:
+Historical v0.2.0 release installation remains documented by the `v0.2.0`
+tag and its release checklist. That tagged source uses Core 0.6.0 and its own
+version of `scripts/verify_core_wheel.py`; the current v0.3 development verifier
+intentionally authenticates only the Core 0.6.1 wheel.
 
-```powershell
-python scripts/verify_core_wheel.py path\to\pds_core-0.6.0-py3-none-any.whl
-python -m pip install path\to\pds_core-0.6.0-py3-none-any.whl
-python -m pip install path\to\pds_concord-0.2.0-py3-none-any.whl
-python -m pip check
-concord --version
-```
-
-The Concord wheel and checksum file are distributed through the v0.2.0 GitHub
-Release and must be authenticated against its published `SHA256SUMS.txt`. Before
-those release assets exist, use the source-installation procedure above.
+The Concord v0.2.0 wheel and checksum file remain available through that
+historical GitHub Release and must be authenticated against its published
+`SHA256SUMS.txt`. For current source development, use the Core 0.6.1 procedure
+above.
 
 ## Teacher menu
 
@@ -175,7 +175,9 @@ catalog reconciliation are documented in the
 [publication implementation guide](docs/implementation/academic-result-publication.md).
 Consumer-neutral manifest interpretation and authorization-gated bounded Artifact
 access are documented in the
-[consumer reader guide](docs/implementation/academic-result-reader.md).
+[consumer reader guide](docs/implementation/academic-result-reader.md). The v0.3
+Core 0.6.1 dependency and neutral grouping-signal boundary are documented in the
+[grouping-signal integration guide](docs/v0.3.0-core-grouping-signal-integration.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

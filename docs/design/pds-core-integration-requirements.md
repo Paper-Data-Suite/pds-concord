@@ -1,6 +1,6 @@
 # PDS Core Integration Requirements
 
-**Status:** Accepted integration architecture record; Core v0.6.0 routing and academic-registry contracts are released
+**Status:** Accepted integration architecture record; Core v0.6.1 is the current v0.3 development baseline
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `Paper-Data-Suite/pds-concord#10`
@@ -8,8 +8,10 @@
 **PDS2 reconciliation:** July 24, 2026
 **Registry and Meridian reconciliation:** July 29, 2026
 **Core v0.6 reconciliation:** August 4, 2026
-**Revision:** 4 — identifies released Core v0.6.0 routing, registry, Academic Period, publication, compatibility, audit, and catalog contracts
-**Released Core baseline:** `pds-core` 0.6.0, Python 3.11+
+**Core v0.6.1 grouping-signal reconciliation:** August 19, 2026
+**Revision:** 5 — preserves the released Core v0.6.0 routing/registry history and adopts the additive Core v0.6.1 grouping-signal boundary for v0.3 development
+**Current development Core baseline:** `pds-core` 0.6.1, Python 3.11+
+**Historical v0.2.0 qualification baseline:** `pds-core` 0.6.0
 
 ## 1. Purpose
 
@@ -49,6 +51,14 @@ These capabilities are available through their defining public Core modules.
 Concord still must implement and validate its own behavior before claiming
 routing or publication support; the Core release does not make Concord routable
 or a publication producer automatically.
+
+For the active v0.3 development line, Core v0.6.1 adds the neutral
+`grouping_signal_set_v1` interchange without changing the established v0.6
+routing or academic-registry ownership. Concord consumes that interchange only
+through Core's public model, CSV, storage, and diagnostic APIs and does not
+import Meridian. See `docs/v0.3.0-core-grouping-signal-integration.md` for the
+current grouping-signal qualification boundary. The historical v0.2.0 release
+qualification against Core v0.6.0 remains unchanged.
 
 For current Concord domain, scoring, and publication semantics, the governing Concord documents are:
 
@@ -90,6 +100,7 @@ The current Concord conceptual authorities are:
 The relevant released Core authorities include:
 
 * `pds-core` 0.6.0 and its `docs/releases/v0.6.0.md` compatibility matrix;
+* `pds-core` 0.6.1, `docs/grouping_signal_set_v1.md`, and ADR 0004 for the neutral grouping-signal interchange;
 * `docs/pds2_module_integration.md`;
 * `docs/academic_registry_integration.md`;
 * `docs/academic_registry_recovery.md`;

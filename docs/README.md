@@ -16,10 +16,11 @@ Concord is the Paper Data Suite module responsible for paper-first evidence gene
 The architecture and conceptual-contract phase is complete. The skeptical
 foundation review concluded with the verdict `APPROVED WITH NONBLOCKING FOLLOW-UP`.
 The v0.2.0 vertical slice, installed acceptance, release audit, compatibility
-freeze, and milestone closeout are complete against the released `pds-core`
-v0.6.0 integration baseline. Phase 1 v0.3.0 work is tracked by umbrella #47;
-issue #48 freezes reusable-versus-instance boundaries before the GroupPlan,
-Template, Packet, Activity-copy, preset, and guided-setup implementation work.
+freeze, and milestone closeout remain historically qualified against `pds-core`
+v0.6.0. Phase 1 v0.3.0 work is tracked by umbrella #47. Issue #48 froze the
+reusable-versus-instance boundaries; issue #49 establishes `0.3.0.dev0`,
+`pds-core>=0.6.1,<0.7`, and the neutral Core `grouping_signal_set_v1` consumer
+baseline without adding a Meridian runtime dependency or GroupPlan behavior.
 
 The repository now contains:
 
@@ -102,13 +103,24 @@ Freezes which current and planned fields are reusable definitions/defaults,
 Activity-specific configuration, planning-only state, shared references, or
 operational/history state. It is the normative #48 handoff for #50-#64.
 
+### 25. v0.3.0 Core grouping-signal integration
+
+[`v0.3.0-core-grouping-signal-integration.md`](v0.3.0-core-grouping-signal-integration.md)
+
+Documents the released Core 0.6.1 qualification artifact, public
+`grouping_signal_set_v1` model/CSV/storage/diagnostic boundary, authenticated
+synthetic fixtures, immutable signal identity/digest semantics, contextual
+ordinal bands, exact roster diagnostics, privacy constraints, and the #50/#53
+planning handoff without a Meridian runtime dependency.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
-This remains future v0.3.0 planning. It is not current v0.2.0 implementation
-and does not add production models, a Meridian dependency, or packet-oriented
-teacher UI in issue #34.
+This remains the roadmap for future v0.3.0 issues beyond the currently
+implemented #48/#49 foundations. It does not make GroupPlan, Template, Packet,
+or guided teacher UI behavior implemented merely because the integration
+baseline exists.
 
 ### 14. PDS2 Artifact Page integration
 

@@ -1,4 +1,4 @@
-"""Verify the frozen Concord v0.2.0 release and consumer boundary."""
+"""Verify the current Concord development package and frozen public boundary."""
 
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ from concord.pds_contract import (
 from concord.pds_publication import get_publication_producer_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.2.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
+DEVELOPMENT_VERSION = "0.3.0.dev0"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.1,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_CAPABILITIES = frozenset(
     {"criterion_scores", "moderated_scores", "standards_ratings"}
@@ -127,8 +127,8 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
     """Validate release identity and dependency metadata from parsed TOML."""
     if project.get("name") != "pds-concord":
         raise ReleaseCompatibilityError("distribution name must be pds-concord")
-    if version != RELEASE_VERSION:
-        raise ReleaseCompatibilityError(f"source version must be {RELEASE_VERSION}")
+    if version != DEVELOPMENT_VERSION:
+        raise ReleaseCompatibilityError(f"source version must be {DEVELOPMENT_VERSION}")
     if project.get("requires-python") != str(EXPECTED_PYTHON_SPECIFIER):
         raise ReleaseCompatibilityError("Requires-Python must be exactly >=3.11")
     raw_dependencies = project.get("dependencies")
@@ -143,7 +143,7 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
         if canonicalize_name(item.name) == canonicalize_name("pds-core")
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
-        raise ReleaseCompatibilityError("Core requirement must be exactly >=0.6,<0.7")
+        raise ReleaseCompatibilityError("Core requirement must be exactly >=0.6.1,<0.7")
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
             "Core requirement cannot use URL, marker, or extras"
@@ -344,9 +344,9 @@ def validate_release_compatibility() -> None:
         version_literals.extend(
             source_version_literals(path.read_text(encoding="utf-8"))
         )
-    if version_literals != [RELEASE_VERSION]:
+    if version_literals != [DEVELOPMENT_VERSION]:
         raise ReleaseCompatibilityError(
-            "Concord must have exactly one authoritative 0.2.0 version literal"
+            "Concord must have exactly one authoritative 0.3.0.dev0 version literal"
         )
     validate_release_metadata(project, version_literals[0])
     validate_sibling_import_isolation()
@@ -400,10 +400,10 @@ def main() -> int:
         KeyError,
         ReleaseCompatibilityError,
     ) as error:
-        print(f"Release compatibility audit failed: {error}")
+        print(f"Development compatibility audit failed: {error}")
         return 1
     print(
-        "Concord v0.2.0 release compatibility passed: Core >=0.6,<0.7; "
+        "Concord v0.3.0.dev0 development compatibility passed: Core >=0.6.1,<0.7; "
         "contracts/profile exact; reader consumer-neutral; Artifact gate separate; "
         "sibling and grading/selection policy absent."
     )

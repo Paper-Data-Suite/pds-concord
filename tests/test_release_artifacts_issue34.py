@@ -21,9 +21,9 @@ from scripts.verify_release_artifacts import (
 
 METADATA = """Metadata-Version: 2.4
 Name: pds-concord
-Version: 0.2.0
+Version: 0.3.0.dev0
 Requires-Python: >=3.11
-Requires-Dist: pds-core<0.7,>=0.6
+Requires-Dist: pds-core<0.7,>=0.6.1
 
 Synthetic test package.
 """
@@ -40,7 +40,7 @@ PYPROJECT = """[project]
 name = "pds-concord"
 dynamic = ["version"]
 requires-python = ">=3.11"
-dependencies = ["pds-core>=0.6,<0.7"]
+dependencies = ["pds-core>=0.6.1,<0.7"]
 
 [project.scripts]
 concord = "concord.cli:main"
@@ -54,7 +54,7 @@ concord = "concord.pds_publication:get_publication_producer_profile"
 [tool.setuptools.dynamic]
 version = { attr = "concord._version.__version__" }
 """
-VERSION_SOURCE = '__version__ = "0.2.0"\n'
+VERSION_SOURCE = '__version__ = "0.3.0.dev0"\n'
 
 
 def _write_wheel(
@@ -64,8 +64,11 @@ def _write_wheel(
         for name in sorted(REQUIRED_WHEEL_FILES):
             if name != omit:
                 archive.writestr(name, "")
-        archive.writestr("pds_concord-0.2.0.dist-info/METADATA", metadata)
-        archive.writestr("pds_concord-0.2.0.dist-info/entry_points.txt", ENTRY_POINTS)
+        archive.writestr("pds_concord-0.3.0.dev0.dist-info/METADATA", metadata)
+        archive.writestr(
+            "pds_concord-0.3.0.dev0.dist-info/entry_points.txt",
+            ENTRY_POINTS,
+        )
 
 
 def _tar_file(archive: tarfile.TarFile, name: str, content: str) -> None:
@@ -83,9 +86,21 @@ def _write_sdist(
     pyproject: str = PYPROJECT,
     version_source: str = VERSION_SOURCE,
 ) -> None:
-    root = "pds_concord-0.2.0"
+    root = "pds_concord-0.3.0.dev0"
     with tarfile.open(path, "w:gz") as archive:
         _tar_file(archive, f"{root}/PKG-INFO", metadata)
+        fixture_root = f"{root}/tests/fixtures/core_grouping_signals/v1"
+        _tar_file(
+            archive,
+            f"{fixture_root}/SHA256SUMS.txt",
+            "synthetic fixture checksum manifest\n",
+        )
+        _tar_file(
+            archive,
+            f"{fixture_root}/classes/english10_p2/roster.csv",
+            "class_id,student_id\n"
+            "synthetic_class,synthetic_student\n",
+        )
         for name in sorted(REQUIRED_SDIST_FILES):
             if name == omit:
                 continue
@@ -118,7 +133,7 @@ def test_release_directory_rejects_wrong_name_and_extra_artifact(
 
 
 def test_wheel_rejects_wrong_metadata_version(tmp_path: Path) -> None:
-    wrong = METADATA.replace("Version: 0.2.0", "Version: 0.2.1")
+    wrong = METADATA.replace("Version: 0.3.0.dev0", "Version: 0.2.1")
     path = tmp_path / EXPECTED_WHEEL
     _write_wheel(path, metadata=wrong)
     with pytest.raises(ArtifactValidationError):
@@ -142,8 +157,8 @@ def test_dangerous_archive_member_is_rejected(name: str) -> None:
     "metadata",
     [
         METADATA.replace(
+            "Requires-Dist: pds-core<0.7,>=0.6.1",
             "Requires-Dist: pds-core<0.7,>=0.6",
-            "Requires-Dist: pds-core<0.7,>=0.5",
         ),
         METADATA.replace(
             "\n\nSynthetic test package.",
@@ -181,6 +196,6 @@ def test_sdist_rejects_source_metadata_drift(tmp_path: Path) -> None:
 
 def test_sdist_rejects_wrong_authoritative_version_source(tmp_path: Path) -> None:
     path = tmp_path / EXPECTED_SDIST
-    _write_sdist(path, version_source='__version__ = "0.2.0.dev0"\n')
+    _write_sdist(path, version_source='__version__ = "0.2.0"\n')
     with pytest.raises(ArtifactValidationError):
         validate_sdist(path)

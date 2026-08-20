@@ -841,6 +841,72 @@ def _reader_smoke_code() -> str:
     )
 
 
+
+def _grouping_signal_smoke_code() -> str:
+    return textwrap.dedent(
+        """
+        import sys
+        from datetime import datetime, timezone
+        from pds_core.grouping_signal_csv import (
+            GROUPING_SIGNAL_CSV_CONTRACT_NAME,
+            grouping_signal_set_to_csv,
+            parse_grouping_signal_csv,
+        )
+        from pds_core.grouping_signal_diagnostics import (
+            GROUPING_SIGNAL_DIAGNOSTIC_CODES,
+        )
+        from pds_core.grouping_signal_storage import (
+            GROUPING_SIGNAL_DIGEST_ALGORITHM,
+            calculate_grouping_signal_digest,
+        )
+        from pds_core.grouping_signals import (
+            GROUPING_SIGNAL_CONTRACT_NAME,
+            GROUPING_SIGNAL_RECORD_TYPE,
+            GROUPING_SIGNAL_SCHEMA_VERSION,
+            GroupingSignalDimension,
+            GroupingSignalSet,
+            GroupingSignalSource,
+            GroupingSignalStudentBand,
+            grouping_signal_set_from_json,
+            grouping_signal_set_to_json_bytes,
+        )
+
+        signal = GroupingSignalSet(
+            schema_version=GROUPING_SIGNAL_SCHEMA_VERSION,
+            record_type=GROUPING_SIGNAL_RECORD_TYPE,
+            signal_set_id="installed_signal_smoke",
+            class_id="installed_signal_class",
+            created_at=datetime(2026, 8, 19, 22, 0, tzinfo=timezone.utc),
+            source=GroupingSignalSource(
+                kind="teacher_authored",
+                module_id=None,
+                snapshot_id=None,
+                snapshot_digest_algorithm=None,
+                snapshot_digest=None,
+            ),
+            dimensions=(GroupingSignalDimension("discussion_support", 3),),
+            student_bands=(
+                GroupingSignalStudentBand(
+                    "synthetic_student_1", "discussion_support", 2
+                ),
+            ),
+        )
+        raw = grouping_signal_set_to_json_bytes(signal)
+        assert grouping_signal_set_from_json(raw) == signal
+        csv_text = grouping_signal_set_to_csv(signal, "discussion_support")
+        csv_doc = parse_grouping_signal_csv(csv_text)
+        assert csv_doc.representation_scope == "complete_signal"
+        assert GROUPING_SIGNAL_CONTRACT_NAME == "grouping_signal_set_v1"
+        assert GROUPING_SIGNAL_CSV_CONTRACT_NAME == "grouping_signal_csv_v1"
+        assert GROUPING_SIGNAL_DIGEST_ALGORITHM == "sha256"
+        assert len(calculate_grouping_signal_digest(signal)) == 64
+        assert "wrong_class_student" in GROUPING_SIGNAL_DIAGNOSTIC_CODES
+        forbidden = {"scoreform", "quillan", "portia", "meridian", "vitrine"}
+        loaded = {name.split(".")[0].lower() for name in sys.modules}
+        assert forbidden.isdisjoint(loaded)
+        """
+    )
+
 def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
     """Install exact local wheels and exercise read-only, menu, and workflow paths."""
     with tempfile.TemporaryDirectory(prefix="pds-concord-smoke-") as raw_temp:
@@ -885,11 +951,23 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 (
                     "import importlib.metadata as m, concord, pds_core; "
                     "assert concord.__version__ == m.version('pds-concord'); "
-                    "assert m.version('pds-core') == '0.6.0'"
+                    "assert m.version('pds-core') == '0.6.1'"
                 ),
             ],
             outside,
         )
+
+        grouping_workspace = root / "grouping-signal-workspace"
+        grouping_env = {"PDS_WORKSPACE_ROOT": str(grouping_workspace)}
+        _run(
+            [str(python), "-c", _grouping_signal_smoke_code()],
+            outside,
+            env=grouping_env,
+        )
+        if grouping_workspace.exists():
+            raise RuntimeError(
+                "Grouping-signal API smoke unexpectedly created a workspace."
+            )
 
         profile_workspace = root / "publication-profile-workspace"
         profile_env = {"PDS_WORKSPACE_ROOT": str(profile_workspace)}
@@ -1005,7 +1083,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 "--version",
                 _wheel_version(concord_wheel),
                 "--expected-core-version",
-                "0.6.0",
+                "0.6.1",
             ],
             outside,
         )
