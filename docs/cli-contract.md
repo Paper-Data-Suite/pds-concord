@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 deterministic random GroupPlan workflow in issue #52.
+Implemented through the v0.3.0 grouping-signal workflow in issue #53.
 
 ## Two interfaces, one service layer
 
@@ -72,6 +72,11 @@ concord group-plan replace-arrangement
 concord group-plan preview
 concord group-plan approve
 concord group-plan cancel
+
+concord grouping-signal list
+concord grouping-signal show
+concord grouping-signal diagnose
+concord grouping-signal import-csv
 
 concord role assign
 concord role list
@@ -185,6 +190,15 @@ Plan-local edits never allocate canonical `Group` or `GroupMembership` records.
 Arrangement import uses the exact case-sensitive two-column `student_id,group`
 contract documented in `v0.3.0-manual-group-planning.md`; no delimiter sniffing,
 identity normalization, quick approval, or quick application occurs.
+
+`grouping-signal` is a Core class-level exchange family rather than an Activity
+mutation family. Every action requires `--class-id` and may use
+`--workspace-root`. `list` and `show` remain metadata/count oriented;
+`diagnose` requires an explicit `--dimension-id` and exposes only aggregate
+band counts plus exact missing/wrong-class/unknown IDs needed for correction.
+`import-csv` uses Core `grouping_signal_csv_v1` and does not require actor or
+Activity expected-snapshot arguments. A `dimension_projection` additionally
+requires explicit `--new-signal-set-id` and timezone-aware `--new-created-at`.
 
 ## Exit codes
 

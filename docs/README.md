@@ -27,8 +27,11 @@ implements manual plan-local authoring, exact roster placement and refresh,
 strict `student_id,group` arrangement import/replacement, the direct
 `concord group-plan ...` family, and a bounded teacher-menu planning path.
 Issue #52 now adds exact seeded deterministic random proposals with explicit
-size/count targets and balanced partitioning. Canonical plan application remains
-reserved for #56.
+size/count targets and balanced partitioning. Issue #53 now implements exact
+Core grouping-signal discovery, bounded inspection/diagnostics, explicit
+dimension selection, and teacher-controlled `grouping_signal_csv_v1` import.
+Signal-backed planning remains reserved for #54, missing-signal disposition for
+#55, and canonical plan application for #56.
 
 The repository now contains:
 
@@ -53,6 +56,9 @@ The repository now contains:
   planning surfaces with no canonical Group/Membership side effects;
 * deterministic seeded random GroupPlan generation with exact target semantics,
   stable SHA-256 v1 ordering, balanced sizes, and no signal dependency;
+* exact Core grouping-signal discovery, canonical-digest inspection, explicit
+  dimension diagnostics/selection, and immutable teacher-controlled Core CSV
+  import with no Activity/GroupPlan or sibling-module side effects;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -158,12 +164,22 @@ target-size/count formulas, balanced partitioning, stable plan-local group
 identity, exact-roster race protection, manual-edit/refresh behavior, direct
 CLI/menu creation, privacy boundary, and #53-#56 handoffs.
 
+### 29. v0.3.0 grouping-signal discovery, diagnostics, and import
+
+[`v0.3.0-grouping-signal-workflows.md`](v0.3.0-grouping-signal-workflows.md)
+
+Documents issue #53's exact Core signal discovery, canonical digest/source
+provenance distinction, explicit dimension selection, roster diagnostics,
+complete/projection CSV import, immutable replay/conflict semantics,
+review-to-write digest binding, direct CLI/menu surfaces, privacy boundary, and
+#54-#56 handoffs without a Meridian runtime dependency.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#52 foundations. It does not make the #53-#56 signal planning,
+#48-#53 foundations. It does not make the #54-#56 signal-backed planning,
 missing-signal policy, or canonical application implemented, nor does it make
 Template, Packet, guided Activity setup, or final integrated teacher UI behavior
 implemented merely because their contracts are documented.

@@ -10,6 +10,7 @@ from concord.cli_app.handlers import (
     artifact,
     group,
     group_plan,
+    grouping_signal,
     publication,
     responsibility,
     review_moderation,
@@ -322,6 +323,58 @@ def _group_commands(
     )
     _context_options(reassign, required=True)
     reassign.set_defaults(handler=group.handle_member_reassign)
+
+
+def _grouping_signal_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    parser.add_argument("--class-id", required=True)
+
+
+def _grouping_signal_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "grouping-signal",
+        help="Discover, diagnose, and import Core grouping signals.",
+    )
+    actions = parent.add_subparsers(
+        dest="grouping_signal_command",
+        required=True,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List exact immutable signal snapshots for the class.",
+    )
+    _grouping_signal_options(list_command)
+    list_command.set_defaults(handler=grouping_signal.handle_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show bounded identity, provenance, and dimensions.",
+    )
+    _grouping_signal_options(show)
+    show.add_argument("--signal-set-id", required=True)
+    show.set_defaults(handler=grouping_signal.handle_show)
+
+    diagnose = actions.add_parser(
+        "diagnose",
+        help="Diagnose one explicitly selected signal dimension.",
+    )
+    _grouping_signal_options(diagnose)
+    diagnose.add_argument("--signal-set-id", required=True)
+    diagnose.add_argument("--dimension-id", required=True)
+    diagnose.set_defaults(handler=grouping_signal.handle_diagnose)
+
+    import_csv = actions.add_parser(
+        "import-csv",
+        help="Validate and immutably import Core grouping_signal_csv_v1.",
+    )
+    _grouping_signal_options(import_csv)
+    import_csv.add_argument("--csv-path", required=True)
+    import_csv.add_argument("--new-signal-set-id")
+    import_csv.add_argument("--new-created-at")
+    import_csv.set_defaults(handler=grouping_signal.handle_import_csv)
 
 
 def _group_plan_commands(
@@ -1680,6 +1733,7 @@ def build_parser() -> argparse.ArgumentParser:
     _session_commands(subparsers)
     _group_commands(subparsers)
     _group_plan_commands(subparsers)
+    _grouping_signal_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
     _criterion_set_commands(subparsers)

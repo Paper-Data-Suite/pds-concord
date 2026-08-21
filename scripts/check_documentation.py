@@ -41,6 +41,9 @@ GROUPING_SIGNAL_DOC = (
 GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-group-plan-contract.md"
 MANUAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-manual-group-planning.md"
 RANDOM_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-random-group-planning.md"
+GROUPING_SIGNAL_WORKFLOW_DOC = (
+    ROOT / "docs" / "v0.3.0-grouping-signal-workflows.md"
+)
 REQUIRED_GROUP_PLAN_DOC_PHRASES = (
     "GroupPlan != Group",
     "record kind: group_plan",
@@ -68,6 +71,22 @@ REQUIRED_RANDOM_GROUP_PLAN_DOC_PHRASES = (
     "concord group-plan create-random",
     "Canonical Groups created: no",
     "Issue #53",
+    "Issue #56",
+)
+REQUIRED_GROUPING_SIGNAL_WORKFLOW_DOC_PHRASES = (
+    "grouping_signal_set_v1",
+    "list_grouping_signals",
+    "inspect_grouping_signal",
+    "select_grouping_signal_dimension",
+    "prepare_grouping_signal_csv_import",
+    "import_grouping_signal_csv",
+    "concord grouping-signal",
+    "dimension_projection",
+    "missing_student_signal",
+    "expected_signal_digest",
+    "Meridian",
+    "Issue #54",
+    "Issue #55",
     "Issue #56",
 )
 REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
@@ -276,6 +295,25 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the random Group planning document."
             )
+    if not GROUPING_SIGNAL_WORKFLOW_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 grouping-signal workflow document is missing."
+        )
+    else:
+        signal_workflow_doc = GROUPING_SIGNAL_WORKFLOW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_GROUPING_SIGNAL_WORKFLOW_DOC_PHRASES:
+            if phrase not in signal_workflow_doc:
+                failures.append(
+                    "Grouping-signal workflow document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if GROUPING_SIGNAL_WORKFLOW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the grouping-signal "
+                "workflow document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -284,6 +322,11 @@ def check_documentation() -> None:
         if "concord group-plan" not in active_group_plan_text:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose the GroupPlan CLI."
+            )
+        if "concord grouping-signal" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose the "
+                "grouping-signal CLI."
             )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
