@@ -44,6 +44,7 @@ RANDOM_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-random-group-planning.md"
 GROUPING_SIGNAL_WORKFLOW_DOC = (
     ROOT / "docs" / "v0.3.0-grouping-signal-workflows.md"
 )
+SIGNAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-signal-group-planning.md"
 REQUIRED_GROUP_PLAN_DOC_PHRASES = (
     "GroupPlan != Group",
     "record kind: group_plan",
@@ -86,6 +87,22 @@ REQUIRED_GROUPING_SIGNAL_WORKFLOW_DOC_PHRASES = (
     "expected_signal_digest",
     "Meridian",
     "Issue #54",
+    "Issue #55",
+    "Issue #56",
+)
+REQUIRED_SIGNAL_GROUP_PLAN_DOC_PHRASES = (
+    "create_signal_group_plan",
+    "generate_similar_signal_group_plan_proposal",
+    "generate_mixed_signal_group_plan_proposal",
+    "ceil(N / S)",
+    "similar-1",
+    "mixed-1",
+    "source_signal_set_digest",
+    "concord group-plan create-similar-signal",
+    "concord group-plan create-mixed-signal",
+    "Canonical Groups created: no",
+    "missing signal != lowest band",
+    "Meridian",
     "Issue #55",
     "Issue #56",
 )
@@ -313,6 +330,23 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the grouping-signal "
                 "workflow document."
+            )
+    if not SIGNAL_GROUP_PLAN_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 signal-backed Group planning document is missing."
+        )
+    else:
+        signal_group_plan_doc = SIGNAL_GROUP_PLAN_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_SIGNAL_GROUP_PLAN_DOC_PHRASES:
+            if phrase not in signal_group_plan_doc:
+                failures.append(
+                    "Signal-backed Group planning document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if SIGNAL_GROUP_PLAN_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the signal-backed Group "
+                "planning document."
             )
     for active_path in (
         ROOT / "README.md",

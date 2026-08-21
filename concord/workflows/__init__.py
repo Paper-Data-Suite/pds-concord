@@ -155,6 +155,11 @@ from concord.workflows.group_plan_random import (
     RandomGroupPlanCreationResult,
     create_random_group_plan,
 )
+from concord.workflows.group_plan_signal import (
+    CreateSignalGroupPlanRequest,
+    SignalGroupPlanCreationResult,
+    create_signal_group_plan,
+)
 from concord.workflows.grouping_signal import (
     GroupingSignalCsvSourceInspection,
     GroupingSignalDimensionSelection,
@@ -499,6 +504,9 @@ __all__ = [
     "CreateRandomGroupPlanRequest",
     "RandomGroupPlanCreationResult",
     "create_random_group_plan",
+    "CreateSignalGroupPlanRequest",
+    "SignalGroupPlanCreationResult",
+    "create_signal_group_plan",
     "GroupingSignalCsvSourceInspection",
     "GroupingSignalDimensionSelection",
     "GroupingSignalImportPreview",

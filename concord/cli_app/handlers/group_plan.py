@@ -18,6 +18,7 @@ from concord.workflows import (
     CancelGroupPlanRequest,
     CreateManualGroupPlanRequest,
     CreateRandomGroupPlanRequest,
+    CreateSignalGroupPlanRequest,
     EditPlannedGroupRequest,
     GroupPlanDetail,
     GroupPlanEditResult,
@@ -28,12 +29,14 @@ from concord.workflows import (
     RefreshGroupPlanRosterRequest,
     RemovePlannedGroupRequest,
     ReplaceArrangementGroupPlanRequest,
+    SignalGroupPlanCreationResult,
     UnassignStudentFromPlanRequest,
     add_planned_group,
     approve_group_plan,
     cancel_group_plan,
     create_manual_group_plan,
     create_random_group_plan,
+    create_signal_group_plan,
     edit_planned_group,
     import_arrangement_group_plan,
     list_group_plans,
@@ -180,6 +183,58 @@ def handle_create_random(args: argparse.Namespace) -> int:
     print(f"Group sizes: {','.join(str(size) for size in result.group_sizes)}")
     print("Canonical Groups created: no")
     return 0
+
+
+def _handle_create_signal(args: argparse.Namespace, strategy: str) -> int:
+    result = create_signal_group_plan(
+        CreateSignalGroupPlanRequest(
+            class_id=args.class_id,
+            activity_id=args.activity_id,
+            group_plan_id=args.group_plan_id,
+            strategy=strategy,
+            signal_set_id=args.signal_set_id,
+            dimension_id=args.dimension_id,
+            expected_snapshot_revision=args.expected_snapshot,
+            actor=workflow_actor(args),
+            target_group_size=args.target_group_size,
+            target_group_count=args.target_group_count,
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    _print_signal_create_result(result, args)
+    return 0
+
+
+def _print_signal_create_result(
+    result: SignalGroupPlanCreationResult,
+    args: argparse.Namespace,
+) -> None:
+    mutation = result.mutation
+    print_commit(mutation.commit)
+    print(f"GroupPlan: {mutation.group_plan_id}")
+    print(f"Strategy: {result.strategy}")
+    print(f"Status: {mutation.status}")
+    if args.target_group_size is not None:
+        print(f"Target group size: {args.target_group_size}")
+    else:
+        print(f"Target group count: {args.target_group_count}")
+    print(f"Signal set: {result.signal_set_id}")
+    print(f"Signal digest: {result.signal_set_digest}")
+    print(f"Signal dimension: {result.dimension_id}")
+    print(f"Generated groups: {result.group_count}")
+    print(f"Assigned students: {result.assigned_student_count}")
+    print(f"Unresolved students: {result.unresolved_student_count}")
+    print(f"Group sizes: {','.join(str(size) for size in result.group_sizes)}")
+    print("Canonical Groups created: no")
+
+
+def handle_create_similar_signal(args: argparse.Namespace) -> int:
+    return _handle_create_signal(args, "similar_signal")
+
+
+def handle_create_mixed_signal(args: argparse.Namespace) -> int:
+    return _handle_create_signal(args, "mixed_signal")
 
 
 def handle_add_group(args: argparse.Namespace) -> int:

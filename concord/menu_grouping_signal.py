@@ -389,7 +389,7 @@ def launch_grouping_signal_menu(activity: ActivitySummary) -> None:
             )
             print(
                 "This menu does not create GroupPlans or canonical Groups. "
-                "Signal-backed planning begins in issue #54."
+                "Signal-backed planning is available from Plan groups."
             )
             print()
             pause_for_user()
