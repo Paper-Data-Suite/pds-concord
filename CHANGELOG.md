@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Core-backed grouping-signal discovery, exact immutable signal inspection,
+  explicit dimension diagnostics/selection, and teacher-controlled
+  `grouping_signal_csv_v1` import with complete/projection identity semantics,
+  immutable replay/conflict handling, and no Meridian runtime dependency.
+- Direct `concord grouping-signal list|show|diagnose|import-csv` commands plus a
+  bounded teacher-menu `Grouping signals` workflow with explicit signal and
+  dimension selection, missing-only partial-coverage review, `IMPORT`
+  confirmation, and reviewed canonical-digest binding before write.
 - Deterministic seeded random GroupPlan generation over the exact Core roster,
   with the versioned `pds-concord:group-plan-random:v1` SHA-256 ranking contract,
   exact size/count targets, balanced nonempty groups, and exact-roster race

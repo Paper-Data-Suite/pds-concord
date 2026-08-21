@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_grouping_signal import launch_grouping_signal_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -866,7 +867,8 @@ def launch_group_plan_menu(
         print("2. Create a manual GroupPlan")
         print("3. Create a random GroupPlan")
         print("4. Import an arrangement CSV")
-        print("5. Open a GroupPlan")
+        print("5. Grouping signals")
+        print("6. Open a GroupPlan")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -890,6 +892,8 @@ def launch_group_plan_menu(
         elif choice == "4":
             _import_arrangement(current, state)
         elif choice == "5":
+            launch_grouping_signal_menu(current)
+        elif choice == "6":
             try:
                 selected = _select_plan(current, title="Open a GroupPlan")
                 _open_plan(current, selected, state)

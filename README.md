@@ -13,9 +13,12 @@ and manage Activities, Sessions, Groups, contextual Group Memberships, Roles,
 and Responsibilities. The v0.3 development line also includes teacher-restricted
 `GroupPlan` authoring with manual plan-local groups, exact Core-roster placement,
 explicit roster refresh, strict `student_id,group` arrangement CSV import, and
-deterministic seeded random proposals using exact size/count targets. Planning
-remains separate from canonical Group/Membership application, which is
-reserved for issue #56. The same typed service layer supports a fully
+deterministic seeded random proposals using exact size/count targets. The v0.3
+line now also provides Core grouping-signal discovery, exact signal/dimension
+diagnostics, and teacher-controlled `grouping_signal_csv_v1` import without a
+Meridian runtime dependency. Planning remains separate from canonical
+Group/Membership application, which is reserved for issue #56. The same typed
+service layer supports a fully
 noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
@@ -110,6 +113,7 @@ concord group member add|list|end|reassign
 concord group-plan list|show|create-manual|create-random|add-group|edit-group|remove-group
 concord group-plan place-student|unassign-student|refresh-roster
 concord group-plan import-arrangement|replace-arrangement|preview|approve|cancel
+concord grouping-signal list|show|diagnose|import-csv
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
 concord criterion-set create|list|show|revise|select
@@ -194,6 +198,9 @@ boundaries are documented in the
 Issue #52's exact seeded SHA-256 ranking, balanced partitioning, direct CLI/menu
 creation, refresh behavior, and privacy boundaries are documented in the
 [deterministic random planning guide](docs/v0.3.0-random-group-planning.md).
+Issue #53's exact discovery, diagnostics, dimension selection, Core CSV import,
+privacy, producer-neutrality, and #54 handoff are documented in the
+[grouping-signal workflow guide](docs/v0.3.0-grouping-signal-workflows.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
