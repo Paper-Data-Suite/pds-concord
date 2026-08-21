@@ -425,6 +425,34 @@ def _group_plan_commands(
     random_target.add_argument("--target-group-count", type=int)
     random_create.set_defaults(handler=group_plan.handle_create_random)
 
+    similar_create = actions.add_parser(
+        "create-similar-signal",
+        help="Create a deterministic similar-signal draft GroupPlan.",
+    )
+    _mutating_options(similar_create)
+    _class_activity(similar_create)
+    similar_create.add_argument("--group-plan-id", required=True)
+    similar_create.add_argument("--signal-set-id", required=True)
+    similar_create.add_argument("--dimension-id", required=True)
+    similar_target = similar_create.add_mutually_exclusive_group(required=True)
+    similar_target.add_argument("--target-group-size", type=int)
+    similar_target.add_argument("--target-group-count", type=int)
+    similar_create.set_defaults(handler=group_plan.handle_create_similar_signal)
+
+    mixed_create = actions.add_parser(
+        "create-mixed-signal",
+        help="Create a deterministic mixed-signal draft GroupPlan.",
+    )
+    _mutating_options(mixed_create)
+    _class_activity(mixed_create)
+    mixed_create.add_argument("--group-plan-id", required=True)
+    mixed_create.add_argument("--signal-set-id", required=True)
+    mixed_create.add_argument("--dimension-id", required=True)
+    mixed_target = mixed_create.add_mutually_exclusive_group(required=True)
+    mixed_target.add_argument("--target-group-size", type=int)
+    mixed_target.add_argument("--target-group-count", type=int)
+    mixed_create.set_defaults(handler=group_plan.handle_create_mixed_signal)
+
     add = actions.add_parser("add-group", help="Add an empty plan-local group.")
     _mutating_options(add)
     _class_activity(add)

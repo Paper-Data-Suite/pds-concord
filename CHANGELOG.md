@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Deterministic `similar_signal` and `mixed_signal` GroupPlan generation from one
+  explicitly selected Core signal/dimension, with shared full-roster size/count
+  targets, exact canonical-digest binding, balanced represented-student placement,
+  visible unresolved missing coverage, and fail-closed roster races.
+- Direct `concord group-plan create-similar-signal|create-mixed-signal` commands and
+  bounded teacher-menu signal-plan creation with explicit signal/dimension selection,
+  neutral band-distribution diagnostics, in-memory membership preview, reviewed
+  roster/digest preconditions, and `CREATE` confirmation without canonical
+  Group/Membership creation or Meridian runtime dependency.
 - Core-backed grouping-signal discovery, exact immutable signal inspection,
   explicit dimension diagnostics/selection, and teacher-controlled
   `grouping_signal_csv_v1` import with complete/projection identity semantics,
@@ -43,6 +52,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Random and signal-backed generated planning now share one pure full-roster target
+  resolution/balanced-size implementation while preserving the frozen #52 random
+  ranking and seed behavior.
 - The teacher-facing `Groups and Participants` screen now distinguishes planning
   (`GroupPlan`/`PlannedGroup`) from operational Group/Membership management;
   GroupPlan approval still creates no canonical Groups and issue #56 remains the

@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 grouping-signal workflow in issue #53.
+Implemented through the v0.3.0 signal-backed GroupPlan workflow in issue #54.
 
 ## Two interfaces, one service layer
 
@@ -61,6 +61,8 @@ concord group-plan list
 concord group-plan show
 concord group-plan create-manual
 concord group-plan create-random
+concord group-plan create-similar-signal
+concord group-plan create-mixed-signal
 concord group-plan add-group
 concord group-plan edit-group
 concord group-plan remove-group
@@ -263,13 +265,22 @@ operational `Group`/`GroupMembership` command family.
 The `group-plan` family supports manual draft creation, plan-local group metadata,
 exact roster-student placement/movement/unassignment, explicit roster refresh,
 strict arrangement CSV import/replacement, deterministic seeded random creation,
-and the existing preview/approve/cancel lifecycle.
+deterministic similar-signal/mixed-signal creation, and the existing
+preview/approve/cancel lifecycle.
 
 `group-plan create-random` requires an explicit seed and exactly one of
 `--target-group-size` or `--target-group-count`. The same exact roster, target,
 and seed use the documented `pds-concord:group-plan-random:v1` SHA-256 ranking
 and balanced partitioning contract. Random creation assigns the complete current
 roster, creates a `draft`, and creates no canonical Group or Membership.
+
+`group-plan create-similar-signal` and `group-plan create-mixed-signal` require an
+explicit Core signal set, explicit dimension, and exactly one size/count target.
+They accept no seed. The target is resolved against the full exact Core roster;
+selected-dimension missing students remain unresolved. Success reports the exact
+Core canonical signal digest and aggregate group/coverage counts without emitting
+student-band rows. Both commands create only a `draft` GroupPlan and explicitly
+report `Canonical Groups created: no`.
 
 Targeted plan edits reject Core-roster drift instead of silently refreshing it.
 `refresh-roster` is the explicit operation that preserves remaining placements,

@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_group_plan_signal import create_signal_group_plan_from_menu
 from concord.menu_grouping_signal import launch_grouping_signal_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -136,6 +137,10 @@ def _show_detail(detail: GroupPlanDetail) -> None:
         print(f"Target group count: {plan.target_group_count}")
     if plan.seed is not None:
         print(f"Seed: {plan.seed}")
+    if plan.source_signal_set_id is not None:
+        print(f"Signal set: {plan.source_signal_set_id}")
+        print(f"Core signal digest: {plan.source_signal_set_digest}")
+        print(f"Signal dimension: {plan.source_signal_dimension_id}")
     print()
     for group in plan.proposed_groups:
         print(
@@ -869,6 +874,8 @@ def launch_group_plan_menu(
         print("4. Import an arrangement CSV")
         print("5. Grouping signals")
         print("6. Open a GroupPlan")
+        print("7. Create similar-signal plan")
+        print("8. Create mixed-signal plan")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -879,6 +886,10 @@ def launch_group_plan_menu(
             print("GroupPlans are editable proposals for later teacher approval.")
             print("They remain separate from canonical Groups and Memberships.")
             print("Direct Group management remains available from the previous menu.")
+            print(
+                "Signal-backed plans require explicit signal and dimension "
+                "selection and never assign academic meaning to ordinal bands."
+            )
             print()
             pause_for_user()
         elif navigation is NavigationChoice.BACK:
@@ -901,6 +912,10 @@ def launch_group_plan_menu(
                 continue
             except Exception as error:
                 show_result("GroupPlan Error", (str(error),))
+        elif choice == "7":
+            create_signal_group_plan_from_menu(current, state, "similar_signal")
+        elif choice == "8":
+            create_signal_group_plan_from_menu(current, state, "mixed_signal")
         else:
             print(navigation_hint_with_help())
             pause_for_user()

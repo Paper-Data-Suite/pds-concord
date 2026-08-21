@@ -7,6 +7,11 @@ from hashlib import sha256
 
 from pds_core.identifiers import IdentifierValidationError, validate_identifier
 
+from concord.group_plan_targets import (
+    GroupPlanTargetError,
+    balanced_group_sizes,
+    resolve_group_count,
+)
 from concord.models import PlannedGroup
 
 RANDOM_PLANNING_DOMAIN = "pds-concord:group-plan-random:v1"
@@ -57,36 +62,6 @@ def _canonical_roster(student_ids: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted(validated))
 
 
-def _positive_int(value: int | None, field_name: str) -> int | None:
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise RandomGroupPlanningError(f"{field_name} must be a positive integer.")
-    return value
-
-
-def _resolve_group_count(
-    roster_size: int,
-    *,
-    target_group_size: int | None,
-    target_group_count: int | None,
-) -> int:
-    size = _positive_int(target_group_size, "target_group_size")
-    count = _positive_int(target_group_count, "target_group_count")
-    if (size is None) == (count is None):
-        raise RandomGroupPlanningError(
-            "exactly one of target_group_size or target_group_count is required."
-        )
-    if count is not None:
-        if count > roster_size:
-            raise RandomGroupPlanningError(
-                "target_group_count must not exceed the current roster size."
-            )
-        return count
-    assert size is not None
-    return (roster_size + size - 1) // size
-
-
 def _rank_digest(seed: str, student_id: str) -> bytes:
     payload = (
         _DOMAIN_BYTES
@@ -127,11 +102,15 @@ def generate_random_group_plan_proposal(
 
     canonical = _canonical_roster(student_ids)
     exact_seed = _require_seed(seed)
-    group_count = _resolve_group_count(
-        len(canonical),
-        target_group_size=target_group_size,
-        target_group_count=target_group_count,
-    )
+    try:
+        group_count = resolve_group_count(
+            len(canonical),
+            target_group_size=target_group_size,
+            target_group_count=target_group_count,
+        )
+    except GroupPlanTargetError as error:
+        raise RandomGroupPlanningError(str(error)) from error
+
     ordered = tuple(
         sorted(
             canonical,
@@ -141,11 +120,7 @@ def generate_random_group_plan_proposal(
             ),
         )
     )
-    base_size, extra = divmod(len(ordered), group_count)
-    group_sizes = tuple(
-        base_size + (1 if index < extra else 0)
-        for index in range(group_count)
-    )
+    group_sizes = balanced_group_sizes(len(ordered), group_count)
 
     offset = 0
     groups: list[PlannedGroup] = []

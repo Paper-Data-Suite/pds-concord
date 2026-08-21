@@ -30,8 +30,11 @@ Issue #52 now adds exact seeded deterministic random proposals with explicit
 size/count targets and balanced partitioning. Issue #53 now implements exact
 Core grouping-signal discovery, bounded inspection/diagnostics, explicit
 dimension selection, and teacher-controlled `grouping_signal_csv_v1` import.
-Signal-backed planning remains reserved for #54, missing-signal disposition for
-#55, and canonical plan application for #56.
+Issue #54 now implements deterministic `similar_signal` and `mixed_signal` drafts
+with full-roster targets, exact Core signal/dimension binding, explicit unresolved
+missing coverage, bounded direct/menu UX, and no Meridian runtime dependency.
+Missing-signal disposition remains reserved for #55 and canonical plan application
+for #56.
 
 The repository now contains:
 
@@ -59,6 +62,9 @@ The repository now contains:
 * exact Core grouping-signal discovery, canonical-digest inspection, explicit
   dimension diagnostics/selection, and immutable teacher-controlled Core CSV
   import with no Activity/GroupPlan or sibling-module side effects;
+* deterministic similar-signal and mixed-signal GroupPlan generation with shared
+  full-roster target semantics, exact signal provenance, visible unresolved missing
+  coverage, explicit teacher review, and no canonical Group/Membership side effects;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -174,15 +180,25 @@ complete/projection CSV import, immutable replay/conflict semantics,
 review-to-write digest binding, direct CLI/menu surfaces, privacy boundary, and
 #54-#56 handoffs without a Meridian runtime dependency.
 
+### 30. v0.3.0 signal-backed Group planning
+
+[`v0.3.0-signal-group-planning.md`](v0.3.0-signal-group-planning.md)
+
+Documents issue #54's deterministic `similar_signal` and `mixed_signal` algorithms,
+shared full-roster size/count targets, exact Core signal/dimension/digest binding,
+partial-coverage and unresolved semantics, roster/preview race protection, direct
+CLI and explicit teacher-menu review, lifecycle reuse, privacy constraints, sibling
+isolation, and the #55/#56 handoffs.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#53 foundations. It does not make the #54-#56 signal-backed planning,
-missing-signal policy, or canonical application implemented, nor does it make
-Template, Packet, guided Activity setup, or final integrated teacher UI behavior
-implemented merely because their contracts are documented.
+#48-#54 foundations. It does not make #55 missing-signal policy or #56 canonical
+application implemented, nor does it make Template, Packet, guided Activity setup,
+or final integrated teacher UI behavior implemented merely because their contracts
+are documented.
 
 ### 14. PDS2 Artifact Page integration
 
