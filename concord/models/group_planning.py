@@ -39,6 +39,9 @@ GROUP_PLAN_STATUSES = frozenset(
     }
 )
 _SIGNAL_STRATEGIES = frozenset({"similar_signal", "mixed_signal"})
+MISSING_SIGNAL_DISPOSITIONS = frozenset(
+    {"manual", "random", "leave_unassigned"}
+)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -98,6 +101,9 @@ class GroupPlan:
     source_signal_set_id: str | None = None
     source_signal_set_digest: str | None = None
     source_signal_dimension_id: str | None = None
+    missing_signal_disposition: str | None = None
+    missing_signal_random_seed: str | None = None
+    missing_signal_disposition_provenance: Provenance | None = None
     updated_provenance: Provenance | None = None
     previewed_provenance: Provenance | None = None
     approved_provenance: Provenance | None = None
@@ -246,11 +252,51 @@ class GroupPlan:
                 "previewed/terminal signal plans require an exact signal binding."
             )
 
+        disposition = self.missing_signal_disposition
+        if disposition is not None:
+            disposition = controlled(
+                disposition,
+                "missing_signal_disposition",
+                MISSING_SIGNAL_DISPOSITIONS,
+            )
+            if strategy not in _SIGNAL_STRATEGIES:
+                raise ConcordModelError(
+                    "missing-signal disposition is reserved for "
+                    "signal-dependent strategies."
+                )
+            if self.source_signal_set_id is None:
+                raise ConcordModelError(
+                    "missing-signal disposition requires an exact signal binding."
+                )
+            if self.missing_signal_disposition_provenance is None:
+                raise ConcordModelError(
+                    "missing-signal disposition requires disposition provenance."
+                )
+        elif self.missing_signal_disposition_provenance is not None:
+            raise ConcordModelError(
+                "missing-signal disposition provenance requires a disposition."
+            )
+
+        optional_text(
+            self.missing_signal_random_seed,
+            "missing_signal_random_seed",
+        )
+        if disposition == "random":
+            if self.missing_signal_random_seed is None:
+                raise ConcordModelError(
+                    "random missing-signal disposition requires an explicit seed."
+                )
+        elif self.missing_signal_random_seed is not None:
+            raise ConcordModelError(
+                "missing-signal random seed is allowed only for random disposition."
+            )
+
         if not isinstance(self.created_provenance, Provenance):
             raise ConcordModelError(
                 "created_provenance must be Provenance."
             )
         for field_name in (
+            "missing_signal_disposition_provenance",
             "updated_provenance",
             "previewed_provenance",
             "approved_provenance",
@@ -260,6 +306,16 @@ class GroupPlan:
             _optional_provenance(getattr(self, field_name), field_name)
 
         self._validate_status_provenance(status)
+
+        if status in {"approved", "applied"} and unresolved:
+            if not (
+                strategy in _SIGNAL_STRATEGIES
+                and disposition == "leave_unassigned"
+            ):
+                raise ConcordModelError(
+                    "approved/applied plans may retain unresolved students only "
+                    "for leave_unassigned missing-signal disposition."
+                )
 
     def _validate_status_provenance(self, status: str) -> None:
         if status == "draft":

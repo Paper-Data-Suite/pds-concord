@@ -453,6 +453,40 @@ def _group_plan_commands(
     mixed_target.add_argument("--target-group-count", type=int)
     mixed_create.set_defaults(handler=group_plan.handle_create_mixed_signal)
 
+    confirm_missing_manual = actions.add_parser(
+        "confirm-missing-manual",
+        help="Confirm prior manual placement of exact missing-signal students.",
+    )
+    _mutating_options(confirm_missing_manual)
+    _class_activity(confirm_missing_manual)
+    confirm_missing_manual.add_argument("--group-plan-id", required=True)
+    confirm_missing_manual.set_defaults(
+        handler=group_plan.handle_confirm_missing_manual
+    )
+
+    distribute_missing_random = actions.add_parser(
+        "distribute-missing-random",
+        help="Deterministically place exact missing-signal students with a seed.",
+    )
+    _mutating_options(distribute_missing_random)
+    _class_activity(distribute_missing_random)
+    distribute_missing_random.add_argument("--group-plan-id", required=True)
+    distribute_missing_random.add_argument("--seed", required=True)
+    distribute_missing_random.set_defaults(
+        handler=group_plan.handle_distribute_missing_random
+    )
+
+    leave_missing_unassigned = actions.add_parser(
+        "leave-missing-unassigned",
+        help="Explicitly keep exact missing-signal students visibly unresolved.",
+    )
+    _mutating_options(leave_missing_unassigned)
+    _class_activity(leave_missing_unassigned)
+    leave_missing_unassigned.add_argument("--group-plan-id", required=True)
+    leave_missing_unassigned.set_defaults(
+        handler=group_plan.handle_leave_missing_unassigned
+    )
+
     add = actions.add_parser("add-group", help="Add an empty plan-local group.")
     _mutating_options(add)
     _class_activity(add)

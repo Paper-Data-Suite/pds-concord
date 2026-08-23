@@ -320,8 +320,19 @@ def test_group_plan_status_provenance_is_coherent() -> None:
     )
     with pytest.raises(ConcordModelError, match="requires preview and approval"):
         replace(previewed, status="approved")
-    approved = replace(
+    resolved_previewed = replace(
         previewed,
+        proposed_groups=(
+            PlannedGroup(
+                planned_group_key="group-a",
+                label="Group A",
+                student_ids=("student-1", "student-2", "student-3"),
+            ),
+        ),
+        unresolved_student_ids=(),
+    )
+    approved = replace(
+        resolved_previewed,
         status="approved",
         approved_provenance=_native_provenance(3),
     )

@@ -18,8 +18,9 @@ line now also provides Core grouping-signal discovery, exact signal/dimension
 diagnostics, teacher-controlled `grouping_signal_csv_v1` import, and deterministic
 `similar_signal` / `mixed_signal` GroupPlan drafts with exact signal provenance,
 full-roster target semantics, explicit unresolved missing coverage, and no Meridian
-runtime dependency. Signal-plan generation remains separate from missing-signal
-disposition (#55) and canonical Group/Membership application (#56). The same typed
+runtime dependency. Issue #55 now adds explicit manual/random/leave-unassigned
+missing-signal decisions with exact Core revalidation; canonical Group/Membership
+application remains reserved for #56. The same typed
 service layer supports a fully
 noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
@@ -94,8 +95,9 @@ Q. Quit
 ```
 
 Every menu write shows a focused review screen and requires the operation word
-`CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `UPDATE`, `ADD`,
-`CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `END`, `REASSIGN`,
+`CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `CONFIRM`,
+`DISTRIBUTE`, `LEAVE`, `UPDATE`, `ADD`, `CORRECT`, `REVIEW`,
+`MODERATE`, `SCORE`, `REVISE`, `END`, `REASSIGN`,
 `REGISTER`, `GENERATE`, `PUBLISH`, `WITHDRAW`, or `REBUILD`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
@@ -114,6 +116,7 @@ concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
 concord group-plan list|show|create-manual|create-random|add-group|edit-group|remove-group
 concord group-plan create-similar-signal|create-mixed-signal
+concord group-plan confirm-missing-manual|distribute-missing-random|leave-missing-unassigned
 concord group-plan place-student|unassign-student|refresh-roster
 concord group-plan import-arrangement|replace-arrangement|preview|approve|cancel
 concord grouping-signal list|show|diagnose|import-csv
@@ -208,6 +211,9 @@ Issue #54's deterministic similar/mixed algorithms, full-roster targets, exact C
 signal binding, partial-coverage behavior, direct CLI/menu creation, lifecycle reuse,
 and privacy/dependency boundaries are documented in the
 [signal-backed Group planning guide](docs/v0.3.0-signal-group-planning.md).
+Issue #55's explicit missing-signal decisions, deterministic missing-only random
+distribution, approval exception, privacy boundary, and #56 handoff are documented
+in the [missing-signal disposition guide](docs/v0.3.0-missing-signal-disposition.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

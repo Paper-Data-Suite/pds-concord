@@ -35,8 +35,11 @@ from concord.workflows.errors import (
     ConcordWorkflowNotFoundError,
     ConcordWorkflowValidationError,
 )
+from concord.workflows.grouping_signal import select_grouping_signal_dimension
 from concord.workflows.models import WorkflowActor, WorkflowCommitResult
 from concord.workflows.participants import load_required_roster
+
+_SIGNAL_STRATEGIES = frozenset({"similar_signal", "mixed_signal"})
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -76,6 +79,7 @@ class ReplaceGroupPlanProposalRequest:
     source_signal_set_id: str | None = None
     source_signal_set_digest: str | None = None
     source_signal_dimension_id: str | None = None
+    clear_missing_signal_disposition: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -264,6 +268,62 @@ def _require_current_roster(
         )
 
 
+def _current_signal_missing_student_ids(
+    root: Path,
+    class_id: str,
+    plan: GroupPlan,
+) -> tuple[str, ...]:
+    # Revalidate the exact bound signal and selected-dimension missing IDs.
+    if plan.strategy not in _SIGNAL_STRATEGIES:
+        return ()
+
+    signal_set_id = plan.source_signal_set_id
+    signal_set_digest = plan.source_signal_set_digest
+    dimension_id = plan.source_signal_dimension_id
+    if (
+        signal_set_id is None
+        or signal_set_digest is None
+        or dimension_id is None
+    ):
+        raise ConcordWorkflowValidationError(
+            "Signal-backed GroupPlan is missing its exact signal binding."
+        )
+
+    selection = select_grouping_signal_dimension(
+        class_id,
+        signal_set_id,
+        dimension_id,
+        workspace_root=root,
+    )
+    if selection.digest != signal_set_digest:
+        raise ConcordWorkflowConflictError(
+            "Grouping signal canonical digest does not match the exact signal "
+            "binding stored on this GroupPlan."
+        )
+
+    if _roster_student_ids(root, class_id) != plan.roster_student_ids:
+        raise ConcordWorkflowConflictError(
+            "Core roster changed while validating the GroupPlan signal binding; "
+            "refresh and preview the plan again."
+        )
+
+    missing = tuple(
+        sorted(
+            finding.student_id
+            for finding in selection.inspection.diagnostics.findings
+            if finding.code == "missing_student_signal"
+            and finding.dimension_id == dimension_id
+            and finding.student_id is not None
+        )
+    )
+    if len(missing) != selection.dimension_diagnostics.missing_student_count:
+        raise ConcordWorkflowValidationError(
+            "Core grouping-signal diagnostics returned inconsistent "
+            "missing-student detail."
+        )
+    return missing
+
+
 def _require_preview_is_latest_work_change(
     root: Path,
     class_id: str,
@@ -418,6 +478,19 @@ def replace_group_plan_proposal(
         request.proposed_groups,
         roster_student_ids,
     )
+    if not isinstance(request.clear_missing_signal_disposition, bool):
+        raise ConcordWorkflowValidationError(
+            "clear_missing_signal_disposition must be a boolean."
+        )
+    if request.clear_missing_signal_disposition:
+        disposition = None
+        disposition_seed = None
+        disposition_provenance = None
+    else:
+        disposition = current.missing_signal_disposition
+        disposition_seed = current.missing_signal_random_seed
+        disposition_provenance = current.missing_signal_disposition_provenance
+
     candidate = GroupPlan(
         group_plan_id=current.group_plan_id,
         activity_id=current.activity_id,
@@ -433,6 +506,9 @@ def replace_group_plan_proposal(
         source_signal_set_id=request.source_signal_set_id,
         source_signal_set_digest=request.source_signal_set_digest,
         source_signal_dimension_id=request.source_signal_dimension_id,
+        missing_signal_disposition=disposition,
+        missing_signal_random_seed=disposition_seed,
+        missing_signal_disposition_provenance=disposition_provenance,
         created_provenance=current.created_provenance,
         updated_provenance=provenance(request.actor, clock=clock),
     )
@@ -576,7 +652,41 @@ def approve_group_plan(
         request.activity_id,
         request.group_plan_id,
     )
-    if current.unresolved_student_ids:
+    if current.strategy in _SIGNAL_STRATEGIES:
+        missing_student_ids = _current_signal_missing_student_ids(
+            root,
+            request.class_id,
+            current,
+        )
+        if missing_student_ids:
+            disposition = current.missing_signal_disposition
+            if disposition is None:
+                raise ConcordWorkflowValidationError(
+                    "Signal-backed GroupPlan approval requires an explicit "
+                    "missing-signal disposition."
+                )
+            if disposition in {"manual", "random"}:
+                if current.unresolved_student_ids:
+                    raise ConcordWorkflowValidationError(
+                        "Manual/random missing-signal disposition requires every "
+                        "roster student to be resolved before approval."
+                    )
+            elif disposition == "leave_unassigned":
+                if set(current.unresolved_student_ids) != set(missing_student_ids):
+                    raise ConcordWorkflowValidationError(
+                        "leave_unassigned approval requires unresolved students "
+                        "to exactly equal the current missing-signal population."
+                    )
+            else:
+                raise ConcordWorkflowValidationError(
+                    "Signal-backed GroupPlan has an invalid missing-signal "
+                    "disposition."
+                )
+        elif current.unresolved_student_ids:
+            raise ConcordWorkflowValidationError(
+                "GroupPlan approval requires every roster student to be resolved."
+            )
+    elif current.unresolved_student_ids:
         raise ConcordWorkflowValidationError(
             "GroupPlan approval requires every roster student to be resolved."
         )

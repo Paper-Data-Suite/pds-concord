@@ -24,11 +24,13 @@ from concord.workflows import (
     GroupPlanEditResult,
     GroupPlanSummary,
     ImportArrangementGroupPlanRequest,
+    MissingSignalDispositionResult,
     PlaceStudentInPlanRequest,
     PreviewGroupPlanRequest,
     RefreshGroupPlanRosterRequest,
     RemovePlannedGroupRequest,
     ReplaceArrangementGroupPlanRequest,
+    SetMissingSignalDispositionRequest,
     SignalGroupPlanCreationResult,
     UnassignStudentFromPlanRequest,
     add_planned_group,
@@ -45,6 +47,7 @@ from concord.workflows import (
     refresh_group_plan_roster,
     remove_planned_group,
     replace_group_plan_from_arrangement,
+    set_missing_signal_disposition,
     show_group_plan,
     unassign_student_from_plan,
 )
@@ -82,6 +85,10 @@ def _print_detail(detail: GroupPlanDetail) -> None:
         print(f"Signal set: {plan.source_signal_set_id}")
         print(f"Signal digest: {plan.source_signal_set_digest}")
         print(f"Signal dimension: {plan.source_signal_dimension_id}")
+    if plan.missing_signal_disposition is not None:
+        print(f"Missing-signal disposition: {plan.missing_signal_disposition}")
+    if plan.missing_signal_random_seed is not None:
+        print(f"Missing-signal random seed: {plan.missing_signal_random_seed}")
     for group in plan.proposed_groups:
         students = ",".join(group.student_ids) or "-"
         print(
@@ -235,6 +242,65 @@ def handle_create_similar_signal(args: argparse.Namespace) -> int:
 
 def handle_create_mixed_signal(args: argparse.Namespace) -> int:
     return _handle_create_signal(args, "mixed_signal")
+
+
+def _print_missing_signal_result(
+    result: MissingSignalDispositionResult,
+    *,
+    strategy: str,
+) -> None:
+    print_commit(result.mutation.commit)
+    print(f"GroupPlan: {result.mutation.group_plan_id}")
+    print(f"Strategy: {strategy}")
+    print(f"Status: {result.mutation.status}")
+    print(f"Missing-signal disposition: {result.disposition}")
+    print(f"Missing-signal students: {result.missing_student_count}")
+    print(f"Assigned students: {result.assigned_student_count}")
+    print(f"Unresolved students: {result.unresolved_student_count}")
+    print(f"Group sizes: {','.join(str(size) for size in result.group_sizes)}")
+    if result.random_seed is not None:
+        print(f"Random seed: {result.random_seed}")
+    print(f"Snapshot revision: {result.mutation.commit.snapshot_revision}")
+    print("Canonical Groups created: no")
+
+
+def _handle_missing_signal_disposition(
+    args: argparse.Namespace,
+    disposition: str,
+) -> int:
+    result = set_missing_signal_disposition(
+        SetMissingSignalDispositionRequest(
+            class_id=args.class_id,
+            activity_id=args.activity_id,
+            group_plan_id=args.group_plan_id,
+            disposition=disposition,
+            random_seed=getattr(args, "seed", None),
+            expected_snapshot_revision=args.expected_snapshot,
+            actor=workflow_actor(args),
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    detail = show_group_plan(
+        args.class_id,
+        args.activity_id,
+        args.group_plan_id,
+        workspace_root=workspace_arg(args),
+    )
+    _print_missing_signal_result(result, strategy=detail.plan.strategy)
+    return 0
+
+
+def handle_confirm_missing_manual(args: argparse.Namespace) -> int:
+    return _handle_missing_signal_disposition(args, "manual")
+
+
+def handle_distribute_missing_random(args: argparse.Namespace) -> int:
+    return _handle_missing_signal_disposition(args, "random")
+
+
+def handle_leave_missing_unassigned(args: argparse.Namespace) -> int:
+    return _handle_missing_signal_disposition(args, "leave_unassigned")
 
 
 def handle_add_group(args: argparse.Namespace) -> int:

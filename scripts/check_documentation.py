@@ -45,6 +45,23 @@ GROUPING_SIGNAL_WORKFLOW_DOC = (
     ROOT / "docs" / "v0.3.0-grouping-signal-workflows.md"
 )
 SIGNAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-signal-group-planning.md"
+MISSING_SIGNAL_DISPOSITION_DOC = (
+    ROOT / "docs" / "v0.3.0-missing-signal-disposition.md"
+)
+REQUIRED_MISSING_SIGNAL_DISPOSITION_DOC_PHRASES = (
+    "missing_signal_disposition",
+    "missing_signal_random_seed",
+    "missing_signal_disposition_provenance",
+    "missing_student_signal",
+    "select_grouping_signal_dimension",
+    "pds-concord:group-plan-missing-signal-random:v1",
+    "leave_unassigned",
+    "concord group-plan confirm-missing-manual",
+    "concord group-plan distribute-missing-random",
+    "concord group-plan leave-missing-unassigned",
+    "Canonical Groups created: no",
+    "Issue #56",
+)
 REQUIRED_GROUP_PLAN_DOC_PHRASES = (
     "GroupPlan != Group",
     "record kind: group_plan",
@@ -348,6 +365,25 @@ def check_documentation() -> None:
                 "Documentation index does not link the signal-backed Group "
                 "planning document."
             )
+    if not MISSING_SIGNAL_DISPOSITION_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 missing-signal disposition document is missing."
+        )
+    else:
+        missing_signal_doc = MISSING_SIGNAL_DISPOSITION_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_MISSING_SIGNAL_DISPOSITION_DOC_PHRASES:
+            if phrase not in missing_signal_doc:
+                failures.append(
+                    "Missing-signal disposition document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if MISSING_SIGNAL_DISPOSITION_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the missing-signal "
+                "disposition document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -366,6 +402,8 @@ def check_documentation() -> None:
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
         "make the #51-#56 planning algorithms",
+        "Missing-signal disposition remains reserved for #55",
+        "#48-#54 foundations",
     ):
         if stale_phrase in docs_index:
             failures.append(

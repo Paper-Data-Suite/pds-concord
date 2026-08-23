@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_group_plan_missing_signal import resolve_missing_signal_from_menu
 from concord.menu_group_plan_signal import create_signal_group_plan_from_menu
 from concord.menu_grouping_signal import launch_grouping_signal_menu
 from concord.menu_navigation import (
@@ -141,6 +142,10 @@ def _show_detail(detail: GroupPlanDetail) -> None:
         print(f"Signal set: {plan.source_signal_set_id}")
         print(f"Core signal digest: {plan.source_signal_set_digest}")
         print(f"Signal dimension: {plan.source_signal_dimension_id}")
+    if plan.missing_signal_disposition is not None:
+        print(f"Missing-signal disposition: {plan.missing_signal_disposition}")
+    if plan.missing_signal_random_seed is not None:
+        print(f"Missing-signal random seed: {plan.missing_signal_random_seed}")
     print()
     for group in plan.proposed_groups:
         print(
@@ -733,7 +738,10 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
         "APPROVE",
         (
             f"GroupPlan: {detail.plan.group_plan_id}",
-            "Every roster student must already be resolved.",
+            (
+                "Approval revalidates roster coverage and any exact "
+                "missing-signal disposition."
+            ),
             "Approval freezes this proposal but does not apply it.",
             "Canonical Groups created: no",
         ),
@@ -811,9 +819,16 @@ def _open_plan(
         print("4. Unassign a student")
         print("5. Refresh roster")
         print("6. Replace from arrangement CSV")
-        print("7. Preview")
-        print("8. Approve")
-        print("9. Cancel")
+        is_signal_plan = detail.plan.strategy in {"similar_signal", "mixed_signal"}
+        if is_signal_plan:
+            print("7. Resolve missing-signal students")
+            print("8. Preview")
+            print("9. Approve")
+            print("10. Cancel")
+        else:
+            print("7. Preview")
+            print("8. Approve")
+            print("9. Cancel")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -842,11 +857,22 @@ def _open_plan(
                     _refresh_roster(detail, state)
                 elif choice == "6":
                     _replace_arrangement(detail, state)
-                elif choice == "7":
+                elif is_signal_plan and choice == "7":
+                    resolve_missing_signal_from_menu(detail, state)
+                elif (
+                    (is_signal_plan and choice == "8")
+                    or (not is_signal_plan and choice == "7")
+                ):
                     _preview(detail, state)
-                elif choice == "8":
+                elif (
+                    (is_signal_plan and choice == "9")
+                    or (not is_signal_plan and choice == "8")
+                ):
                     _approve(detail, state)
-                elif choice == "9":
+                elif (
+                    (is_signal_plan and choice == "10")
+                    or (not is_signal_plan and choice == "9")
+                ):
                     _cancel(detail, state)
                 else:
                     print(navigation_hint_with_help())

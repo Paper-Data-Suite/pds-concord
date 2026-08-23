@@ -426,7 +426,7 @@ def test_unresolved_signal_plan_may_preview_but_cannot_be_approved(
 
     with pytest.raises(
         ConcordWorkflowValidationError,
-        match="every roster student to be resolved",
+        match="explicit missing-signal disposition",
     ):
         approve_group_plan(
             ApproveGroupPlanRequest(
