@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Explicit missing-signal `manual`, seeded `random`, and `leave_unassigned`
+  GroupPlan dispositions with exact Core `missing_student_signal` authority,
+  canonical-digest revalidation, structured provenance, preview invalidation,
+  and the narrow approved-unresolved exception for deliberate leave-unassigned.
+- Direct `confirm-missing-manual`, `distribute-missing-random`, and
+  `leave-missing-unassigned` GroupPlan commands plus a teacher-menu decision
+  workflow with missing-only seeded placement preview and no canonical Group or
+  Membership creation.
 - Deterministic `similar_signal` and `mixed_signal` GroupPlan generation from one
   explicitly selected Core signal/dimension, with shared full-roster size/count
   targets, exact canonical-digest binding, balanced represented-student placement,
@@ -52,6 +60,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Signal-backed approval now revalidates the frozen Core signal/dimension/digest
+  and current missing set; ordinary plan edits preserve the explicit disposition,
+  while changed roster refresh invalidates it for a fresh teacher decision.
 - Random and signal-backed generated planning now share one pure full-roster target
   resolution/balanced-size implementation while preserving the frozen #52 random
   ranking and seed behavior.

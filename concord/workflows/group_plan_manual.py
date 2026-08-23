@@ -215,6 +215,7 @@ def _replace_preserving_origin(
     root: Path,
     standards_library: StandardsLibrary | None,
     clock: Clock | None,
+    clear_missing_signal_disposition: bool = False,
 ) -> GroupPlanEditResult:
     plan = detail.plan
     result = replace_group_plan_proposal(
@@ -232,6 +233,7 @@ def _replace_preserving_origin(
             source_signal_set_id=plan.source_signal_set_id,
             source_signal_set_digest=plan.source_signal_set_digest,
             source_signal_dimension_id=plan.source_signal_dimension_id,
+            clear_missing_signal_disposition=clear_missing_signal_disposition,
         ),
         workspace_root=root,
         standards_library=standards_library,
@@ -578,6 +580,7 @@ def refresh_group_plan_roster(
         root=root,
         standards_library=standards_library,
         clock=clock,
+        clear_missing_signal_disposition=True,
     )
 
 

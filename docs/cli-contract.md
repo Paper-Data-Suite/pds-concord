@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 signal-backed GroupPlan workflow in issue #54.
+Implemented through the v0.3.0 missing-signal disposition workflow in issue #55.
 
 ## Two interfaces, one service layer
 
@@ -63,6 +63,9 @@ concord group-plan create-manual
 concord group-plan create-random
 concord group-plan create-similar-signal
 concord group-plan create-mixed-signal
+concord group-plan confirm-missing-manual
+concord group-plan distribute-missing-random
+concord group-plan leave-missing-unassigned
 concord group-plan add-group
 concord group-plan edit-group
 concord group-plan remove-group
@@ -282,14 +285,25 @@ Core canonical signal digest and aggregate group/coverage counts without emittin
 student-band rows. Both commands create only a `draft` GroupPlan and explicitly
 report `Canonical Groups created: no`.
 
+For a signal-backed plan with current Core `missing_student_signal` findings,
+`confirm-missing-manual`, `distribute-missing-random`, and
+`leave-missing-unassigned` record the teacher's explicit disposition. These
+commands use the signal ID/digest/dimension already frozen into the GroupPlan;
+they do not accept signal reselection arguments. Random disposition requires
+its own explicit `--seed`, separate from `GroupPlan.seed`. All three mutations
+return a previewed plan to `draft` and report `Canonical Groups created: no`.
+
 Targeted plan edits reject Core-roster drift instead of silently refreshing it.
 `refresh-roster` is the explicit operation that preserves remaining placements,
 drops departed students, adds newcomers unresolved, preserves empty planned
 groups, and creates a draft revision when the roster changed.
 
-Preview and approval remain separate writes. Approval creates no canonical Group
-or Membership, and there is no `group-plan apply` command in issue #51. The
-`approved -> applied` transaction remains reserved for issue #56.
+Preview and approval remain separate writes. Signal-plan approval revalidates the
+exact bound Core signal/dimension/digest and current missing set. `manual` and
+`random` require zero unresolved students; `leave_unassigned` is the sole narrow
+exception and requires the unresolved set to equal the exact current missing set.
+Approval creates no canonical Group or Membership, and there is no `group-plan
+apply` command. The `approved -> applied` transaction remains reserved for issue #56.
 
 Within the teacher menu, `Groups and Participants` exposes separate `Plan groups`
 and `Manage Groups and Memberships` paths over the same shared service layer.
@@ -319,7 +333,8 @@ Review, evidence Moderation, Criterion/Scale/Score workflows, and an explicit
 Publication surface immediately after Scoring. Teacher writes require
 operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`,
 `UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
-`GENERATE`, `PUBLISH`, `WITHDRAW`, and `REBUILD`.
+`GENERATE`, `CONFIRM`, `DISTRIBUTE`, `LEAVE`, `PUBLISH`, `WITHDRAW`, and
+`REBUILD`.
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 

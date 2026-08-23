@@ -150,6 +150,13 @@ from concord.workflows.group_plan_manual import (
     replace_group_plan_from_arrangement,
     unassign_student_from_plan,
 )
+from concord.workflows.group_plan_missing_signal import (
+    MissingSignalDispositionResult,
+    MissingSignalPlanInspection,
+    SetMissingSignalDispositionRequest,
+    inspect_group_plan_missing_signal,
+    set_missing_signal_disposition,
+)
 from concord.workflows.group_plan_random import (
     CreateRandomGroupPlanRequest,
     RandomGroupPlanCreationResult,
@@ -501,6 +508,11 @@ __all__ = [
     "remove_planned_group",
     "replace_group_plan_from_arrangement",
     "unassign_student_from_plan",
+    "MissingSignalDispositionResult",
+    "MissingSignalPlanInspection",
+    "SetMissingSignalDispositionRequest",
+    "inspect_group_plan_missing_signal",
+    "set_missing_signal_disposition",
     "CreateRandomGroupPlanRequest",
     "RandomGroupPlanCreationResult",
     "create_random_group_plan",
