@@ -21,8 +21,13 @@ full-roster target semantics, explicit unresolved missing coverage, and no Merid
 runtime dependency. Issue #55 adds explicit manual/random/leave-unassigned missing-signal
 decisions with exact Core revalidation. Issue #56 now adds read-only exact
 application previews plus digest/snapshot-bound atomic application of approved
-plans to native Group/GroupMembership state. The same typed service layer supports a fully
-noninteractive direct CLI and a teacher-facing low-information-density menu.
+plans to native Group/GroupMembership state. Issue #57 now also defines public
+immutable reusable Template Definition/Version contracts with typed page
+manifests, rendering inputs, response regions, identity-free defaults and
+compatibility, and exact rendering-source SHA-256 binding. Templates are not yet
+a persisted/manageable library; canonical storage and revision workflows remain
+#58. The same typed service layer supports a fully noninteractive direct CLI and
+a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 

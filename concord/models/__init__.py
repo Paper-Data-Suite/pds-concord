@@ -43,6 +43,16 @@ from concord.models.scoring import (
     ScoringScale,
     ScoringScaleLevel,
 )
+from concord.models.templates import (
+    TemplateAuthorshipExpectation,
+    TemplateCompatibility,
+    TemplateDefinition,
+    TemplatePageDefinition,
+    TemplateRenderingInput,
+    TemplateResponseRegion,
+    TemplateSubjectExpectation,
+    TemplateVersion,
+)
 
 __all__ = [
     "Activity",
@@ -82,4 +92,12 @@ __all__ = [
     "Session",
     "StatusReason",
     "SubjectReference",
+    "TemplateAuthorshipExpectation",
+    "TemplateCompatibility",
+    "TemplateDefinition",
+    "TemplatePageDefinition",
+    "TemplateRenderingInput",
+    "TemplateResponseRegion",
+    "TemplateSubjectExpectation",
+    "TemplateVersion",
 ]

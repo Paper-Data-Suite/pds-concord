@@ -27,6 +27,43 @@ from concord.models.common import (
     tuple_of_identifiers,
 )
 
+ARTIFACT_CATEGORIES = frozenset(
+    {
+        "student_work",
+        "observation",
+        "discussion_record",
+        "laboratory_record",
+        "project_record",
+    }
+)
+ARTIFACT_EXPECTED_RETURN_STATUSES = frozenset(
+    {"returned_expected", "returned_optional", "return_not_expected"}
+)
+ARTIFACT_PAGE_KINDS = frozenset(
+    {
+        "primary",
+        "continuation",
+        "rubric",
+        "cover",
+        "instructional",
+        "observation",
+        "attachment_label",
+    }
+)
+AUTHORSHIP_MODES = frozenset(
+    {
+        "individual_author",
+        "co_author",
+        "observer",
+        "recorder",
+        "recorder_for_group",
+        "collective_group_author",
+        "teacher_author",
+        "authorized_adult_author",
+        "unknown",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ArtifactInstance:
@@ -58,15 +95,7 @@ class ArtifactInstance:
         controlled_key(
             self.artifact_category,
             "artifact_category",
-            frozenset(
-                {
-                    "student_work",
-                    "observation",
-                    "discussion_record",
-                    "laboratory_record",
-                    "project_record",
-                }
-            ),
+            ARTIFACT_CATEGORIES,
         )
         controlled(
             self.generation_status,
@@ -76,9 +105,7 @@ class ArtifactInstance:
         controlled(
             self.expected_return_status,
             "expected_return_status",
-            frozenset(
-                {"returned_expected", "returned_optional", "return_not_expected"}
-            ),
+            ARTIFACT_EXPECTED_RETURN_STATUSES,
         )
         controlled(
             self.artifact_status,
@@ -133,17 +160,7 @@ class ArtifactPage:
         controlled_key(
             self.page_kind,
             "page_kind",
-            frozenset(
-                {
-                    "primary",
-                    "continuation",
-                    "rubric",
-                    "cover",
-                    "instructional",
-                    "observation",
-                    "attachment_label",
-                }
-            ),
+            ARTIFACT_PAGE_KINDS,
         )
         require_bool(self.return_expected, "return_expected")
         require_bool(self.route_required, "route_required")
@@ -276,19 +293,7 @@ class ArtifactAuthor:
         controlled(
             self.authorship_mode,
             "authorship_mode",
-            frozenset(
-                {
-                    "individual_author",
-                    "co_author",
-                    "observer",
-                    "recorder",
-                    "recorder_for_group",
-                    "collective_group_author",
-                    "teacher_author",
-                    "authorized_adult_author",
-                    "unknown",
-                }
-            ),
+            AUTHORSHIP_MODES,
         )
         controlled(
             self.attribution_status,
