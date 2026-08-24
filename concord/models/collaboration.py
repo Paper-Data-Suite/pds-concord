@@ -28,6 +28,11 @@ from concord.models.common import (
     tuple_of_identifiers,
 )
 
+ACTIVITY_TYPES = frozenset({"socratic_seminar", "laboratory", "project"})
+SCORING_ORIENTATIONS = frozenset(
+    {"evidence_only", "standards_based", "mixed", "local_criteria_only"}
+)
+
 ASSIGNMENT_STATUSES = frozenset(
     {
         "planned",
@@ -71,14 +76,12 @@ class Activity:
         controlled_key(
             self.activity_type,
             "activity_type",
-            frozenset({"socratic_seminar", "laboratory", "project"}),
+            ACTIVITY_TYPES,
         )
         orientation = controlled(
             self.scoring_orientation,
             "scoring_orientation",
-            frozenset(
-                {"evidence_only", "standards_based", "mixed", "local_criteria_only"}
-            ),
+            SCORING_ORIENTATIONS,
         )
         controlled(
             self.status,

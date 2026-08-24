@@ -37,7 +37,11 @@ Issue #55 implements explicit manual/random/leave-unassigned missing-signal
 decisions and approval revalidation. Issue #56 now implements exact read-only
 application preparation, deterministic canonical identity derivation, digest- and
 snapshot-bound atomic Group/GroupMembership application, and the terminal
-`approved -> applied` GroupPlan transition.
+`approved -> applied` GroupPlan transition. Issue #57 now defines the public,
+immutable, cross-Activity reusable Template Definition/Version contract,
+including typed page manifests, rendering-input declarations, response regions,
+identity-free defaults/compatibility, and exact rendering-specification digest
+binding; canonical Template storage and revision workflows remain #58.
 
 The repository now contains:
 
@@ -75,6 +79,10 @@ The repository now contains:
   of canonical Groups/Memberships and the terminal applied GroupPlan revision,
   with deterministic IDs, explicit fallback context, stale/digest rejection, and
   no signal-band leakage into operational records;
+* public immutable reusable Template Definition/Version contracts with typed
+  page manifests, rendering inputs, response regions, privacy/authorship/subject
+  defaults, compatibility metadata, exact rendering-source integrity binding,
+  and no Activity-native persistence before #58;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -219,14 +227,24 @@ revalidation, explicit Membership fallback context, empty-group and
 leave-unassigned behavior, one-batch application, terminal applied metadata,
 privacy exclusions, direct CLI commands, and teacher `APPLY` confirmation.
 
+### 33. v0.3.0 immutable Template Definition contract
+
+[`v0.3.0-template-definition-contract.md`](v0.3.0-template-definition-contract.md)
+
+Documents issue #57's stable Template lineage, exact immutable Template Version,
+typed page/rendering-input/response-region contracts, identity-free privacy and
+authorship/Subject expectations, compatibility metadata, rendering-source
+SHA-256 binding, existing Artifact compatibility, grouping-signal exclusions,
+and the deliberate #58 storage/revision handoff.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#56 foundations. It does not make later Template, Packet, guided Activity setup,
-or final integrated teacher UI behavior implemented merely because their contracts
-are documented.
+#48-#57 foundations. Issue #57 now implements the reusable Template contract
+itself, but it does not make #58 Template storage/management, Packet workflows,
+guided Activity setup, or final integrated teacher UI behavior implemented.
 
 ### 14. PDS2 Artifact Page integration
 

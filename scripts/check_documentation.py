@@ -51,6 +51,26 @@ MISSING_SIGNAL_DISPOSITION_DOC = (
 GROUP_PLAN_APPLICATION_DOC = (
     ROOT / "docs" / "v0.3.0-group-plan-application.md"
 )
+TEMPLATE_DEFINITION_CONTRACT_DOC = (
+    ROOT / "docs" / "v0.3.0-template-definition-contract.md"
+)
+REQUIRED_TEMPLATE_DEFINITION_CONTRACT_PHRASES = (
+    "TemplateDefinition",
+    "TemplateVersion",
+    "TemplatePageDefinition",
+    "TemplateRenderingInput",
+    "TemplateResponseRegion",
+    "TemplateCompatibility",
+    "rendering_specification_sha256",
+    "pds2_route_payload",
+    "human_fallback",
+    "supported_criterion_ids",
+    "grouping_signal_set_v1",
+    "TemplateVersion != ArtifactInstance",
+    "TemplatePageDefinition != ArtifactPage",
+    "canonical Template storage and revision workflows remain #58",
+    "Issue #57 does not implement",
+)
 REQUIRED_GROUP_PLAN_APPLICATION_DOC_PHRASES = (
     "group_plan_application_preview_v1",
     "pds-concord:group-plan-application-preview:v1",
@@ -419,6 +439,25 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the GroupPlan application document."
             )
+    if not TEMPLATE_DEFINITION_CONTRACT_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Template Definition contract document is missing."
+        )
+    else:
+        template_contract_doc = TEMPLATE_DEFINITION_CONTRACT_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_TEMPLATE_DEFINITION_CONTRACT_PHRASES:
+            if phrase not in template_contract_doc:
+                failures.append(
+                    "Template Definition contract document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if TEMPLATE_DEFINITION_CONTRACT_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Template Definition "
+                "contract document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -449,7 +488,9 @@ def check_documentation() -> None:
         "Missing-signal disposition remains reserved for #55",
         "#48-#54 foundations",
         "#48-#55 foundations",
+        "#48-#56 foundations",
         "canonical plan application remains reserved for #56",
+        "Template Definition / Template Version remain wholly undefined",
         "there is no `group-plan\napply` command",
     ):
         if stale_phrase in docs_index:

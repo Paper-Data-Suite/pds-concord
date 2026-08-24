@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Public immutable reusable `TemplateDefinition` / `TemplateVersion` contracts
+  with typed page manifests, rendering-input declarations, response regions,
+  identity-free privacy/authorship/Subject expectations and compatibility,
+  exact rendering-specification SHA-256 binding, and explicit separation from
+  Activity-native storage until #58.
+- Shared Activity/Artifact category, scoring-orientation, page-kind, return, and
+  authorship vocabularies now back both operational Artifact models and reusable
+  Template validation, preventing contract drift.
+
 - Exact approved-GroupPlan application preparation and atomic application,
   including deterministic application-bound Group/Membership IDs, semantic
   preview digests, exact snapshot/roster/signal revalidation, explicit fallback
