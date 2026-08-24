@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Exact approved-GroupPlan application preparation and atomic application,
+  including deterministic application-bound Group/Membership IDs, semantic
+  preview digests, exact snapshot/roster/signal revalidation, explicit fallback
+  Membership context, empty-group preservation, leave-unassigned handling, and
+  one guarded batch containing the applied GroupPlan plus every canonical Group
+  and Membership.
+- Direct `concord group-plan application-preview|apply` commands and a
+  teacher-menu exact write-set preview with literal `APPLY` confirmation.
+- Applied GroupPlans now retain the exact `applied_application_id` and
+  `applied_application_digest`, while canonical Group/Membership records exclude
+  signal bands, signal provenance, missing-signal disposition, planning seeds,
+  targets, and planning strategy.
 - Explicit missing-signal `manual`, seeded `random`, and `leave_unassigned`
   GroupPlan dispositions with exact Core `missing_student_signal` authority,
   canonical-digest revalidation, structured provenance, preview invalidation,
@@ -66,10 +78,10 @@ All notable changes to this project will be documented in this file.
 - Random and signal-backed generated planning now share one pure full-roster target
   resolution/balanced-size implementation while preserving the frozen #52 random
   ranking and seed behavior.
-- The teacher-facing `Groups and Participants` screen now distinguishes planning
+- The teacher-facing `Groups and Participants` screen distinguishes planning
   (`GroupPlan`/`PlannedGroup`) from operational Group/Membership management;
-  GroupPlan approval still creates no canonical Groups and issue #56 remains the
-  sole planned application boundary.
+  GroupPlan approval still creates no canonical Groups, while issue #56 now
+  implements the sole explicit canonical application boundary.
 - Began the v0.3 development line as `0.3.0.dev0` and raised the Core runtime minimum to `pds-core>=0.6.1,<0.7`; active CI/package/installed acceptance qualifies against the exact released Core v0.6.1 wheel while historical v0.2.0 release evidence remains bound to Core v0.6.0.
 
 

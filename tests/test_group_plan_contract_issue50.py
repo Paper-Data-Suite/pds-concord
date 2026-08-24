@@ -345,6 +345,8 @@ def test_group_plan_status_provenance_is_coherent() -> None:
         approved,
         status="applied",
         applied_provenance=_native_provenance(4),
+        applied_application_id="apply-1",
+        applied_application_digest="a" * 64,
     )
     assert applied.status == "applied"
 

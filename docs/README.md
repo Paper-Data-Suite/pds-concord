@@ -33,9 +33,11 @@ dimension selection, and teacher-controlled `grouping_signal_csv_v1` import.
 Issue #54 now implements deterministic `similar_signal` and `mixed_signal` drafts
 with full-roster targets, exact Core signal/dimension binding, explicit unresolved
 missing coverage, bounded direct/menu UX, and no Meridian runtime dependency.
-Issue #55 now implements explicit manual/random/leave-unassigned missing-signal
-decisions and approval revalidation; canonical plan application remains reserved
-for #56.
+Issue #55 implements explicit manual/random/leave-unassigned missing-signal
+decisions and approval revalidation. Issue #56 now implements exact read-only
+application preparation, deterministic canonical identity derivation, digest- and
+snapshot-bound atomic Group/GroupMembership application, and the terminal
+`approved -> applied` GroupPlan transition.
 
 The repository now contains:
 
@@ -67,8 +69,12 @@ The repository now contains:
   full-roster target semantics, exact signal provenance, visible unresolved missing
   coverage, explicit teacher review, and no canonical Group/Membership side effects;
 * explicit missing-signal `manual`, seeded `random`, and `leave_unassigned`
-  dispositions with exact Core-diagnostic authority, preview invalidation, narrow
-  approval semantics, and no canonical Group/Membership side effects;
+  dispositions with exact Core-diagnostic authority, preview invalidation, and
+  narrow approval semantics;
+* exact approved-GroupPlan application preview plus one-snapshot atomic creation
+  of canonical Groups/Memberships and the terminal applied GroupPlan revision,
+  with deterministic IDs, explicit fallback context, stale/digest rejection, and
+  no signal-band leakage into operational records;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -203,13 +209,22 @@ Documents issue #55's exact Core `missing_student_signal` authority, structured
 placement, edit/refresh/preview lifecycle behavior, narrow approval exception,
 direct CLI and teacher-menu decisions, privacy exclusions, and the #56 boundary.
 
+### 32. v0.3.0 approved GroupPlan application
+
+[`v0.3.0-group-plan-application.md`](v0.3.0-group-plan-application.md)
+
+Documents issue #56's approved-only eligibility, deterministic application and
+canonical record identities, exact semantic preview digest, roster/signal
+revalidation, explicit Membership fallback context, empty-group and
+leave-unassigned behavior, one-batch application, terminal applied metadata,
+privacy exclusions, direct CLI commands, and teacher `APPLY` confirmation.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#55 foundations. It does not make #56 canonical application implemented,
-nor does it make Template, Packet, guided Activity setup,
+#48-#56 foundations. It does not make later Template, Packet, guided Activity setup,
 or final integrated teacher UI behavior implemented merely because their contracts
 are documented.
 

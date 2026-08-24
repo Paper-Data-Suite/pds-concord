@@ -104,6 +104,8 @@ class GroupPlan:
     missing_signal_disposition: str | None = None
     missing_signal_random_seed: str | None = None
     missing_signal_disposition_provenance: Provenance | None = None
+    applied_application_id: str | None = None
+    applied_application_digest: str | None = None
     updated_provenance: Provenance | None = None
     previewed_provenance: Provenance | None = None
     approved_provenance: Provenance | None = None
@@ -291,6 +293,15 @@ class GroupPlan:
                 "missing-signal random seed is allowed only for random disposition."
             )
 
+        if self.applied_application_id is not None:
+            identifier(self.applied_application_id, "applied_application_id")
+        if self.applied_application_digest is not None:
+            digest = self.applied_application_digest
+            if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+                raise ConcordModelError(
+                    "applied_application_digest must be lowercase SHA-256 hex."
+                )
+
         if not isinstance(self.created_provenance, Provenance):
             raise ConcordModelError(
                 "created_provenance must be Provenance."
@@ -306,6 +317,20 @@ class GroupPlan:
             _optional_provenance(getattr(self, field_name), field_name)
 
         self._validate_status_provenance(status)
+
+        application_values = (
+            self.applied_application_id,
+            self.applied_application_digest,
+        )
+        if status == "applied":
+            if any(value is None for value in application_values):
+                raise ConcordModelError(
+                    "applied plan requires application ID and digest."
+                )
+        elif any(value is not None for value in application_values):
+            raise ConcordModelError(
+                "application ID and digest are only allowed on applied plans."
+            )
 
         if status in {"approved", "applied"} and unresolved:
             if not (

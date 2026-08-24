@@ -48,6 +48,25 @@ SIGNAL_GROUP_PLAN_DOC = ROOT / "docs" / "v0.3.0-signal-group-planning.md"
 MISSING_SIGNAL_DISPOSITION_DOC = (
     ROOT / "docs" / "v0.3.0-missing-signal-disposition.md"
 )
+GROUP_PLAN_APPLICATION_DOC = (
+    ROOT / "docs" / "v0.3.0-group-plan-application.md"
+)
+REQUIRED_GROUP_PLAN_APPLICATION_DOC_PHRASES = (
+    "group_plan_application_preview_v1",
+    "pds-concord:group-plan-application-preview:v1",
+    "pds-concord:group-plan-application-group:v1",
+    "pds-concord:group-plan-application-membership:v1",
+    "prepare_group_plan_application",
+    "apply_group_plan",
+    "applied_application_id",
+    "applied_application_digest",
+    "commit_record_batch",
+    "concord group-plan application-preview",
+    "concord group-plan apply",
+    "leave_unassigned",
+    "APPLY",
+    "Meridian",
+)
 REQUIRED_MISSING_SIGNAL_DISPOSITION_DOC_PHRASES = (
     "missing_signal_disposition",
     "missing_signal_random_seed",
@@ -384,6 +403,22 @@ def check_documentation() -> None:
                 "Documentation index does not link the missing-signal "
                 "disposition document."
             )
+    if not GROUP_PLAN_APPLICATION_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 GroupPlan application document is missing."
+        )
+    else:
+        application_doc = GROUP_PLAN_APPLICATION_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_GROUP_PLAN_APPLICATION_DOC_PHRASES:
+            if phrase not in application_doc:
+                failures.append(
+                    "GroupPlan application document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if GROUP_PLAN_APPLICATION_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the GroupPlan application document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -398,12 +433,24 @@ def check_documentation() -> None:
                 f"{active_path.relative_to(ROOT)} does not expose the "
                 "grouping-signal CLI."
             )
+        if "concord group-plan application-preview" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose GroupPlan "
+                "application preview."
+            )
+        if "concord group-plan apply" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose GroupPlan apply."
+            )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
         "make the #51-#56 planning algorithms",
         "Missing-signal disposition remains reserved for #55",
         "#48-#54 foundations",
+        "#48-#55 foundations",
+        "canonical plan application remains reserved for #56",
+        "there is no `group-plan\napply` command",
     ):
         if stale_phrase in docs_index:
             failures.append(
