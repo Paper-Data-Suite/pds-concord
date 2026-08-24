@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_group_plan_application import apply_approved_group_plan_from_menu
 from concord.menu_group_plan_missing_signal import resolve_missing_signal_from_menu
 from concord.menu_group_plan_signal import create_signal_group_plan_from_menu
 from concord.menu_grouping_signal import launch_grouping_signal_menu
@@ -825,10 +826,14 @@ def _open_plan(
             print("8. Preview")
             print("9. Approve")
             print("10. Cancel")
+            if detail.plan.status == "approved":
+                print("11. Apply approved plan")
         else:
             print("7. Preview")
             print("8. Approve")
             print("9. Cancel")
+            if detail.plan.status == "approved":
+                print("10. Apply approved plan")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -838,7 +843,10 @@ def _open_plan(
             print_menu_header("GroupPlan Help")
             print("A GroupPlan is a proposal, not canonical classroom Group state.")
             print("Editing a previewed plan returns it to draft.")
-            print("Approval does not apply the plan; application belongs to issue #56.")
+            print(
+                "Approved plans can be applied only after an exact canonical "
+                "write-set preview and APPLY confirmation."
+            )
             print()
             pause_for_user()
         elif navigation is NavigationChoice.BACK:
@@ -874,6 +882,14 @@ def _open_plan(
                     or (not is_signal_plan and choice == "9")
                 ):
                     _cancel(detail, state)
+                elif (
+                    detail.plan.status == "approved"
+                    and (
+                        (is_signal_plan and choice == "11")
+                        or (not is_signal_plan and choice == "10")
+                    )
+                ):
+                    apply_approved_group_plan_from_menu(detail, state)
                 else:
                     print(navigation_hint_with_help())
                     pause_for_user()

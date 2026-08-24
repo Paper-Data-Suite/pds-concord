@@ -18,10 +18,10 @@ line now also provides Core grouping-signal discovery, exact signal/dimension
 diagnostics, teacher-controlled `grouping_signal_csv_v1` import, and deterministic
 `similar_signal` / `mixed_signal` GroupPlan drafts with exact signal provenance,
 full-roster target semantics, explicit unresolved missing coverage, and no Meridian
-runtime dependency. Issue #55 now adds explicit manual/random/leave-unassigned
-missing-signal decisions with exact Core revalidation; canonical Group/Membership
-application remains reserved for #56. The same typed
-service layer supports a fully
+runtime dependency. Issue #55 adds explicit manual/random/leave-unassigned missing-signal
+decisions with exact Core revalidation. Issue #56 now adds read-only exact
+application previews plus digest/snapshot-bound atomic application of approved
+plans to native Group/GroupMembership state. The same typed service layer supports a fully
 noninteractive direct CLI and a teacher-facing low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
@@ -96,7 +96,7 @@ Q. Quit
 
 Every menu write shows a focused review screen and requires the operation word
 `CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `CONFIRM`,
-`DISTRIBUTE`, `LEAVE`, `UPDATE`, `ADD`, `CORRECT`, `REVIEW`,
+`DISTRIBUTE`, `LEAVE`, `APPLY`, `UPDATE`, `ADD`, `CORRECT`, `REVIEW`,
 `MODERATE`, `SCORE`, `REVISE`, `END`, `REASSIGN`,
 `REGISTER`, `GENERATE`, `PUBLISH`, `WITHDRAW`, or `REBUILD`.
 The menu clears between stages,
@@ -119,6 +119,8 @@ concord group-plan create-similar-signal|create-mixed-signal
 concord group-plan confirm-missing-manual|distribute-missing-random|leave-missing-unassigned
 concord group-plan place-student|unassign-student|refresh-roster
 concord group-plan import-arrangement|replace-arrangement|preview|approve|cancel
+concord group-plan application-preview
+concord group-plan apply
 concord grouping-signal list|show|diagnose|import-csv
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
@@ -214,6 +216,10 @@ and privacy/dependency boundaries are documented in the
 Issue #55's explicit missing-signal decisions, deterministic missing-only random
 distribution, approval exception, privacy boundary, and #56 handoff are documented
 in the [missing-signal disposition guide](docs/v0.3.0-missing-signal-disposition.md).
+Issue #56's deterministic application identity, exact preview digest, context
+resolution, atomic Group/GroupMembership write set, privacy boundary, direct CLI,
+and teacher `APPLY` flow are documented in the
+[approved GroupPlan application guide](docs/v0.3.0-group-plan-application.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

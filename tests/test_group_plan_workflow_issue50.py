@@ -551,10 +551,11 @@ def test_cancellation_is_terminal_and_preserves_history(
         )
 
 
-def test_public_workflow_has_no_generic_applied_transition() -> None:
+def test_public_workflow_exposes_only_guarded_issue56_applied_transition() -> None:
     import concord.workflows as workflows
 
-    assert not hasattr(workflows, "apply_group_plan")
+    assert hasattr(workflows, "prepare_group_plan_application")
+    assert hasattr(workflows, "apply_group_plan")
     assert not hasattr(workflows, "mark_group_plan_applied")
     assert not hasattr(workflows, "set_group_plan_status")
 

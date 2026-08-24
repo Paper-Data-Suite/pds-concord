@@ -13,6 +13,7 @@ from concord.cli_app.common import (
 from concord.cli_app.output import print_commit
 from concord.workflows import (
     AddPlannedGroupRequest,
+    ApplyGroupPlanRequest,
     ApproveGroupPlanRequest,
     ArrangementImportResult,
     CancelGroupPlanRequest,
@@ -20,12 +21,14 @@ from concord.workflows import (
     CreateRandomGroupPlanRequest,
     CreateSignalGroupPlanRequest,
     EditPlannedGroupRequest,
+    GroupPlanApplicationPreview,
     GroupPlanDetail,
     GroupPlanEditResult,
     GroupPlanSummary,
     ImportArrangementGroupPlanRequest,
     MissingSignalDispositionResult,
     PlaceStudentInPlanRequest,
+    PrepareGroupPlanApplicationRequest,
     PreviewGroupPlanRequest,
     RefreshGroupPlanRosterRequest,
     RemovePlannedGroupRequest,
@@ -34,6 +37,7 @@ from concord.workflows import (
     SignalGroupPlanCreationResult,
     UnassignStudentFromPlanRequest,
     add_planned_group,
+    apply_group_plan,
     approve_group_plan,
     cancel_group_plan,
     create_manual_group_plan,
@@ -43,6 +47,7 @@ from concord.workflows import (
     import_arrangement_group_plan,
     list_group_plans,
     place_student_in_plan,
+    prepare_group_plan_application,
     preview_group_plan,
     refresh_group_plan_roster,
     remove_planned_group,
@@ -460,6 +465,99 @@ def handle_replace_arrangement(args: argparse.Namespace) -> int:
         standards_library=load_command_standards_library(args),
     )
     _print_import_result(result)
+    return 0
+
+
+def _context_text(context: object) -> str:
+    if context is None:
+        return "none"
+    session_ids = getattr(context, "session_ids")
+    return ",".join(session_ids)
+
+
+def _print_application_preview(preview: GroupPlanApplicationPreview) -> None:
+    print(f"GroupPlan: {preview.group_plan_id}")
+    print("Status: approved")
+    print(f"GroupPlan record revision: {preview.group_plan_record_revision}")
+    print(f"Expected Activity snapshot: {preview.expected_snapshot_revision}")
+    print(f"Application ID: {preview.application_id}")
+    print(f"Application digest: {preview.application_digest}")
+    if preview.fallback_effective_context is not None:
+        print(
+            "Fallback Membership context: "
+            f"{_context_text(preview.fallback_effective_context)}"
+        )
+    print(f"Canonical Groups to create: {preview.group_count}")
+    print(f"Canonical Memberships to create: {preview.membership_count}")
+    print(f"Students left without Membership: {preview.unresolved_count}")
+    for group in preview.groups:
+        print(
+            f"Group: {group.planned_group_key} -> {group.group_id}; "
+            f"label={group.label}; context={_context_text(group.effective_context)}"
+        )
+    for membership in preview.memberships:
+        print(
+            f"Membership: {membership.student_id} -> {membership.membership_id}; "
+            f"group={membership.group_id}; "
+            f"context={_context_text(membership.effective_context)}"
+        )
+    if preview.unresolved_student_ids:
+        print(
+            "No-Membership student IDs: "
+            + ",".join(preview.unresolved_student_ids)
+        )
+        print(
+            "These roster students will receive no GroupMembership from this "
+            "application."
+        )
+    print("No changes have been written.")
+    print(
+        "Use this Application ID, digest, expected snapshot, and fallback context "
+        "with group-plan apply."
+    )
+
+
+def handle_application_preview(args: argparse.Namespace) -> int:
+    fallback = effective_context(args) if args.session_id else None
+    preview = prepare_group_plan_application(
+        PrepareGroupPlanApplicationRequest(
+            class_id=args.class_id,
+            activity_id=args.activity_id,
+            group_plan_id=args.group_plan_id,
+            application_id=args.application_id,
+            fallback_effective_context=fallback,
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    _print_application_preview(preview)
+    return 0
+
+
+def handle_apply(args: argparse.Namespace) -> int:
+    fallback = effective_context(args) if args.session_id else None
+    result = apply_group_plan(
+        ApplyGroupPlanRequest(
+            class_id=args.class_id,
+            activity_id=args.activity_id,
+            group_plan_id=args.group_plan_id,
+            application_id=args.application_id,
+            application_digest=args.application_digest,
+            expected_snapshot_revision=args.expected_snapshot,
+            actor=workflow_actor(args),
+            fallback_effective_context=fallback,
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    print_commit(result.commit)
+    print(f"GroupPlan: {result.group_plan_id}")
+    print(f"Status: {result.status}")
+    print(f"Application ID: {result.application_id}")
+    print(f"Application digest: {result.application_digest}")
+    print(f"Groups created: {result.group_count}")
+    print(f"Memberships created: {result.membership_count}")
+    print(f"Students left unresolved: {result.unresolved_count}")
     return 0
 
 

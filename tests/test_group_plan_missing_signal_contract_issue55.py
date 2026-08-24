@@ -223,6 +223,8 @@ def test_applied_unresolved_preserves_same_structural_exception() -> None:
         approved,
         status="applied",
         applied_provenance=_provenance(5),
+        applied_application_id="apply-1",
+        applied_application_digest="a" * 64,
     )
     assert applied.unresolved_student_ids == ("student-3",)
 

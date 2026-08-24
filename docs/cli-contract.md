@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 missing-signal disposition workflow in issue #55.
+Implemented through the v0.3.0 approved GroupPlan application workflow in issue #56.
 
 ## Two interfaces, one service layer
 
@@ -77,6 +77,8 @@ concord group-plan replace-arrangement
 concord group-plan preview
 concord group-plan approve
 concord group-plan cancel
+concord group-plan application-preview
+concord group-plan apply
 
 concord grouping-signal list
 concord grouping-signal show
@@ -302,8 +304,15 @@ Preview and approval remain separate writes. Signal-plan approval revalidates th
 exact bound Core signal/dimension/digest and current missing set. `manual` and
 `random` require zero unresolved students; `leave_unassigned` is the sole narrow
 exception and requires the unresolved set to equal the exact current missing set.
-Approval creates no canonical Group or Membership, and there is no `group-plan
-apply` command. The `approved -> applied` transaction remains reserved for issue #56.
+Approval itself creates no canonical Group or Membership. Issue #56 then exposes
+`group-plan application-preview` as a zero-write exact write-set preparation
+command and `group-plan apply` as the only direct approved-plan application
+mutation. Application requires the exact application ID, semantic application
+digest, and expected Activity snapshot from the reviewed preview. It revalidates
+the current Core roster and any frozen signal binding, resolves an explicit
+fallback Effective Context when needed, and commits the applied GroupPlan plus
+all canonical Groups and Memberships in one guarded batch. There is no force,
+latest, skip-preview, or ignore-digest mode.
 
 Within the teacher menu, `Groups and Participants` exposes separate `Plan groups`
 and `Manage Groups and Memberships` paths over the same shared service layer.
@@ -333,8 +342,8 @@ Review, evidence Moderation, Criterion/Scale/Score workflows, and an explicit
 Publication surface immediately after Scoring. Teacher writes require
 operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`,
 `UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
-`GENERATE`, `CONFIRM`, `DISTRIBUTE`, `LEAVE`, `PUBLISH`, `WITHDRAW`, and
-`REBUILD`.
+`GENERATE`, `CONFIRM`, `DISTRIBUTE`, `LEAVE`, `APPLY`, `PUBLISH`,
+`WITHDRAW`, and `REBUILD`.
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 

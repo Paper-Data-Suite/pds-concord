@@ -382,7 +382,7 @@ def _group_plan_commands(
 ) -> None:
     parent = subparsers.add_parser(
         "group-plan",
-        help="Author, preview, and approve planning-only GroupPlans.",
+        help="Author, preview, approve, and apply GroupPlans.",
     )
     actions = parent.add_subparsers(dest="group_plan_command", required=True)
 
@@ -583,6 +583,30 @@ def _group_plan_commands(
     _class_activity(approve)
     approve.add_argument("--group-plan-id", required=True)
     approve.set_defaults(handler=group_plan.handle_approve)
+
+    application_preview = actions.add_parser(
+        "application-preview",
+        help="Prepare the exact canonical Group/Membership write set without writing.",
+    )
+    _workspace_option(application_preview)
+    _standards_option(application_preview)
+    _class_activity(application_preview)
+    application_preview.add_argument("--group-plan-id", required=True)
+    application_preview.add_argument("--application-id")
+    _context_options(application_preview, required=False)
+    application_preview.set_defaults(handler=group_plan.handle_application_preview)
+
+    apply = actions.add_parser(
+        "apply",
+        help="Atomically apply one exact approved GroupPlan application preview.",
+    )
+    _mutating_options(apply)
+    _class_activity(apply)
+    apply.add_argument("--group-plan-id", required=True)
+    apply.add_argument("--application-id", required=True)
+    apply.add_argument("--application-digest", required=True)
+    _context_options(apply, required=False)
+    apply.set_defaults(handler=group_plan.handle_apply)
 
     cancel = actions.add_parser(
         "cancel",
