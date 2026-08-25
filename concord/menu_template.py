@@ -19,8 +19,23 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
+from concord.starter_templates.catalog import get_starter_template
 from concord.template_storage import TemplateStoragePartialSuccessError
 from concord.workflows.errors import ConcordWorkflowError
+from concord.workflows.starter_template import (
+    STARTER_INSTALLATION_ALREADY_INSTALLED,
+    PrepareStarterTemplateInstallAllRequest,
+    PrepareStarterTemplateInstallRequest,
+    StarterTemplateInstallAllPartialSuccessError,
+    StarterTemplateInstallAllResult,
+    StarterTemplateInstallResult,
+    StarterTemplateStatus,
+    commit_starter_template_install,
+    commit_starter_template_install_all,
+    list_starter_template_statuses,
+    prepare_starter_template_install,
+    prepare_starter_template_install_all,
+)
 from concord.workflows.template import (
     PrepareTemplateActivationRequest,
     PrepareTemplateCreateRequest,
@@ -468,6 +483,199 @@ def _retire(state: MenuSessionContext) -> None:
     show_result("Template Result", _mutation_lines(result))
 
 
+
+
+def _starter_status_label(item: StarterTemplateStatus) -> str:
+    return (
+        f"{item.display_name} ({item.starter_key}) - "
+        f"{item.family}; {item.page_count} page(s) {item.orientation}; "
+        f"{item.installation_state}"
+    )
+
+
+def _choose_starter(*, title: str) -> StarterTemplateStatus:
+    items = list_starter_template_statuses()
+    return select_one(
+        title,
+        items,
+        tuple(_starter_status_label(item) for item in items),
+        help_text=(
+            "Choose one packaged synthetic starter. Browsing does not "
+            "install or modify workspace state."
+        ),
+    )
+
+
+def _starter_detail_lines(
+    status: StarterTemplateStatus,
+) -> tuple[str, ...]:
+    entry = get_starter_template(status.starter_key)
+    return (
+        f"Starter: {entry.starter_key}",
+        f"Name: {entry.display_name}",
+        f"Family: {entry.family}",
+        f"Purpose: {entry.purpose}",
+        f"Description: {entry.description}",
+        f"Template: {entry.template_id}",
+        f"Initial Version: {entry.template_version_id}",
+        f"Artifact category: {entry.artifact_category}",
+        f"Pages: {entry.page_count}",
+        f"Orientation: {entry.orientation}",
+        "Expected return: returned_expected",
+        f"Privacy: {entry.default_privacy_classification}",
+        "Audience: " + ", ".join(entry.suggested_audience_kinds),
+        (
+            "Activity types: "
+            + (
+                ", ".join(entry.suggested_activity_type_keys)
+                if entry.suggested_activity_type_keys
+                else "-"
+            )
+        ),
+        f"Authorship: {entry.default_authorship_mode}",
+        f"Subject: {entry.default_subject_kind}",
+        (
+            "Rendering reference: "
+            f"{entry.rendering_specification_reference}"
+        ),
+        f"Rendering SHA-256: {entry.rendering_sha256()}",
+        f"Installation state: {status.installation_state}",
+    )
+
+
+def _starter_install_result_lines(
+    result: StarterTemplateInstallResult,
+) -> tuple[str, ...]:
+    lines = [
+        f"Starter: {result.starter_key}",
+        f"Template: {result.template_id}",
+        f"Version: {result.template_version_id}",
+        f"Outcome: {result.outcome}",
+        f"Snapshot: {result.snapshot_revision}",
+    ]
+    if result.workspace_created:
+        lines.insert(0, "Created the Paper Data Suite workspace.")
+    return tuple(lines)
+
+
+def _show_starter_selected() -> None:
+    selected = _choose_starter(title="Choose Starter Template")
+    show_result(
+        "Starter Template",
+        _starter_detail_lines(selected),
+    )
+
+
+def _install_starter(state: MenuSessionContext) -> None:
+    selected = _choose_starter(title="Choose Starter Template to Install")
+    prepared = prepare_starter_template_install(
+        PrepareStarterTemplateInstallRequest(
+            starter_key=selected.starter_key,
+            actor=state.require_actor(),
+        )
+    )
+    if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
+        show_result(
+            "Starter Template",
+            _starter_detail_lines(selected)
+            + ("No canonical write is required.",),
+        )
+        return
+    lines = _starter_detail_lines(selected) + (
+        "Initial starter Version will be installed active/current.",
+        "Future customization uses the ordinary successor workflow.",
+    )
+    if not confirm_write("Install Starter Template", "INSTALL", lines):
+        return
+    result = commit_starter_template_install(prepared)
+    show_result(
+        "Starter Installation Result",
+        _starter_install_result_lines(result),
+    )
+
+
+def _starter_install_all_lines(
+    result: StarterTemplateInstallAllResult,
+) -> tuple[str, ...]:
+    return (
+        f"Installed: {result.installed_count}",
+        f"Already installed: {result.already_installed_count}",
+        f"Processed: {len(result.results)}",
+    )
+
+
+def _install_all_starters(state: MenuSessionContext) -> None:
+    prepared = prepare_starter_template_install_all(
+        PrepareStarterTemplateInstallAllRequest(
+            actor=state.require_actor(),
+        )
+    )
+    missing = sum(
+        item.initial_state != STARTER_INSTALLATION_ALREADY_INSTALLED
+        for item in prepared.items
+    )
+    already = len(prepared.items) - missing
+    if missing == 0:
+        show_result(
+            "Starter Template Library",
+            (
+                "All 30 packaged starter Templates are already installed.",
+                "No canonical write is required.",
+            ),
+        )
+        return
+    lines = (
+        f"Missing starters to install: {missing}",
+        f"Already installed: {already}",
+        "Each missing starter becomes an ordinary active reusable Template.",
+        "Existing exact starter lineages will not be rewritten.",
+    )
+    if not confirm_write("Install Starter Templates", "INSTALL", lines):
+        return
+    result = commit_starter_template_install_all(prepared)
+    show_result(
+        "Starter Installation Result",
+        _starter_install_all_lines(result),
+    )
+
+
+def _starter_library_menu(state: MenuSessionContext) -> None:
+    while True:
+        clear_screen()
+        print_menu_header("Starter Template Library")
+        print("1. Browse / preview starter Templates")
+        print("2. Install one starter Template")
+        print("3. Install all missing starter Templates")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Starter Template Library Help")
+            print("Starters are packaged synthetic reusable Templates.")
+            print("Browsing is read-only; installation is always explicit.")
+            print("Installed starters use the ordinary Template authority.")
+            print("Teacher revisions are never reset by reinstalling.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            return
+        actions = {
+            "1": _show_starter_selected,
+            "2": lambda: _install_starter(state),
+            "3": lambda: _install_all_starters(state),
+        }
+        action = actions.get(raw)
+        if action is None:
+            print(navigation_hint_with_help())
+            pause_for_user()
+            continue
+        _run(action)
+
+
+
 def _run(action: Callable[[], None]) -> None:
     try:
         action()
@@ -475,6 +683,15 @@ def _run(action: Callable[[], None]) -> None:
         return
     except TemplateStoragePartialSuccessError as error:
         _show_partial_success(error)
+    except StarterTemplateInstallAllPartialSuccessError as error:
+        show_result(
+            "Starter Installation Partial Success",
+            (
+                f"Completed starter installs: {len(error.completed_results)}",
+                f"Failed starter: {error.failed_starter_key}",
+                "Rerun install-all to reconcile exact installed starters.",
+            ),
+        )
     except ConcordWorkflowError as error:
         show_result("Template Error", (str(error),))
     except (OSError, TypeError, ValueError) as error:
@@ -494,6 +711,7 @@ def launch_template_library_menu(state: MenuSessionContext) -> None:
         print("6. Update Template metadata")
         print("7. Retire version")
         print("8. Retire Template")
+        print("9. Browse / install starter Templates")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -512,6 +730,7 @@ def launch_template_library_menu(state: MenuSessionContext) -> None:
             "6": lambda: _update(state),
             "7": lambda: _retire_version(state),
             "8": lambda: _retire(state),
+            "9": lambda: _starter_library_menu(state),
         }
         action = actions.get(raw)
         if action is None:

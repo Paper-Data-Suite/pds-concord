@@ -81,6 +81,10 @@ def _workflow_smoke_code() -> str:
             SubjectReference,
         )
         from concord.pds_module import get_module_profile
+        from concord.starter_templates.catalog import (
+            list_starter_templates,
+            validate_starter_catalog,
+        )
         from concord.routing.rendering import (
             RenderArtifactPagesRequest,
             render_artifact_pages,
@@ -138,7 +142,14 @@ def _workflow_smoke_code() -> str:
             for path in package_root.rglob("*")
             if path.is_file()
         }
-
+        starters = list_starter_templates()
+        assert len(starters) == 30
+        validate_starter_catalog()
+        for starter in starters:
+            rendering = starter.rendering_specification_bytes()
+            assert rendering
+            assert starter.rendering_sha256() == hashlib.sha256(rendering).hexdigest()
+            assert starter.layout().schema_version == "concord_starter_layout_v1"
         with tempfile.TemporaryDirectory(prefix="concord-installed-workflow-") as raw:
             root = ensure_workspace_root(Path(raw) / "workspace")
             metadata = create_class_metadata(

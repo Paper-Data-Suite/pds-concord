@@ -51,6 +51,11 @@ conditions, and typed packet-level rendering rules. Issue #60 now implements
 canonical workspace-level Packet persistence, strict immutable revision/snapshot
 history, exact Template dependency validation, head/current selection,
 successor/activation/retirement workflows, and direct/menu Packet management.
+Issue #61 now ships a deterministic package-owned catalog of 30 synthetic
+collaborative-learning starter Templates, strict `concord_starter_layout_v1`
+assets, explicit/idempotent installation through #58 canonical Template storage,
+direct CLI and teacher-menu browsing/install, and installed-wheel package-data
+qualification.
 
 The repository now contains:
 
@@ -106,6 +111,11 @@ The repository now contains:
   explicit head/current Version state, exact Template dependency eligibility,
   guarded successor/activation/retirement workflows, and shared direct
   CLI/teacher-menu services;
+* a deterministic package-owned 30-form collaborative-learning starter Template
+  catalog with strict non-executable `concord_starter_layout_v1` JSON assets,
+  stable identities/digests, identity-free reusable defaults, explicit/idempotent
+  installation through #58 canonical Template storage, direct CLI/menu browsing,
+  and installed-wheel package-data qualification;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -295,16 +305,28 @@ direct `concord packet ...` commands, workspace-level Packet Library menu,
 retirement semantics, structural-only external `ModuleRecordRef` handling, and
 the #62 generation handoff.
 
+### 37. v0.3.0 starter collaborative-learning Template library
+
+[`v0.3.0-starter-template-library.md`](v0.3.0-starter-template-library.md)
+
+Documents issue #61's 30 shipped synthetic starters, shared copier-safe paper
+design, strict `concord_starter_layout_v1` asset contract, stable package-owned
+identities/digests, explicit read-only browse versus canonical installation,
+idempotence/collision/partial-success semantics, privacy/authorship/Subject
+defaults, direct `concord template starter-*` commands, teacher `INSTALL` flow,
+wheel/package qualification, and the #62/#64 authority boundaries.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#60 foundations. Issue #57 defines the reusable Template contract, #58
+#48-#61 foundations. Issue #57 defines the reusable Template contract, #58
 implements its canonical storage/management layer, #59 defines the reusable
-Packet contract, and #60 implements Packet storage/management. Starter
-libraries, Activity-specific instantiation/copying, reusable presets, guided
-Activity setup, and final integrated teacher UI behavior remain later work.
+Packet contract, #60 implements Packet storage/management, and #61 ships the
+starter collaborative-learning Template library. Activity-specific
+instantiation/copying, reusable presets, guided Activity setup, and final
+integrated teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

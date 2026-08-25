@@ -59,7 +59,7 @@ include = ["concord", "concord.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-concord = ["py.typed"]
+concord = ["py.typed", "starter_templates/assets/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

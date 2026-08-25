@@ -50,6 +50,9 @@ from concord.storage_errors import (
 from concord.template_storage import TemplateStoragePartialSuccessError
 from concord.workflows import ConcordWorkflowConflictError, ConcordWorkflowError
 from concord.workflows.artifact_page import ArtifactRoutePreparationPartialSuccessError
+from concord.workflows.starter_template import (
+    StarterTemplateInstallAllPartialSuccessError,
+)
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -168,6 +171,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"Snapshot SHA-256: {error.snapshot_sha256}",
                 file=sys.stderr,
             )
+        return EXIT_PARTIAL_SUCCESS
+    except StarterTemplateInstallAllPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(
+            f"Completed starter installs: {len(error.completed_results)}",
+            file=sys.stderr,
+        )
+        print(
+            f"Failed starter: {error.failed_starter_key}",
+            file=sys.stderr,
+        )
         return EXIT_PARTIAL_SUCCESS
     except TemplateStoragePartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)

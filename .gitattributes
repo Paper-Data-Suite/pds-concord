@@ -1,2 +1,3 @@
 docs/design/examples/*.md text eol=lf
 tests/fixtures/core_grouping_signals/v1/** text eol=lf
+concord/starter_templates/assets/*.json text eol=lf
