@@ -41,7 +41,9 @@ snapshot-bound atomic Group/GroupMembership application, and the terminal
 immutable, cross-Activity reusable Template Definition/Version contract,
 including typed page manifests, rendering-input declarations, response regions,
 identity-free defaults/compatibility, and exact rendering-specification digest
-binding; canonical Template storage and revision workflows remain #58.
+binding. Issue #58 now implements canonical workspace-level Template persistence,
+strict revision/snapshot history, rendering-specification storage, head/current
+selection, successor/activation/retirement workflows, and direct/menu management.
 
 The repository now contains:
 
@@ -82,7 +84,11 @@ The repository now contains:
 * public immutable reusable Template Definition/Version contracts with typed
   page manifests, rendering inputs, response regions, privacy/authorship/subject
   defaults, compatibility metadata, exact rendering-source integrity binding,
-  and no Activity-native persistence before #58;
+  and a strict separation from Activity-native persistence;
+* canonical reusable Template storage under `shared/concord/templates/` with
+  immutable record revisions, digest-linked snapshots, exact rendering bytes,
+  explicit head/current Version state, guarded successor/activation/retirement
+  workflows, and shared direct CLI/teacher-menu services;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -237,14 +243,27 @@ authorship/Subject expectations, compatibility metadata, rendering-source
 SHA-256 binding, existing Artifact compatibility, grouping-signal exclusions,
 and the deliberate #58 storage/revision handoff.
 
+### 34. v0.3.0 Template storage and revision workflows
+
+[`v0.3.0-template-storage-revision-workflows.md`](v0.3.0-template-storage-revision-workflows.md)
+
+Documents issue #58's `shared/concord/templates/` authority,
+`concord_template_library_storage_v1`, strict Template serialization,
+rendering-specification byte integrity, immutable record/snapshot history,
+head/current Version distinction, exact expected-snapshot concurrency,
+`concord_template_authoring_v1`, direct `concord template ...` commands,
+workspace-level Template Library menu, retirement semantics, and #59/#62
+handoffs.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#57 foundations. Issue #57 now implements the reusable Template contract
-itself, but it does not make #58 Template storage/management, Packet workflows,
-guided Activity setup, or final integrated teacher UI behavior implemented.
+#48-#58 foundations. Issue #57 defines the reusable Template contract and #58 now
+implements its canonical storage/management layer. Packet workflows, starter
+libraries, Activity-specific instantiation/copying, reusable presets, guided
+Activity setup, and final integrated teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

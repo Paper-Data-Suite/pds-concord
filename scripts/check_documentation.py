@@ -54,6 +54,26 @@ GROUP_PLAN_APPLICATION_DOC = (
 TEMPLATE_DEFINITION_CONTRACT_DOC = (
     ROOT / "docs" / "v0.3.0-template-definition-contract.md"
 )
+TEMPLATE_STORAGE_WORKFLOW_DOC = (
+    ROOT / "docs" / "v0.3.0-template-storage-revision-workflows.md"
+)
+REQUIRED_TEMPLATE_STORAGE_WORKFLOW_PHRASES = (
+    "concord_template_library_storage_v1",
+    "shared/concord/templates/",
+    "concord_template_authoring_v1",
+    "create_template_library",
+    "create_successor_template_version",
+    "activate_template_version",
+    "current_template_version_id",
+    "head_template_version_id",
+    "expected_snapshot_revision",
+    "rendering-specifications/",
+    "Template Version != storage record revision",
+    "concord template create",
+    "Template Library",
+    "Issue #59",
+    "Issue #62",
+)
 REQUIRED_TEMPLATE_DEFINITION_CONTRACT_PHRASES = (
     "TemplateDefinition",
     "TemplateVersion",
@@ -68,8 +88,8 @@ REQUIRED_TEMPLATE_DEFINITION_CONTRACT_PHRASES = (
     "grouping_signal_set_v1",
     "TemplateVersion != ArtifactInstance",
     "TemplatePageDefinition != ArtifactPage",
-    "canonical Template storage and revision workflows remain #58",
-    "Issue #57 does not implement",
+    "Issue #58 now",
+    "Issue #57 did not implement",
 )
 REQUIRED_GROUP_PLAN_APPLICATION_DOC_PHRASES = (
     "group_plan_application_preview_v1",
@@ -458,6 +478,25 @@ def check_documentation() -> None:
                 "Documentation index does not link the Template Definition "
                 "contract document."
             )
+    if not TEMPLATE_STORAGE_WORKFLOW_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Template storage/revision workflow document is missing."
+        )
+    else:
+        template_storage_doc = TEMPLATE_STORAGE_WORKFLOW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_TEMPLATE_STORAGE_WORKFLOW_PHRASES:
+            if phrase not in template_storage_doc:
+                failures.append(
+                    "Template storage/revision document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if TEMPLATE_STORAGE_WORKFLOW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Template storage/revision "
+                "workflow document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -481,6 +520,10 @@ def check_documentation() -> None:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose GroupPlan apply."
             )
+        if "concord template create" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose the Template CLI."
+            )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
@@ -489,7 +532,9 @@ def check_documentation() -> None:
         "#48-#54 foundations",
         "#48-#55 foundations",
         "#48-#56 foundations",
+        "#48-#57 foundations",
         "canonical plan application remains reserved for #56",
+        "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",
         "there is no `group-plan\napply` command",
     ):
