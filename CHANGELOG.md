@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Public immutable reusable `PacketDefinition` / `PacketVersion` contracts with
+  deterministic ordered `PacketComponent` composition, exact Template
+  Definition/Version identity pairs, source-owned Core `ModuleRecordRef`
+  external components, positive `copies_per_target`, identity-free audience and
+  role intent, bounded non-executable conditions, and typed deterministic
+  packet-level rendering rules.
+- Shared `ROLE_KEYS` now backs both operational `RoleAssignment` validation and
+  reusable Packet role intent so the built-in role vocabulary cannot drift,
+  while namespaced role-key extensions remain supported.
+
 - Canonical workspace-level reusable Template storage under
   `shared/concord/templates/` using `concord_template_library_storage_v1`, with
   strict typed/canonical JSON, immutable Definition/Version record revisions,

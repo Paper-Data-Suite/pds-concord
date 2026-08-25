@@ -57,6 +57,28 @@ TEMPLATE_DEFINITION_CONTRACT_DOC = (
 TEMPLATE_STORAGE_WORKFLOW_DOC = (
     ROOT / "docs" / "v0.3.0-template-storage-revision-workflows.md"
 )
+PACKET_DEFINITION_CONTRACT_DOC = (
+    ROOT / "docs" / "v0.3.0-packet-definition-contract.md"
+)
+REQUIRED_PACKET_DEFINITION_CONTRACT_PHRASES = (
+    "PacketDefinition",
+    "PacketVersion",
+    "PacketComponent",
+    "PacketAudienceIntent",
+    "PacketCondition",
+    "PacketRenderingRules",
+    "copies_per_target",
+    "ModuleRecordRef",
+    "concord_template",
+    "external_component",
+    "ROLE_KEYS",
+    "PacketDefinition != PacketVersion",
+    "PacketVersion != PacketInstance",
+    "grouping-signal",
+    "#60",
+    "#62",
+    "#64",
+)
 REQUIRED_TEMPLATE_STORAGE_WORKFLOW_PHRASES = (
     "concord_template_library_storage_v1",
     "shared/concord/templates/",
@@ -497,6 +519,25 @@ def check_documentation() -> None:
                 "Documentation index does not link the Template storage/revision "
                 "workflow document."
             )
+    if not PACKET_DEFINITION_CONTRACT_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Packet Definition contract document is missing."
+        )
+    else:
+        packet_contract_doc = PACKET_DEFINITION_CONTRACT_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_PACKET_DEFINITION_CONTRACT_PHRASES:
+            if phrase not in packet_contract_doc:
+                failures.append(
+                    "Packet Definition contract document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if PACKET_DEFINITION_CONTRACT_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Packet Definition "
+                "contract document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -533,6 +574,7 @@ def check_documentation() -> None:
         "#48-#55 foundations",
         "#48-#56 foundations",
         "#48-#57 foundations",
+        "#48-#58 foundations",
         "canonical plan application remains reserved for #56",
         "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",

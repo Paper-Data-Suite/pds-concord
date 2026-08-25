@@ -32,6 +32,17 @@ ACTIVITY_TYPES = frozenset({"socratic_seminar", "laboratory", "project"})
 SCORING_ORIENTATIONS = frozenset(
     {"evidence_only", "standards_based", "mixed", "local_criteria_only"}
 )
+ROLE_KEYS = frozenset(
+    {
+        "facilitator",
+        "recorder",
+        "observer",
+        "speaker",
+        "researcher",
+        "builder",
+        "presenter",
+    }
+)
 
 ASSIGNMENT_STATUSES = frozenset(
     {
@@ -292,17 +303,7 @@ class RoleAssignment:
         controlled_key(
             self.role_key,
             "role_key",
-            frozenset(
-                {
-                    "facilitator",
-                    "recorder",
-                    "observer",
-                    "speaker",
-                    "researcher",
-                    "builder",
-                    "presenter",
-                }
-            ),
+            ROLE_KEYS,
         )
         optional_text(self.role_label_snapshot, "role_label_snapshot")
         controlled(self.status, "status", ASSIGNMENT_STATUSES)
