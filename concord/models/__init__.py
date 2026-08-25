@@ -34,6 +34,14 @@ from concord.models.common import (
 )
 from concord.models.corrections import CorrectionRecord
 from concord.models.group_planning import GroupPlan, PlannedGroup
+from concord.models.packets import (
+    PacketAudienceIntent,
+    PacketComponent,
+    PacketCondition,
+    PacketDefinition,
+    PacketRenderingRules,
+    PacketVersion,
+)
 from concord.models.review import ArtifactReview, ModerationRecord
 from concord.models.scoring import (
     Criterion,
@@ -79,6 +87,12 @@ __all__ = [
     "GroupPlan",
     "ModerationRecord",
     "ParticipantReference",
+    "PacketAudienceIntent",
+    "PacketComponent",
+    "PacketCondition",
+    "PacketDefinition",
+    "PacketRenderingRules",
+    "PacketVersion",
     "PlannedGroup",
     "PrivacyPolicy",
     "Provenance",

@@ -44,6 +44,10 @@ identity-free defaults/compatibility, and exact rendering-specification digest
 binding. Issue #58 now implements canonical workspace-level Template persistence,
 strict revision/snapshot history, rendering-specification storage, head/current
 selection, successor/activation/retirement workflows, and direct/menu management.
+Issue #59 now defines the public immutable reusable Packet Definition/Version
+contract with exact Template Version composition, source-owned external references,
+deterministic ordering/copy semantics, identity-free audience/role intent, bounded
+conditions, and typed packet-level rendering rules.
 
 The repository now contains:
 
@@ -89,6 +93,11 @@ The repository now contains:
   immutable record revisions, digest-linked snapshots, exact rendering bytes,
   explicit head/current Version state, guarded successor/activation/retirement
   workflows, and shared direct CLI/teacher-menu services;
+* public immutable reusable Packet Definition/Version/Component contracts with
+  exact Template identities, typed source-owned external references, contiguous
+  ordering, positive copies-per-target, identity-free audience/role intent,
+  bounded non-executable conditions, deterministic rendering rules, and no
+  Activity-native persistence;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -255,15 +264,27 @@ head/current Version distinction, exact expected-snapshot concurrency,
 workspace-level Template Library menu, retirement semantics, and #59/#62
 handoffs.
 
+### 35. v0.3.0 reusable Packet Definition contract
+
+[`v0.3.0-packet-definition-contract.md`](v0.3.0-packet-definition-contract.md)
+
+Documents issue #59's stable Packet lineage, immutable Packet Versions, ordered
+Packet Components, exact Template Definition/Version references, producer-owned
+external `ModuleRecordRef` components, positive copies-per-target,
+identity-free audience/role intent, bounded conditional semantics, typed
+deterministic rendering rules, existing Artifact compatibility, GroupPlan/signal
+privacy exclusion, and the deliberate #60 storage / #62 generation handoffs.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#58 foundations. Issue #57 defines the reusable Template contract and #58 now
-implements its canonical storage/management layer. Packet workflows, starter
-libraries, Activity-specific instantiation/copying, reusable presets, guided
-Activity setup, and final integrated teacher UI behavior remain later work.
+#48-#59 foundations. Issue #57 defines the reusable Template contract, #58
+implements its canonical storage/management layer, and #59 defines the reusable
+Packet contract. Packet storage/management, starter libraries, Activity-specific
+instantiation/copying, reusable presets, guided Activity setup, and final
+integrated teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

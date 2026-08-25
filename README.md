@@ -28,9 +28,14 @@ compatibility, and exact rendering-source SHA-256 binding. Issue #58 now adds th
 workspace-level reusable Template library under `shared/concord/templates/`,
 strict immutable history, exact rendering-byte storage, head/current Version
 selection, successor/activation/retirement workflows, a direct `concord template`
-CLI family, and a workspace-level teacher Template Library. The same typed service
-layer supports both fully noninteractive direct commands and the
-low-information-density menu.
+CLI family, and a workspace-level teacher Template Library. Issue #59 now also
+defines public immutable reusable Packet Definition/Version contracts with
+deterministic ordered components, exact Template Version references, source-owned
+external references, positive per-target copy counts, identity-free audience/role
+intent, bounded conditions, and typed packet-level rendering rules. Packet
+persistence/management remains #60 and Activity-specific generation remains #62.
+The same typed service layer supports both fully noninteractive direct commands and
+the low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -238,6 +243,10 @@ Issue #58's workspace-level authority, immutable Template history, rendering-byt
 integrity, head/current selection, authoring transport, direct CLI, and teacher
 menu are documented in the
 [Template storage and revision workflow guide](docs/v0.3.0-template-storage-revision-workflows.md).
+Issue #59's immutable Packet lineage/version/component contracts, exact Template
+references, copy/audience/role/condition semantics, external ownership, rendering
+rules, and #60/#62 handoffs are documented in the
+[Packet Definition contract](docs/v0.3.0-packet-definition-contract.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
