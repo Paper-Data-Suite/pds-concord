@@ -15,6 +15,7 @@ from concord.menu_navigation import (
     navigation_hint_with_help,
     parse_menu_navigation,
 )
+from concord.menu_packet import launch_packet_library_menu
 from concord.menu_scan import launch_scan_routing_menu
 from concord.menu_template import launch_template_library_menu
 from concord.menu_ui import (
@@ -47,6 +48,7 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
     print("3. Workspace Settings")
     print("4. Scan Routing")
     print("5. Template Library")
+    print("6. Packet Library")
     print_navigation(back=False, main_menu=False)
     print()
     choice = input("Select an option: ").strip()
@@ -74,6 +76,9 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
         return True
     if choice == "5":
         launch_template_library_menu(state)
+        return True
+    if choice == "6":
+        launch_packet_library_menu(state)
         return True
     print(
         navigation_hint_with_help(

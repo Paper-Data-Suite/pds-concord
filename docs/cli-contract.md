@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 reusable Template storage/management workflow in issue #58.
+Implemented through the v0.3.0 reusable Packet storage/management workflow in issue #60.
 
 ## Two interfaces, one service layer
 
@@ -105,6 +105,17 @@ concord template activate
 concord template update
 concord template retire-version
 concord template retire
+
+concord packet list
+concord packet show
+concord packet version-list
+concord packet version-show
+concord packet create
+concord packet revise
+concord packet activate
+concord packet update
+concord packet retire-version
+concord packet retire
 
 concord criterion-set create
 concord criterion-set list
@@ -229,6 +240,18 @@ no force/latest/skip-preview mode. Authoring uses
 `concord_template_authoring_v1`; authoritative provenance, sequence,
 predecessor, rendering digest, lifecycle, and storage snapshot state are derived
 by Concord.
+
+`packet` is also a workspace-level reusable family and never requires class or
+Activity identity. `list`, `show`, `version-list`, and `version-show` are
+read-only and do not initialize an absent workspace. Initial `create` requires
+explicit Packet Definition/Version IDs, `--authoring-file`, and actor provenance;
+`--activate` is explicit. `revise`, `activate`, `update`, `retire-version`, and
+`retire` require `--expected-snapshot`, whose value is the exact current
+**Packet-library** snapshot, not an Activity or Template snapshot. Authoring uses
+`concord_packet_authoring_v1`; exact Template components pin both `template_id`
+and `template_version_id`, while external components retain source-owned
+`ModuleRecordRef` values without requiring sibling modules to be installed.
+There is no force/latest/current-Template substitution mode.
 
 ## Exit codes
 
@@ -356,6 +379,7 @@ Concord
 3. Workspace Settings
 4. Scan Routing
 5. Template Library
+6. Packet Library
 H. Help
 Q. Quit
 ```
@@ -374,6 +398,12 @@ listing, creation, Version history, successor creation, activation, metadata
 update, Version retirement, and whole-Template retirement. Template writes use
 the same prepare/commit workflow services as the direct CLI and require
 `CREATE`, `REVISE`, `ACTIVATE`, `UPDATE`, or `RETIRE` confirmation.
+
+The workspace-level Packet Library likewise requires no Activity selection and
+exposes listing, creation, Version history, successor creation, activation,
+metadata update, Version retirement, and whole-Packet retirement. Packet
+previews show bounded ordered component/reference intent and use the same
+`CREATE`, `REVISE`, `ACTIVATE`, `UPDATE`, or `RETIRE` confirmations.
 
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
@@ -411,7 +441,8 @@ Group identity.
 
 Activity-context menus load the current Activity snapshot before collecting a
 write. The Template Library analogously prepares against the exact current
-reusable Template snapshot. Final commits use those exact revisions. On conflict,
+reusable Template snapshot, and the Packet Library prepares against the exact
+current reusable Packet snapshot. Final commits use those exact revisions. On conflict,
 Concord does not retry against a newer revision or force-overwrite it.
 
 An exact semantic no-op is success and does not advance the snapshot. Canonical
@@ -421,6 +452,8 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 This contract includes returned Artifact assembly, Author/Subject management,
 Artifact Review, evidence Moderation, Criterion Set and Scoring Scale management,
-explicit Score entry/revision, and explicit Academic Result Publication. It does
-not add the issue #32 consumer-neutral reader, Meridian grading policy, Grade or
-proficiency calculation, or destructive collaboration-record deletion.
+explicit Score entry/revision, explicit Academic Result Publication, and
+reusable Packet storage/management. It does not add Activity-specific Packet
+Instances or generation (#62), the issue #32 consumer-neutral reader, Meridian
+grading policy, Grade or proficiency calculation, or destructive
+collaboration-record deletion.

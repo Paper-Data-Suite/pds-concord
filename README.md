@@ -32,10 +32,14 @@ CLI family, and a workspace-level teacher Template Library. Issue #59 now also
 defines public immutable reusable Packet Definition/Version contracts with
 deterministic ordered components, exact Template Version references, source-owned
 external references, positive per-target copy counts, identity-free audience/role
-intent, bounded conditions, and typed packet-level rendering rules. Packet
-persistence/management remains #60 and Activity-specific generation remains #62.
-The same typed service layer supports both fully noninteractive direct commands and
-the low-information-density menu.
+intent, bounded conditions, and typed packet-level rendering rules. Issue #60 now
+adds canonical workspace-level Packet persistence under `shared/concord/packets/`,
+strict immutable revision/snapshot history, exact Template dependency validation,
+head/current selection, successor/activation/retirement workflows, a direct
+`concord packet` CLI family, and a workspace-level teacher Packet Library.
+Activity-specific Packet generation remains #62. The same typed service layer
+supports both fully noninteractive direct commands and the low-information-density
+menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -95,8 +99,9 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, the workspace-level Template Library,
-contextual Group planning versus operational Group/Membership management,
+Settings, global Scan Routing, the workspace-level Template Library and
+Packet Library, contextual Group planning versus operational Group/Membership
+management,
 Artifact Pages with assembly, Author/Subject,
 Review, Moderation, Scoring, and explicit Publication workflows, Help, and Quit.
 Controlled teacher screens use:
@@ -140,6 +145,8 @@ concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
 concord template list|show|version-list|version-show
 concord template create|revise|activate|update|retire-version|retire
+concord packet list|show|version-list|version-show
+concord packet create|revise|activate|update|retire-version|retire
 concord criterion-set create|list|show|revise|select
 concord scale create|list|show|revise
 concord score add|list|show|replace
@@ -162,7 +169,9 @@ Mutating direct commands require explicit actor context. Every write after the
 initial Activity-plus-first-Session creation also requires the exact current
 snapshot revision. Template mutations after initial Template creation likewise
 require `--expected-snapshot`, but that value is the exact reusable Template
-library snapshot rather than an Activity snapshot. `group member add` accepts
+library snapshot rather than an Activity snapshot. Packet mutations after
+initial Packet creation use the same flag for the exact reusable Packet-library
+snapshot; Packet commands require neither class nor Activity identity. `group member add` accepts
 repeated `--student-id` values and
 commits the selected Memberships atomically.
 
@@ -247,6 +256,10 @@ Issue #59's immutable Packet lineage/version/component contracts, exact Template
 references, copy/audience/role/condition semantics, external ownership, rendering
 rules, and #60/#62 handoffs are documented in the
 [Packet Definition contract](docs/v0.3.0-packet-definition-contract.md).
+Issue #60's workspace-level Packet authority, immutable history, exact Template
+dependency eligibility, authoring transport, direct CLI, teacher menu, and #62
+handoff are documented in the
+[Packet storage and revision workflow guide](docs/v0.3.0-packet-storage-revision-workflows.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
