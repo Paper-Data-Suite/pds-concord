@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 reusable Packet storage/management workflow in issue #60.
+Implemented through the v0.3.0 starter collaborative-learning Template library in issue #61.
 
 ## Two interfaces, one service layer
 
@@ -105,6 +105,10 @@ concord template activate
 concord template update
 concord template retire-version
 concord template retire
+concord template starter-list
+concord template starter-show
+concord template starter-install
+concord template starter-install-all
 
 concord packet list
 concord packet show
@@ -240,6 +244,18 @@ no force/latest/skip-preview mode. Authoring uses
 `concord_template_authoring_v1`; authoritative provenance, sequence,
 predecessor, rendering digest, lifecycle, and storage snapshot state are derived
 by Concord.
+
+The packaged starter Template catalog is a read-only package resource until an
+explicit install command runs. `starter-list` and `starter-show` never initialize
+an absent workspace. `starter-install` requires `--starter-key` plus actor
+provenance and creates the exact packaged initial Version as active/current
+through the #58 Template storage authority. `starter-install-all` preflights all
+30 stable identities, fails before writes on incompatible collisions, and then
+installs only missing starters in deterministic order. Exact existing installs
+are idempotent no-ops; teacher metadata revisions, successor Versions, and
+retirement are never reset. A later failure after earlier successful independent
+Template creates is exit code 4 partial success and is safe to reconcile by
+rerunning install-all.
 
 `packet` is also a workspace-level reusable family and never requires class or
 Activity identity. `list`, `show`, `version-list`, and `version-show` are

@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- A deterministic package-owned library of 30 synthetic collaborative-learning
+  starter Templates spanning discussion, reading, synthesis, teamwork, projects,
+  peer feedback, science/STEM, problem solving, and reflection.
+- Strict non-executable `concord_starter_layout_v1` JSON rendering specifications
+  with stable starter/Template/Version identities, exact packaged SHA-256
+  binding, shared copier-safe paper conventions, semantic response regions, and
+  identity-free privacy/authorship/Subject defaults.
+- Read-only starter browsing plus explicit/idempotent install-one/install-all
+  workflows through canonical #58 Template storage, with collision detection,
+  teacher-state preservation, bounded multi-Template partial-success reporting,
+  direct `concord template starter-*` commands, and a teacher Template Library
+  `INSTALL` flow.
+- Wheel/package qualification now proves the complete 30-asset starter catalog is
+  shipped and loadable from an isolated installed Concord distribution.
+
 - Canonical workspace-level reusable Packet storage under
   `shared/concord/packets/` using `concord_packet_library_storage_v1`, with
   strict typed/canonical JSON, immutable Definition/Version record revisions,

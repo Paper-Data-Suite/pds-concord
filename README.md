@@ -37,6 +37,14 @@ adds canonical workspace-level Packet persistence under `shared/concord/packets/
 strict immutable revision/snapshot history, exact Template dependency validation,
 head/current selection, successor/activation/retirement workflows, a direct
 `concord packet` CLI family, and a workspace-level teacher Packet Library.
+Issue #61 now ships a 30-form synthetic collaborative-learning starter Template
+catalog using the bounded non-executable `concord_starter_layout_v1` format.
+Teachers can browse the packaged catalog read-only, explicitly install one or all
+missing starters through the canonical #58 Template authority, and then revise
+installed starters through ordinary immutable Template successor workflows.
+Stable starter identities, exact packaged rendering digests, idempotent install,
+explicit collision handling, and package/wheel qualification prevent hidden
+workspace mutation or package-owned overwrite of teacher state.
 Activity-specific Packet generation remains #62. The same typed service layer
 supports both fully noninteractive direct commands and the low-information-density
 menu.
@@ -145,6 +153,8 @@ concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
 concord template list|show|version-list|version-show
 concord template create|revise|activate|update|retire-version|retire
+concord template starter-list|starter-show
+concord template starter-install|starter-install-all
 concord packet list|show|version-list|version-show
 concord packet create|revise|activate|update|retire-version|retire
 concord criterion-set create|list|show|revise|select
@@ -260,6 +270,11 @@ Issue #60's workspace-level Packet authority, immutable history, exact Template
 dependency eligibility, authoring transport, direct CLI, teacher menu, and #62
 handoff are documented in the
 [Packet storage and revision workflow guide](docs/v0.3.0-packet-storage-revision-workflows.md).
+Issue #61's 30-form package-owned starter catalog, bounded
+`concord_starter_layout_v1` rendering specifications, explicit/idempotent install,
+privacy defaults, direct CLI, teacher menu, package qualification, and #62/#64
+boundaries are documented in the
+[starter collaborative-learning Template library guide](docs/v0.3.0-starter-template-library.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

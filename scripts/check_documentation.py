@@ -63,6 +63,29 @@ PACKET_DEFINITION_CONTRACT_DOC = (
 PACKET_STORAGE_WORKFLOW_DOC = (
     ROOT / "docs" / "v0.3.0-packet-storage-revision-workflows.md"
 )
+STARTER_TEMPLATE_LIBRARY_DOC = (
+    ROOT / "docs" / "v0.3.0-starter-template-library.md"
+)
+REQUIRED_STARTER_TEMPLATE_LIBRARY_PHRASES = (
+    "30",
+    "concord_starter_layout_v1",
+    "concord template starter-list",
+    "concord template starter-show",
+    "concord template starter-install",
+    "concord template starter-install-all",
+    "StarterTemplateInstallAllPartialSuccessError",
+    "shared/concord/templates/",
+    "already_installed",
+    "teacher_restricted",
+    "Think–Pair–Share Quick Sheet",
+    "Structured Academic Controversy",
+    "Collaborative Annotation / Silent Conversation",
+    "Peer Design / Code Review",
+    "Claim–Evidence–Reasoning Scientific Argument",
+    "Team Health / Contribution Check",
+    "#62",
+    "#64",
+)
 REQUIRED_PACKET_STORAGE_WORKFLOW_PHRASES = (
     "concord_packet_library_storage_v1",
     "shared/concord/packets/",
@@ -578,6 +601,23 @@ def check_documentation() -> None:
                 "Documentation index does not link the Packet storage/revision "
                 "workflow document."
             )
+    if not STARTER_TEMPLATE_LIBRARY_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 starter Template library document is missing."
+        )
+    else:
+        starter_doc = STARTER_TEMPLATE_LIBRARY_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_STARTER_TEMPLATE_LIBRARY_PHRASES:
+            if phrase not in starter_doc:
+                failures.append(
+                    "Starter Template library document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if STARTER_TEMPLATE_LIBRARY_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the starter Template "
+                "library document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -609,6 +649,11 @@ def check_documentation() -> None:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose the Packet CLI."
             )
+        if "concord template starter-list" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose the "
+                "starter Template CLI."
+            )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
@@ -620,6 +665,7 @@ def check_documentation() -> None:
         "#48-#57 foundations",
         "#48-#58 foundations",
         "#48-#59 foundations",
+        "#48-#60 foundations",
         "canonical plan application remains reserved for #56",
         "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",

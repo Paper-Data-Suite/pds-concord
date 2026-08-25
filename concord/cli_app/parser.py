@@ -19,6 +19,7 @@ from concord.cli_app.handlers import (
     scan,
     scoring,
     session,
+    starter_template,
     template,
     workspace,
 )
@@ -251,6 +252,42 @@ def _template_commands(
     actions = parent.add_subparsers(
         dest="template_command",
         required=True,
+    )
+
+    starter_list = actions.add_parser(
+        "starter-list",
+        help="List packaged collaborative-learning starter Templates.",
+    )
+    _workspace_option(starter_list)
+    starter_list.set_defaults(handler=starter_template.handle_starter_list)
+
+    starter_show = actions.add_parser(
+        "starter-show",
+        help="Show one packaged starter Template.",
+    )
+    _workspace_option(starter_show)
+    starter_show.add_argument("--starter-key", required=True)
+    starter_show.set_defaults(handler=starter_template.handle_starter_show)
+
+    starter_install = actions.add_parser(
+        "starter-install",
+        help="Install one packaged starter through canonical Template storage.",
+    )
+    _workspace_option(starter_install)
+    _actor_options(starter_install)
+    starter_install.add_argument("--starter-key", required=True)
+    starter_install.set_defaults(
+        handler=starter_template.handle_starter_install
+    )
+
+    starter_install_all = actions.add_parser(
+        "starter-install-all",
+        help="Install all missing packaged starter Templates.",
+    )
+    _workspace_option(starter_install_all)
+    _actor_options(starter_install_all)
+    starter_install_all.set_defaults(
+        handler=starter_template.handle_starter_install_all
     )
 
     list_command = actions.add_parser(

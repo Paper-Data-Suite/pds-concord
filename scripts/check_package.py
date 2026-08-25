@@ -31,6 +31,38 @@ FORBIDDEN_RUNTIME_DEPENDENCIES = {
     "pds-meridian",
     "pds-vitrine",
 }
+STARTER_ASSET_NAMES = (
+    "claim_evidence_reasoning.json",
+    "collaborative_annotation.json",
+    "collaborative_problem_solving.json",
+    "collaborative_work_reflection.json",
+    "comparison_matrix.json",
+    "concept_map.json",
+    "decision_matrix.json",
+    "discussion_map.json",
+    "fishbowl_observer.json",
+    "four_corners.json",
+    "gallery_walk.json",
+    "group_kwl.json",
+    "group_roles.json",
+    "jigsaw_expert.json",
+    "lab_investigation.json",
+    "peer_design_code_review.json",
+    "peer_review_presentation.json",
+    "peer_review_writing.json",
+    "project_check_in.json",
+    "project_plan.json",
+    "reciprocal_reading.json",
+    "save_last_word.json",
+    "see_think_wonder.json",
+    "socratic_seminar.json",
+    "structured_academic_controversy.json",
+    "talk_moves_observer.json",
+    "team_contract.json",
+    "team_health_check.json",
+    "think_pair_share.json",
+    "venn_comparison.json",
+)
 
 
 class PackageValidationError(ValueError):
@@ -113,9 +145,28 @@ def validate_wheel(path: str | Path) -> None:
         "concord/artifact_rendering.py",
         "concord/cli.py",
         "concord/py.typed",
+        "concord/starter_templates/__init__.py",
+        "concord/starter_templates/catalog.py",
+        "concord/starter_templates/layout.py",
     }
     if not required.issubset(names):
         raise PackageValidationError("Wheel is missing intended Concord package files.")
+    starter_prefix = "concord/starter_templates/assets/"
+    expected_starter_assets = {
+        starter_prefix + name for name in STARTER_ASSET_NAMES
+    }
+    actual_starter_assets = {
+        name
+        for name in names
+        if name.startswith(starter_prefix) and name.endswith(".json")
+    }
+    if actual_starter_assets != expected_starter_assets:
+        missing = sorted(expected_starter_assets - actual_starter_assets)
+        extra = sorted(actual_starter_assets - expected_starter_assets)
+        raise PackageValidationError(
+            "Wheel starter Template assets do not match the required 30-file "
+            f"catalog; missing={missing}, extra={extra}."
+        )
     if not any(name.endswith(".dist-info/licenses/LICENSE") for name in names):
         raise PackageValidationError("Wheel does not include the MIT license file.")
     for name in names:
