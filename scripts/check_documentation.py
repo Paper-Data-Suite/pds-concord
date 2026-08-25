@@ -60,6 +60,27 @@ TEMPLATE_STORAGE_WORKFLOW_DOC = (
 PACKET_DEFINITION_CONTRACT_DOC = (
     ROOT / "docs" / "v0.3.0-packet-definition-contract.md"
 )
+PACKET_STORAGE_WORKFLOW_DOC = (
+    ROOT / "docs" / "v0.3.0-packet-storage-revision-workflows.md"
+)
+REQUIRED_PACKET_STORAGE_WORKFLOW_PHRASES = (
+    "concord_packet_library_storage_v1",
+    "shared/concord/packets/",
+    "concord_packet_authoring_v1",
+    "create_packet_library",
+    "create_successor_packet_version",
+    "activate_packet_version",
+    "current_packet_version_id",
+    "head_packet_version_id",
+    "expected_snapshot_revision",
+    "PacketVersion.revision_sequence",
+    "record_revision",
+    "PacketStoragePartialSuccessError",
+    "concord packet create",
+    "Packet Library",
+    "ModuleRecordRef",
+    "#62",
+)
 REQUIRED_PACKET_DEFINITION_CONTRACT_PHRASES = (
     "PacketDefinition",
     "PacketVersion",
@@ -538,6 +559,25 @@ def check_documentation() -> None:
                 "Documentation index does not link the Packet Definition "
                 "contract document."
             )
+    if not PACKET_STORAGE_WORKFLOW_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Packet storage/revision workflow document is missing."
+        )
+    else:
+        packet_storage_doc = PACKET_STORAGE_WORKFLOW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_PACKET_STORAGE_WORKFLOW_PHRASES:
+            if phrase not in packet_storage_doc:
+                failures.append(
+                    "Packet storage/revision document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if PACKET_STORAGE_WORKFLOW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Packet storage/revision "
+                "workflow document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -565,6 +605,10 @@ def check_documentation() -> None:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose the Template CLI."
             )
+        if "concord packet create" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose the Packet CLI."
+            )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",
@@ -575,6 +619,7 @@ def check_documentation() -> None:
         "#48-#56 foundations",
         "#48-#57 foundations",
         "#48-#58 foundations",
+        "#48-#59 foundations",
         "canonical plan application remains reserved for #56",
         "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",

@@ -47,7 +47,10 @@ selection, successor/activation/retirement workflows, and direct/menu management
 Issue #59 now defines the public immutable reusable Packet Definition/Version
 contract with exact Template Version composition, source-owned external references,
 deterministic ordering/copy semantics, identity-free audience/role intent, bounded
-conditions, and typed packet-level rendering rules.
+conditions, and typed packet-level rendering rules. Issue #60 now implements
+canonical workspace-level Packet persistence, strict immutable revision/snapshot
+history, exact Template dependency validation, head/current selection,
+successor/activation/retirement workflows, and direct/menu Packet management.
 
 The repository now contains:
 
@@ -98,6 +101,11 @@ The repository now contains:
   ordering, positive copies-per-target, identity-free audience/role intent,
   bounded non-executable conditions, deterministic rendering rules, and no
   Activity-native persistence;
+* canonical reusable Packet storage under `shared/concord/packets/` with strict
+  typed serialization, immutable record revisions, digest-linked snapshots,
+  explicit head/current Version state, exact Template dependency eligibility,
+  guarded successor/activation/retirement workflows, and shared direct
+  CLI/teacher-menu services;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -275,16 +283,28 @@ identity-free audience/role intent, bounded conditional semantics, typed
 deterministic rendering rules, existing Artifact compatibility, GroupPlan/signal
 privacy exclusion, and the deliberate #60 storage / #62 generation handoffs.
 
+### 36. v0.3.0 Packet storage and revision workflows
+
+[`v0.3.0-packet-storage-revision-workflows.md`](v0.3.0-packet-storage-revision-workflows.md)
+
+Documents issue #60's `shared/concord/packets/` authority,
+`concord_packet_library_storage_v1`, strict Packet serialization, immutable
+record/snapshot history, exact head/current Version state, Template dependency
+eligibility, `concord_packet_authoring_v1`, exact expected-snapshot concurrency,
+direct `concord packet ...` commands, workspace-level Packet Library menu,
+retirement semantics, structural-only external `ModuleRecordRef` handling, and
+the #62 generation handoff.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#59 foundations. Issue #57 defines the reusable Template contract, #58
-implements its canonical storage/management layer, and #59 defines the reusable
-Packet contract. Packet storage/management, starter libraries, Activity-specific
-instantiation/copying, reusable presets, guided Activity setup, and final
-integrated teacher UI behavior remain later work.
+#48-#60 foundations. Issue #57 defines the reusable Template contract, #58
+implements its canonical storage/management layer, #59 defines the reusable
+Packet contract, and #60 implements Packet storage/management. Starter
+libraries, Activity-specific instantiation/copying, reusable presets, guided
+Activity setup, and final integrated teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

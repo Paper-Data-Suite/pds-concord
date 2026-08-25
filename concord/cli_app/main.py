@@ -39,6 +39,7 @@ from concord.academic_work_registration import (
     ConcordAcademicWorkRegistrationError,
 )
 from concord.cli_app.parser import build_parser
+from concord.packet_storage import PacketStoragePartialSuccessError
 from concord.routing.rendering import RenderPartialSuccessError
 from concord.routing.review import RoutingResolutionPartialSuccessError
 from concord.storage_errors import (
@@ -149,6 +150,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("Routing-resolution metadata persisted: no", file=sys.stderr)
         print(f"Failure: {result.failure_id}", file=sys.stderr)
         print(f"Selected route: {result.selected_route.route_id}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except PacketStoragePartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(
+            "Current pointer published: "
+            f"{'yes' if error.pointer_published else 'no'}",
+            file=sys.stderr,
+        )
+        if error.snapshot_revision is not None:
+            print(
+                f"Snapshot revision: {error.snapshot_revision}",
+                file=sys.stderr,
+            )
+        if error.snapshot_sha256 is not None:
+            print(
+                f"Snapshot SHA-256: {error.snapshot_sha256}",
+                file=sys.stderr,
+            )
         return EXIT_PARTIAL_SUCCESS
     except TemplateStoragePartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)

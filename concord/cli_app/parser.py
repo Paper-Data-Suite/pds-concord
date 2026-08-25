@@ -11,6 +11,7 @@ from concord.cli_app.handlers import (
     group,
     group_plan,
     grouping_signal,
+    packet,
     publication,
     responsibility,
     review_moderation,
@@ -110,6 +111,134 @@ def _template_mutating_options(parser: argparse.ArgumentParser) -> None:
     _workspace_option(parser)
     _template_expected_option(parser)
     _actor_options(parser)
+
+
+def _packet_expected_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--expected-snapshot",
+        type=int,
+        required=True,
+        help="Exact current reusable Packet snapshot revision.",
+    )
+
+
+def _packet_mutating_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _packet_expected_option(parser)
+    _actor_options(parser)
+
+
+def _packet_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "packet",
+        help="Manage reusable immutable Packet Definitions and Versions.",
+    )
+    actions = parent.add_subparsers(
+        dest="packet_command",
+        required=True,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List reusable Packets.",
+    )
+    _workspace_option(list_command)
+    list_command.set_defaults(handler=packet.handle_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one reusable Packet.",
+    )
+    _workspace_option(show)
+    show.add_argument("--packet-definition-id", required=True)
+    show.set_defaults(handler=packet.handle_show)
+
+    version_list = actions.add_parser(
+        "version-list",
+        help="List exact Versions in one Packet lineage.",
+    )
+    _workspace_option(version_list)
+    version_list.add_argument("--packet-definition-id", required=True)
+    version_list.set_defaults(handler=packet.handle_version_list)
+
+    version_show = actions.add_parser(
+        "version-show",
+        help="Show one exact reusable Packet Version.",
+    )
+    _workspace_option(version_show)
+    version_show.add_argument("--packet-definition-id", required=True)
+    version_show.add_argument("--packet-version-id", required=True)
+    version_show.set_defaults(handler=packet.handle_version_show)
+
+    create = actions.add_parser(
+        "create",
+        help="Create an initial reusable Packet and Version.",
+    )
+    _workspace_option(create)
+    _actor_options(create)
+    create.add_argument("--packet-definition-id", required=True)
+    create.add_argument("--packet-version-id", required=True)
+    create.add_argument("--authoring-file", required=True)
+    create.add_argument(
+        "--activate",
+        action="store_true",
+        help="Create the initial Packet Version as active/current.",
+    )
+    create.set_defaults(handler=packet.handle_create)
+
+    revise = actions.add_parser(
+        "revise",
+        help="Create a fresh draft successor Packet Version.",
+    )
+    _packet_mutating_options(revise)
+    revise.add_argument("--packet-definition-id", required=True)
+    revise.add_argument("--packet-version-id", required=True)
+    revise.add_argument("--authoring-file", required=True)
+    revise.set_defaults(handler=packet.handle_revise)
+
+    activate = actions.add_parser(
+        "activate",
+        help="Activate the exact draft Packet lineage head.",
+    )
+    _packet_mutating_options(activate)
+    activate.add_argument("--packet-definition-id", required=True)
+    activate.add_argument("--packet-version-id", required=True)
+    activate.set_defaults(handler=packet.handle_activate)
+
+    update = actions.add_parser(
+        "update",
+        help="Revise reusable Packet name, purpose, or description.",
+    )
+    _packet_mutating_options(update)
+    update.add_argument("--packet-definition-id", required=True)
+    update.add_argument("--name")
+    update.add_argument("--purpose")
+    description = update.add_mutually_exclusive_group()
+    description.add_argument("--description")
+    description.add_argument(
+        "--clear-description",
+        action="store_true",
+    )
+    update.set_defaults(handler=packet.handle_update)
+
+    retire_version = actions.add_parser(
+        "retire-version",
+        help="Retire one non-current draft Packet Version.",
+    )
+    _packet_mutating_options(retire_version)
+    retire_version.add_argument("--packet-definition-id", required=True)
+    retire_version.add_argument("--packet-version-id", required=True)
+    retire_version.set_defaults(handler=packet.handle_retire_version)
+
+    retire = actions.add_parser(
+        "retire",
+        help="Retire the whole Packet non-destructively.",
+    )
+    _packet_mutating_options(retire)
+    retire.add_argument("--packet-definition-id", required=True)
+    retire.set_defaults(handler=packet.handle_retire)
 
 
 def _template_commands(
@@ -1954,6 +2083,7 @@ def build_parser() -> argparse.ArgumentParser:
     _grouping_signal_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
+    _packet_commands(subparsers)
     _template_commands(subparsers)
     _criterion_set_commands(subparsers)
     _scale_commands(subparsers)

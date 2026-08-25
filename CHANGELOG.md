@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Canonical workspace-level reusable Packet storage under
+  `shared/concord/packets/` using `concord_packet_library_storage_v1`, with
+  strict typed/canonical JSON, immutable Definition/Version record revisions,
+  digest-linked snapshots, guarded current pointers, explicit head/current
+  Version state, and fail-closed path/history validation.
+- Explicit Packet successor, activation, metadata-update, Version-retirement,
+  and whole-Packet-retirement workflows with exact Template dependency
+  eligibility/revalidation, exact expected-Packet-snapshot concurrency,
+  per-Packet locking, no-op suppression, and bounded partial-success reporting.
+- Strict `concord_packet_authoring_v1` prepare/commit input with exact source
+  fingerprint revalidation, plus the noninteractive `concord packet ...`
+  command family and workspace-level teacher Packet Library over the same public
+  workflow services. External `ModuleRecordRef` components remain
+  structural/source-owned and require no sibling runtime dependency.
+
 - Public immutable reusable `PacketDefinition` / `PacketVersion` contracts with
   deterministic ordered `PacketComponent` composition, exact Template
   Definition/Version identity pairs, source-owned Core `ModuleRecordRef`
