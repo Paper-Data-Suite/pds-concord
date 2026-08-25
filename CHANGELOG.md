@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Canonical workspace-level reusable Template storage under
+  `shared/concord/templates/` using `concord_template_library_storage_v1`, with
+  strict typed/canonical JSON, immutable Definition/Version record revisions,
+  digest-linked snapshots, guarded current pointers, exact rendering-
+  specification bytes, and fail-closed path/history validation.
+- Explicit Template successor, activation, metadata-update, Version-retirement,
+  and whole-Template-retirement workflows with independent head/current Version
+  state, exact expected-Template-snapshot concurrency, per-Template locking,
+  no-op suppression, and bounded partial-success reporting.
+- Strict `concord_template_authoring_v1` prepare/commit input with exact
+  authoring/rendering source fingerprint revalidation, plus the noninteractive
+  `concord template ...` command family and workspace-level teacher Template
+  Library over the same public workflow services.
+
 - Public immutable reusable `TemplateDefinition` / `TemplateVersion` contracts
   with typed page manifests, rendering-input declarations, response regions,
   identity-free privacy/authorship/Subject expectations and compatibility,

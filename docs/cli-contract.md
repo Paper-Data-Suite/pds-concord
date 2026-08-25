@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 approved GroupPlan application workflow in issue #56.
+Implemented through the v0.3.0 reusable Template storage/management workflow in issue #58.
 
 ## Two interfaces, one service layer
 
@@ -94,6 +94,17 @@ concord responsibility assign
 concord responsibility list
 concord responsibility end
 concord responsibility reassign
+
+concord template list
+concord template show
+concord template version-list
+concord template version-show
+concord template create
+concord template revise
+concord template activate
+concord template update
+concord template retire-version
+concord template retire
 
 concord criterion-set create
 concord criterion-set list
@@ -206,6 +217,18 @@ band counts plus exact missing/wrong-class/unknown IDs needed for correction.
 `import-csv` uses Core `grouping_signal_csv_v1` and does not require actor or
 Activity expected-snapshot arguments. A `dimension_projection` additionally
 requires explicit `--new-signal-set-id` and timezone-aware `--new-created-at`.
+
+`template` is a workspace-level reusable family and never requires class or
+Activity identity. `list`, `show`, `version-list`, and `version-show` are
+read-only and do not initialize an absent workspace. Initial `create` requires
+explicit Template/Version IDs, `--authoring-file`, `--rendering-spec`, and actor
+provenance; `--activate` is explicit. `revise`, `activate`, `update`,
+`retire-version`, and `retire` require `--expected-snapshot`, whose value is the
+exact current **Template-library** snapshot, not an Activity snapshot. There is
+no force/latest/skip-preview mode. Authoring uses
+`concord_template_authoring_v1`; authoritative provenance, sequence,
+predecessor, rendering digest, lifecycle, and storage snapshot state are derived
+by Concord.
 
 ## Exit codes
 
@@ -332,6 +355,7 @@ Concord
 2. Open an Activity
 3. Workspace Settings
 4. Scan Routing
+5. Template Library
 H. Help
 Q. Quit
 ```
@@ -343,7 +367,14 @@ Publication surface immediately after Scoring. Teacher writes require
 operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`,
 `UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
 `GENERATE`, `CONFIRM`, `DISTRIBUTE`, `LEAVE`, `APPLY`, `PUBLISH`,
-`WITHDRAW`, and `REBUILD`.
+`WITHDRAW`, `ACTIVATE`, `RETIRE`, and `REBUILD`.
+
+The workspace-level Template Library requires no Activity selection and exposes
+listing, creation, Version history, successor creation, activation, metadata
+update, Version retirement, and whole-Template retirement. Template writes use
+the same prepare/commit workflow services as the direct CLI and require
+`CREATE`, `REVISE`, `ACTIVATE`, `UPDATE`, or `RETIRE` confirmation.
+
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.
 
@@ -378,9 +409,10 @@ Group identity.
 
 ## Concurrency and no-op behavior
 
-Menus load the current Activity snapshot before collecting a write. The final
-commit uses that exact revision. On conflict, Concord does not retry against a
-newer revision or force-overwrite it; the teacher is told to reload.
+Activity-context menus load the current Activity snapshot before collecting a
+write. The Template Library analogously prepares against the exact current
+reusable Template snapshot. Final commits use those exact revisions. On conflict,
+Concord does not retry against a newer revision or force-overwrite it.
 
 An exact semantic no-op is success and does not advance the snapshot. Canonical
 commit success remains valid if disposable catalog rebuilding later fails.

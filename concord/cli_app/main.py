@@ -46,6 +46,7 @@ from concord.storage_errors import (
     ConcordStorageError,
     ConcordStoragePartialSuccessError,
 )
+from concord.template_storage import TemplateStoragePartialSuccessError
 from concord.workflows import ConcordWorkflowConflictError, ConcordWorkflowError
 from concord.workflows.artifact_page import ArtifactRoutePreparationPartialSuccessError
 
@@ -148,6 +149,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("Routing-resolution metadata persisted: no", file=sys.stderr)
         print(f"Failure: {result.failure_id}", file=sys.stderr)
         print(f"Selected route: {result.selected_route.route_id}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
+    except TemplateStoragePartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(
+            "Current pointer published: "
+            f"{'yes' if error.pointer_published else 'no'}",
+            file=sys.stderr,
+        )
+        if error.snapshot_revision is not None:
+            print(
+                f"Snapshot revision: {error.snapshot_revision}",
+                file=sys.stderr,
+            )
+        if error.snapshot_sha256 is not None:
+            print(
+                f"Snapshot SHA-256: {error.snapshot_sha256}",
+                file=sys.stderr,
+            )
         return EXIT_PARTIAL_SUCCESS
     except ConcordStoragePartialSuccessError as error:
         _print_partial_success(error)

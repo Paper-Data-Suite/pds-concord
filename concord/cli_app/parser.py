@@ -18,6 +18,7 @@ from concord.cli_app.handlers import (
     scan,
     scoring,
     session,
+    template,
     workspace,
 )
 
@@ -93,6 +94,137 @@ def _context_options(
 def _class_activity(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--class-id", required=True)
     parser.add_argument("--activity-id", required=True)
+
+
+
+def _template_expected_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--expected-snapshot",
+        type=int,
+        required=True,
+        help="Exact current reusable Template snapshot revision.",
+    )
+
+
+def _template_mutating_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _template_expected_option(parser)
+    _actor_options(parser)
+
+
+def _template_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "template",
+        help="Manage reusable immutable Template Definitions and Versions.",
+    )
+    actions = parent.add_subparsers(
+        dest="template_command",
+        required=True,
+    )
+
+    list_command = actions.add_parser(
+        "list",
+        help="List reusable Templates.",
+    )
+    _workspace_option(list_command)
+    list_command.set_defaults(handler=template.handle_list)
+
+    show = actions.add_parser(
+        "show",
+        help="Show one reusable Template.",
+    )
+    _workspace_option(show)
+    show.add_argument("--template-id", required=True)
+    show.set_defaults(handler=template.handle_show)
+
+    version_list = actions.add_parser(
+        "version-list",
+        help="List exact Versions in one Template lineage.",
+    )
+    _workspace_option(version_list)
+    version_list.add_argument("--template-id", required=True)
+    version_list.set_defaults(handler=template.handle_version_list)
+
+    version_show = actions.add_parser(
+        "version-show",
+        help="Show one exact reusable Template Version.",
+    )
+    _workspace_option(version_show)
+    version_show.add_argument("--template-id", required=True)
+    version_show.add_argument("--template-version-id", required=True)
+    version_show.set_defaults(handler=template.handle_version_show)
+
+    create = actions.add_parser(
+        "create",
+        help="Create an initial reusable Template and Version.",
+    )
+    _workspace_option(create)
+    _actor_options(create)
+    create.add_argument("--template-id", required=True)
+    create.add_argument("--template-version-id", required=True)
+    create.add_argument("--authoring-file", required=True)
+    create.add_argument("--rendering-spec", required=True)
+    create.add_argument(
+        "--activate",
+        action="store_true",
+        help="Create the initial Template Version as active/current.",
+    )
+    create.set_defaults(handler=template.handle_create)
+
+    revise = actions.add_parser(
+        "revise",
+        help="Create a fresh draft successor Template Version.",
+    )
+    _template_mutating_options(revise)
+    revise.add_argument("--template-id", required=True)
+    revise.add_argument("--template-version-id", required=True)
+    revise.add_argument("--authoring-file", required=True)
+    revise.add_argument("--rendering-spec", required=True)
+    revise.set_defaults(handler=template.handle_revise)
+
+    activate = actions.add_parser(
+        "activate",
+        help="Activate the exact draft lineage head.",
+    )
+    _template_mutating_options(activate)
+    activate.add_argument("--template-id", required=True)
+    activate.add_argument("--template-version-id", required=True)
+    activate.set_defaults(handler=template.handle_activate)
+
+    update = actions.add_parser(
+        "update",
+        help="Revise reusable Template name, purpose, or description.",
+    )
+    _template_mutating_options(update)
+    update.add_argument("--template-id", required=True)
+    update.add_argument("--name")
+    update.add_argument("--purpose")
+    description = update.add_mutually_exclusive_group()
+    description.add_argument("--description")
+    description.add_argument(
+        "--clear-description",
+        action="store_true",
+    )
+    update.set_defaults(handler=template.handle_update)
+
+    retire_version = actions.add_parser(
+        "retire-version",
+        help="Retire one non-current draft Template Version.",
+    )
+    _template_mutating_options(retire_version)
+    retire_version.add_argument("--template-id", required=True)
+    retire_version.add_argument("--template-version-id", required=True)
+    retire_version.set_defaults(handler=template.handle_retire_version)
+
+    retire = actions.add_parser(
+        "retire",
+        help="Retire the whole Template non-destructively.",
+    )
+    _template_mutating_options(retire)
+    retire.add_argument("--template-id", required=True)
+    retire.set_defaults(handler=template.handle_retire)
 
 
 def _activity_commands(
@@ -1822,6 +1954,7 @@ def build_parser() -> argparse.ArgumentParser:
     _grouping_signal_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
+    _template_commands(subparsers)
     _criterion_set_commands(subparsers)
     _scale_commands(subparsers)
     _score_commands(subparsers)

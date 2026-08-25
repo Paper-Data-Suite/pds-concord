@@ -24,10 +24,13 @@ application previews plus digest/snapshot-bound atomic application of approved
 plans to native Group/GroupMembership state. Issue #57 now also defines public
 immutable reusable Template Definition/Version contracts with typed page
 manifests, rendering inputs, response regions, identity-free defaults and
-compatibility, and exact rendering-source SHA-256 binding. Templates are not yet
-a persisted/manageable library; canonical storage and revision workflows remain
-#58. The same typed service layer supports a fully noninteractive direct CLI and
-a teacher-facing low-information-density menu.
+compatibility, and exact rendering-source SHA-256 binding. Issue #58 now adds the canonical
+workspace-level reusable Template library under `shared/concord/templates/`,
+strict immutable history, exact rendering-byte storage, head/current Version
+selection, successor/activation/retirement workflows, a direct `concord template`
+CLI family, and a workspace-level teacher Template Library. The same typed service
+layer supports both fully noninteractive direct commands and the
+low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -87,8 +90,9 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, contextual Group planning versus operational
-Group/Membership management, Artifact Pages with assembly, Author/Subject,
+Settings, global Scan Routing, the workspace-level Template Library,
+contextual Group planning versus operational Group/Membership management,
+Artifact Pages with assembly, Author/Subject,
 Review, Moderation, Scoring, and explicit Publication workflows, Help, and Quit.
 Controlled teacher screens use:
 
@@ -102,7 +106,7 @@ Q. Quit
 Every menu write shows a focused review screen and requires the operation word
 `CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `CONFIRM`,
 `DISTRIBUTE`, `LEAVE`, `APPLY`, `UPDATE`, `ADD`, `CORRECT`, `REVIEW`,
-`MODERATE`, `SCORE`, `REVISE`, `END`, `REASSIGN`,
+`MODERATE`, `SCORE`, `REVISE`, `ACTIVATE`, `RETIRE`, `END`, `REASSIGN`,
 `REGISTER`, `GENERATE`, `PUBLISH`, `WITHDRAW`, or `REBUILD`.
 The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
@@ -129,6 +133,8 @@ concord group-plan apply
 concord grouping-signal list|show|diagnose|import-csv
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
+concord template list|show|version-list|version-show
+concord template create|revise|activate|update|retire-version|retire
 concord criterion-set create|list|show|revise|select
 concord scale create|list|show|revise
 concord score add|list|show|replace
@@ -149,7 +155,10 @@ concord publication catalog-list|catalog-rebuild
 
 Mutating direct commands require explicit actor context. Every write after the
 initial Activity-plus-first-Session creation also requires the exact current
-snapshot revision. `group member add` accepts repeated `--student-id` values and
+snapshot revision. Template mutations after initial Template creation likewise
+require `--expected-snapshot`, but that value is the exact reusable Template
+library snapshot rather than an Activity snapshot. `group member add` accepts
+repeated `--student-id` values and
 commits the selected Memberships atomically.
 
 See the [CLI contract](docs/cli-contract.md) for command behavior, exit codes,
@@ -225,6 +234,10 @@ Issue #56's deterministic application identity, exact preview digest, context
 resolution, atomic Group/GroupMembership write set, privacy boundary, direct CLI,
 and teacher `APPLY` flow are documented in the
 [approved GroupPlan application guide](docs/v0.3.0-group-plan-application.md).
+Issue #58's workspace-level authority, immutable Template history, rendering-byte
+integrity, head/current selection, authoring transport, direct CLI, and teacher
+menu are documented in the
+[Template storage and revision workflow guide](docs/v0.3.0-template-storage-revision-workflows.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).
