@@ -55,7 +55,11 @@ Issue #61 now ships a deterministic package-owned catalog of 30 synthetic
 collaborative-learning starter Templates, strict `concord_starter_layout_v1`
 assets, explicit/idempotent installation through #58 canonical Template storage,
 direct CLI and teacher-menu browsing/install, and installed-wheel package-data
-qualification.
+qualification. Issue #62 now implements exact Activity-specific Packet
+instantiation, review-digest-bound commit, fresh Packet/Artifact/Page/Core PDS2
+identity allocation, deterministic starter PDF rendering, typed recovery/reprint,
+direct CLI and opened-Activity menu workflows, installed-wheel smoke, and the
+accepted all-30-starter visual-review gate.
 
 The repository now contains:
 
@@ -116,6 +120,11 @@ The repository now contains:
   stable identities/digests, identity-free reusable defaults, explicit/idempotent
   installation through #58 canonical Template storage, direct CLI/menu browsing,
   and installed-wheel package-data qualification;
+* Activity-owned PacketInstance/PacketTargetContext generation with exact
+  reusable Packet/Template provenance, zero-write preparation, review-digest
+  commit, deterministic target/copy expansion, fresh Artifact/Page/Core PDS2
+  identities, `concord_starter_layout_v1` PDF rendering, explicit recovery and
+  exact reprint, runtime direct CLI/menu surfaces, and privacy-safe route data;
 * contextual Membership, Role, and Responsibility workflow services;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
@@ -315,6 +324,18 @@ identities/digests, explicit read-only browse versus canonical installation,
 idempotence/collision/partial-success semantics, privacy/authorship/Subject
 defaults, direct `concord template starter-*` commands, teacher `INSTALL` flow,
 wheel/package qualification, and the #62/#64 authority boundaries.
+
+### 38. v0.3.0 Activity-specific Packet instantiation and PDS2 rendering
+
+[`v0.3.0-packet-instantiation-rendering.md`](v0.3.0-packet-instantiation-rendering.md)
+
+Documents issue #62's Activity-owned `PacketInstance` runtime state, exact
+Packet/Template provenance, zero-write target/input preview, review-digest-bound
+commit, canonical Group/Membership/Role resolution, fresh Artifact/Page/Core PDS2
+allocation, deterministic `concord_starter_layout_v1` PDF rendering, privacy and
+authorship boundaries, typed partial-success recovery, exact reprint, direct
+runtime Packet commands, opened-Activity `GENERATE` flow, installed-wheel smoke,
+and the accepted 30-starter / 35-QR visual-review gate.
 
 ### Future v0.3.0 Group Planning / Template / Packet plan
 

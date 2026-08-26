@@ -45,9 +45,13 @@ installed starters through ordinary immutable Template successor workflows.
 Stable starter identities, exact packaged rendering digests, idempotent install,
 explicit collision handling, and package/wheel qualification prevent hidden
 workspace mutation or package-owned overwrite of teacher state.
-Activity-specific Packet generation remains #62. The same typed service layer
-supports both fully noninteractive direct commands and the low-information-density
-menu.
+Issue #62 now implements the first complete Activity-specific Packet generation
+and printable-paper path: exact Packet/Template resolution, zero-write target
+preview, review-digest-bound generation, fresh PacketInstance/Artifact/Page/Core
+PDS2 identities, deterministic starter-layout PDFs, explicit recovery/reprint,
+direct runtime Packet commands, and the opened-Activity `Prepare / Generate
+Packet` teacher workflow. The same typed service layer supports both fully
+noninteractive direct commands and the low-information-density menu.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -157,6 +161,8 @@ concord template starter-list|starter-show
 concord template starter-install|starter-install-all
 concord packet list|show|version-list|version-show
 concord packet create|revise|activate|update|retire-version|retire
+concord packet instantiate-preview|instantiate|instantiate-resume
+concord packet instance-list|instance-show|instance-render|generation-render
 concord criterion-set create|list|show|revise|select
 concord scale create|list|show|revise
 concord score add|list|show|replace
@@ -181,7 +187,10 @@ snapshot revision. Template mutations after initial Template creation likewise
 require `--expected-snapshot`, but that value is the exact reusable Template
 library snapshot rather than an Activity snapshot. Packet mutations after
 initial Packet creation use the same flag for the exact reusable Packet-library
-snapshot; Packet commands require neither class nor Activity identity. `group member add` accepts
+snapshot. Reusable Packet-library commands require neither class nor Activity
+identity; Activity-specific `packet instantiate-*`, `instance-*`, and
+`generation-render` commands require explicit class/Activity context instead.
+`group member add` accepts
 repeated `--student-id` values and
 commits the selected Memberships atomically.
 
@@ -275,6 +284,11 @@ Issue #61's 30-form package-owned starter catalog, bounded
 privacy defaults, direct CLI, teacher menu, package qualification, and #62/#64
 boundaries are documented in the
 [starter collaborative-learning Template library guide](docs/v0.3.0-starter-template-library.md).
+Issue #62's runtime PacketInstance contract, exact prepare/commit boundary,
+target/copy/input/privacy resolution, Core PDS2 allocation, deterministic PDF
+rendering, retry/reprint semantics, direct CLI/menu workflow, installed-wheel
+smoke, and accepted visual-review gate are documented in the
+[Activity-specific Packet instantiation and rendering guide](docs/v0.3.0-packet-instantiation-rendering.md).
 The clean installed-wheel producer lifecycle and its Core verification,
 authorization, audit, and immutability boundaries are documented in the
 [installed acceptance guide](docs/implementation/installed-end-to-end-acceptance.md).

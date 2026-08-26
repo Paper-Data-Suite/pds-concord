@@ -66,6 +66,37 @@ PACKET_STORAGE_WORKFLOW_DOC = (
 STARTER_TEMPLATE_LIBRARY_DOC = (
     ROOT / "docs" / "v0.3.0-starter-template-library.md"
 )
+PACKET_INSTANTIATION_RENDERING_DOC = (
+    ROOT / "docs" / "v0.3.0-packet-instantiation-rendering.md"
+)
+REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
+    'PacketInstance',
+    'PacketTargetContext',
+    'generation_id',
+    'review_digest',
+    'prepare_packet_instantiation',
+    'commit_packet_instantiation',
+    'resume_packet_instantiation',
+    'render_packet_generation',
+    'render_packet_instance',
+    'concord packet instantiate-preview',
+    'concord packet instantiate',
+    'concord packet instantiate-resume',
+    'concord packet instance-list',
+    'concord packet instance-show',
+    'concord packet instance-render',
+    'concord packet generation-render',
+    'Prepare / Generate Packet',
+    'concord_starter_layout_v1',
+    'external_component',
+    'teacher_restricted',
+    'artifact_page',
+    '35 rendered physical pages',
+    '26146b994a273a0ab377846494f5498bf2f16017e6c95b779540d976722874e9',
+    'Core 0.6.1',
+    'Issue #63',
+    'Issue #64',
+)
 REQUIRED_STARTER_TEMPLATE_LIBRARY_PHRASES = (
     "30",
     "concord_starter_layout_v1",
@@ -617,6 +648,25 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the starter Template "
                 "library document."
+            )
+    if not PACKET_INSTANTIATION_RENDERING_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Packet instantiation/rendering document is missing."
+        )
+    else:
+        packet_generation_doc = PACKET_INSTANTIATION_RENDERING_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES:
+            if phrase not in packet_generation_doc:
+                failures.append(
+                    "Packet instantiation/rendering document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if PACKET_INSTANTIATION_RENDERING_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Packet "
+                "instantiation/rendering document."
             )
     for active_path in (
         ROOT / "README.md",

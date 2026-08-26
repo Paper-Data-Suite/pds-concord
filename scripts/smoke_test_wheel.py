@@ -1080,6 +1080,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
             raise RuntimeError("Quit-only menu smoke unexpectedly created a workspace.")
 
         _run([str(python), "-c", _workflow_smoke_code()], outside)
+        _run([str(python), "-c", _packet_generation_smoke_code()], outside)
 
         producer_workspace = root / "producer-acceptance-workspace"
         producer_workspace.mkdir()
@@ -1098,6 +1099,297 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
             ],
             outside,
         )
+
+
+
+def _packet_generation_smoke_code() -> str:
+    return textwrap.dedent(
+        """
+        from datetime import datetime, timezone
+        from pathlib import Path
+        import tempfile
+
+        from pds_core.class_metadata import (
+            create_class_metadata,
+            write_class_metadata_for_class,
+        )
+        from pds_core.classes import write_class_roster
+        from pds_core.pds2 import parse_pds2_payload
+        from pds_core.rosters import create_roster
+        from pds_core.route_registrations import load_route_registration
+        from pds_core.workspace import ensure_workspace_root
+
+        from concord.model_conversion import record_to_dict
+        from concord.models import (
+            EffectiveContext,
+            PacketAudienceIntent,
+            PacketComponent,
+            PacketDefinition,
+            PacketRenderingRules,
+            PacketVersion,
+        )
+        from concord.packet_storage import create_packet_library
+        from concord.starter_templates.catalog import list_starter_templates
+        from concord.workflows import (
+            AddMembershipsRequest,
+            CreateActivityContextRequest,
+            CreateGroupRequest,
+            GroupMemberSpec,
+            PreparePacketInstantiationRequest,
+            PrepareStarterTemplateInstallRequest,
+            RenderPacketGenerationRequest,
+            WorkflowActor,
+            add_memberships,
+            commit_packet_instantiation,
+            commit_starter_template_install,
+            create_activity_context,
+            create_group,
+            list_packet_instances,
+            prepare_packet_instantiation,
+            prepare_starter_template_install,
+            render_packet_generation,
+            show_packet_instance,
+        )
+        from concord.workflows.context import provenance
+
+        with tempfile.TemporaryDirectory(
+            prefix="concord-installed-packet-generation-"
+        ) as raw:
+            root = ensure_workspace_root(Path(raw) / "workspace")
+            created_at = datetime(2026, 8, 26, tzinfo=timezone.utc)
+            write_class_metadata_for_class(
+                root,
+                create_class_metadata(
+                    "class-packet-smoke",
+                    "2026-2027",
+                    created_at=created_at,
+                ),
+            )
+            write_class_roster(
+                root,
+                create_roster(
+                    "class-packet-smoke",
+                    (
+                        {
+                            "student_id": "student-packet-1",
+                            "last_name": "Packet",
+                            "first_name": "Student",
+                            "period": "1",
+                        },
+                    ),
+                ),
+            )
+            actor = WorkflowActor(
+                actor_id="teacher-packet-smoke",
+                display_label="Synthetic Teacher",
+                role_label="teacher",
+            )
+            activity = create_activity_context(
+                CreateActivityContextRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    title="Synthetic installed Packet smoke",
+                    activity_type="project",
+                    scoring_orientation="evidence_only",
+                    session_id="session-packet-smoke",
+                    actor=actor,
+                    activity_status="active",
+                    session_status="active",
+                    session_label="Synthetic Session",
+                ),
+                workspace_root=root,
+            )
+            group = create_group(
+                CreateGroupRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    group_id="group-packet-smoke",
+                    label="Synthetic Group",
+                    status="active",
+                    expected_snapshot_revision=activity.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            context = EffectiveContext(
+                activity_id="activity-packet-smoke",
+                session_ids=("session-packet-smoke",),
+            )
+            add_memberships(
+                AddMembershipsRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    group_id="group-packet-smoke",
+                    members=(
+                        GroupMemberSpec(
+                            membership_id="membership-packet-smoke",
+                            student_id="student-packet-1",
+                            effective_context=context,
+                        ),
+                    ),
+                    expected_snapshot_revision=group.commit.snapshot_revision,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+
+            starter = next(
+                item
+                for item in list_starter_templates()
+                if item.orientation == "landscape"
+                and "group" in item.suggested_audience_kinds
+                and (
+                    not item.suggested_activity_type_keys
+                    or "project" in item.suggested_activity_type_keys
+                )
+            )
+            installed = commit_starter_template_install(
+                prepare_starter_template_install(
+                    PrepareStarterTemplateInstallRequest(
+                        starter_key=starter.starter_key,
+                        actor=actor,
+                    ),
+                    workspace_root=root,
+                ),
+                workspace_root=root,
+            )
+            created = provenance(actor, source_kind="manual")
+            definition = PacketDefinition(
+                packet_definition_id="packet-installed-smoke",
+                name="Installed Packet smoke",
+                purpose="Exercise installed Activity-specific Packet generation.",
+                status="active",
+                created_provenance=created,
+            )
+            version = PacketVersion(
+                packet_version_id="packet-version-installed-smoke",
+                packet_definition_id=definition.packet_definition_id,
+                version_label="v1",
+                revision_sequence=1,
+                components=(
+                    PacketComponent(
+                        packet_component_id="component-installed-smoke",
+                        sequence=1,
+                        component_kind="concord_template",
+                        template_id=installed.template_id,
+                        template_version_id=installed.template_version_id,
+                        copies_per_target=1,
+                        audience_intent=PacketAudienceIntent(
+                            audience_kind="group"
+                        ),
+                        requirement_level="required",
+                    ),
+                ),
+                rendering_rules=PacketRenderingRules(),
+                created_provenance=created,
+                status="active",
+            )
+            create_packet_library(
+                root,
+                definition=definition,
+                initial_version=version,
+            )
+
+            prepared = prepare_packet_instantiation(
+                PreparePacketInstantiationRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    session_id="session-packet-smoke",
+                    packet_definition_id=definition.packet_definition_id,
+                    packet_version_id=version.packet_version_id,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            assert prepared.ready_for_commit
+            assert prepared.packet_instance_count == 1
+            assert prepared.artifact_count == 1
+            assert prepared.page_count == starter.page_count
+            assert prepared.route_count == starter.page_count
+
+            committed = commit_packet_instantiation(
+                prepared,
+                workspace_root=root,
+            )
+            assert committed.routes_verified == committed.routes_expected
+            assert committed.routes_expected == starter.page_count
+
+            rendered = render_packet_generation(
+                RenderPacketGenerationRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    generation_id=committed.generation_id,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            assert len(rendered.packets) == 1
+            assert rendered.page_count == starter.page_count
+            assert rendered.route_count == starter.page_count
+            output = rendered.packets[0]
+            assert output.output_path.is_file()
+            assert output.output_path.read_bytes().startswith(b"%PDF")
+            assert len(output.output_sha256) == 64
+
+            instances = list_packet_instances(
+                "class-packet-smoke",
+                "activity-packet-smoke",
+                generation_id=committed.generation_id,
+                workspace_root=root,
+            )
+            assert len(instances) == 1
+            assert instances[0].generation_status == "generated"
+            detail = show_packet_instance(
+                "class-packet-smoke",
+                "activity-packet-smoke",
+                instances[0].packet_instance_id,
+                workspace_root=root,
+            )
+            serialized_packet = str(
+                record_to_dict(detail.packet_instance)
+            ).casefold()
+            forbidden = (
+                "group_plan_id",
+                "signal_set_id",
+                "source_signal_set_id",
+                "source_signal_set_digest",
+                "dimension_id",
+                "missing_signal_disposition",
+                "proficiency",
+            )
+            for value in forbidden:
+                assert value not in serialized_packet
+
+            assert output.payloads
+            for payload in output.payloads:
+                lowered = payload.casefold()
+                for value in forbidden:
+                    assert value not in lowered
+                locator = parse_pds2_payload(payload)
+                registration = load_route_registration(root, locator)
+                assert registration.target.module_id == "concord"
+                assert registration.target.record_kind == "artifact_page"
+                assert set(registration.module_details) == {
+                    "activity_id",
+                    "artifact_instance_id",
+                    "artifact_page_id",
+                    "page_number",
+                }
+
+            replay = render_packet_generation(
+                RenderPacketGenerationRequest(
+                    class_id="class-packet-smoke",
+                    activity_id="activity-packet-smoke",
+                    generation_id=committed.generation_id,
+                    actor=actor,
+                ),
+                workspace_root=root,
+            )
+            assert replay.packets[0].replayed
+            assert replay.packets[0].output_sha256 == output.output_sha256
+            assert replay.packets[0].payloads == output.payloads
+        """
+    )
 
 
 def main() -> int:

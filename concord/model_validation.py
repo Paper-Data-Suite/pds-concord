@@ -28,6 +28,7 @@ from concord.models import (
     GroupMembership,
     GroupPlan,
     ModerationRecord,
+    PacketInstance,
     ParticipantReference,
     ResponsibilityAssignment,
     RoleAssignment,
@@ -48,6 +49,7 @@ Record = (
     | GroupMembership
     | RoleAssignment
     | ResponsibilityAssignment
+    | PacketInstance
     | ArtifactInstance
     | ArtifactPage
     | ScanReference
@@ -84,6 +86,7 @@ class ConcordRecordGraph:
     memberships: tuple[GroupMembership, ...] = ()
     role_assignments: tuple[RoleAssignment, ...] = ()
     responsibility_assignments: tuple[ResponsibilityAssignment, ...] = ()
+    packet_instances: tuple[PacketInstance, ...] = ()
     artifact_instances: tuple[ArtifactInstance, ...] = ()
     artifact_pages: tuple[ArtifactPage, ...] = ()
     scan_references: tuple[ScanReference, ...] = ()
@@ -1374,6 +1377,7 @@ def collect_record_graph_issues(
     groups = _index(graph.groups, "group_id")
     memberships = _index(graph.memberships, "membership_id")
     roles = _index(graph.role_assignments, "role_assignment_id")
+    packet_instances = _index(graph.packet_instances, "packet_instance_id")
     artifacts = _index(graph.artifact_instances, "artifact_instance_id")
     pages = _index(graph.artifact_pages, "artifact_page_id")
     criteria = _index(graph.criteria, "criterion_id")
@@ -1730,6 +1734,195 @@ def collect_record_graph_issues(
                     responsibility.responsibility_assignment_id,
                     "assignee_reference",
                 )
+
+
+    generation_contracts: dict[str, tuple[str, str, str, str]] = {}
+    generation_targets: set[tuple[str, object]] = set()
+    packet_bound_artifacts: dict[str, str] = {}
+    for packet in graph.packet_instances:
+        if packet.activity_id not in activities:
+            _issue(
+                issues,
+                "packet_instance.activity.missing",
+                "Packet Instance references a missing Activity.",
+                "packet_instance",
+                packet.packet_instance_id,
+                "activity_id",
+            )
+        packet_session = sessions.get(packet.session_id)
+        if packet_session is None or packet_session.activity_id != packet.activity_id:
+            _issue(
+                issues,
+                "packet_instance.session.invalid",
+                "Packet Instance Session is missing or belongs to another Activity.",
+                "packet_instance",
+                packet.packet_instance_id,
+                "session_id",
+            )
+        packet_target = packet.target_context
+        if packet_target.group_id is not None:
+            packet_group = groups.get(packet_target.group_id)
+            if packet_group is None or packet_group.activity_id != packet.activity_id:
+                _issue(
+                    issues,
+                    "packet_instance.packet_target.group_invalid",
+                    "Packet target Group is missing or belongs to another Activity.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "target_context",
+                    "group_id",
+                )
+        if packet_target.role_assignment_id is not None:
+            packet_role = roles.get(packet_target.role_assignment_id)
+            if (
+                packet_role is None
+                or packet_role.activity_id != packet.activity_id
+                or packet_role.participant_reference
+                != packet_target.participant_reference
+                or packet_role.role_key != packet_target.role_key
+                or (
+                    packet_target.group_id is not None
+                    and packet_role.group_id != packet_target.group_id
+                )
+            ):
+                _issue(
+                    issues,
+                    "packet_instance.packet_target.role_invalid",
+                    "Packet target Role does not match canonical Activity context.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "target_context",
+                    "role_assignment_id",
+                )
+
+        contract = (
+            packet.packet_definition_id,
+            packet.packet_version_id,
+            packet.activity_id,
+            packet.session_id,
+        )
+        prior_contract = generation_contracts.setdefault(packet.generation_id, contract)
+        if prior_contract != contract:
+            _issue(
+                issues,
+                "packet_instance.generation.contract_mismatch",
+                "One generation_id must preserve one exact Packet/Activity/Session.",
+                "packet_instance",
+                packet.packet_instance_id,
+                "generation_id",
+            )
+        target_key = (packet.generation_id, packet.target_context)
+        if target_key in generation_targets:
+            _issue(
+                issues,
+                "packet_instance.generation.target_duplicate",
+                "One generation_id must not duplicate a concrete Packet packet_target.",
+                "packet_instance",
+                packet.packet_instance_id,
+                "target_context",
+            )
+        generation_targets.add(target_key)
+
+        for index, binding in enumerate(packet.artifact_bindings):
+            artifact = artifacts.get(binding.artifact_instance_id)
+            if artifact is None:
+                _issue(
+                    issues,
+                    "packet_instance.artifact.missing",
+                    "Packet binding references a missing Artifact Instance.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "artifact_instance_id",
+                )
+                continue
+            previous_packet = packet_bound_artifacts.setdefault(
+                artifact.artifact_instance_id,
+                packet.packet_instance_id,
+            )
+            if previous_packet != packet.packet_instance_id:
+                _issue(
+                    issues,
+                    "packet_instance.artifact.multiple_packets",
+                    "Artifact is bound by more than one Packet Instance.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "artifact_instance_id",
+                )
+            if artifact.packet_instance_id != packet.packet_instance_id:
+                _issue(
+                    issues,
+                    "packet_instance.artifact.packet_mismatch",
+                    "Artifact packet_instance_id disagrees with its Packet binding.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "artifact_instance_id",
+                )
+            if (
+                artifact.activity_id != packet.activity_id
+                or artifact.session_id != packet.session_id
+            ):
+                _issue(
+                    issues,
+                    "packet_instance.artifact.context_mismatch",
+                    "Packet-bound Artifact belongs to another Activity/Session.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "artifact_instance_id",
+                )
+            if artifact.template_version_id != binding.template_version_id:
+                _issue(
+                    issues,
+                    "packet_instance.artifact.template_mismatch",
+                    "Artifact Template Version disagrees with Packet provenance.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "template_version_id",
+                )
+            if (
+                packet_target.group_id is not None
+                and artifact.group_id != packet_target.group_id
+            ):
+                _issue(
+                    issues,
+                    "packet_instance.artifact.group_mismatch",
+                    "Packet-bound Artifact Group disagrees with its packet_target.",
+                    "packet_instance",
+                    packet.packet_instance_id,
+                    "artifact_bindings",
+                    index,
+                    "artifact_instance_id",
+                )
+
+    for artifact in graph.artifact_instances:
+        packet_id = artifact.packet_instance_id
+        if packet_id is None:
+            continue
+        runtime_packet = packet_instances.get(packet_id)
+        if runtime_packet is None:
+            continue
+        binding_count = sum(
+            binding.artifact_instance_id == artifact.artifact_instance_id
+            for binding in runtime_packet.artifact_bindings
+        )
+        if binding_count != 1:
+            _issue(
+                issues,
+                "packet_instance.artifact.unbound",
+                "Runtime Packet Artifact must have exactly one provenance binding.",
+                "artifact_instance",
+                artifact.artifact_instance_id,
+                "packet_instance_id",
+            )
 
     route_counts = Counter(
         page.route_id for page in graph.artifact_pages if page.route_id

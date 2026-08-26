@@ -19,6 +19,7 @@ from concord.models import (
     GroupMembership,
     GroupPlan,
     ModerationRecord,
+    PacketInstance,
     ResponsibilityAssignment,
     RoleAssignment,
     ScanReference,
@@ -53,6 +54,12 @@ RECORD_DESCRIPTORS: tuple[RecordDescriptor, ...] = (
         ResponsibilityAssignment,
         "responsibility_assignment_id",
         "responsibility_assignments",
+    ),
+    RecordDescriptor(
+        "packet_instance",
+        PacketInstance,
+        "packet_instance_id",
+        "packet_instances",
     ),
     RecordDescriptor(
         "artifact_instance",

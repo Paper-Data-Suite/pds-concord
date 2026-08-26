@@ -48,7 +48,13 @@ from concord.storage_errors import (
     ConcordStoragePartialSuccessError,
 )
 from concord.template_storage import TemplateStoragePartialSuccessError
-from concord.workflows import ConcordWorkflowConflictError, ConcordWorkflowError
+from concord.workflows import (
+    ConcordWorkflowConflictError,
+    ConcordWorkflowError,
+    PacketGenerationRenderPartialSuccessError,
+    PacketInstantiationPartialSuccessError,
+    PacketRenderPartialSuccessError,
+)
 from concord.workflows.artifact_page import ArtifactRoutePreparationPartialSuccessError
 from concord.workflows.starter_template import (
     StarterTemplateInstallAllPartialSuccessError,
@@ -133,6 +139,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return EXIT_ERROR
+    except PacketInstantiationPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(f"Generation: {error.result.generation_id}", file=sys.stderr)
+        print(f"Stage: {error.stage}", file=sys.stderr)
+        print(
+            f"Routes verified: {error.result.routes_verified}/"
+            f"{error.result.routes_expected}",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL_SUCCESS
+    except PacketGenerationRenderPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(f"Generation: {error.generation_id}", file=sys.stderr)
+        print(
+            f"Completed Packet outputs: {len(error.completed)}",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL_SUCCESS
+    except PacketRenderPartialSuccessError as error:
+        print(f"Partial success: {error}", file=sys.stderr)
+        print(f"Output: {error.result.output_path}", file=sys.stderr)
+        return EXIT_PARTIAL_SUCCESS
     except ArtifactRoutePreparationPartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)
         print(

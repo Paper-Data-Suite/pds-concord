@@ -254,6 +254,21 @@ def load_current_template_version(
     return load_current_template(workspace_root, template_id).current_version
 
 
+def load_template_rendering_specification(
+    workspace_root: str | Path,
+    template_id: str,
+    template_version_id: str,
+) -> bytes:
+    """Return exact verified rendering bytes for one exact Template Version."""
+    root = _workspace_root(workspace_root, for_write=False)
+    version = load_template_version(
+        root,
+        template_id,
+        template_version_id,
+    )
+    return _verify_rendering_asset(root, template_id, version)
+
+
 def create_template_library(
     workspace_root: str | Path,
     *,

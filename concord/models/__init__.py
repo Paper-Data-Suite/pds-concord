@@ -34,6 +34,12 @@ from concord.models.common import (
 )
 from concord.models.corrections import CorrectionRecord
 from concord.models.group_planning import GroupPlan, PlannedGroup
+from concord.models.packet_instances import (
+    PacketInstance,
+    PacketInstanceArtifactBinding,
+    PacketRenderingValue,
+    PacketTargetContext,
+)
 from concord.models.packets import (
     PacketAudienceIntent,
     PacketComponent,
@@ -91,7 +97,11 @@ __all__ = [
     "PacketComponent",
     "PacketCondition",
     "PacketDefinition",
+    "PacketInstance",
+    "PacketInstanceArtifactBinding",
+    "PacketRenderingValue",
     "PacketRenderingRules",
+    "PacketTargetContext",
     "PacketVersion",
     "PlannedGroup",
     "PrivacyPolicy",

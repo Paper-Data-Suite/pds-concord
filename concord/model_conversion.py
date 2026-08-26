@@ -22,6 +22,7 @@ from concord.models import (
     GroupMembership,
     GroupPlan,
     ModerationRecord,
+    PacketInstance,
     ResponsibilityAssignment,
     RoleAssignment,
     ScanReference,
@@ -40,6 +41,7 @@ Record = (
     | GroupMembership
     | RoleAssignment
     | ResponsibilityAssignment
+    | PacketInstance
     | ArtifactInstance
     | ArtifactPage
     | ScanReference
