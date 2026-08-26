@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented through the v0.3.0 starter collaborative-learning Template library in issue #61.
+Implemented through the v0.3.0 Activity-specific Packet generation and PDS2
+rendering workflow in issue #62.
 
 ## Two interfaces, one service layer
 
@@ -120,6 +121,13 @@ concord packet activate
 concord packet update
 concord packet retire-version
 concord packet retire
+concord packet instantiate-preview
+concord packet instantiate
+concord packet instantiate-resume
+concord packet instance-list
+concord packet instance-show
+concord packet instance-render
+concord packet generation-render
 
 concord criterion-set create
 concord criterion-set list
@@ -268,6 +276,20 @@ explicit Packet Definition/Version IDs, `--authoring-file`, and actor provenance
 and `template_version_id`, while external components retain source-owned
 `ModuleRecordRef` values without requiring sibling modules to be installed.
 There is no force/latest/current-Template substitution mode.
+
+The Activity-specific Packet runtime commands added by #62 are deliberately
+separate from workspace-level Packet-library revision. `instantiate-preview`
+requires class, Activity, Session, exact Packet Definition/Version, and actor
+context, performs no writes, and prints the exact `review_digest`.
+`instantiate` requires that digest and re-runs current canonical resolution before
+allocating runtime identities. Optional strict `--options-file` input may carry
+only explicit component choices and teacher rendering bindings. An optional
+caller-supplied `--generation-id` is a retry/reconciliation identity, not a way
+to clone an existing generation. `instantiate-resume` reconciles already-durable
+native generation state with immutable Core routes. `instance-list` and
+`instance-show` are read-only. `instance-render` and `generation-render` reuse
+existing route identities for completed reprints. There is no force, skip-review,
+manual route-ID, QR-payload, or latest-Template substitution mode.
 
 ## Exit codes
 
@@ -420,6 +442,15 @@ exposes listing, creation, Version history, successor creation, activation,
 metadata update, Version retirement, and whole-Packet retirement. Packet
 previews show bounded ordered component/reference intent and use the same
 `CREATE`, `REVISE`, `ACTIVATE`, `UPDATE`, or `RETIRE` confirmations.
+
+An opened Activity additionally exposes `Prepare / Generate Packet`. That
+workflow chooses one active exact Packet Version and one explicit Session,
+resolves conditional components and teacher rendering inputs, displays exact
+target/Artifact/Page/route counts plus the review digest, and requires literal
+`GENERATE` before committing native generation state. The same submenu lists and
+inspects Packet Instances, resumes incomplete route preparation, and renders or
+exactly reprints existing instances without asking the teacher for Artifact Page
+IDs, route IDs, or QR payloads.
 
 Global routing review remains
 available when a failed scan has no trustworthy Activity locator.

@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Activity-specific reusable Packet instantiation now resolves exact Packet and
+  Template Versions against one explicit Activity Session, previews concrete
+  targets/copies/pages/routes without mutation, freezes teacher rendering
+  bindings behind a review digest, and commits fresh PacketInstance, Artifact,
+  ArtifactPage, and immutable Core PDS2 route identities only after approval.
+- Deterministic Packet PDF rendering now supports the full 30-starter
+  `concord_starter_layout_v1` library, exact reprint without route reallocation,
+  typed route/render partial-success recovery, direct CLI and opened-Activity
+  teacher workflows, and read-only Packet Instance inspection.
+- Issue #62 qualification now includes an installed-wheel Packet generation
+  smoke, adversarial planning/signal privacy checks, documentation invariants,
+  and the accepted synthetic 30-starter / 35-PDS2-page visual-review gate.
+
 - A deterministic package-owned library of 30 synthetic collaborative-learning
   starter Templates spanning discussion, reading, synthesis, teamwork, projects,
   peer feedback, science/STEM, problem solving, and reflection.

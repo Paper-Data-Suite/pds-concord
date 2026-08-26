@@ -12,6 +12,7 @@ from concord.cli_app.handlers import (
     group_plan,
     grouping_signal,
     packet,
+    packet_runtime,
     publication,
     responsibility,
     review_moderation,
@@ -129,6 +130,24 @@ def _packet_mutating_options(parser: argparse.ArgumentParser) -> None:
     _actor_options(parser)
 
 
+def _packet_instantiation_options(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _workspace_option(parser)
+    _actor_options(parser)
+    _class_activity(parser)
+    parser.add_argument("--session-id", required=True)
+    parser.add_argument("--packet-definition-id", required=True)
+    parser.add_argument("--packet-version-id", required=True)
+    parser.add_argument(
+        "--options-file",
+        help=(
+            "Optional JSON object containing explicit component_choices and "
+            "rendering_bindings for this generation preview."
+        ),
+    )
+
+
 def _packet_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -240,6 +259,101 @@ def _packet_commands(
     _packet_mutating_options(retire)
     retire.add_argument("--packet-definition-id", required=True)
     retire.set_defaults(handler=packet.handle_retire)
+
+    instantiate_preview = actions.add_parser(
+        "instantiate-preview",
+        help=(
+            "Resolve one exact Packet/Session into a zero-write Activity-specific "
+            "generation preview."
+        ),
+    )
+    _packet_instantiation_options(instantiate_preview)
+    instantiate_preview.set_defaults(
+        handler=packet_runtime.handle_instantiate_preview
+    )
+
+    instantiate = actions.add_parser(
+        "instantiate",
+        help=(
+            "Commit an exact reviewed Packet generation and reconcile immutable "
+            "Core PDS2 routes."
+        ),
+    )
+    _packet_instantiation_options(instantiate)
+    instantiate.add_argument(
+        "--review-digest",
+        required=True,
+        help="Exact review digest printed by instantiate-preview.",
+    )
+    instantiate.add_argument(
+        "--generation-id",
+        help=(
+            "Optional caller-supplied generation identity. Reusing a durable "
+            "generation ID performs exact recovery rather than duplication."
+        ),
+    )
+    instantiate.set_defaults(handler=packet_runtime.handle_instantiate)
+
+    instantiate_resume = actions.add_parser(
+        "instantiate-resume",
+        help="Resume route reconciliation for one durable Packet generation.",
+    )
+    _workspace_option(instantiate_resume)
+    _class_activity(instantiate_resume)
+    instantiate_resume.add_argument("--generation-id", required=True)
+    instantiate_resume.set_defaults(
+        handler=packet_runtime.handle_instantiate_resume
+    )
+
+    instance_list = actions.add_parser(
+        "instance-list",
+        help="List Activity-specific Packet Instances.",
+    )
+    _workspace_option(instance_list)
+    _class_activity(instance_list)
+    instance_list.add_argument("--generation-id")
+    instance_list.set_defaults(handler=packet_runtime.handle_instance_list)
+
+    instance_show = actions.add_parser(
+        "instance-show",
+        help="Show one Activity-specific Packet Instance.",
+    )
+    _workspace_option(instance_show)
+    _class_activity(instance_show)
+    instance_show.add_argument("--packet-instance-id", required=True)
+    instance_show.set_defaults(handler=packet_runtime.handle_instance_show)
+
+    instance_render = actions.add_parser(
+        "instance-render",
+        help="Render or exactly reprint one durable Packet Instance.",
+    )
+    _workspace_option(instance_render)
+    _actor_options(instance_render)
+    _class_activity(instance_render)
+    instance_render.add_argument("--packet-instance-id", required=True)
+    instance_render.add_argument(
+        "--expected-snapshot",
+        type=int,
+        help=(
+            "Optional exact current Activity snapshot revision for render-time "
+            "concurrency control."
+        ),
+    )
+    instance_render.set_defaults(
+        handler=packet_runtime.handle_instance_render
+    )
+
+    generation_render = actions.add_parser(
+        "generation-render",
+        help="Render every target-specific Packet Instance in one generation.",
+    )
+    _workspace_option(generation_render)
+    _actor_options(generation_render)
+    _class_activity(generation_render)
+    generation_render.add_argument("--generation-id", required=True)
+    generation_render.set_defaults(
+        handler=packet_runtime.handle_generation_render
+    )
 
 
 def _template_commands(

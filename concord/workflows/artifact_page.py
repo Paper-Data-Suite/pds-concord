@@ -222,6 +222,24 @@ def _registration(work: ModuleWorkRef, page: ArtifactPage) -> RouteRegistration:
     )
 
 
+def concord_route_registration(
+    work: ModuleWorkRef,
+    page: ArtifactPage,
+) -> RouteRegistration:
+    """Build the exact immutable Core registration for one Concord page."""
+    return _registration(work, page)
+
+
+def reconcile_concord_route_registration(
+    workspace_root: str | Path,
+    registration: RouteRegistration,
+) -> None:
+    """Create or exactly reconcile one immutable Concord-owned Core route."""
+    root = Path(workspace_root)
+    validate_concord_route_registration(registration)
+    _reconcile_route(root, registration)
+
+
 def validate_concord_route_registration(registration: RouteRegistration, /) -> None:
     """Validate Concord-owned registration structure without reading state."""
     if not isinstance(registration, RouteRegistration):

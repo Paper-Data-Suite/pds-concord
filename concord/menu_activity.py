@@ -14,6 +14,7 @@ from concord.menu_navigation import (
     navigation_hint_with_help,
     parse_menu_navigation,
 )
+from concord.menu_packet_generation import launch_packet_generation_menu
 from concord.menu_prompts import (
     choose_class,
     choose_focus_standards,
@@ -479,6 +480,7 @@ def launch_activity_context_menu(
         print("8. Scoring")
         print("9. Publication")
         print("10. Edit Activity")
+        print("11. Prepare / Generate Packet")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -507,6 +509,8 @@ def launch_activity_context_menu(
             launch_publication_menu(activity, session_state)
         elif choice == "10":
             _edit_activity(activity, session_state)
+        elif choice == "11":
+            launch_packet_generation_menu(activity, session_state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
