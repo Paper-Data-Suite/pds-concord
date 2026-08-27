@@ -5,7 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from concord.models import PacketDefinition, PacketVersion, Provenance
+from concord.models import (
+    PacketAudienceIntent,
+    PacketComponent,
+    PacketDefinition,
+    PacketRenderingRules,
+    PacketVersion,
+    Provenance,
+)
 from concord.packet_authoring import (
     PacketAuthoringConflictError,
     PacketAuthoringDocument,
@@ -88,6 +95,30 @@ class PreparedPacketCreate:
     definition: PacketDefinition
     version: PacketVersion
     authoring_source: PreparedPacketSourceFile
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PreparePacketFromTemplateRequest:
+    """Create a simple reusable Packet from one exact saved Template Version."""
+
+    packet_definition_id: str
+    packet_version_id: str
+    packet_component_id: str
+    name: str
+    purpose: str
+    template_id: str
+    template_version_id: str
+    audience_kind: str
+    actor: WorkflowActor
+    copies_per_target: int = 1
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PreparedPacketFromTemplate:
+    """Zero-write reviewed Packet state built from one exact Template Version."""
+
+    definition: PacketDefinition
+    version: PacketVersion
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -207,6 +238,97 @@ def get_packet(
         versions=loaded.versions,
     )
 
+
+
+def prepare_packet_from_template(
+    request: PreparePacketFromTemplateRequest,
+    *,
+    workspace_root: str | Path | None = None,
+    clock: Clock | None = None,
+) -> PreparedPacketFromTemplate:
+    """Prepare an active one-part Packet without writing reusable state."""
+    if request.audience_kind not in {
+        "activity",
+        "group",
+        "participant",
+        "teacher",
+    }:
+        raise ConcordWorkflowValidationError(
+            "simple Template Packet audience must be activity, group, "
+            "participant, or teacher."
+        )
+    root = resolve_read_workspace_root(workspace_root)
+    if root is None:
+        raise ConcordWorkflowValidationError(
+            "A workspace containing the saved Template is required."
+        )
+    try:
+        load_current_packet(root, request.packet_definition_id)
+    except PacketStorageNotFoundError:
+        pass
+    except PacketStorageError as error:
+        raise ConcordWorkflowValidationError(str(error)) from error
+    else:
+        raise ConcordWorkflowConflictError(
+            f"Packet identity already exists: {request.packet_definition_id}"
+        )
+
+    created = provenance(request.actor, clock=clock)
+    definition = PacketDefinition(
+        packet_definition_id=request.packet_definition_id,
+        name=request.name,
+        purpose=request.purpose,
+        status="active",
+        created_provenance=created,
+    )
+    version = PacketVersion(
+        packet_version_id=request.packet_version_id,
+        packet_definition_id=request.packet_definition_id,
+        version_label="1.0",
+        revision_sequence=1,
+        components=(
+            PacketComponent(
+                packet_component_id=request.packet_component_id,
+                sequence=1,
+                component_kind="concord_template",
+                copies_per_target=request.copies_per_target,
+                audience_intent=PacketAudienceIntent(
+                    audience_kind=request.audience_kind,
+                ),
+                requirement_level="required",
+                template_id=request.template_id,
+                template_version_id=request.template_version_id,
+                label=request.name,
+            ),
+        ),
+        rendering_rules=PacketRenderingRules(),
+        created_provenance=created,
+        status="active",
+    )
+    _validate_dependencies(root, version, for_activation=True)
+    return PreparedPacketFromTemplate(definition=definition, version=version)
+
+
+def commit_packet_from_template(
+    prepared: PreparedPacketFromTemplate,
+    *,
+    workspace_root: str | Path | None = None,
+) -> PacketMutationResult:
+    """Commit the reviewed one-part Packet through normal Packet storage."""
+    bootstrap = ensure_mutating_workspace_root(workspace_root)
+    try:
+        loaded = create_packet_library(
+            bootstrap.root,
+            definition=prepared.definition,
+            initial_version=prepared.version,
+        )
+    except PacketStoragePartialSuccessError:
+        raise
+    except PacketStorageConflictError as error:
+        raise ConcordWorkflowConflictError(str(error)) from error
+    except PacketStorageError as error:
+        raise ConcordWorkflowValidationError(str(error)) from error
+    return _mutation_result(loaded, workspace_created=bootstrap.created)
 
 def prepare_packet_create(
     request: PreparePacketCreateRequest,

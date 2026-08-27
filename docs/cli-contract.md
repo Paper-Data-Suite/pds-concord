@@ -528,3 +528,21 @@ Packet storage/management, Activity-specific Packet generation, and safe
 Activity copying. It does not add issue #64 reusable assignment/scoring presets,
 Meridian grading policy, Grade or proficiency calculation, or destructive
 collaboration-record deletion.
+
+## Guided teacher setup versus direct CLI
+
+Issue #65 adds interactive **Create Classroom Activity** and **Continue setup**
+flows to the teacher menu. These are presentation/orchestration surfaces, not a
+new direct-command format. Existing `concord activity create`, `concord activity
+copy-preview|copy`, Group/GroupPlan, preset, scoring, Template/Packet, and Packet
+runtime commands remain deterministic and noninteractive.
+
+The teacher guide and direct CLI converge on the same typed workflow services.
+The guide generates routine IDs internally, uses classroom-facing labels, and
+derives resume status from canonical records. It does not persist wizard state.
+The interactive guide follows the suite Information Density policy by
+clearing/redrawing when the current action changes and retaining only information
+needed for that action. Direct CLI output remains command-oriented and does not
+clear the screen.
+
+See `docs/v0.3.0-guided-create-classroom-activity.md` for the complete contract.

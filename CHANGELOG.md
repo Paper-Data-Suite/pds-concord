@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Guided `Create Classroom Activity` and recoverable `Continue setup` teacher
+  workflows now compose existing Activity-copy, Group/GroupPlan, reusable-preset,
+  assessment, and Packet preparation services without persistent wizard state.
+- Activity setup now generates routine native IDs internally, uses teacher-facing
+  classroom language, derives resume status from canonical records, and preserves
+  each underlying workflow's review/confirmation boundary.
+- Guided classroom materials can use an active saved Packet or turn one exact
+  saved Template Version into a normal reusable one-part Packet before entering
+  the existing reviewed Packet-generation/PDS2 path.
+- The Concord teacher interface now records the suite Information Density policy:
+  clearing/redrawing is the default and only current-action context should remain
+  visible.
+- Issue #65 qualification adds installed-wheel guided setup acceptance against
+  released Core v0.6.3.
+
 - Workspace-level reusable Role, Responsibility, Criterion Set, and Scoring
   Scale presets with strict immutable revision storage, explicit retirement,
   exact Core standards validation, and no sibling PDS runtime dependency.

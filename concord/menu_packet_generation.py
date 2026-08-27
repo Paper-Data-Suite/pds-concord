@@ -103,9 +103,15 @@ def _help() -> None:
     pause_for_user()
 
 
-def _generate(activity: ActivitySummary, state: MenuSessionContext) -> None:
+def _generate(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    selected_packet: PacketSummary | None = None,
+) -> None:
     try:
-        summary = _choose_active_packet()
+        summary = (
+            _choose_active_packet() if selected_packet is None else selected_packet
+        )
         detail = get_packet(summary.packet_definition_id)
         current_version_id = detail.summary.current_packet_version_id
         if current_version_id is None:
@@ -212,6 +218,15 @@ def _generate(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except Exception as error:
         show_result("Packet Generation Error", (str(error),))
+
+
+def generate_saved_packet(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    packet: PacketSummary,
+) -> None:
+    """Prepare one teacher-selected saved Packet through the normal review flow."""
+    _generate(activity, state, selected_packet=packet)
 
 
 def _choose_active_packet() -> PacketSummary:

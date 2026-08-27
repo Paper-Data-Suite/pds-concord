@@ -8,6 +8,11 @@ from pds_core.workspace import WorkspaceRootError
 from concord.menu_artifact import launch_artifact_page_menu
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group import launch_group_menu
+from concord.menu_guided_activity import (
+    launch_guided_activity_menu,
+    launch_guided_continue_setup,
+    launch_guided_setup_for_activity,
+)
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -737,6 +742,7 @@ def launch_activity_context_menu(
         print("9. Publication")
         print("10. Edit Activity")
         print("11. Prepare / Generate Packet")
+        print("12. Continue Classroom Setup")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -767,6 +773,8 @@ def launch_activity_context_menu(
             _edit_activity(activity, session_state)
         elif choice == "11":
             launch_packet_generation_menu(activity, session_state)
+        elif choice == "12":
+            launch_guided_setup_for_activity(activity, session_state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
@@ -853,7 +861,7 @@ def select_activity() -> ActivitySummary | None:
         pause_for_user()
 
 
-def launch_activity_management_menu(
+def launch_advanced_activity_tools_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Run Activity creation, listing, and open-Activity workflows."""
@@ -885,6 +893,43 @@ def launch_activity_management_menu(
             activity = select_activity()
             if activity is not None:
                 launch_activity_context_menu(activity, session_state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+
+def launch_activity_management_menu(
+    state: MenuSessionContext | None = None,
+) -> None:
+    """Offer the guided teacher path before exact Activity tools."""
+    session_state = MenuSessionContext() if state is None else state
+    while True:
+        clear_screen()
+        print_menu_header("Activity Management")
+        print("1. Create Classroom Activity")
+        print("2. Continue setup for an Activity")
+        print("3. Advanced Activity tools")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Classroom Activity Help")
+            print("Create Classroom Activity guides the normal setup path.")
+            print("Continue setup resumes from the Activity's current saved state.")
+            print("Advanced tools keep exact creation, copy, and inspection controls.")
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_guided_activity_menu(session_state)
+        elif choice == "2":
+            launch_guided_continue_setup(session_state)
+        elif choice == "3":
+            launch_advanced_activity_tools_menu(session_state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
