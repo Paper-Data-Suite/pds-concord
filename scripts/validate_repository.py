@@ -84,6 +84,14 @@ def validate(core_wheel: Path, *, allow_dirty: bool) -> None:
         _run([python, "scripts/check_package.py", str(wheels[0])])
         _run([python, "scripts/verify_release_artifacts.py", str(dist)])
         _run([python, "scripts/smoke_test_wheel.py", str(wheels[0]), str(core_wheel)])
+        _run(
+            [
+                python,
+                "scripts/smoke_test_activity_copying_wheel.py",
+                str(wheels[0]),
+                str(core_wheel),
+            ]
+        )
     _run(["git", "diff", "--check"])
     if not allow_dirty:
         result = subprocess.run(

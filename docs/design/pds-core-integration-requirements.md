@@ -1,6 +1,6 @@
 # PDS Core Integration Requirements
 
-**Status:** Accepted integration architecture record; Core v0.6.1 is the current v0.3 development baseline
+**Status:** Accepted integration architecture record; Core v0.6.3 is the current v0.3 development baseline
 **Project:** Paper Data Suite
 **Module:** `pds-concord`
 **Issue:** `Paper-Data-Suite/pds-concord#10`
@@ -9,8 +9,9 @@
 **Registry and Meridian reconciliation:** July 29, 2026
 **Core v0.6 reconciliation:** August 4, 2026
 **Core v0.6.1 grouping-signal reconciliation:** August 19, 2026
-**Revision:** 5 — preserves the released Core v0.6.0 routing/registry history and adopts the additive Core v0.6.1 grouping-signal boundary for v0.3 development
-**Current development Core baseline:** `pds-core` 0.6.1, Python 3.11+
+**Core v0.6.3 dependency-baseline reconciliation:** August 26, 2026
+**Revision:** 6 — preserves the released Core v0.6.0 routing/registry history, the additive Core v0.6.1 grouping-signal boundary, and reconciles active development to Core v0.6.3
+**Current development Core baseline:** `pds-core` 0.6.3, Python 3.11+
 **Historical v0.2.0 qualification baseline:** `pds-core` 0.6.0
 
 ## 1. Purpose
@@ -52,9 +53,9 @@ Concord still must implement and validate its own behavior before claiming
 routing or publication support; the Core release does not make Concord routable
 or a publication producer automatically.
 
-For the active v0.3 development line, Core v0.6.1 adds the neutral
-`grouping_signal_set_v1` interchange without changing the established v0.6
-routing or academic-registry ownership. Concord consumes that interchange only
+For the active v0.3 development line, current Core v0.6.3 preserves the neutral
+`grouping_signal_set_v1` interchange introduced in Core v0.6.1 without changing
+the established v0.6 routing or academic-registry ownership. Concord consumes that interchange only
 through Core's public model, CSV, storage, and diagnostic APIs and does not
 import Meridian. See `docs/v0.3.0-core-grouping-signal-integration.md` for the
 current grouping-signal qualification boundary. The historical v0.2.0 release

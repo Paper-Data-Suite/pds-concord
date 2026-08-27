@@ -3,8 +3,10 @@
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
 created during collaborative classroom Activities. The released v0.2.0 artifact
 remains historically qualified against `pds-core` v0.6.0. Current source is the
-v0.3.0 development line (`0.3.0.dev0`) and requires `pds-core>=0.6.1,<0.7`
-because v0.3 consumes Core's neutral `grouping_signal_set_v1` contract. Official
+v0.3.0 development line (`0.3.0.dev0`) and requires `pds-core>=0.6.3,<0.7`
+under the suite policy of developing against the latest released PDS
+dependencies. The neutral `grouping_signal_set_v1` contract introduced in
+Core 0.6.1 remains the grouping-signal boundary consumed by Concord. Official
 release artifacts are distributed through GitHub Releases only after independent
 review, hosted CI, merge, and exact-main requalification.
 
@@ -52,6 +54,9 @@ PDS2 identities, deterministic starter-layout PDFs, explicit recovery/reprint,
 direct runtime Packet commands, and the opened-Activity `Prepare / Generate
 Packet` teacher workflow. The same typed service layer supports both fully
 noninteractive direct commands and the low-information-density menu.
+Issue #63 now adds safe Activity copying: exact source selection, a positive
+configuration allowlist, target-specific privacy resolution, one fresh first
+Session, zero-write review digests, and create-only commit semantics.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -77,28 +82,30 @@ authoritative release qualification.
 ## Requirements and installation
 
 Current Concord development requires Python 3.11 or newer and
-`pds-core>=0.6.1,<0.7`. Core is distributed as authenticated GitHub Release
+`pds-core>=0.6.3,<0.7`. Core is distributed as authenticated GitHub Release
 artifacts rather than through PyPI. For v0.3 development, download the released
-`pds_core-0.6.1-py3-none-any.whl` and, when qualifying the external fixture
-asset, `pds-core-0.6.1-grouping-signal-fixtures.zip` from the
-[pds-core v0.6.1 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.1),
-then verify/install the wheel before installing Concord from source:
+`pds_core-0.6.3-py3-none-any.whl` from the
+[pds-core v0.6.3 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.3).
+When qualifying the immutable grouping-signal fixture asset, continue to use
+`pds-core-0.6.1-grouping-signal-fixtures.zip` from the historical
+[pds-core v0.6.1 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.1).
+Then verify/install the Core 0.6.3 wheel before installing Concord from source:
 
 ```powershell
-python scripts/verify_core_wheel.py path\to\pds_core-0.6.1-py3-none-any.whl
+python scripts/verify_core_wheel.py path\to\pds_core-0.6.3-py3-none-any.whl
 python scripts/verify_core_grouping_fixtures.py path\to\pds-core-0.6.1-grouping-signal-fixtures.zip
-python -m pip install path\to\pds_core-0.6.1-py3-none-any.whl
+python -m pip install path\to\pds_core-0.6.3-py3-none-any.whl
 python -m pip install -e ".[dev]"
 ```
 
 Historical v0.2.0 release installation remains documented by the `v0.2.0`
 tag and its release checklist. That tagged source uses Core 0.6.0 and its own
 version of `scripts/verify_core_wheel.py`; the current v0.3 development verifier
-intentionally authenticates only the Core 0.6.1 wheel.
+intentionally authenticates only the Core 0.6.3 wheel.
 
 The Concord v0.2.0 wheel and checksum file remain available through that
 historical GitHub Release and must be authenticated against its published
-`SHA256SUMS.txt`. For current source development, use the Core 0.6.1 procedure
+`SHA256SUMS.txt`. For current source development, use the Core 0.6.3 procedure
 above.
 
 ## Teacher menu
@@ -126,7 +133,7 @@ Q. Quit
 ```
 
 Every menu write shows a focused review screen and requires the operation word
-`CREATE`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `CONFIRM`,
+`CREATE`, `COPY`, `RENDER`, `ASSEMBLE`, `ROUTE`, `RESOLVE`, `CONFIRM`,
 `DISTRIBUTE`, `LEAVE`, `APPLY`, `UPDATE`, `ADD`, `CORRECT`, `REVIEW`,
 `MODERATE`, `SCORE`, `REVISE`, `ACTIVATE`, `RETIRE`, `END`, `REASSIGN`,
 `REGISTER`, `GENERATE`, `PUBLISH`, `WITHDRAW`, or `REBUILD`.
@@ -142,6 +149,7 @@ the screen, pause, or call `input()`.
 ```text
 concord workspace show|set|validate|reset
 concord activity create|list|show|update|set-status
+concord activity copy-preview|copy
 concord session add|list|show|update|set-status
 concord group create|list|show|update|set-status
 concord group member add|list|end|reassign
@@ -181,9 +189,10 @@ concord publication publish|supersede|withdraw|series-show
 concord publication catalog-list|catalog-rebuild
 ```
 
-Mutating direct commands require explicit actor context. Every write after the
-initial Activity-plus-first-Session creation also requires the exact current
-snapshot revision. Template mutations after initial Template creation likewise
+Mutating direct commands require explicit actor context. Mutations of existing
+Activity state require the exact current snapshot revision. Activity copy is a
+separate create-only exception: `copy-preview` performs zero-write review and
+`copy` requires its exact digest before creating a fresh target Activity/Session. Template mutations after initial Template creation likewise
 require `--expected-snapshot`, but that value is the exact reusable Template
 library snapshot rather than an Activity snapshot. Packet mutations after
 initial Packet creation use the same flag for the exact reusable Packet-library
@@ -243,7 +252,7 @@ catalog reconciliation are documented in the
 Consumer-neutral manifest interpretation and authorization-gated bounded Artifact
 access are documented in the
 [consumer reader guide](docs/implementation/academic-result-reader.md). The v0.3
-Core 0.6.1 dependency and neutral grouping-signal boundary are documented in the
+Core 0.6.3 dependency and neutral grouping-signal boundary are documented in the
 [grouping-signal integration guide](docs/v0.3.0-core-grouping-signal-integration.md).
 The planning-only record/lifecycle foundation is documented in the
 [GroupPlan contract](docs/v0.3.0-group-plan-contract.md), and issue #51's manual
@@ -301,7 +310,7 @@ Run focused checks with `python -m pytest`, `python -m ruff check .`, and
 `python -m mypy`. Run the complete repository validation on Windows with:
 
 ```powershell
-.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.1-py3-none-any.whl
+.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.3-py3-none-any.whl
 ```
 
 The cross-platform equivalent is:
@@ -310,7 +319,7 @@ The cross-platform equivalent is:
 python scripts/validate_repository.py --core-wheel <wheel>
 ```
 
-The validator authenticates the exact Core v0.6.1 wheel, runs pytest, Ruff,
+The validator authenticates the exact Core v0.6.3 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
 inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
 the full installed Activity-to-publication producer acceptance before

@@ -38,7 +38,7 @@ jobs:
 
           $coreWheel = Join-Path `
             $coreDirectory `
-            "pds_core-0.6.1-py3-none-any.whl"
+            "pds_core-0.6.3-py3-none-any.whl"
 
           $coreGroupingFixtures = Join-Path `
             $coreDirectory `
@@ -63,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest `
-            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.1/pds_core-0.6.1-py3-none-any.whl" `
+            -Uri "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.3/pds_core-0.6.3-py3-none-any.whl" `
             -OutFile $env:PDS_CORE_WHEEL `
             -ErrorAction Stop
 
@@ -152,6 +152,10 @@ jobs:
           python scripts/check_package.py "$concordWheel"
           python scripts/verify_release_artifacts.py "$dist"
           python scripts/smoke_test_wheel.py `
+            "$concordWheel" `
+            "$env:PDS_CORE_WHEEL"
+
+          python scripts/smoke_test_activity_copying_wheel.py `
             "$concordWheel" `
             "$env:PDS_CORE_WHEEL"
 

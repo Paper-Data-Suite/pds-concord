@@ -23,7 +23,7 @@ METADATA = """Metadata-Version: 2.4
 Name: pds-concord
 Version: 0.3.0.dev0
 Requires-Python: >=3.11
-Requires-Dist: pds-core<0.7,>=0.6.1
+Requires-Dist: pds-core<0.7,>=0.6.3
 
 Synthetic test package.
 """
@@ -40,7 +40,7 @@ PYPROJECT = """[project]
 name = "pds-concord"
 dynamic = ["version"]
 requires-python = ">=3.11"
-dependencies = ["pds-core>=0.6.1,<0.7"]
+dependencies = ["pds-core>=0.6.3,<0.7"]
 
 [project.scripts]
 concord = "concord.cli:main"
@@ -157,7 +157,7 @@ def test_dangerous_archive_member_is_rejected(name: str) -> None:
     "metadata",
     [
         METADATA.replace(
-            "Requires-Dist: pds-core<0.7,>=0.6.1",
+            "Requires-Dist: pds-core<0.7,>=0.6.3",
             "Requires-Dist: pds-core<0.7,>=0.6",
         ),
         METADATA.replace(

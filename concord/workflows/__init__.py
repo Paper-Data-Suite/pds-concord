@@ -6,6 +6,15 @@ from concord.workflows.activity import (
     show_activity,
     update_activity,
 )
+from concord.workflows.activity_copy import (
+    ActivityCopyDiagnostic,
+    ActivityCopyResult,
+    CopyActivityRequest,
+    PrepareActivityCopyRequest,
+    PreparedActivityCopy,
+    copy_activity,
+    prepare_activity_copy,
+)
 from concord.workflows.artifact import (
     ArtifactDetail,
     ArtifactScanOccurrenceSummary,
@@ -413,6 +422,13 @@ from concord.workflows.template import (
 )
 
 __all__ = [
+    "ActivityCopyDiagnostic",
+    "ActivityCopyResult",
+    "CopyActivityRequest",
+    "PrepareActivityCopyRequest",
+    "PreparedActivityCopy",
+    "copy_activity",
+    "prepare_activity_copy",
     "PacketDetail",
     "PacketMutationResult",
     "PacketSummary",

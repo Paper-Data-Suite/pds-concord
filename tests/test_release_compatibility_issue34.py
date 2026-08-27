@@ -16,7 +16,7 @@ from scripts.verify_release_compatibility import (
 )
 
 
-def _project(*, core: str = "pds-core>=0.6.1,<0.7") -> dict[str, object]:
+def _project(*, core: str = "pds-core>=0.6.3,<0.7") -> dict[str, object]:
     return {
         "name": "pds-concord",
         "requires-python": ">=3.11",
@@ -60,9 +60,9 @@ def test_live_release_compatibility_audit_passes() -> None:
 @pytest.mark.parametrize(
     ("version", "core", "extra"),
     [
-        ("0.2.0", "pds-core>=0.6.1,<0.7", None),
-        ("0.3.0.dev0", "pds-core>=0.6,<0.7", None),
-        ("0.3.0.dev0", "pds-core>=0.6.1,<0.7", "pds-meridian>=0.1"),
+        ("0.2.0", "pds-core>=0.6.3,<0.7", None),
+        ("0.3.0.dev0", "pds-core>=0.6.1,<0.7", None),
+        ("0.3.0.dev0", "pds-core>=0.6.3,<0.7", "pds-meridian>=0.1"),
     ],
 )
 def test_release_metadata_rejects_version_core_and_sibling_drift(

@@ -9,6 +9,7 @@ from concord.workflows import (
     GroupDetail,
     GroupSummary,
     MembershipSummary,
+    PreparedActivityCopy,
     ResponsibilitySummary,
     RoleSummary,
     SessionSummary,
@@ -31,6 +32,44 @@ def print_commit(result: WorkflowCommitResult) -> None:
             for item in result.changed_records
         )
         print(f"Changed: {changed}")
+
+
+def print_activity_copy_preview(item: PreparedActivityCopy) -> None:
+    print(
+        f"Source Activity: {item.source_class_id}/{item.source_activity_id}"
+    )
+    print(f"Source status: {item.source_status}")
+    print(
+        f"Target Activity: {item.target_class_id}/{item.target_activity_id}"
+    )
+    print("Target status: draft")
+    print(f"Title: {item.title}")
+    print(f"Description: {item.description if item.description is not None else '-'}")
+    print(f"Activity type: {item.activity_type}")
+    print(f"Scoring orientation: {item.scoring_orientation}")
+    print(f"Standards profile: {item.standards_profile_id or '-'}")
+    print(
+        "Focus standards: "
+        + (", ".join(item.focus_standard_ids) if item.focus_standard_ids else "-")
+    )
+    classification = (
+        item.privacy_policy.classification
+        if item.privacy_policy is not None
+        else "none"
+    )
+    print(f"Target privacy: {classification}")
+    print(
+        f"First Session: {item.first_session_id}"
+        + (f" ({item.first_session_label})" if item.first_session_label else "")
+    )
+    if item.diagnostics:
+        print("Diagnostics:")
+        for diagnostic in item.diagnostics:
+            print(f"- {diagnostic.code}: {diagnostic.message}")
+    print("Will not copy:")
+    for excluded in item.excluded_state:
+        print(f"- {excluded}")
+    print(f"Review digest: {item.review_digest}")
 
 
 def print_activity_summary(item: ActivitySummary) -> None:
