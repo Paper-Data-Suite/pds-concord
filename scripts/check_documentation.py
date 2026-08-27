@@ -73,6 +73,9 @@ ACTIVITY_COPYING_DOC = ROOT / "docs" / "v0.3.0-activity-copying.md"
 REUSABLE_PRESETS_DOC = (
     ROOT / "docs" / "v0.3.0-reusable-role-responsibility-scoring-presets.md"
 )
+GUIDED_ACTIVITY_WORKFLOW_DOC = (
+    ROOT / "docs" / "v0.3.0-guided-create-classroom-activity.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -100,6 +103,20 @@ REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'Core 0.6.3',
     'Issue #63',
     'Issue #64',
+)
+REQUIRED_GUIDED_ACTIVITY_WORKFLOW_PHRASES = (
+    "Create Classroom Activity",
+    "Continue setup",
+    "inspect_guided_activity_setup",
+    "No persistent `WizardState`",
+    "Information Density and screen-refresh contract",
+    "Clearing/redrawing the screen is the default",
+    "prepare_packet_from_template",
+    "commit_packet_from_template",
+    "GroupPlan != Group != GroupMembership",
+    "Score != reusable configuration",
+    "scripts/smoke_test_guided_activity_wheel.py",
+    "pds-core>=0.6.3,<0.7",
 )
 REQUIRED_REUSABLE_PRESETS_PHRASES = (
     "concord_reusable_preset_library_v1",
@@ -728,11 +745,34 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the reusable-preset document."
             )
+    if not GUIDED_ACTIVITY_WORKFLOW_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 guided Activity workflow document is missing."
+        )
+    else:
+        guided_activity_doc = GUIDED_ACTIVITY_WORKFLOW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_GUIDED_ACTIVITY_WORKFLOW_PHRASES:
+            if phrase not in guided_activity_doc:
+                failures.append(
+                    "Guided Activity workflow document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if GUIDED_ACTIVITY_WORKFLOW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the guided Activity document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
     ):
         active_group_plan_text = active_path.read_text(encoding="utf-8")
+        if "Create Classroom Activity" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose guided "
+                "Activity setup."
+            )
         if "concord group-plan" not in active_group_plan_text:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose the GroupPlan CLI."

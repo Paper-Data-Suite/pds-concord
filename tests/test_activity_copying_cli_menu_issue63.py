@@ -185,14 +185,17 @@ def test_activity_copy_commands_have_help() -> None:
         assert exit_info.value.code == 0
 
 
-def test_activity_management_exposes_copy(
+def test_activity_management_preserves_copy_in_advanced_tools(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _inputs(monkeypatch, ["b"])
+    _inputs(monkeypatch, ["3", "b", "b"])
     monkeypatch.setattr("concord.menu_activity.clear_screen", lambda: None)
     launch_activity_management_menu()
     output = capsys.readouterr().out
+    assert "1. Create Classroom Activity" in output
+    assert "2. Continue setup for an Activity" in output
+    assert "3. Advanced Activity tools" in output
     assert "1. Create an Activity" in output
     assert "2. Copy an Activity" in output
     assert "3. List Activities" in output

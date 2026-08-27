@@ -145,6 +145,29 @@ The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
 
+## Guided classroom Activity setup
+
+Activity Management presents **Create Classroom Activity** and **Continue setup
+for an Activity** before the exact advanced tools. The guide creates or safely
+copies an Activity, then coordinates Sessions, classroom materials, student
+groups, Roles/Responsibilities, assessment setup, final review, and optional
+material preparation through the existing Concord workflow services.
+
+Confirmed work is incremental and recoverable. Concord does not persist a
+second wizard/checklist record; **Continue setup** derives what is Ready, Needs
+attention, Not set up, or Not used from the Activity's canonical records.
+
+The teacher interface follows the Paper Data Suite Information Density rule:
+clear/redraw by default when the current action changes, and retain only the
+context needed to complete that action. Routine guided screens avoid raw IDs,
+JSON, snapshot/revision internals, digests, storage paths, and grouping-signal
+internals.
+
+See [guided Activity workflow documentation][guided-activity-doc] for the
+complete #65 contract.
+
+[guided-activity-doc]: docs/v0.3.0-guided-create-classroom-activity.md
+
 ## Direct CLI
 
 Direct commands are deterministic and fully noninteractive. They never clear

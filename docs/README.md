@@ -770,3 +770,12 @@ When adding or revising documentation:
 * and update affected ADRs or contracts when a change alters an accepted architectural decision.
 
 Significant architectural changes should be recorded through a new ADR that supersedes or amends the earlier decision rather than silently rewriting the project’s history.
+
+## Guided classroom Activity setup
+
+- [Guided classroom Activity setup][guided-activity] documents issue #65's
+  recoverable **Create Classroom Activity** / **Continue setup** workflow,
+  teacher-facing Information Density and screen-refresh contract, and
+  composition of the #48-#64 services without persistent wizard state.
+
+[guided-activity]: v0.3.0-guided-create-classroom-activity.md

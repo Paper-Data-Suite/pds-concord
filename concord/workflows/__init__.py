@@ -199,6 +199,15 @@ from concord.workflows.grouping_signal import (
     prepare_grouping_signal_csv_import,
     select_grouping_signal_dimension,
 )
+from concord.workflows.guided_activity_setup import (
+    GuidedActivitySetup,
+    GuidedSetupArea,
+    SetupStatus,
+    activity_type_label,
+    inspect_guided_activity_setup,
+    scoring_orientation_label,
+    setup_status_label,
+)
 from concord.workflows.models import (
     ActivityContextResult,
     ActivityDetail,
@@ -474,6 +483,13 @@ from concord.workflows.template import (
 )
 
 __all__ = [
+    "GuidedActivitySetup",
+    "GuidedSetupArea",
+    "SetupStatus",
+    "activity_type_label",
+    "inspect_guided_activity_setup",
+    "scoring_orientation_label",
+    "setup_status_label",
     "ActivityCopyDiagnostic",
     "ActivityCopyResult",
     "CopyActivityRequest",
