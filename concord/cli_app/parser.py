@@ -15,6 +15,7 @@ from concord.cli_app.handlers import (
     packet_runtime,
     publication,
     responsibility,
+    reusable_presets,
     review_moderation,
     role,
     scan,
@@ -1188,6 +1189,454 @@ def _responsibility_commands(
     reassign.set_defaults(handler=responsibility.handle_reassign)
 
 
+
+def _preset_actor_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _actor_options(parser)
+
+
+def _preset_revision_options(parser: argparse.ArgumentParser) -> None:
+    _preset_actor_options(parser)
+    parser.add_argument("--preset-id", required=True)
+    parser.add_argument("--preset-revision-id", required=True)
+    parser.add_argument("--expected-preset-revision", type=int, required=True)
+
+
+def _preset_read_actions(
+    actions: argparse._SubParsersAction[argparse.ArgumentParser],
+    *,
+    preset_kind: str,
+) -> None:
+    list_command = actions.add_parser("list", help="List reusable presets.")
+    _workspace_option(list_command)
+    list_command.add_argument("--include-retired", action="store_true")
+    list_command.set_defaults(
+        handler=reusable_presets.handle_list,
+        preset_kind=preset_kind,
+    )
+
+    show = actions.add_parser("show", help="Show the current preset revision.")
+    _workspace_option(show)
+    show.add_argument("--preset-id", required=True)
+    show.set_defaults(handler=reusable_presets.handle_show, preset_kind=preset_kind)
+
+    validate = actions.add_parser(
+        "validate",
+        help="Validate the current preset and authoritative references.",
+    )
+    _workspace_option(validate)
+    _standards_option(validate)
+    validate.add_argument("--preset-id", required=True)
+    validate.set_defaults(
+        handler=reusable_presets.handle_validate,
+        preset_kind=preset_kind,
+    )
+
+    retire = actions.add_parser(
+        "retire",
+        help="Retire a preset by creating an immutable successor revision.",
+    )
+    _preset_revision_options(retire)
+    retire.set_defaults(handler=reusable_presets.handle_retire, preset_kind=preset_kind)
+
+
+def _role_preset_apply_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _expected_option(parser)
+    _actor_options(parser)
+    _standards_option(parser)
+    _class_activity(parser)
+    parser.add_argument("--preset-id", required=True)
+    parser.add_argument("--preset-revision-id", required=True)
+    parser.add_argument("--role-assignment-id", required=True)
+    parser.add_argument("--student-id", required=True)
+    parser.add_argument("--status", default="active")
+    parser.add_argument("--membership-id")
+    parser.add_argument("--group-id")
+    _context_options(parser, required=True)
+
+
+def _responsibility_preset_apply_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _expected_option(parser)
+    _actor_options(parser)
+    _standards_option(parser)
+    _class_activity(parser)
+    parser.add_argument("--preset-id", required=True)
+    parser.add_argument("--preset-revision-id", required=True)
+    parser.add_argument("--responsibility-assignment-id", required=True)
+    assignee = parser.add_mutually_exclusive_group(required=True)
+    assignee.add_argument("--student-id")
+    assignee.add_argument("--group-assignee-id")
+    parser.add_argument("--status", default="active")
+    parser.add_argument("--group-id")
+    parser.add_argument("--work-item-id")
+    _context_options(parser, required=True)
+
+
+def _scoring_preset_apply_options(parser: argparse.ArgumentParser) -> None:
+    _workspace_option(parser)
+    _expected_option(parser)
+    _actor_options(parser)
+    _standards_option(parser)
+    _class_activity(parser)
+    parser.add_argument("--preset-id", required=True)
+    parser.add_argument("--preset-revision-id", required=True)
+    parser.add_argument("--criterion-set-id", required=True)
+    parser.add_argument("--criterion-set-lineage-id", required=True)
+    parser.add_argument(
+        "--criterion-target",
+        action="append",
+        required=True,
+        help="Fresh target Criterion mapping KEY=CRITERION_ID; repeat per Criterion.",
+    )
+    parser.add_argument("--scoring-scale-preset-id")
+    parser.add_argument("--scoring-scale-preset-revision-id")
+    parser.add_argument("--scoring-scale-id")
+    parser.add_argument("--scoring-scale-lineage-id")
+
+
+def _reusable_preset_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    role_parent = subparsers.add_parser(
+        "role-preset",
+        help="Manage reusable Role definitions without assignment state.",
+    )
+    role_actions = role_parent.add_subparsers(dest="role_preset_command", required=True)
+    _preset_read_actions(role_actions, preset_kind="role")
+
+    role_create = role_actions.add_parser("create", help="Create a Role preset.")
+    _preset_actor_options(role_create)
+    role_create.add_argument("--preset-id", required=True)
+    role_create.add_argument("--preset-revision-id", required=True)
+    role_create.add_argument("--name", required=True)
+    role_create.add_argument("--role-key", required=True)
+    role_create.add_argument("--role-label")
+    role_create.add_argument("--description")
+    role_create.add_argument("--hint", action="append")
+    role_create.set_defaults(handler=reusable_presets.handle_role_create)
+
+    role_revise = role_actions.add_parser("revise", help="Revise a Role preset.")
+    _preset_revision_options(role_revise)
+    role_revise.add_argument("--name", required=True)
+    role_revise.add_argument("--role-key", required=True)
+    role_revise.add_argument("--role-label")
+    role_revise.add_argument("--description")
+    role_revise.add_argument("--hint", action="append")
+    role_revise.set_defaults(handler=reusable_presets.handle_role_revise)
+
+    role_save_preview = role_actions.add_parser(
+        "save-preview",
+        help="Preview saving reusable fields from one Role Assignment.",
+    )
+    _workspace_option(role_save_preview)
+    _expected_option(role_save_preview)
+    _actor_options(role_save_preview)
+    _standards_option(role_save_preview)
+    _class_activity(role_save_preview)
+    role_save_preview.add_argument("--source-role-assignment-id", required=True)
+    role_save_preview.add_argument("--preset-id", required=True)
+    role_save_preview.add_argument("--preset-revision-id", required=True)
+    role_save_preview.add_argument("--name", required=True)
+    role_save_preview.add_argument("--description")
+    role_save_preview.add_argument("--hint", action="append")
+    role_save_preview.set_defaults(
+        handler=reusable_presets.handle_role_save_preview
+    )
+
+    role_save = role_actions.add_parser(
+        "save",
+        help="Save reviewed reusable fields from one Role Assignment.",
+    )
+    _workspace_option(role_save)
+    _expected_option(role_save)
+    _actor_options(role_save)
+    _standards_option(role_save)
+    _class_activity(role_save)
+    role_save.add_argument("--source-role-assignment-id", required=True)
+    role_save.add_argument("--preset-id", required=True)
+    role_save.add_argument("--preset-revision-id", required=True)
+    role_save.add_argument("--name", required=True)
+    role_save.add_argument("--description")
+    role_save.add_argument("--hint", action="append")
+    role_save.add_argument("--review-digest", required=True)
+    role_save.set_defaults(handler=reusable_presets.handle_role_save)
+
+    role_preview = role_actions.add_parser(
+        "apply-preview",
+        help="Preview fresh Role Assignment creation without writing.",
+    )
+    _role_preset_apply_options(role_preview)
+    role_preview.set_defaults(handler=reusable_presets.handle_role_apply_preview)
+
+    role_apply = role_actions.add_parser(
+        "apply",
+        help="Apply one exact reviewed Role preset.",
+    )
+    _role_preset_apply_options(role_apply)
+    role_apply.add_argument("--review-digest", required=True)
+    role_apply.set_defaults(handler=reusable_presets.handle_role_apply)
+
+    responsibility_parent = subparsers.add_parser(
+        "responsibility-preset",
+        help="Manage reusable Responsibility definitions without assignee state.",
+    )
+    responsibility_actions = responsibility_parent.add_subparsers(
+        dest="responsibility_preset_command",
+        required=True,
+    )
+    _preset_read_actions(responsibility_actions, preset_kind="responsibility")
+
+    responsibility_create = responsibility_actions.add_parser(
+        "create",
+        help="Create a Responsibility preset.",
+    )
+    _preset_actor_options(responsibility_create)
+    responsibility_create.add_argument("--preset-id", required=True)
+    responsibility_create.add_argument("--preset-revision-id", required=True)
+    responsibility_create.add_argument("--name", required=True)
+    responsibility_create.add_argument("--description", required=True)
+    responsibility_create.add_argument("--expected-output")
+    responsibility_create.add_argument("--hint", action="append")
+    responsibility_create.set_defaults(
+        handler=reusable_presets.handle_responsibility_create
+    )
+
+    responsibility_revise = responsibility_actions.add_parser(
+        "revise",
+        help="Revise a Responsibility preset.",
+    )
+    _preset_revision_options(responsibility_revise)
+    responsibility_revise.add_argument("--name", required=True)
+    responsibility_revise.add_argument("--description", required=True)
+    responsibility_revise.add_argument("--expected-output")
+    responsibility_revise.add_argument("--hint", action="append")
+    responsibility_revise.set_defaults(
+        handler=reusable_presets.handle_responsibility_revise
+    )
+
+    responsibility_save_preview = responsibility_actions.add_parser(
+        "save-preview",
+        help="Preview saving reusable fields from one Responsibility.",
+    )
+    _workspace_option(responsibility_save_preview)
+    _expected_option(responsibility_save_preview)
+    _actor_options(responsibility_save_preview)
+    _standards_option(responsibility_save_preview)
+    _class_activity(responsibility_save_preview)
+    responsibility_save_preview.add_argument(
+        "--source-responsibility-assignment-id", required=True
+    )
+    responsibility_save_preview.add_argument("--preset-id", required=True)
+    responsibility_save_preview.add_argument(
+        "--preset-revision-id", required=True
+    )
+    responsibility_save_preview.add_argument("--name", required=True)
+    responsibility_save_preview.add_argument("--hint", action="append")
+    responsibility_save_preview.set_defaults(
+        handler=reusable_presets.handle_responsibility_save_preview
+    )
+
+    responsibility_save = responsibility_actions.add_parser(
+        "save",
+        help="Save reviewed reusable fields from one Responsibility.",
+    )
+    _workspace_option(responsibility_save)
+    _expected_option(responsibility_save)
+    _actor_options(responsibility_save)
+    _standards_option(responsibility_save)
+    _class_activity(responsibility_save)
+    responsibility_save.add_argument(
+        "--source-responsibility-assignment-id", required=True
+    )
+    responsibility_save.add_argument("--preset-id", required=True)
+    responsibility_save.add_argument("--preset-revision-id", required=True)
+    responsibility_save.add_argument("--name", required=True)
+    responsibility_save.add_argument("--hint", action="append")
+    responsibility_save.add_argument("--review-digest", required=True)
+    responsibility_save.set_defaults(
+        handler=reusable_presets.handle_responsibility_save
+    )
+
+    responsibility_preview = responsibility_actions.add_parser(
+        "apply-preview",
+        help="Preview fresh Responsibility Assignment creation without writing.",
+    )
+    _responsibility_preset_apply_options(responsibility_preview)
+    responsibility_preview.set_defaults(
+        handler=reusable_presets.handle_responsibility_apply_preview
+    )
+
+    responsibility_apply = responsibility_actions.add_parser(
+        "apply",
+        help="Apply one exact reviewed Responsibility preset.",
+    )
+    _responsibility_preset_apply_options(responsibility_apply)
+    responsibility_apply.add_argument("--review-digest", required=True)
+    responsibility_apply.set_defaults(
+        handler=reusable_presets.handle_responsibility_apply
+    )
+
+    scale_parent = subparsers.add_parser(
+        "scale-preset",
+        help="Manage reusable immutable Scoring Scale definitions.",
+    )
+    scale_actions = scale_parent.add_subparsers(
+        dest="scale_preset_command", required=True
+    )
+    _preset_read_actions(scale_actions, preset_kind="scoring_scale")
+
+    scale_create = scale_actions.add_parser("create", help="Create a Scale preset.")
+    _preset_actor_options(scale_create)
+    scale_create.add_argument("--preset-id", required=True)
+    scale_create.add_argument("--preset-revision-id", required=True)
+    scale_create.add_argument("--definition", required=True)
+    scale_create.set_defaults(
+        handler=reusable_presets.handle_scale_create,
+        command_parser=scale_create,
+    )
+
+    scale_revise = scale_actions.add_parser("revise", help="Revise a Scale preset.")
+    _preset_revision_options(scale_revise)
+    scale_revise.add_argument("--definition", required=True)
+    scale_revise.set_defaults(
+        handler=reusable_presets.handle_scale_revise,
+        command_parser=scale_revise,
+    )
+
+    scale_save_preview = scale_actions.add_parser(
+        "save-preview",
+        help="Preview saving one Activity-native Scale as a reusable preset.",
+    )
+    _workspace_option(scale_save_preview)
+    _expected_option(scale_save_preview)
+    _actor_options(scale_save_preview)
+    _standards_option(scale_save_preview)
+    _class_activity(scale_save_preview)
+    scale_save_preview.add_argument("--source-scoring-scale-id", required=True)
+    scale_save_preview.add_argument("--preset-id", required=True)
+    scale_save_preview.add_argument("--preset-revision-id", required=True)
+    scale_save_preview.add_argument("--name")
+    scale_save_preview.set_defaults(
+        handler=reusable_presets.handle_scale_save_preview
+    )
+
+    scale_save = scale_actions.add_parser(
+        "save",
+        help="Save one reviewed Activity-native Scale as a reusable preset.",
+    )
+    _workspace_option(scale_save)
+    _expected_option(scale_save)
+    _actor_options(scale_save)
+    _standards_option(scale_save)
+    _class_activity(scale_save)
+    scale_save.add_argument("--source-scoring-scale-id", required=True)
+    scale_save.add_argument("--preset-id", required=True)
+    scale_save.add_argument("--preset-revision-id", required=True)
+    scale_save.add_argument("--name")
+    scale_save.add_argument("--review-digest", required=True)
+    scale_save.set_defaults(handler=reusable_presets.handle_scale_save)
+
+    criterion_parent = subparsers.add_parser(
+        "criterion-preset",
+        help="Manage reusable Criterion Set definitions and scoring setup.",
+    )
+    criterion_actions = criterion_parent.add_subparsers(
+        dest="criterion_preset_command",
+        required=True,
+    )
+    _preset_read_actions(criterion_actions, preset_kind="criterion_set")
+
+    criterion_create = criterion_actions.add_parser(
+        "create",
+        help="Create a Criterion Set preset from strict JSON.",
+    )
+    _preset_actor_options(criterion_create)
+    _standards_option(criterion_create)
+    criterion_create.add_argument("--preset-id", required=True)
+    criterion_create.add_argument("--preset-revision-id", required=True)
+    criterion_create.add_argument("--definition", required=True)
+    criterion_create.set_defaults(
+        handler=reusable_presets.handle_criterion_create,
+        command_parser=criterion_create,
+    )
+
+    criterion_revise = criterion_actions.add_parser(
+        "revise",
+        help="Revise a Criterion Set preset from strict JSON.",
+    )
+    _preset_revision_options(criterion_revise)
+    _standards_option(criterion_revise)
+    criterion_revise.add_argument("--definition", required=True)
+    criterion_revise.set_defaults(
+        handler=reusable_presets.handle_criterion_revise,
+        command_parser=criterion_revise,
+    )
+
+    criterion_save_preview = criterion_actions.add_parser(
+        "save-preview",
+        help="Preview saving one native Criterion Set as a reusable preset.",
+    )
+    _workspace_option(criterion_save_preview)
+    _expected_option(criterion_save_preview)
+    _actor_options(criterion_save_preview)
+    _standards_option(criterion_save_preview)
+    _class_activity(criterion_save_preview)
+    criterion_save_preview.add_argument("--source-criterion-set-id", required=True)
+    criterion_save_preview.add_argument("--preset-id", required=True)
+    criterion_save_preview.add_argument("--preset-revision-id", required=True)
+    criterion_save_preview.add_argument("--name")
+    criterion_save_preview.add_argument("--recommended-scoring-scale-preset-id")
+    criterion_save_preview.add_argument(
+        "--recommended-scoring-scale-preset-revision-id"
+    )
+    criterion_save_preview.set_defaults(
+        handler=reusable_presets.handle_criterion_save_preview
+    )
+
+    criterion_save = criterion_actions.add_parser(
+        "save",
+        help="Save one reviewed native Criterion Set as a reusable preset.",
+    )
+    _workspace_option(criterion_save)
+    _expected_option(criterion_save)
+    _actor_options(criterion_save)
+    _standards_option(criterion_save)
+    _class_activity(criterion_save)
+    criterion_save.add_argument("--source-criterion-set-id", required=True)
+    criterion_save.add_argument("--preset-id", required=True)
+    criterion_save.add_argument("--preset-revision-id", required=True)
+    criterion_save.add_argument("--name")
+    criterion_save.add_argument("--recommended-scoring-scale-preset-id")
+    criterion_save.add_argument(
+        "--recommended-scoring-scale-preset-revision-id"
+    )
+    criterion_save.add_argument("--review-digest", required=True)
+    criterion_save.set_defaults(handler=reusable_presets.handle_criterion_save)
+
+    scoring_preview = criterion_actions.add_parser(
+        "apply-preview",
+        help="Preview fresh Activity scoring configuration without writing.",
+    )
+    _scoring_preset_apply_options(scoring_preview)
+    scoring_preview.set_defaults(
+        handler=reusable_presets.handle_scoring_apply_preview,
+        command_parser=scoring_preview,
+    )
+
+    scoring_apply = criterion_actions.add_parser(
+        "apply",
+        help="Atomically materialize one reviewed Activity scoring setup.",
+    )
+    _scoring_preset_apply_options(scoring_apply)
+    scoring_apply.add_argument("--review-digest", required=True)
+    scoring_apply.set_defaults(
+        handler=reusable_presets.handle_scoring_apply,
+        command_parser=scoring_apply,
+    )
+
+
 def _workspace_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -2268,6 +2717,7 @@ def build_parser() -> argparse.ArgumentParser:
     _grouping_signal_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)
+    _reusable_preset_commands(subparsers)
     _packet_commands(subparsers)
     _template_commands(subparsers)
     _criterion_set_commands(subparsers)

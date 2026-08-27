@@ -32,19 +32,27 @@ from concord.menu_ui import (
 from concord.models import ConcordRecordReference
 from concord.workflows import (
     ActivitySummary,
+    ApplyResponsibilityPresetRequest,
     AssignResponsibilityRequest,
     ConcordWorkflowError,
     EndResponsibilityRequest,
+    PresetSummary,
     ReassignResponsibilityRequest,
     ResponsibilitySummary,
+    SaveResponsibilityPresetFromAssignmentRequest,
+    apply_responsibility_preset,
     assign_responsibility,
     core_student_participant,
     end_responsibility,
     group_record_reference,
     list_groups,
+    list_presets,
     list_responsibilities,
     list_sessions,
+    prepare_responsibility_preset_application,
+    prepare_responsibility_preset_from_assignment,
     reassign_responsibility,
+    save_responsibility_preset_from_assignment,
     show_activity,
 )
 from concord.workflows.models import WorkflowAssigneeReference
@@ -148,49 +156,122 @@ def _choose_assignee(
     return _choose_assignee(activity)
 
 
+
+def _choose_responsibility_preset() -> PresetSummary | None:
+    presets = list_presets("responsibility")
+    if not presets:
+        return None
+    while True:
+        clear_screen()
+        print_menu_header("Responsibility Source")
+        print("1. Use a saved Responsibility")
+        print("2. Enter Responsibility manually")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Saved Responsibility Help",
+                (
+                    "Saved Responsibilities reuse obligation text only.",
+                    "Assignee, Group, context, identity, and history are always fresh.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return select_one(
+                "Choose a Saved Responsibility",
+                presets,
+                tuple(item.name for item in presets),
+                help_text="Choose reusable work expectations; assignee state is new.",
+            )
+        if raw == "2":
+            return None
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
 def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
     try:
         current = _latest(activity)
         assignee, group_id, label = _choose_assignee(current)
-        description = prompt_text(
-            "Assign Responsibility",
-            "Responsibility",
-            help_text="Describe the concrete responsibility being assigned.",
-        )
-        assert description is not None
-        expected_output = prompt_text(
-            "Assign Responsibility",
-            "Expected output",
-            help_text="Optionally name the expected product or outcome.",
-            optional=True,
-        )
+        preset = _choose_responsibility_preset()
+        description: str | None = None
+        expected_output: str | None = None
+        if preset is None:
+            description = prompt_text(
+                "Assign Responsibility",
+                "Responsibility",
+                help_text="Describe the concrete responsibility being assigned.",
+            )
+            assert description is not None
+            expected_output = prompt_text(
+                "Assign Responsibility",
+                "Expected output",
+                help_text="Optionally name the expected product or outcome.",
+                optional=True,
+            )
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
         actor = state.require_actor()
-        if not confirm_write(
-            "Assign Responsibility",
-            "ADD",
-            (
-                f"Assignee: {label}",
-                f"Responsibility: {description}",
-                f"Sessions: {len(context.session_ids)}",
-            ),
-        ):
-            return
-        result = assign_responsibility(
-            AssignResponsibilityRequest(
+        assignment_id = f"responsibility-{uuid.uuid4().hex}"
+        if preset is None:
+            assert description is not None
+            if not confirm_write(
+                "Assign Responsibility",
+                "ADD",
+                (
+                    f"Assignee: {label}",
+                    f"Responsibility: {description}",
+                    f"Sessions: {len(context.session_ids)}",
+                ),
+            ):
+                return
+            result = assign_responsibility(
+                AssignResponsibilityRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    responsibility_assignment_id=assignment_id,
+                    assignee_reference=assignee,
+                    description=description,
+                    effective_context=context,
+                    expected_snapshot_revision=current.snapshot_revision,
+                    actor=actor,
+                    group_id=group_id,
+                    expected_output=expected_output,
+                )
+            )
+        else:
+            request = ApplyResponsibilityPresetRequest(
+                preset_id=preset.preset_id,
+                preset_revision_id=preset.preset_revision_id,
                 class_id=current.class_id,
                 activity_id=current.activity_id,
-                responsibility_assignment_id=f"responsibility-{uuid.uuid4().hex}",
+                responsibility_assignment_id=assignment_id,
                 assignee_reference=assignee,
-                description=description,
                 effective_context=context,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 group_id=group_id,
-                expected_output=expected_output,
             )
-        )
+            prepared = prepare_responsibility_preset_application(request)
+            if not confirm_write(
+                "Assign Saved Responsibility",
+                "ADD",
+                (
+                    f"Assignee: {label}",
+                    f"Responsibility: {prepared.description}",
+                    f"Expected output: {prepared.expected_output or '-'}",
+                ),
+            ):
+                return
+            result = apply_responsibility_preset(
+                request,
+                review_digest=prepared.review_digest,
+            )
         show_result(
             "Responsibility Result",
             (
@@ -198,6 +279,60 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Responsibility: {result.responsibility_assignment_id}",
                 f"Snapshot: {result.commit.snapshot_revision}",
             ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+
+
+def _save_responsibility_as_preset(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        current = _latest(activity)
+        items = list_responsibilities(current.class_id, current.activity_id)
+        selected = _choose_existing(items, "Save a Responsibility as a Preset")
+        name = prompt_text(
+            "Save Responsibility Preset",
+            "Preset name",
+            help_text="Name the reusable work expectation shown during setup.",
+            default=selected.description,
+        )
+        assert name is not None
+        preset_id = f"responsibility-preset-{uuid.uuid4().hex}"
+        request = SaveResponsibilityPresetFromAssignmentRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            responsibility_assignment_id=selected.responsibility_assignment_id,
+            preset_id=preset_id,
+            preset_revision_id=f"{preset_id}-v1",
+            name=name,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+        prepared = prepare_responsibility_preset_from_assignment(request)
+        if not confirm_write(
+            "Save Responsibility Preset",
+            "SAVE",
+            (
+                f"Preset: {prepared.name}",
+                *prepared.reusable_fields,
+                "NOT SAVED:",
+                *prepared.excluded_state,
+            ),
+        ):
+            return
+        result = save_responsibility_preset_from_assignment(
+            request,
+            review_digest=prepared.review_digest,
+        )
+        show_result(
+            "Responsibility Preset Saved",
+            (f"Preset: {result.preset_id}", "Assignee/context were not copied."),
         )
     except CancelMenuAction:
         return
@@ -331,6 +466,7 @@ def launch_responsibility_menu(
         print("2. Assign a Responsibility")
         print("3. End a Responsibility")
         print("4. Reassign a Responsibility")
+        print("5. Save a Responsibility as a Preset")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -351,6 +487,8 @@ def launch_responsibility_menu(
             _end(activity, state)
         elif choice == "4":
             _reassign(activity, state)
+        elif choice == "5":
+            _save_responsibility_as_preset(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

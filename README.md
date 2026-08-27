@@ -57,6 +57,10 @@ noninteractive direct commands and the low-information-density menu.
 Issue #63 now adds safe Activity copying: exact source selection, a positive
 configuration allowlist, target-specific privacy resolution, one fresh first
 Session, zero-write review digests, and create-only commit semantics.
+Issue #64 now adds workspace-level reusable Role, Responsibility, Criterion
+Set, and Scoring Scale presets with immutable revisions, positive-allowlist
+save-from-existing workflows, zero-write reviewed application, and fresh
+Activity/assignment materialization that never copies Scores.
 Canonical state remains protected by immutable history, exact expected-snapshot
 concurrency, and guarded batch commits.
 
@@ -118,8 +122,8 @@ concord menu
 ```
 
 The main menu provides Activity Management, Activity opening, Workspace
-Settings, global Scan Routing, the workspace-level Template Library and
-Packet Library, contextual Group planning versus operational Group/Membership
+Settings, global Scan Routing, the workspace-level Template Library, Packet Library, and Reusable Presets,
+contextual Group planning versus operational Group/Membership
 management,
 Artifact Pages with assembly, Author/Subject,
 Review, Moderation, Scoring, and explicit Publication workflows, Help, and Quit.
@@ -163,6 +167,10 @@ concord group-plan apply
 concord grouping-signal list|show|diagnose|import-csv
 concord role assign|list|end|reassign
 concord responsibility assign|list|end|reassign
+concord role-preset list|show|validate|create|revise|retire|apply-preview|apply|save-preview|save
+concord responsibility-preset list|show|validate|create|revise|retire|apply-preview|apply|save-preview|save
+concord criterion-preset list|show|validate|create|revise|retire|apply-preview|apply|save-preview|save
+concord scale-preset list|show|validate|create|revise|retire|save-preview|save
 concord template list|show|version-list|version-show
 concord template create|revise|activate|update|retire-version|retire
 concord template starter-list|starter-show
@@ -196,7 +204,9 @@ separate create-only exception: `copy-preview` performs zero-write review and
 require `--expected-snapshot`, but that value is the exact reusable Template
 library snapshot rather than an Activity snapshot. Packet mutations after
 initial Packet creation use the same flag for the exact reusable Packet-library
-snapshot. Reusable Packet-library commands require neither class nor Activity
+snapshot. Reusable preset revisions/retirement use exact preset revisions;
+preset application and save-from-existing use zero-write review digests.
+Reusable Packet-library commands require neither class nor Activity
 identity; Activity-specific `packet instantiate-*`, `instance-*`, and
 `generation-render` commands require explicit class/Activity context instead.
 `group member add` accepts

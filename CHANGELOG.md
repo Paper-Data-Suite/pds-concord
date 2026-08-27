@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Workspace-level reusable Role, Responsibility, Criterion Set, and Scoring
+  Scale presets with strict immutable revision storage, explicit retirement,
+  exact Core standards validation, and no sibling PDS runtime dependency.
+- Saved Role/Responsibility application creates fresh assignment state; saved
+  Criterion/Scale setup atomically materializes fresh Activity-native records
+  and creates zero Scores.
+- Positive-allowlist save-from-existing previews deliberately exclude students,
+  Groups/context, native IDs/history, evidence, and Scores and bind commit to
+  the exact reusable source semantics.
+- Direct `*-preset` command families and a workspace-level Reusable Presets
+  teacher menu share the same typed services; routine Role/Responsibility and
+  scoring setup now offer saved definitions without exposing storage mechanics.
+- Issue #64 qualification adds isolated installed-wheel preset acceptance
+  against released Core v0.6.3.
+
 - Safe Activity copying now reuses only an explicit positive allowlist of
   configuration, creates a fresh draft Activity plus one fresh planned Session,
   tightens context-bound privacy, and excludes operational/history state.

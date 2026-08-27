@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 safe Activity-copying workflow in issue #63.
+Implemented through the v0.3.0 reusable-preset workflow in issue #64.
 
 ## Two interfaces, one service layer
 
@@ -96,6 +96,15 @@ concord responsibility assign
 concord responsibility list
 concord responsibility end
 concord responsibility reassign
+
+concord role-preset list|show|validate|create|revise|retire
+concord role-preset apply-preview|apply|save-preview|save
+concord responsibility-preset list|show|validate|create|revise|retire
+concord responsibility-preset apply-preview|apply|save-preview|save
+concord criterion-preset list|show|validate|create|revise|retire
+concord criterion-preset apply-preview|apply|save-preview|save
+concord scale-preset list|show|validate|create|revise|retire
+concord scale-preset save-preview|save
 
 concord template list
 concord template show
@@ -214,6 +223,11 @@ Mutations support explicit actor context:
 
 `--actor-id` is required. Actor identity is provenance, not authentication and
 not Artifact authorship.
+
+Reusable preset management is workspace-level. Preset application and
+save-from-existing use zero-write previews plus exact review digests; applying
+a preset creates fresh native state and never creates Scores. Preset revision
+and retirement create immutable successor versions rather than editing history.
 
 Activity copying is a special create-only workflow. `activity copy-preview`
 performs strict zero-write preparation and prints a deterministic review
