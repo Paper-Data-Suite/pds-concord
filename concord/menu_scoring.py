@@ -46,6 +46,10 @@ from concord.models import (
     StatusReason,
     SubjectReference,
 )
+from concord.reusable_presets import (
+    CriterionSetPresetRevision,
+    ScoringScalePresetRevision,
+)
 from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
@@ -54,9 +58,14 @@ from concord.workflows import (
     CreateScoringScaleRequest,
     CriterionSetDetail,
     CriterionSpec,
+    CriterionTargetIdentity,
+    MaterializeScoringSetupRequest,
+    PreparedPresetSave,
     ReplaceScoreRequest,
     ReviseCriterionSetRequest,
     ReviseScoringScaleRequest,
+    SaveCriterionSetPresetFromActivityRequest,
+    SaveScoringScalePresetFromActivityRequest,
     ScoreEvidenceLinkSpec,
     ScoreSummary,
     ScoringScaleSummary,
@@ -64,17 +73,26 @@ from concord.workflows import (
     add_score,
     create_criterion_set,
     create_scoring_scale,
+    get_preset,
+    get_preset_revision,
     list_artifacts,
     list_criterion_sets,
     list_current_score_heads,
     list_groups,
+    list_presets,
     list_scores,
     list_scoring_scales,
     list_sessions,
+    materialize_scoring_setup,
+    prepare_criterion_set_preset_from_activity,
+    prepare_scoring_scale_preset_from_activity,
+    prepare_scoring_setup,
     replace_score,
     resolve_read_workspace_root,
     revise_criterion_set,
     revise_scoring_scale,
+    save_criterion_set_preset_from_activity,
+    save_scoring_scale_preset_from_activity,
     select_activity_criterion_sets,
     show_activity,
     show_criterion_set,
@@ -1614,6 +1632,168 @@ def _revise_score(
         _handle_error(activity, error)
 
 
+
+
+def _preset_save_lines(prepared: PreparedPresetSave) -> tuple[str, ...]:
+    return (
+        f"Preset: {prepared.name}",
+        *prepared.reusable_fields,
+        "NOT SAVED:",
+        *prepared.excluded_state,
+    )
+
+
+def _save_scale_as_preset(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        current = _latest(activity)
+        scales = list_scoring_scales(
+            current.class_id,
+            current.activity_id,
+            standards_library=_library(),
+            current_only=True,
+        )
+        selected = select_one(
+            "Save Scoring Scale as Preset",
+            scales,
+            tuple(f"{item.name} ({item.scoring_scale_id})" for item in scales),
+            help_text="Choose the native Scale whose reusable definition to save.",
+        )
+        preset_id = f"scale-preset-{uuid4().hex}"
+        request = SaveScoringScalePresetFromActivityRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            scoring_scale_id=selected.scoring_scale_id,
+            preset_id=preset_id,
+            preset_revision_id=f"{preset_id}-v1",
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+        prepared = prepare_scoring_scale_preset_from_activity(
+            request,
+            standards_library=_library(),
+        )
+        if not confirm_write(
+            "Save Scoring Scale Preset",
+            "SAVE",
+            _preset_save_lines(prepared),
+        ):
+            return
+        result = save_scoring_scale_preset_from_activity(
+            request,
+            review_digest=prepared.review_digest,
+            standards_library=_library(),
+        )
+        show_result(
+            "Scoring Scale Preset Saved",
+            (f"Preset: {result.preset_id}", "Scores and native IDs were not copied."),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _recommended_scale_for_native_set(
+    detail: CriterionSetDetail,
+) -> tuple[str | None, str | None]:
+    native_defaults = {
+        item.default_scoring_scale_id
+        for item in detail.criteria
+        if item.default_scoring_scale_id is not None
+    }
+    if not native_defaults:
+        return None, None
+    saved = list_presets("scoring_scale")
+    if not saved:
+        return None, None
+    values = (None, *saved)
+    labels = (
+        "Do not carry a default Scale recommendation",
+        *tuple(f"{item.name} ({item.preset_id})" for item in saved),
+    )
+    selected = select_one(
+        "Reusable Scale Recommendation",
+        values,
+        labels,
+        help_text=(
+            "Native Scale IDs cannot become cross-Activity authority. "
+            "Choose a saved Scale only when it represents the intended default."
+        ),
+    )
+    if selected is None:
+        return None, None
+    return selected.preset_id, selected.preset_revision_id
+
+
+def _save_criterion_set_as_preset(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        current = _latest(activity)
+        sets = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=_library(),
+            current_only=True,
+        )
+        selected = select_one(
+            "Save Criterion Set as Preset",
+            sets,
+            tuple(f"{item.name} ({item.criterion_set_id})" for item in sets),
+            help_text=(
+                "Choose the native Criterion Set whose reusable definition to save."
+            ),
+        )
+        detail = show_criterion_set(
+            current.class_id,
+            current.activity_id,
+            selected.criterion_set_id,
+            standards_library=_library(),
+        )
+        recommended_id, recommended_revision_id = _recommended_scale_for_native_set(
+            detail
+        )
+        preset_id = f"criterion-preset-{uuid4().hex}"
+        request = SaveCriterionSetPresetFromActivityRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            criterion_set_id=selected.criterion_set_id,
+            preset_id=preset_id,
+            preset_revision_id=f"{preset_id}-v1",
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+            recommended_scoring_scale_preset_id=recommended_id,
+            recommended_scoring_scale_preset_revision_id=recommended_revision_id,
+        )
+        prepared = prepare_criterion_set_preset_from_activity(
+            request,
+            standards_library=_library(),
+        )
+        if not confirm_write(
+            "Save Criterion Set Preset",
+            "SAVE",
+            _preset_save_lines(prepared),
+        ):
+            return
+        result = save_criterion_set_preset_from_activity(
+            request,
+            review_digest=prepared.review_digest,
+            standards_library=_library(),
+        )
+        show_result(
+            "Criterion Set Preset Saved",
+            (f"Preset: {result.preset_id}", "Scores and native IDs were not copied."),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
 def _criterion_set_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -1625,6 +1805,7 @@ def _criterion_set_menu(
         print("2. Browse Criterion Sets")
         print("3. Revise Criterion Set")
         print("4. Select Activity Criterion Sets")
+        print("5. Save Criterion Set as Preset")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1635,7 +1816,7 @@ def _criterion_set_menu(
                 (
                     "Criterion Sets are immutable ordered collections.",
                     "Selection is explicit and uses exact Set revisions.",
-                    "Reusable is semantic metadata in this v0.2 Activity slice.",
+                    "Saved reusable presets are managed separately from native Sets.",
                 ),
             )
         elif navigation is NavigationChoice.BACK:
@@ -1648,9 +1829,171 @@ def _criterion_set_menu(
             _revise_criterion_set(activity, state)
         elif choice == "4":
             _select_criterion_sets(activity, state)
+        elif choice == "5":
+            _save_criterion_set_as_preset(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
+
+
+
+def _choose_saved_scale_for_preset(
+    criterion: CriterionSetPresetRevision,
+) -> ScoringScalePresetRevision | None:
+    references = {
+        (
+            item.default_scoring_scale_preset_id,
+            item.default_scoring_scale_preset_revision_id,
+        )
+        for item in criterion.criteria
+        if item.default_scoring_scale_preset_id is not None
+    }
+    recommended: ScoringScalePresetRevision | None = None
+    if references:
+        preset_id, revision_id = next(iter(references))
+        assert preset_id is not None and revision_id is not None
+        exact = get_preset_revision("scoring_scale", preset_id, revision_id)
+        if not isinstance(exact, ScoringScalePresetRevision):
+            raise ValueError("Recommended Scoring Scale preset has the wrong type.")
+        recommended = exact
+
+    available = list_presets("scoring_scale")
+    while True:
+        clear_screen()
+        print_menu_header("Scoring Scale")
+        if recommended is not None:
+            print(f"Recommended: {recommended.name}")
+            print("1. Use recommended Scale")
+            print("2. Choose another saved Scale")
+        else:
+            print("No default Scale is recommended by this Criterion preset.")
+            print("1. Continue without creating a Scale")
+            print("2. Choose a saved Scale")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Scoring Scale Help",
+                (
+                    "A recommended Scale is a convenience, not a judgment.",
+                    "You may choose another saved Scale when appropriate.",
+                    "No Score value is selected or inferred here.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return recommended
+        if raw == "2":
+            if not available:
+                show_result(
+                    "Scoring Scale",
+                    ("No saved Scoring Scales are available.",),
+                )
+                continue
+            summary = select_one(
+                "Choose a Saved Scoring Scale",
+                available,
+                tuple(item.name for item in available),
+                help_text=(
+                    "Choose a reusable Scale definition for fresh Activity state."
+                ),
+            )
+            selected = get_preset("scoring_scale", summary.preset_id)
+            if not isinstance(selected, ScoringScalePresetRevision):
+                raise ValueError("Selected Scoring Scale preset has the wrong type.")
+            return selected
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
+def _use_saved_scoring_setup(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        current = _latest(activity)
+        summaries = list_presets("criterion_set")
+        if not summaries:
+            show_result(
+                "Saved Scoring Setup",
+                ("No saved Criterion Set presets are available.",),
+            )
+            return
+        summary = select_one(
+            "Choose Saved Criteria",
+            summaries,
+            tuple(item.name for item in summaries),
+            help_text="Choose reusable criteria; fresh Activity records are created.",
+        )
+        value = get_preset("criterion_set", summary.preset_id)
+        if not isinstance(value, CriterionSetPresetRevision):
+            raise ValueError("Selected Criterion Set preset has the wrong type.")
+        scale = _choose_saved_scale_for_preset(value)
+        criterion_set_id = f"criterion-set-{uuid4().hex}"
+        request = MaterializeScoringSetupRequest(
+            criterion_preset_id=value.preset_id,
+            criterion_preset_revision_id=value.preset_revision_id,
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            criterion_set_id=criterion_set_id,
+            criterion_set_lineage_id=f"{criterion_set_id}-lineage",
+            criterion_ids=tuple(
+                CriterionTargetIdentity(
+                    criterion_key=item.key,
+                    criterion_id=f"criterion-{uuid4().hex}",
+                )
+                for item in value.criteria
+            ),
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+            scoring_scale_preset_id=None if scale is None else scale.preset_id,
+            scoring_scale_preset_revision_id=(
+                None if scale is None else scale.preset_revision_id
+            ),
+            scoring_scale_id=None if scale is None else f"scale-{uuid4().hex}",
+            scoring_scale_lineage_id=(
+                None if scale is None else f"scale-lineage-{uuid4().hex}"
+            ),
+        )
+        prepared = prepare_scoring_setup(
+            request,
+            standards_library=_library(),
+        )
+        if not confirm_write(
+            "Use Saved Scoring Setup",
+            "USE",
+            (
+                f"Criteria: {prepared.criterion_preset_name}",
+                f"Criteria count: {prepared.criterion_count}",
+                f"Scale: {prepared.scoring_scale_preset_name or 'none'}",
+                f"Standards profile: {prepared.standards_profile_id or '-'}",
+                "No Scores will be created.",
+            ),
+        ):
+            return
+        result = materialize_scoring_setup(
+            request,
+            review_digest=prepared.review_digest,
+            standards_library=_library(),
+        )
+        show_result(
+            "Scoring Setup Added",
+            (
+                f"Criterion Set: {result.criterion_set_id}",
+                f"Criteria: {len(result.criterion_ids)}",
+                f"Scoring Scale: {result.scoring_scale_id or '-'}",
+                "Scores created: 0",
+                f"Snapshot: {result.commit.snapshot_revision}",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
 
 
 def _scale_menu(
@@ -1663,6 +2006,7 @@ def _scale_menu(
         print("1. Create Scoring Scale")
         print("2. Browse Scoring Scales")
         print("3. Revise Scoring Scale")
+        print("4. Save Scoring Scale as Preset")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1684,6 +2028,8 @@ def _scale_menu(
             _browse_scales(activity)
         elif choice == "3":
             _revise_scale(activity, state)
+        elif choice == "4":
+            _save_scale_as_preset(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
@@ -1705,11 +2051,12 @@ def launch_scoring_menu(
         print(f"Activity: {activity.title}")
         print(f"Orientation: {activity.scoring_orientation}")
         print()
-        print("1. Criterion Sets")
-        print("2. Scoring Scales")
-        print("3. Record a Score")
-        print("4. Browse current Scores")
-        print("5. Revise a Score")
+        print("1. Use Saved Scoring Setup")
+        print("2. Criterion Sets")
+        print("3. Scoring Scales")
+        print("4. Record a Score")
+        print("5. Browse current Scores")
+        print("6. Revise a Score")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1728,14 +2075,16 @@ def launch_scoring_menu(
         elif navigation is NavigationChoice.BACK:
             return
         elif choice == "1":
-            _criterion_set_menu(activity, session_state)
+            _use_saved_scoring_setup(activity, session_state)
         elif choice == "2":
-            _scale_menu(activity, session_state)
+            _criterion_set_menu(activity, session_state)
         elif choice == "3":
-            _record_score(activity, session_state)
+            _scale_menu(activity, session_state)
         elif choice == "4":
-            _browse_scores(activity)
+            _record_score(activity, session_state)
         elif choice == "5":
+            _browse_scores(activity)
+        elif choice == "6":
             _revise_score(activity, session_state)
         else:
             print(navigation_hint_with_help())

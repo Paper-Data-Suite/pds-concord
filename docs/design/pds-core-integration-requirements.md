@@ -61,6 +61,11 @@ import Meridian. See `docs/v0.3.0-core-grouping-signal-integration.md` for the
 current grouping-signal qualification boundary. The historical v0.2.0 release
 qualification against Core v0.6.0 remains unchanged.
 
+Issue #64's reusable Role, Responsibility, Criterion Set, and Scoring Scale
+presets require no new Core contract. Concord owns the workspace-level preset
+definitions and fresh Activity materialization while Core remains authoritative
+for workspace resolution, class/roster identity, and standards validation.
+
 For current Concord domain, scoring, and publication semantics, the governing Concord documents are:
 
 * `docs/concord-conceptual-design-revised.md`;

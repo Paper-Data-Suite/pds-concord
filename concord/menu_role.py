@@ -31,18 +31,26 @@ from concord.menu_ui import (
 )
 from concord.workflows import (
     ActivitySummary,
+    ApplyRolePresetRequest,
     AssignRoleRequest,
     ConcordWorkflowError,
     EndRoleRequest,
+    PresetSummary,
     ReassignRoleRequest,
     RoleSummary,
+    SaveRolePresetFromAssignmentRequest,
+    apply_role_preset,
     assign_role,
     core_student_participant,
     end_role,
     list_groups,
+    list_presets,
     list_roles,
     list_sessions,
+    prepare_role_preset_application,
+    prepare_role_preset_from_assignment,
     reassign_role,
+    save_role_preset_from_assignment,
     show_activity,
 )
 
@@ -173,43 +181,114 @@ def _choose_optional_group(activity: ActivitySummary) -> str | None:
     return _choose_optional_group(activity)
 
 
+
+def _choose_role_preset() -> PresetSummary | None:
+    presets = list_presets("role")
+    if not presets:
+        return None
+    while True:
+        clear_screen()
+        print_menu_header("Role Source")
+        print("1. Use a saved Role")
+        print("2. Enter Role manually")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Saved Role Help",
+                (
+                    "Saved Roles reuse the Role definition only.",
+                    "Student, Group, context, identity, and history are always fresh.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return select_one(
+                "Choose a Saved Role",
+                presets,
+                tuple(item.name for item in presets),
+                help_text="Choose the Role definition; assignment state is new.",
+            )
+        if raw == "2":
+            return None
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
 def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
     try:
         current = _latest(activity)
         root = resolve_workspace_root()
         student = choose_student(root, current.class_id)
-        role_key = _choose_role_key()
+        preset = _choose_role_preset()
+        role_key = None if preset is not None else _choose_role_key()
         group_id = _choose_optional_group(current)
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
         actor = state.require_actor()
-        if not confirm_write(
-            "Assign Role",
-            "ADD",
-            (
-                f"Student: {student.first_name} {student.last_name}",
-                f"Role: {role_key}",
-                f"Group: {group_id or 'Activity-wide'}",
-            ),
-        ):
-            return
-        result = assign_role(
-            AssignRoleRequest(
+        participant = core_student_participant(
+            root,
+            current.class_id,
+            student.student_id,
+        )
+        assignment_id = f"role-{uuid.uuid4().hex}"
+        if preset is None:
+            assert role_key is not None
+            if not confirm_write(
+                "Assign Role",
+                "ADD",
+                (
+                    f"Student: {student.first_name} {student.last_name}",
+                    f"Role: {role_key}",
+                    f"Group: {group_id or 'Activity-wide'}",
+                ),
+            ):
+                return
+            result = assign_role(
+                AssignRoleRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    role_assignment_id=assignment_id,
+                    participant_reference=participant,
+                    role_key=role_key,
+                    effective_context=context,
+                    expected_snapshot_revision=current.snapshot_revision,
+                    actor=actor,
+                    group_id=group_id,
+                )
+            )
+        else:
+            request = ApplyRolePresetRequest(
+                preset_id=preset.preset_id,
+                preset_revision_id=preset.preset_revision_id,
                 class_id=current.class_id,
                 activity_id=current.activity_id,
-                role_assignment_id=f"role-{uuid.uuid4().hex}",
-                participant_reference=core_student_participant(
-                    root,
-                    current.class_id,
-                    student.student_id,
-                ),
-                role_key=role_key,
+                role_assignment_id=assignment_id,
+                participant_reference=participant,
                 effective_context=context,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 group_id=group_id,
             )
-        )
+            prepared = prepare_role_preset_application(request)
+            if not confirm_write(
+                "Assign Saved Role",
+                "ADD",
+                (
+                    f"Student: {student.first_name} {student.last_name}",
+                    f"Role: {prepared.preset_name}",
+                    f"Group: {group_id or 'Activity-wide'}",
+                ),
+            ):
+                return
+            result = apply_role_preset(
+                request,
+                review_digest=prepared.review_digest,
+            )
         show_result(
             "Role Result",
             (
@@ -217,6 +296,67 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Role Assignment: {result.role_assignment_id}",
                 f"Snapshot: {result.commit.snapshot_revision}",
             ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+
+
+def _save_role_as_preset(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        current = _latest(activity)
+        roles = list_roles(current.class_id, current.activity_id)
+        selected = _choose_existing(roles, "Save a Role as a Preset")
+        name = prompt_text(
+            "Save Role Preset",
+            "Preset name",
+            help_text="Name the reusable Role shown in future assignment setup.",
+            default=selected.role_key.replace("_", " ").title(),
+        )
+        assert name is not None
+        description = prompt_text(
+            "Save Role Preset",
+            "Description",
+            help_text="Optional reusable guidance; assignee/context are never saved.",
+            optional=True,
+        )
+        preset_id = f"role-preset-{uuid.uuid4().hex}"
+        request = SaveRolePresetFromAssignmentRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            role_assignment_id=selected.role_assignment_id,
+            preset_id=preset_id,
+            preset_revision_id=f"{preset_id}-v1",
+            name=name,
+            description=description,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+        prepared = prepare_role_preset_from_assignment(request)
+        if not confirm_write(
+            "Save Role Preset",
+            "SAVE",
+            (
+                f"Preset: {prepared.name}",
+                *prepared.reusable_fields,
+                "NOT SAVED:",
+                *prepared.excluded_state,
+            ),
+        ):
+            return
+        result = save_role_preset_from_assignment(
+            request,
+            review_digest=prepared.review_digest,
+        )
+        show_result(
+            "Role Preset Saved",
+            (f"Preset: {result.preset_id}", "Assignment state was not copied."),
         )
     except CancelMenuAction:
         return
@@ -341,6 +481,7 @@ def launch_role_menu(activity: ActivitySummary, state: MenuSessionContext) -> No
         print("2. Assign a Role")
         print("3. End a Role")
         print("4. Reassign a Role")
+        print("5. Save a Role as a Preset")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -363,6 +504,8 @@ def launch_role_menu(activity: ActivitySummary, state: MenuSessionContext) -> No
             _end(activity, state)
         elif choice == "4":
             _reassign(activity, state)
+        elif choice == "5":
+            _save_role_as_preset(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

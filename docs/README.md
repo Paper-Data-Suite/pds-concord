@@ -64,6 +64,9 @@ accepted all-30-starter visual-review gate. Issue #63 now implements safe
 Activity copying with explicit source/target identity, positive reusable
 configuration selection, privacy tightening, deterministic review digest,
 create-only Activity/Session commit, direct CLI, and teacher `COPY` flow.
+Issue #64 now implements workspace-level reusable Role, Responsibility,
+Criterion Set, and Scoring Scale presets with immutable revisions, guarded
+save/apply review digests, fresh native materialization, and zero Score copying.
 
 The repository now contains:
 
@@ -130,6 +133,9 @@ The repository now contains:
   identities, `concord_starter_layout_v1` PDF rendering, explicit recovery and
   exact reprint, runtime direct CLI/menu surfaces, and privacy-safe route data;
 * contextual Membership, Role, and Responsibility workflow services;
+* workspace-level reusable Role, Responsibility, Criterion Set, and Scoring
+  Scale preset libraries with immutable revision, safe save-from-existing,
+  reviewed fresh application, and a low-friction teacher Preset Library;
 * a fully noninteractive direct CLI;
 * a teacher-facing H/B/M/Q menu with low-information-density screens;
 * native Scan References with immutable history and catalog projection; and
@@ -347,18 +353,28 @@ and the accepted 30-starter / 35-QR visual-review gate.
 
 Documents issue #63's exact source/target identity, positive copy allowlist, fresh first Session, privacy resolution, review-digest concurrency, create-only persistence, direct CLI, teacher `COPY` workflow, Core 0.6.3 development baseline, and installed-wheel qualification.
 
+### 40. v0.3.0 reusable collaboration and scoring presets
+
+[`v0.3.0-reusable-role-responsibility-scoring-presets.md`](v0.3.0-reusable-role-responsibility-scoring-presets.md)
+
+Documents issue #64's workspace-level preset authority, strict immutable
+revision storage, Role/Responsibility assignment materialization, atomic
+Criterion/Scale setup, Core standards revalidation, Score exclusion,
+positive-allowlist save-from-existing workflows, direct CLI, teacher Preset
+Library, Core 0.6.3 baseline, and installed-wheel qualification.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#63 foundations. Issue #57 defines the reusable Template contract, #58
+#48-#64 foundations. Issue #57 defines the reusable Template contract, #58
 implements its canonical storage/management layer, #59 defines the reusable
 Packet contract, #60 implements Packet storage/management, #61 ships the
 starter collaborative-learning Template library, #62 implements Activity-
 specific Packet generation/rendering, and #63 implements safe Activity
-copying. Reusable presets, guided Activity setup, and final integrated
-teacher UI behavior remain later work.
+copying, and #64 implements reusable collaboration/scoring presets. Guided
+Activity setup and final integrated teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

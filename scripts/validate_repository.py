@@ -92,6 +92,14 @@ def validate(core_wheel: Path, *, allow_dirty: bool) -> None:
                 str(core_wheel),
             ]
         )
+        _run(
+            [
+                python,
+                "scripts/smoke_test_reusable_presets_wheel.py",
+                str(wheels[0]),
+                str(core_wheel),
+            ]
+        )
     _run(["git", "diff", "--check"])
     if not allow_dirty:
         result = subprocess.run(

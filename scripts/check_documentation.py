@@ -70,6 +70,9 @@ PACKET_INSTANTIATION_RENDERING_DOC = (
     ROOT / "docs" / "v0.3.0-packet-instantiation-rendering.md"
 )
 ACTIVITY_COPYING_DOC = ROOT / "docs" / "v0.3.0-activity-copying.md"
+REUSABLE_PRESETS_DOC = (
+    ROOT / "docs" / "v0.3.0-reusable-role-responsibility-scoring-presets.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -97,6 +100,20 @@ REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'Core 0.6.3',
     'Issue #63',
     'Issue #64',
+)
+REQUIRED_REUSABLE_PRESETS_PHRASES = (
+    "concord_reusable_preset_library_v1",
+    "shared/concord/reusable-presets/",
+    "Role preset != RoleAssignment",
+    "Responsibility preset != ResponsibilityAssignment",
+    "Score != reusable configuration",
+    "prepare_scoring_setup",
+    "materialize_scoring_setup",
+    "save_role_preset_from_assignment",
+    "concord role-preset",
+    "Reusable Presets",
+    "pds-core>=0.6.3,<0.7",
+    "scripts/smoke_test_reusable_presets_wheel.py",
 )
 REQUIRED_ACTIVITY_COPYING_PHRASES = (
     "copy Activity configuration != clone Activity state",
@@ -697,6 +714,20 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the Activity-copying document."
             )
+    if not REUSABLE_PRESETS_DOC.is_file():
+        failures.append("Current v0.3.0 reusable-preset document is missing.")
+    else:
+        reusable_presets_doc = REUSABLE_PRESETS_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_REUSABLE_PRESETS_PHRASES:
+            if phrase not in reusable_presets_doc:
+                failures.append(
+                    "Reusable-preset document is missing required boundary "
+                    f"wording {phrase!r}."
+                )
+        if REUSABLE_PRESETS_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the reusable-preset document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -724,6 +755,10 @@ def check_documentation() -> None:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose Activity "
                 "copy preview."
+            )
+        if "concord role-preset" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose reusable presets."
             )
         if "concord activity copy" not in active_group_plan_text:
             failures.append(
@@ -756,6 +791,7 @@ def check_documentation() -> None:
         "#48-#60 foundations",
         "#48-#61 foundations",
         "#48-#62 foundations",
+        "#48-#63 foundations",
         "canonical plan application remains reserved for #56",
         "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",
