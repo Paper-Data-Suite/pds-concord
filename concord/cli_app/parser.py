@@ -539,6 +539,40 @@ def _activity_commands(
     create.add_argument("--session-notes")
     create.set_defaults(handler=activity.handle_create)
 
+    def copy_options(command: argparse.ArgumentParser) -> None:
+        _workspace_option(command)
+        _actor_options(command)
+        _standards_option(command)
+        command.add_argument("--source-class-id", required=True)
+        command.add_argument("--source-activity-id", required=True)
+        command.add_argument("--target-class-id", required=True)
+        command.add_argument("--target-activity-id", required=True)
+        command.add_argument("--title")
+        description = command.add_mutually_exclusive_group()
+        description.add_argument("--description")
+        description.add_argument("--clear-description", action="store_true")
+        command.add_argument("--session-id", required=True)
+        command.add_argument("--session-label")
+
+    copy_preview = actions.add_parser(
+        "copy-preview",
+        help="Prepare an exact zero-write Activity copy and review digest.",
+    )
+    copy_options(copy_preview)
+    copy_preview.set_defaults(handler=activity.handle_copy_preview)
+
+    copy_command = actions.add_parser(
+        "copy",
+        help="Create one fresh Activity from an exact reviewed copy preview.",
+    )
+    copy_options(copy_command)
+    copy_command.add_argument(
+        "--review-digest",
+        required=True,
+        help="Exact review digest printed by activity copy-preview.",
+    )
+    copy_command.set_defaults(handler=activity.handle_copy)
+
     list_command = actions.add_parser("list", help="List current Activities.")
     _workspace_option(list_command)
     list_command.add_argument("--class-id")

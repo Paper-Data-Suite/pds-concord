@@ -10,18 +10,24 @@ from concord.cli_app.common import (
     workspace_arg,
 )
 from concord.cli_app.output import (
+    print_activity_copy_preview,
     print_activity_detail,
     print_activity_summary,
     print_commit,
 )
 from concord.workflows import (
+    CopyActivityRequest,
     CreateActivityContextRequest,
+    PrepareActivityCopyRequest,
     UpdateActivityRequest,
+    copy_activity,
     create_activity_context,
     list_activities,
+    prepare_activity_copy,
     show_activity,
     update_activity,
 )
+from concord.workflows.models import UNSET, OptionalTextUpdate, TextUpdate
 
 
 def handle_create(args: argparse.Namespace) -> int:
@@ -52,6 +58,64 @@ def handle_create(args: argparse.Namespace) -> int:
     )
     print_commit(result.commit)
     print(f"First Session: {result.first_session_id}")
+    return 0
+
+
+def _prepare_copy_request(args: argparse.Namespace) -> PrepareActivityCopyRequest:
+    title: TextUpdate = UNSET if args.title is None else args.title
+    description: OptionalTextUpdate
+    if args.clear_description:
+        description = None
+    elif args.description is not None:
+        description = args.description
+    else:
+        description = UNSET
+    return PrepareActivityCopyRequest(
+        source_class_id=args.source_class_id,
+        source_activity_id=args.source_activity_id,
+        target_class_id=args.target_class_id,
+        target_activity_id=args.target_activity_id,
+        first_session_id=args.session_id,
+        first_session_label=args.session_label,
+        title=title,
+        description=description,
+    )
+
+
+def handle_copy_preview(args: argparse.Namespace) -> int:
+    # Actor context is required and structurally validated for parity with the
+    # eventual write, but is intentionally absent from the semantic review digest.
+    workflow_actor(args)
+    prepared = prepare_activity_copy(
+        _prepare_copy_request(args),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    print_activity_copy_preview(prepared)
+    return 0
+
+
+def handle_copy(args: argparse.Namespace) -> int:
+    prepared_request = _prepare_copy_request(args)
+    result = copy_activity(
+        CopyActivityRequest(
+            source_class_id=prepared_request.source_class_id,
+            source_activity_id=prepared_request.source_activity_id,
+            target_class_id=prepared_request.target_class_id,
+            target_activity_id=prepared_request.target_activity_id,
+            first_session_id=prepared_request.first_session_id,
+            actor=workflow_actor(args),
+            review_digest=args.review_digest,
+            title=prepared_request.title,
+            description=prepared_request.description,
+            first_session_label=prepared_request.first_session_label,
+        ),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    print_commit(result.commit)
+    print(f"First Session: {result.first_session_id}")
+    print(f"Review digest: {result.review_digest}")
     return 0
 
 

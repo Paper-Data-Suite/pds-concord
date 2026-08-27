@@ -29,7 +29,7 @@ from concord.pds_publication import get_publication_producer_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 DEVELOPMENT_VERSION = "0.3.0.dev0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.1,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_CAPABILITIES = frozenset(
     {"criterion_scores", "moderated_scores", "standards_ratings"}
@@ -143,7 +143,7 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
         if canonicalize_name(item.name) == canonicalize_name("pds-core")
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
-        raise ReleaseCompatibilityError("Core requirement must be exactly >=0.6.1,<0.7")
+        raise ReleaseCompatibilityError("Core requirement must be exactly >=0.6.3,<0.7")
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
             "Core requirement cannot use URL, marker, or extras"
@@ -403,7 +403,7 @@ def main() -> int:
         print(f"Development compatibility audit failed: {error}")
         return 1
     print(
-        "Concord v0.3.0.dev0 development compatibility passed: Core >=0.6.1,<0.7; "
+        "Concord v0.3.0.dev0 development compatibility passed: Core >=0.6.3,<0.7; "
         "contracts/profile exact; reader consumer-neutral; Artifact gate separate; "
         "sibling and grading/selection policy absent."
     )

@@ -1,4 +1,4 @@
-"""Authenticate the exact released pds-core v0.6.1 wheel and installation."""
+"""Authenticate the exact released pds-core v0.6.3 wheel and installation."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pathlib import Path
 
 CORE_DISTRIBUTION_NAME = "pds-core"
 CORE_IMPORT_NAME = "pds_core"
-EXPECTED_CORE_VERSION = "0.6.1"
-EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.1-py3-none-any.whl"
+EXPECTED_CORE_VERSION = "0.6.3"
+EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.3-py3-none-any.whl"
 EXPECTED_CORE_WHEEL_SHA256 = (
-    "ae22826bc9591740dbfa961e3fb7ccb1a42314b59a30780aeab9db07747dba6e"
+    "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
 )
 
 
@@ -72,7 +72,7 @@ def verify_core_wheel(path: str | Path) -> None:
     if metadata["Name"] != CORE_DISTRIBUTION_NAME:
         raise CoreVerificationError("Core wheel distribution name is not pds-core.")
     if metadata["Version"] != EXPECTED_CORE_VERSION:
-        raise CoreVerificationError("Core wheel version is not exactly 0.6.1.")
+        raise CoreVerificationError("Core wheel version is not exactly 0.6.3.")
 
 
 def verify_installed_core() -> None:
@@ -80,7 +80,7 @@ def verify_installed_core() -> None:
     version = importlib.metadata.version(CORE_DISTRIBUTION_NAME)
     if version != EXPECTED_CORE_VERSION:
         raise CoreVerificationError(
-            f"Installed pds-core must be exactly 0.6.1; found {version}."
+            f"Installed pds-core must be exactly 0.6.3; found {version}."
         )
     import pds_core
 

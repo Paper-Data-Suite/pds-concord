@@ -10,7 +10,7 @@ from pathlib import Path
 
 from packaging.requirements import Requirement
 
-EXPECTED_CORE_REQUIREMENT = Requirement("pds-core>=0.6.1,<0.7")
+EXPECTED_CORE_REQUIREMENT = Requirement("pds-core>=0.6.3,<0.7")
 EXPECTED_VERSION = "0.3.0.dev0"
 FORBIDDEN_PREFIXES = (
     "tests/",
@@ -108,7 +108,7 @@ def validate_wheel(path: str | Path) -> None:
     ]
     if runtime != [EXPECTED_CORE_REQUIREMENT]:
         raise PackageValidationError(
-            "Runtime Core requirement must be pds-core>=0.6.1,<0.7."
+            "Runtime Core requirement must be pds-core>=0.6.3,<0.7."
         )
     runtime_names = {item.name for item in requirements if item.marker is None}
     forbidden_runtime = runtime_names & FORBIDDEN_RUNTIME_DEPENDENCIES

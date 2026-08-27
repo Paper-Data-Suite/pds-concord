@@ -430,9 +430,9 @@ def _installed_provenance(
         "installed Concord metadata version disagrees.",
     )
     _require(
-        metadata.version("pds-core") == core_version == "0.6.1",
+        metadata.version("pds-core") == core_version,
         "installed provenance",
-        "installed Core version is not exactly 0.6.1.",
+        "installed Core version disagrees with the expected baseline.",
     )
     _require(
         getattr(pds_core, "__version__", None) == core_version,
@@ -449,7 +449,7 @@ def _installed_provenance(
         len(core_requirements) == 1
         and Version(core_version) in core_requirements[0].specifier,
         "installed provenance",
-        "Concord dependency metadata rejects Core 0.6.1.",
+        "Concord dependency metadata rejects the expected Core baseline.",
     )
     modules = (
         "concord",

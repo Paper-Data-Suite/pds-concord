@@ -19,8 +19,9 @@ The v0.2.0 vertical slice, installed acceptance, release audit, compatibility
 freeze, and milestone closeout remain historically qualified against `pds-core`
 v0.6.0. Phase 1 v0.3.0 work is tracked by umbrella #47. Issue #48 froze the
 reusable-versus-instance boundaries; issue #49 establishes `0.3.0.dev0`,
-`pds-core>=0.6.1,<0.7`, and the neutral Core `grouping_signal_set_v1` consumer
-baseline without adding a Meridian runtime dependency. Issue #50 now adds the
+the neutral Core `grouping_signal_set_v1` consumer baseline without adding a
+Meridian runtime dependency. Current v0.3 development now targets the latest
+released Core baseline, `pds-core>=0.6.3,<0.7`. Issue #50 now adds the
 native planning-only GroupPlan/PlannedGroup record, immutable history, and typed
 create/replace/read/preview/approve/cancel lifecycle services. Issue #51 now
 implements manual plan-local authoring, exact roster placement and refresh,
@@ -59,7 +60,10 @@ qualification. Issue #62 now implements exact Activity-specific Packet
 instantiation, review-digest-bound commit, fresh Packet/Artifact/Page/Core PDS2
 identity allocation, deterministic starter PDF rendering, typed recovery/reprint,
 direct CLI and opened-Activity menu workflows, installed-wheel smoke, and the
-accepted all-30-starter visual-review gate.
+accepted all-30-starter visual-review gate. Issue #63 now implements safe
+Activity copying with explicit source/target identity, positive reusable
+configuration selection, privacy tightening, deterministic review digest,
+create-only Activity/Session commit, direct CLI, and teacher `COPY` flow.
 
 The repository now contains:
 
@@ -337,17 +341,24 @@ authorship boundaries, typed partial-success recovery, exact reprint, direct
 runtime Packet commands, opened-Activity `GENERATE` flow, installed-wheel smoke,
 and the accepted 30-starter / 35-QR visual-review gate.
 
+### 39. v0.3.0 safe Activity copying
+
+[`v0.3.0-activity-copying.md`](v0.3.0-activity-copying.md)
+
+Documents issue #63's exact source/target identity, positive copy allowlist, fresh first Session, privacy resolution, review-digest concurrency, create-only persistence, direct CLI, teacher `COPY` workflow, Core 0.6.3 development baseline, and installed-wheel qualification.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
 
 This remains the roadmap for future v0.3.0 issues beyond the implemented
-#48-#61 foundations. Issue #57 defines the reusable Template contract, #58
+#48-#63 foundations. Issue #57 defines the reusable Template contract, #58
 implements its canonical storage/management layer, #59 defines the reusable
-Packet contract, #60 implements Packet storage/management, and #61 ships the
-starter collaborative-learning Template library. Activity-specific
-instantiation/copying, reusable presets, guided Activity setup, and final
-integrated teacher UI behavior remain later work.
+Packet contract, #60 implements Packet storage/management, #61 ships the
+starter collaborative-learning Template library, #62 implements Activity-
+specific Packet generation/rendering, and #63 implements safe Activity
+copying. Reusable presets, guided Activity setup, and final integrated
+teacher UI behavior remain later work.
 
 ### 14. PDS2 Artifact Page integration
 

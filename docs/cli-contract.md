@@ -2,8 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 Activity-specific Packet generation and PDS2
-rendering workflow in issue #62.
+Implemented through the v0.3.0 safe Activity-copying workflow in issue #63.
 
 ## Two interfaces, one service layer
 
@@ -36,6 +35,8 @@ concord workspace validate
 concord workspace reset
 
 concord activity create
+concord activity copy-preview
+concord activity copy
 concord activity list
 concord activity show
 concord activity update
@@ -213,6 +214,13 @@ Mutations support explicit actor context:
 
 `--actor-id` is required. Actor identity is provenance, not authentication and
 not Artifact authorship.
+
+Activity copying is a special create-only workflow. `activity copy-preview`
+performs strict zero-write preparation and prints a deterministic review
+digest. `activity copy` requires that exact digest, re-reads the source,
+revalidates Core class/standards/privacy, and creates a fresh draft Activity
+plus one fresh planned Session. It never accepts `--expected-snapshot`,
+overwrite, merge, force, source Session identity, or source operational state.
 
 Every write after initial Activity creation requires:
 
@@ -427,7 +435,7 @@ inspection and returned assembly, explicit Author/Subject management, Artifact
 Review, evidence Moderation, Criterion/Scale/Score workflows, and an explicit
 Publication surface immediately after Scoring. Teacher writes require
 operation-specific words such as `CREATE`, `RENDER`, `ASSEMBLE`, `ADD`,
-`UPDATE`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
+`UPDATE`, `COPY`, `CORRECT`, `REVIEW`, `MODERATE`, `SCORE`, `REVISE`, `REGISTER`,
 `GENERATE`, `CONFIRM`, `DISTRIBUTE`, `LEAVE`, `APPLY`, `PUBLISH`,
 `WITHDRAW`, `ACTIVATE`, `RETIRE`, and `REBUILD`.
 
@@ -465,7 +473,9 @@ Q. Quit
 ```
 
 Concord reuses Core’s B/M/Q parser and unwind semantics and adds only the H
-adapter. Input is case-insensitive. Ctrl+C and EOF exit cleanly.
+adapter. Navigation input is case-insensitive. The issue #63 Activity-copy
+write confirmation is deliberately stricter and requires uppercase `COPY`
+exactly. Ctrl+C and EOF exit cleanly.
 
 Teacher writes use staged disclosure:
 
@@ -499,8 +509,8 @@ commit success remains valid if disposable catalog rebuilding later fails.
 
 This contract includes returned Artifact assembly, Author/Subject management,
 Artifact Review, evidence Moderation, Criterion Set and Scoring Scale management,
-explicit Score entry/revision, explicit Academic Result Publication, and
-reusable Packet storage/management. It does not add Activity-specific Packet
-Instances or generation (#62), the issue #32 consumer-neutral reader, Meridian
-grading policy, Grade or proficiency calculation, or destructive
+explicit Score entry/revision, explicit Academic Result Publication, reusable
+Packet storage/management, Activity-specific Packet generation, and safe
+Activity copying. It does not add issue #64 reusable assignment/scoring presets,
+Meridian grading policy, Grade or proficiency calculation, or destructive
 collaboration-record deletion.

@@ -962,7 +962,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 (
                     "import importlib.metadata as m, concord, pds_core; "
                     "assert concord.__version__ == m.version('pds-concord'); "
-                    "assert m.version('pds-core') == '0.6.1'"
+                    "assert m.version('pds-core') == '0.6.3'"
                 ),
             ],
             outside,
@@ -1095,7 +1095,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 "--version",
                 _wheel_version(concord_wheel),
                 "--expected-core-version",
-                "0.6.1",
+                "0.6.3",
             ],
             outside,
         )

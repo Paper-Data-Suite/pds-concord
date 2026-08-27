@@ -30,7 +30,7 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
         for item in metadata.get_all("Requires-Dist", [])
         if Requirement(item).name == "pds-core" and Requirement(item).marker is None
     ]
-    assert runtime == [Requirement("pds-core>=0.6.1,<0.7")]
+    assert runtime == [Requirement("pds-core>=0.6.3,<0.7")]
     assert "concord/py.typed" in names
     assert any(name.endswith(".dist-info/licenses/LICENSE") for name in names)
     assert "[console_scripts]\nconcord = concord.cli:main" in entry_points

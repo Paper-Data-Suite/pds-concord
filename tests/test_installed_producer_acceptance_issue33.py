@@ -47,6 +47,14 @@ def test_issue33_stage_contract_is_bounded_and_complete() -> None:
         acceptance.AcceptanceFailure("registry audit", "private\npayload")
 
 
+def test_issue33_installed_provenance_uses_requested_core_baseline() -> None:
+    source = inspect.getsource(acceptance._installed_provenance)
+    assert 'metadata.version("pds-core") == core_version' in source
+    assert "Version(core_version) in core_requirements[0].specifier" in source
+    assert 'core_version == "0.6.1"' not in source
+    assert '== core_version == "0.6.1"' not in source
+
+
 def test_issue33_uses_only_synthetic_fixed_identities() -> None:
     assert acceptance.CLASS_ID == "acceptance_class"
     assert acceptance.ACTIVITY_ID == "acceptance_activity"

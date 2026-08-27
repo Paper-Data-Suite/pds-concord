@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Safe Activity copying now reuses only an explicit positive allowlist of
+  configuration, creates a fresh draft Activity plus one fresh planned Session,
+  tightens context-bound privacy, and excludes operational/history state.
+- `concord activity copy-preview|copy` and Activity Management `Copy an Activity`
+  share deterministic review-digest preparation and create-only persistence.
+- Issue #63 qualification adds isolated installed-wheel Activity-copy coverage
+  against the authenticated released Core v0.6.3 wheel.
+
 - Activity-specific reusable Packet instantiation now resolves exact Packet and
   Template Versions against one explicit Activity Session, previews concrete
   targets/copies/pages/routes without mutation, freezes teacher rendering
@@ -158,7 +166,10 @@ All notable changes to this project will be documented in this file.
   (`GroupPlan`/`PlannedGroup`) from operational Group/Membership management;
   GroupPlan approval still creates no canonical Groups, while issue #56 now
   implements the sole explicit canonical application boundary.
-- Began the v0.3 development line as `0.3.0.dev0` and raised the Core runtime minimum to `pds-core>=0.6.1,<0.7`; active CI/package/installed acceptance qualifies against the exact released Core v0.6.1 wheel while historical v0.2.0 release evidence remains bound to Core v0.6.0.
+- Current v0.3 development now targets the latest released PDS dependency baseline,
+  `pds-core>=0.6.3,<0.7`; active CI/package/installed acceptance authenticates
+  the exact released Core v0.6.3 wheel while historical release/fixture evidence
+  remains bound to the versions under which it was originally qualified.
 
 
 ### Fixed

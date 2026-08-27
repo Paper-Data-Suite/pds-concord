@@ -69,6 +69,7 @@ STARTER_TEMPLATE_LIBRARY_DOC = (
 PACKET_INSTANTIATION_RENDERING_DOC = (
     ROOT / "docs" / "v0.3.0-packet-instantiation-rendering.md"
 )
+ACTIVITY_COPYING_DOC = ROOT / "docs" / "v0.3.0-activity-copying.md"
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -93,9 +94,23 @@ REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'artifact_page',
     '35 rendered physical pages',
     '26146b994a273a0ab377846494f5498bf2f16017e6c95b779540d976722874e9',
-    'Core 0.6.1',
+    'Core 0.6.3',
     'Issue #63',
     'Issue #64',
+)
+REQUIRED_ACTIVITY_COPYING_PHRASES = (
+    "copy Activity configuration != clone Activity state",
+    "prepare_activity_copy",
+    "copy_activity",
+    "review_digest",
+    "criterion_set_ids = ()",
+    "external_reference_ids = ()",
+    "teacher_restricted",
+    "concord activity copy-preview",
+    "concord activity copy",
+    "COPY",
+    "pds-core>=0.6.3,<0.7",
+    "pds_core-0.6.3-py3-none-any.whl",
 )
 REQUIRED_STARTER_TEMPLATE_LIBRARY_PHRASES = (
     "30",
@@ -280,7 +295,7 @@ REQUIRED_SIGNAL_GROUP_PLAN_DOC_PHRASES = (
     "Issue #56",
 )
 REQUIRED_GROUPING_SIGNAL_DOC_PHRASES = (
-    "pds-core>=0.6.1,<0.7",
+    "pds-core>=0.6.3,<0.7",
     "grouping_signal_set_v1",
     "pds_core.grouping_signal_storage",
     "pds_core.grouping_signal_diagnostics",
@@ -668,6 +683,20 @@ def check_documentation() -> None:
                 "Documentation index does not link the Packet "
                 "instantiation/rendering document."
             )
+    if not ACTIVITY_COPYING_DOC.is_file():
+        failures.append("Current v0.3.0 Activity-copying document is missing.")
+    else:
+        activity_copy_doc = ACTIVITY_COPYING_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_ACTIVITY_COPYING_PHRASES:
+            if phrase not in activity_copy_doc:
+                failures.append(
+                    "Activity-copying document is missing required boundary "
+                    f"wording {phrase!r}."
+                )
+        if ACTIVITY_COPYING_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Activity-copying document."
+            )
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
@@ -690,6 +719,15 @@ def check_documentation() -> None:
         if "concord group-plan apply" not in active_group_plan_text:
             failures.append(
                 f"{active_path.relative_to(ROOT)} does not expose GroupPlan apply."
+            )
+        if "concord activity copy-preview" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose Activity "
+                "copy preview."
+            )
+        if "concord activity copy" not in active_group_plan_text:
+            failures.append(
+                f"{active_path.relative_to(ROOT)} does not expose Activity copy."
             )
         if "concord template create" not in active_group_plan_text:
             failures.append(
@@ -716,6 +754,8 @@ def check_documentation() -> None:
         "#48-#58 foundations",
         "#48-#59 foundations",
         "#48-#60 foundations",
+        "#48-#61 foundations",
+        "#48-#62 foundations",
         "canonical plan application remains reserved for #56",
         "canonical Template storage and revision workflows remain #58",
         "Template Definition / Template Version remain wholly undefined",
@@ -772,9 +812,9 @@ def check_documentation() -> None:
     integration = (
         ROOT / "docs" / "design" / "pds-core-integration-requirements.md"
     ).read_text(encoding="utf-8")
-    if "Current development Core baseline:** `pds-core` 0.6.1" not in integration:
+    if "Current development Core baseline:** `pds-core` 0.6.3" not in integration:
         failures.append(
-            "Integration requirements do not identify Core v0.6.1 "
+            "Integration requirements do not identify Core v0.6.3 "
             "for v0.3 development."
         )
     contracts = (ROOT / "docs" / "design" / "conceptual-data-contracts.md").read_text(

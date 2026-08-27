@@ -37,7 +37,7 @@ from concord.constants import CONCORD_MODULE_ID
 
 def test_core_version_and_contract_values() -> None:
     version = Version(importlib.metadata.version("pds-core"))
-    assert Version("0.6.1") <= version < Version("0.7")
+    assert Version("0.6.3") <= version < Version("0.7")
     assert CORE_ROUTING_CONTRACT_VERSION == "1"
     assert PDS2_SCHEMA == "PDS2"
     assert ROUTE_REGISTRATION_SCHEMA_VERSION == "1"
@@ -48,6 +48,16 @@ def test_core_version_and_contract_values() -> None:
     assert PUBLICATION_WITHDRAWAL_SCHEMA_VERSION == "1"
     assert CORE_PUBLICATION_COMPATIBILITY_CONTRACT_VERSION == "1"
     assert get_args(ManifestDigestAlgorithm) == ("sha256",)
+
+
+def test_installed_wheel_smoke_uses_current_core_baseline() -> None:
+    smoke = (
+        Path(__file__).resolve().parents[1] / "scripts" / "smoke_test_wheel.py"
+    ).read_text(encoding="utf-8")
+    assert "m.version(\'pds-core\') == \'0.6.3\'" in smoke
+    assert '"--expected-core-version",' in smoke
+    assert '"0.6.3",' in smoke
+    assert "0.6.1" not in smoke
 
 
 def test_concord_core_identity_and_paths(

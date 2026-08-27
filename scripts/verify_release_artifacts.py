@@ -23,7 +23,7 @@ RELEASE_VERSION = "0.3.0.dev0"
 EXPECTED_WHEEL = "pds_concord-0.3.0.dev0-py3-none-any.whl"
 EXPECTED_SDIST = "pds_concord-0.3.0.dev0.tar.gz"
 EXPECTED_DIST_INFO = "pds_concord-0.3.0.dev0.dist-info"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.1,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_ENTRY_POINTS = {
     "console_scripts": {"concord": "concord.cli:main"},
@@ -183,7 +183,7 @@ def validate_requirements(values: list[str], label: str) -> None:
     ]
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ArtifactValidationError(
-            f"{label} must require exactly pds-core>=0.6.1,<0.7"
+            f"{label} must require exactly pds-core>=0.6.3,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ArtifactValidationError(

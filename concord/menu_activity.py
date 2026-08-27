@@ -46,8 +46,12 @@ from concord.workflows import (
     ActivitySummary,
     ClassSummary,
     ConcordWorkflowError,
+    CopyActivityRequest,
     CreateActivityContextRequest,
+    PrepareActivityCopyRequest,
+    PreparedActivityCopy,
     UpdateActivityRequest,
+    copy_activity,
     create_activity_context,
     list_activities,
     list_available_classes,
@@ -56,10 +60,12 @@ from concord.workflows import (
     list_responsibilities,
     list_roles,
     list_sessions,
+    prepare_activity_copy,
     resolve_read_workspace_root,
     show_activity,
     update_activity,
 )
+from concord.workflows.models import UNSET, OptionalTextUpdate, TextUpdate
 
 _ACTIVITY_TYPES = ("socratic_seminar", "laboratory", "project")
 _SCORING_ORIENTATIONS = (
@@ -330,6 +336,256 @@ def _create_activity(state: MenuSessionContext) -> None:
         show_partial_success(error)
     except Exception as error:
         show_result("Activity Error", (str(error),))
+
+
+def _copy_title(source_title: str) -> TextUpdate:
+    while True:
+        clear_screen()
+        print_menu_header("Copy Activity Title")
+        print(f"Source: {source_title}")
+        print()
+        print("1. Keep source title")
+        print("2. Replace title")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Copy Activity Title Help")
+            print("Keep the source title as a reviewed copied value, or replace it.")
+            print("Either choice affects only the new Activity.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return UNSET
+        if raw == "2":
+            replacement = prompt_text(
+                "Copy Activity Title",
+                "New title",
+                help_text=(
+                    "Enter the starting teacher-facing title for the new Activity."
+                ),
+            )
+            assert replacement is not None
+            return replacement
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
+def _copy_description(source_description: str | None) -> OptionalTextUpdate:
+    while True:
+        clear_screen()
+        print_menu_header("Copy Activity Description")
+        source_label = source_description if source_description is not None else "-"
+        print(f"Source: {source_label}")
+        print()
+        print("1. Keep source description")
+        print("2. Replace description")
+        print("3. Clear description")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Copy Activity Description Help")
+            print("Choose whether the new Activity starts with the source description,")
+            print("a replacement, or no description. The source is never changed.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return UNSET
+        if raw == "2":
+            replacement = prompt_text(
+                "Copy Activity Description",
+                "New description",
+                help_text="Enter the starting description for the new Activity.",
+            )
+            assert replacement is not None
+            return replacement
+        if raw == "3":
+            return None
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
+def _copy_review_lines(prepared: PreparedActivityCopy) -> tuple[str, ...]:
+    privacy = (
+        prepared.privacy_policy.classification
+        if prepared.privacy_policy is not None
+        else "none"
+    )
+    description = prepared.description if prepared.description is not None else "-"
+    lines = [
+        f"Source: {prepared.source_class_id}/{prepared.source_activity_id}",
+        f"Source status (not copied): {prepared.source_status}",
+        f"Target: {prepared.target_class_id}/{prepared.target_activity_id}",
+        f"Title: {prepared.title}",
+        f"Description: {description}",
+        f"Type / scoring: {prepared.activity_type} / {prepared.scoring_orientation}",
+        f"Target privacy: {privacy}",
+        f"First Session: {prepared.first_session_label or prepared.first_session_id}",
+    ]
+    if prepared.standards_profile_id is not None:
+        lines.append(f"Standards profile: {prepared.standards_profile_id}")
+        lines.append("Focus Standards (ordered):")
+        lines.extend(
+            f"  {index}. {standard_id}"
+            for index, standard_id in enumerate(prepared.focus_standard_ids, start=1)
+        )
+    for diagnostic in prepared.diagnostics:
+        lines.append(f"Notice: {diagnostic.message}")
+    lines.extend(
+        (
+            "NOT COPIED: source Sessions/Groups/Memberships/GroupPlans/signals/roles",
+            "NOT COPIED: Packets/Artifacts/routes/scans/evidence/reviews/moderation",
+            "NOT COPIED: Criterion Sets/Scales/Scores/publications/history/provenance",
+            f"Review digest: {prepared.review_digest}",
+        )
+    )
+    return tuple(lines)
+
+
+def _confirm_copy(lines: tuple[str, ...]) -> bool:
+    while True:
+        clear_screen()
+        print_menu_header("Copy an Activity")
+        for line in lines:
+            print(line)
+        print()
+        print(
+            "Type COPY exactly to create the independent Activity, "
+            "or Enter to cancel."
+        )
+        print_navigation()
+        print()
+        raw = input("Confirmation: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Copy an Activity Help")
+            print("COPY creates a new draft Activity and one fresh planned Session.")
+            print("It does not clone prior classroom state or history.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK or not raw:
+            return False
+        if raw == "COPY":
+            return True
+        print("Type uppercase COPY exactly, or use H, B, M, or Q.")
+        pause_for_user()
+
+
+def _copy_activity(state: MenuSessionContext) -> None:
+    try:
+        root = resolve_read_workspace_root()
+        if root is None:
+            show_result(
+                "Copy an Activity",
+                ("The Paper Data Suite workspace does not exist yet.",),
+            )
+            return
+        classes = list_available_classes(root)
+        activities = list_activities(workspace_root=root)
+        if not classes or not activities:
+            show_result(
+                "Copy an Activity",
+                ("An existing Core class and source Concord Activity are required.",),
+            )
+            return
+        source = select_one(
+            "Copy Source Activity",
+            activities,
+            tuple(
+                f"{item.title} ({item.class_id} / {item.activity_id}) - {item.status}"
+                for item in activities
+            ),
+            help_text=(
+                "Choose the exact canonical Activity whose configuration "
+                "starts the copy."
+            ),
+        )
+        detail = show_activity(source.class_id, source.activity_id, workspace_root=root)
+        target_class = choose_class(classes)
+        target_id = prompt_text(
+            "Copy an Activity",
+            "New Activity ID",
+            help_text="Choose a fresh class-qualified Activity ID for the target.",
+            default=slug_identifier(f"{source.activity_id}-copy", "activity-copy"),
+        )
+        assert target_id is not None
+        title = _copy_title(detail.summary.title)
+        description = _copy_description(detail.description)
+        session_id = prompt_text(
+            "Copy an Activity",
+            "First Session ID",
+            help_text="The copied Activity receives one fresh planned Session.",
+            default=slug_identifier(f"{target_id}-session-1", "session-1"),
+        )
+        assert session_id is not None
+        session_label = prompt_text(
+            "Copy an Activity",
+            "First Session label",
+            help_text="Optional target-only label; no source Session label is copied.",
+            optional=True,
+        )
+        library = load_menu_standards_library()
+        prepare_request = PrepareActivityCopyRequest(
+            source_class_id=source.class_id,
+            source_activity_id=source.activity_id,
+            target_class_id=target_class.class_id,
+            target_activity_id=target_id,
+            first_session_id=session_id,
+            title=title,
+            description=description,
+            first_session_label=session_label,
+        )
+        prepared = prepare_activity_copy(
+            prepare_request,
+            workspace_root=root,
+            standards_library=library,
+        )
+        if not _confirm_copy(_copy_review_lines(prepared)):
+            return
+        result = copy_activity(
+            CopyActivityRequest(
+                source_class_id=prepare_request.source_class_id,
+                source_activity_id=prepare_request.source_activity_id,
+                target_class_id=prepare_request.target_class_id,
+                target_activity_id=prepare_request.target_activity_id,
+                first_session_id=prepare_request.first_session_id,
+                actor=state.require_actor(),
+                review_digest=prepared.review_digest,
+                title=prepare_request.title,
+                description=prepare_request.description,
+                first_session_label=prepare_request.first_session_label,
+            ),
+            workspace_root=root,
+            standards_library=library,
+        )
+        show_result(
+            "Activity Copy Result",
+            (
+                "Independent draft Activity created.",
+                f"Activity: {result.activity_id}",
+                f"First Session: {result.first_session_id}",
+                f"Snapshot: {result.commit.snapshot_revision}",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except ConcordStoragePartialSuccessError as error:
+        show_partial_success(error)
+    except Exception as error:
+        show_result("Activity Copy Error", (str(error),))
 
 
 def _update_activity_field(
@@ -606,8 +862,9 @@ def launch_activity_management_menu(
         clear_screen()
         print_menu_header("Activity Management")
         print("1. Create an Activity")
-        print("2. List Activities")
-        print("3. Open an Activity")
+        print("2. Copy an Activity")
+        print("3. List Activities")
+        print("4. Open an Activity")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -619,10 +876,12 @@ def launch_activity_management_menu(
         elif choice == "1":
             _create_activity(session_state)
         elif choice == "2":
+            _copy_activity(session_state)
+        elif choice == "3":
             activity = select_activity()
             if activity is not None:
                 _print_summary(activity)
-        elif choice == "3":
+        elif choice == "4":
             activity = select_activity()
             if activity is not None:
                 launch_activity_context_menu(activity, session_state)
