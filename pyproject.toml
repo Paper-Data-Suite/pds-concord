@@ -47,6 +47,9 @@ concord = "concord.pds_module:get_module_profile"
 [project.entry-points."paper_data_suite.publication_producers"]
 concord = "concord.pds_publication:get_publication_producer_profile"
 
+[project.entry-points."paper_data_suite.module_operations"]
+concord = "concord.pds_operations:get_module_operations_profile"
+
 [project.urls]
 Documentation = "https://github.com/Paper-Data-Suite/pds-concord/tree/main/docs"
 Repository = "https://github.com/Paper-Data-Suite/pds-concord"

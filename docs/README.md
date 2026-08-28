@@ -374,6 +374,18 @@ teacher-facing Share wrapper, exact Advanced escape hatch, #65 guided-workflow
 composition, #67/#68 handoffs, direct-CLI preservation, and isolated installed-
 wheel qualification against released Core 0.6.3.
 
+### v0.3.0 Activity attention and next actions
+
+[`v0.3.0-activity-attention-next-actions.md`](v0.3.0-activity-attention-next-actions.md)
+
+Documents issue #67's canonical-state-derived `Plan` / `Prepare` / `Collect` /
+`Review` / `Score` / `Share` attention model, stable codes/count units and
+owner-routed actions, conservative Score and optional Share semantics,
+grouping-signal/privacy exclusions, teacher next-action UI, Core v1
+`paper_data_suite.module_operations` adapter, partial/unavailable distinction,
+read-only guarantees, #68 readiness boundary, and isolated installed-wheel
+qualification against released Core 0.6.3.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)

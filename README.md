@@ -201,6 +201,31 @@ complete #66 contract.
 
 [task-activity-menu-doc]: docs/v0.3.0-task-oriented-activity-menus.md
 
+## Activity attention and next actions
+
+Issue #67 adds a read-only attention layer over the same six teacher tasks.
+Opened Activities preserve the existing `1`-through-`7` task numbering and add
+`A. Open next action` only when current canonical state establishes truthful
+attention. Activity Management adds `A. Attention needed` for deterministic
+cross-Activity discovery. These routes enter the existing task menus; attention
+navigation creates no second workflow implementation or persisted task state.
+
+Concord also exposes the same privacy-minimal facts through Core v1:
+
+```text
+paper_data_suite.module_operations
+    concord = concord.pds_operations:get_module_operations_profile
+```
+
+The #67 profile provides attention only. `readiness_provider` remains `None` for
+issue #68, which owns readiness plus suite doctor/launcher/mixed-intake work.
+
+See [Activity attention and next-action documentation][activity-attention-doc]
+for the complete semantic, privacy, count-unit, aggregation, and installed-wheel
+contract.
+
+[activity-attention-doc]: docs/v0.3.0-activity-attention-next-actions.md
+
 ## Direct CLI
 
 Direct commands are deterministic and fully noninteractive. They never clear

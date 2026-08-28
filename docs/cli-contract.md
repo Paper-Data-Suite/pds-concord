@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 task-oriented Activity menu workflow in issue #66.
+Implemented through the v0.3.0 Activity attention and next-action workflow in issue #67.
 
 ## Two interfaces, one service layer
 
@@ -25,6 +25,31 @@ concord --version
 
 Bare `concord` and `concord menu` launch the teacher menu. Help and version are
 direct, read-only operations and never launch the menu.
+
+## Teacher attention navigation
+
+Issue #67 adds read-only attention discovery without changing the direct CLI or
+renumbering issue #66's opened-Activity task menu. When truthful attention exists,
+an opened Activity may show:
+
+```text
+A. Open next action
+```
+
+Activity Management also offers:
+
+```text
+A. Attention needed
+```
+
+These `A` commands are controlled Concord menu choices on those specific screens;
+they do not replace Core-owned H/B/M/Q navigation. A next action routes to the
+existing Plan, Prepare, Collect, Review, Score, or Share menu and performs no
+mutation merely by being selected. Attention screens follow the same
+clear/redraw Information Density contract as the rest of the teacher menu.
+
+The underlying native projection and Core v1 adapter are documented in
+[`v0.3.0-activity-attention-next-actions.md`](v0.3.0-activity-attention-next-actions.md).
 
 ## Direct command inventory
 
