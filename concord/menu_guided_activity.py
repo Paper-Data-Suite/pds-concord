@@ -711,6 +711,19 @@ def _launch_materials(activity: ActivitySummary, state: MenuSessionContext) -> N
         pause_for_user()
 
 
+def launch_classroom_materials_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the reusable teacher-facing classroom-material chooser."""
+    _launch_materials(activity, state)
+
+
+def launch_manage_saved_materials_menu(state: MenuSessionContext) -> None:
+    """Open saved Packet and Template management without Activity writes."""
+    _manage_saved_materials(state)
+
+
 def _launch_groups(activity: ActivitySummary, state: MenuSessionContext) -> None:
     while True:
         clear_screen()

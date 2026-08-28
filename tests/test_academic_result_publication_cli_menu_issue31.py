@@ -387,12 +387,20 @@ def test_publication_errors_preserve_cli_exit_contract(
     assert "rebuild catalog" in error
 
 
-def test_activity_menu_places_publication_immediately_after_scoring() -> None:
-    source = inspect.getsource(menu_activity.launch_activity_context_menu)
-    assert source.index('print("8. Scoring")') < source.index(
+def test_activity_menu_places_share_after_score_and_preserves_advanced_order() -> None:
+    routine = inspect.getsource(menu_activity.launch_activity_context_menu)
+    assert routine.index('print("5. Score")') < routine.index('print("6. Share")')
+    assert routine.index('print("6. Share")') < routine.index(
+        'print("7. Advanced Activity tools")'
+    )
+
+    advanced = inspect.getsource(
+        menu_activity.launch_advanced_open_activity_tools_menu
+    )
+    assert advanced.index('print("8. Scoring")') < advanced.index(
         'print("9. Publication")'
     )
-    assert source.index('print("9. Publication")') < source.index(
+    assert advanced.index('print("9. Publication")') < advanced.index(
         'print("10. Edit Activity")'
     )
 

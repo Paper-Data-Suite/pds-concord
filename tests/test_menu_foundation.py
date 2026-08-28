@@ -96,8 +96,11 @@ def test_activity_context_keeps_only_compact_parent_header(
     activity_module.launch_activity_context_menu(activity)
     output = capsys.readouterr().out
     assert "Activity: Seminar One" in output
-    assert "Class: class-1" in output
-    assert "Status: draft" in output
+    assert "1. Plan" in output
+    assert "6. Share" in output
+    assert "7. Advanced Activity tools" in output
+    assert "Class: class-1" not in output
+    assert "Status: draft" not in output
     assert "Snapshot: 4" not in output
     assert "Scoring: evidence_only" not in output
 

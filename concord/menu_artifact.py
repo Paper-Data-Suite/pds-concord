@@ -2236,6 +2236,100 @@ def _launch_moderation_menu(
             _handle_error(activity, error, title="Moderation Error")
 
 
+def launch_collect_work_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Work with returned evidence without entering Review or scoring."""
+    while True:
+        clear_screen()
+        print_menu_header("Collect")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. View returned work")
+        print("2. Assemble returned work")
+        print("3. Confirm who produced the work")
+        print("4. Confirm who or what the work is about")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                clear_screen()
+                print_menu_header("Collect Help")
+                print("Use Collect for work that has come back from students.")
+                print("Assembly joins returned pages into the intended work.")
+                print("Who produced the work and what it concerns stay separate.")
+                print("Collect does not Review, Moderate, or Score the work.")
+                print()
+                pause_for_user()
+            elif navigation is NavigationChoice.BACK:
+                return
+            elif choice == "1":
+                _list_artifacts(activity)
+            elif choice == "2":
+                _assemble(activity, state)
+            elif choice == "3":
+                _launch_author_menu(activity, state)
+            elif choice == "4":
+                _launch_subject_menu(activity, state)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+            raise
+        except Exception as error:
+            _handle_error(activity, error, title="Collect Error")
+
+
+def launch_review_work_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Review collected evidence without recording Scores."""
+    while True:
+        clear_screen()
+        print_menu_header("Review")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. Review collected work")
+        print("2. Moderation")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                clear_screen()
+                print_menu_header("Review Help")
+                print("Review records explicit human evidence-readiness judgments.")
+                print(
+                    "Moderation is a separate reliability and "
+                    "permitted-use decision."
+                )
+                print("Neither Review nor Moderation creates a Score.")
+                print()
+                pause_for_user()
+            elif navigation is NavigationChoice.BACK:
+                return
+            elif choice == "1":
+                _launch_review_menu(activity, state)
+            elif choice == "2":
+                _launch_moderation_menu(activity, state)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+            raise
+        except Exception as error:
+            _handle_error(activity, error, title="Review Error")
+
+
 def launch_artifact_page_menu(
     activity: ActivitySummary, state: MenuSessionContext
 ) -> None:
@@ -2304,4 +2398,8 @@ def launch_artifact_page_menu(
             return
 
 
-__all__ = ["launch_artifact_page_menu"]
+__all__ = [
+    "launch_artifact_page_menu",
+    "launch_collect_work_menu",
+    "launch_review_work_menu",
+]

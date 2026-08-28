@@ -76,6 +76,10 @@ REUSABLE_PRESETS_DOC = (
 GUIDED_ACTIVITY_WORKFLOW_DOC = (
     ROOT / "docs" / "v0.3.0-guided-create-classroom-activity.md"
 )
+
+TASK_ORIENTED_ACTIVITY_MENU_DOC = (
+    ROOT / "docs" / "v0.3.0-task-oriented-activity-menus.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -116,6 +120,25 @@ REQUIRED_GUIDED_ACTIVITY_WORKFLOW_PHRASES = (
     "GroupPlan != Group != GroupMembership",
     "Score != reusable configuration",
     "scripts/smoke_test_guided_activity_wheel.py",
+    "pds-core>=0.6.3,<0.7",
+)
+
+REQUIRED_TASK_ORIENTED_ACTIVITY_MENU_PHRASES = (
+    "Plan",
+    "Prepare",
+    "Collect",
+    "Review",
+    "Score",
+    "Share",
+    "assessment setup != Score",
+    "Advanced Activity tools",
+    "GroupPlan != Group != GroupMembership",
+    "Clearing/redrawing the screen is the default",
+    "Where does the teacher go to do a task?",
+    "What currently needs the teacher's attention?",
+    "publication != downstream ingestion",
+    "presentation routing != domain mutation logic",
+    "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
     "pds-core>=0.6.3,<0.7",
 )
 REQUIRED_REUSABLE_PRESETS_PHRASES = (
@@ -763,6 +786,27 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the guided Activity document."
             )
+
+    if not TASK_ORIENTED_ACTIVITY_MENU_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 task-oriented Activity menu document is missing."
+        )
+    else:
+        task_menu_doc = TASK_ORIENTED_ACTIVITY_MENU_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_TASK_ORIENTED_ACTIVITY_MENU_PHRASES:
+            if phrase not in task_menu_doc:
+                failures.append(
+                    "Task-oriented Activity menu document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if TASK_ORIENTED_ACTIVITY_MENU_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the task-oriented Activity "
+                "menu document."
+            )
+
     for active_path in (
         ROOT / "README.md",
         ROOT / "docs" / "cli-contract.md",
