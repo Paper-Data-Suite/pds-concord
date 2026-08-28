@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 reusable-preset workflow in issue #64.
+Implemented through the v0.3.0 task-oriented Activity menu workflow in issue #66.
 
 ## Two interfaces, one service layer
 
@@ -507,6 +507,44 @@ Effective Context offers one Session, several selected Sessions, or a starting
 Session through the remaining Activity. Group revision exposes ordinary label,
 description, status, parent, and Effective Context changes without changing the
 Group identity.
+
+
+### Task-oriented opened Activities
+
+Issue #66 changes the routine opened-Activity menu from a record-family list to:
+
+```text
+1. Plan
+2. Prepare
+3. Collect
+4. Review
+5. Score
+6. Share
+7. Advanced Activity tools
+```
+
+Plan composes Continue setup, Sessions, student Groups/GroupPlans,
+Roles/Responsibilities, assessment configuration, and Activity editing. Prepare
+uses the existing saved-material and reviewed Packet-generation paths. Collect
+routes returned work, assembly, Authors, and Subjects. Review routes Artifact
+Review and Moderation. Score exposes only actual Score record/view/revision;
+Criterion Set and Scale configuration remain under Plan. Share wraps the existing
+registration/manifest/publication services in teacher language.
+
+Advanced Activity tools preserves the complete exact record-oriented menu,
+including Artifact Pages, Scoring, Publication, Packet generation/recovery, and
+diagnostic detail. The task layer adds no canonical task-status records.
+
+The task screens extend the Information Density contract: clearing/redrawing is
+the default, only current-action context remains visible, and routine screens
+avoid IDs, paths, hashes, digests, raw JSON, grouping-signal internals, and
+publication internals that are unnecessary for the current teacher decision.
+
+This reorganization is interactive presentation only. The direct command
+inventory above remains unchanged and noninteractive.
+
+See `docs/v0.3.0-task-oriented-activity-menus.md` for the complete issue #66
+contract.
 
 ## Concurrency and no-op behavior
 

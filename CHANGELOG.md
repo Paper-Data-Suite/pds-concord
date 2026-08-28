@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+
+- Opened Activities now use task-oriented `Plan`, `Prepare`, `Collect`, `Review`,
+  `Score`, and `Share` teacher navigation with one bounded Advanced escape hatch
+  that preserves the exact record-oriented workflows.
+- Assessment configuration now lives under Plan while routine Score contains only
+  explicit Score record/view/revision actions; Collect and Review likewise expose
+  focused existing Artifact services without collapsing Author, Subject, Review,
+  Moderation, or Score authority.
+- Routine Share now presents existing Core-backed registration/publication
+  behavior in teacher language while hiding manifest paths, hashes, publication
+  IDs, catalog internals, and first-versus-superseding mechanics.
+- Issue #66 qualification adds isolated installed-wheel task-navigation acceptance
+  against released Core v0.6.3 and preserves the #65 Information Density
+  clear/redraw contract.
+
 - Guided `Create Classroom Activity` and recoverable `Continue setup` teacher
   workflows now compose existing Activity-copy, Group/GroupPlan, reusable-preset,
   assessment, and Packet preparation services without persistent wizard state.

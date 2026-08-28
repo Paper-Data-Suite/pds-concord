@@ -5,13 +5,19 @@ from __future__ import annotations
 from pds_core.standards import StandardsLibrary
 from pds_core.workspace import WorkspaceRootError
 
-from concord.menu_artifact import launch_artifact_page_menu
+from concord.menu_artifact import (
+    launch_artifact_page_menu,
+    launch_collect_work_menu,
+    launch_review_work_menu,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group import launch_group_menu
 from concord.menu_guided_activity import (
+    launch_classroom_materials_menu,
     launch_guided_activity_menu,
     launch_guided_continue_setup,
     launch_guided_setup_for_activity,
+    launch_manage_saved_materials_menu,
 )
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -19,7 +25,10 @@ from concord.menu_navigation import (
     navigation_hint_with_help,
     parse_menu_navigation,
 )
-from concord.menu_packet_generation import launch_packet_generation_menu
+from concord.menu_packet_generation import (
+    launch_packet_generation_menu,
+    show_prepared_materials,
+)
 from concord.menu_prompts import (
     choose_class,
     choose_focus_standards,
@@ -33,10 +42,17 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
-from concord.menu_publication import launch_publication_menu
+from concord.menu_publication import (
+    launch_publication_menu,
+    launch_share_results_menu,
+)
 from concord.menu_responsibility import launch_responsibility_menu
 from concord.menu_role import launch_role_menu
-from concord.menu_scoring import launch_scoring_menu
+from concord.menu_scoring import (
+    launch_assessment_setup_menu,
+    launch_score_menu,
+    launch_scoring_menu,
+)
 from concord.menu_session import launch_session_menu
 from concord.menu_ui import (
     clear_screen,
@@ -715,19 +731,179 @@ def _edit_activity(activity: ActivitySummary, state: MenuSessionContext) -> None
             pause_for_user()
 
 
-def launch_activity_context_menu(
+def _task_help(title: str, lines: tuple[str, ...]) -> None:
+    clear_screen()
+    print_menu_header(f"{title} Help")
+    for line in lines:
+        print(line)
+    print()
+    pause_for_user()
+
+
+def _task_header(title: str, activity: ActivitySummary) -> None:
+    clear_screen()
+    print_menu_header(title)
+    print(f"Activity: {activity.title}")
+    print()
+
+
+def _launch_roles_and_responsibilities_menu(
     activity: ActivitySummary,
-    state: MenuSessionContext | None = None,
+    state: MenuSessionContext,
 ) -> None:
-    """Open one Activity with only essential persistent context in the header."""
-    session_state = MenuSessionContext() if state is None else state
+    while True:
+        _task_header("Roles and Responsibilities", activity)
+        print("1. Who has which role?")
+        print("2. What does each person need to do?")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            _task_help(
+                "Roles and Responsibilities",
+                (
+                    "Roles describe who is serving in a classroom role.",
+                    "Responsibilities describe what someone is expected to do.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_role_menu(activity, state)
+        elif choice == "2":
+            launch_responsibility_menu(activity, state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def launch_plan_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing planning area for one Activity."""
+    while True:
+        _task_header("Plan", activity)
+        print("1. Continue classroom setup")
+        print("2. Sessions")
+        print("3. Student groups")
+        print("4. Roles and responsibilities")
+        print("5. Assessment setup")
+        print("6. Edit Activity")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            _task_help(
+                "Plan",
+                (
+                    "Plan how this Activity will work.",
+                    "Set up sessions, student groups, classroom roles,",
+                    "responsibilities, and assessment before recording Scores.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_guided_setup_for_activity(activity, state)
+        elif choice == "2":
+            launch_session_menu(activity, state)
+        elif choice == "3":
+            launch_group_menu(activity, state)
+        elif choice == "4":
+            _launch_roles_and_responsibilities_menu(activity, state)
+        elif choice == "5":
+            launch_assessment_setup_menu(activity, state)
+        elif choice == "6":
+            _edit_activity(activity, state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def launch_prepare_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing classroom-material preparation area."""
+    while True:
+        _task_header("Prepare", activity)
+        print("1. Prepare classroom materials")
+        print("2. View prepared materials")
+        print("3. Manage saved materials")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            _task_help(
+                "Prepare",
+                (
+                    "Choose and prepare printable classroom materials.",
+                    "View what is ready without exposing routing or storage details.",
+                    "Manage reusable Packets and Templates when needed.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_classroom_materials_menu(activity, state)
+        elif choice == "2":
+            show_prepared_materials(activity)
+        elif choice == "3":
+            launch_manage_saved_materials_menu(state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def launch_collect_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing returned-work collection area."""
+    launch_collect_work_menu(activity, state)
+
+
+def launch_review_task_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing evidence Review area."""
+    launch_review_work_menu(activity, state)
+
+
+def launch_score_task_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing Score area."""
+    launch_score_menu(activity, state)
+
+
+def launch_share_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the teacher-facing sharing area."""
+    launch_share_results_menu(activity, state)
+
+
+def launch_advanced_open_activity_tools_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Preserve the pre-#66 exact opened-Activity tools."""
     while True:
         try:
             activity = show_activity(activity.class_id, activity.activity_id).summary
         except ConcordWorkflowError:
             pass
         clear_screen()
-        print_menu_header(f"Activity: {activity.title}")
+        print_menu_header("Advanced Activity Tools")
+        print(f"Activity: {activity.title}")
         print(f"Class: {activity.class_id}")
         print(f"Status: {activity.status}")
         print()
@@ -756,30 +932,86 @@ def launch_activity_context_menu(
         elif choice == "2":
             _read_context_counts(activity)
         elif choice == "3":
-            launch_session_menu(activity, session_state)
+            launch_session_menu(activity, state)
         elif choice == "4":
-            launch_group_menu(activity, session_state)
+            launch_group_menu(activity, state)
         elif choice == "5":
-            launch_role_menu(activity, session_state)
+            launch_role_menu(activity, state)
         elif choice == "6":
-            launch_responsibility_menu(activity, session_state)
+            launch_responsibility_menu(activity, state)
         elif choice == "7":
-            launch_artifact_page_menu(activity, session_state)
+            launch_artifact_page_menu(activity, state)
         elif choice == "8":
-            launch_scoring_menu(activity, session_state)
+            launch_scoring_menu(activity, state)
         elif choice == "9":
-            launch_publication_menu(activity, session_state)
+            launch_publication_menu(activity, state)
         elif choice == "10":
-            _edit_activity(activity, session_state)
+            _edit_activity(activity, state)
         elif choice == "11":
-            launch_packet_generation_menu(activity, session_state)
+            launch_packet_generation_menu(activity, state)
         elif choice == "12":
-            launch_guided_setup_for_activity(activity, session_state)
+            launch_guided_setup_for_activity(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
 
 
+def launch_activity_context_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext | None = None,
+) -> None:
+    """Open one Activity around teacher tasks instead of record families."""
+    session_state = MenuSessionContext() if state is None else state
+    while True:
+        try:
+            activity = show_activity(activity.class_id, activity.activity_id).summary
+        except ConcordWorkflowError:
+            pass
+        clear_screen()
+        print_menu_header(f"Activity: {activity.title}")
+        print("1. Plan")
+        print("2. Prepare")
+        print("3. Collect")
+        print("4. Review")
+        print("5. Score")
+        print("6. Share")
+        print("7. Advanced Activity tools")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            _task_help(
+                "Activity",
+                (
+                    "Plan how the Activity will work.",
+                    "Prepare classroom materials.",
+                    "Collect returned work.",
+                    "Review evidence and moderation.",
+                    "Score teacher-approved judgments.",
+                    "Share results deliberately.",
+                    "Advanced tools preserve exact record-level operations.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            launch_plan_menu(activity, session_state)
+        elif choice == "2":
+            launch_prepare_menu(activity, session_state)
+        elif choice == "3":
+            launch_collect_menu(activity, session_state)
+        elif choice == "4":
+            launch_review_task_menu(activity, session_state)
+        elif choice == "5":
+            launch_score_task_menu(activity, session_state)
+        elif choice == "6":
+            launch_share_menu(activity, session_state)
+        elif choice == "7":
+            launch_advanced_open_activity_tools_menu(activity, session_state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
 def select_activity() -> ActivitySummary | None:
     """Select one Activity from a paginated compact list."""
     try:

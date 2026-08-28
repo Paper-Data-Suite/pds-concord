@@ -363,6 +363,17 @@ Criterion/Scale setup, Core standards revalidation, Score exclusion,
 positive-allowlist save-from-existing workflows, direct CLI, teacher Preset
 Library, Core 0.6.3 baseline, and installed-wheel qualification.
 
+
+### v0.3.0 task-oriented Activity menus
+
+[`v0.3.0-task-oriented-activity-menus.md`](v0.3.0-task-oriented-activity-menus.md)
+
+Documents issue #66's Plan / Prepare / Collect / Review / Score / Share opened-
+Activity model, assessment-setup versus Score boundary, low-density task screens,
+teacher-facing Share wrapper, exact Advanced escape hatch, #65 guided-workflow
+composition, #67/#68 handoffs, direct-CLI preservation, and isolated installed-
+wheel qualification against released Core 0.6.3.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)

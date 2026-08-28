@@ -381,6 +381,7 @@ def _publish(
     session: MenuSessionContext,
     *,
     superseding: bool,
+    teacher_facing: bool = False,
 ) -> None:
     state = load_concord_publication_series_status(
         activity.class_id, activity.activity_id, workspace_root=_root()
@@ -399,18 +400,36 @@ def _publish(
         _root(), activity.class_id, activity.activity_id
     )
     assert registration is not None
-    review = list(
-        _review_lines(
-            preview,
-            academic_intent=registration.academic_intent,
-            lifecycle=registration.lifecycle,
+    if teacher_facing:
+        review = list(
+            _share_review_lines(
+                activity,
+                preview,
+                academic_intent=registration.academic_intent,
+                lifecycle=registration.lifecycle,
+            )
         )
+    else:
+        review = list(
+            _review_lines(
+                preview,
+                academic_intent=registration.academic_intent,
+                lifecycle=registration.lifecycle,
+            )
+        )
+        if state.core_head is not None:
+            review.append(f"Expected Core head: {state.core_head.publication_id}")
+            withdrawn_label = "yes" if state.core_head_withdrawal else "no"
+            review.append(f"Expected Core head withdrawn: {withdrawn_label}")
+    confirmation_title = (
+        "Share Results" if teacher_facing else "Publish Academic Results"
     )
-    if state.core_head is not None:
-        review.append(f"Expected Core head: {state.core_head.publication_id}")
-        withdrawn_label = "yes" if state.core_head_withdrawal else "no"
-        review.append(f"Expected Core head withdrawn: {withdrawn_label}")
-    if not confirm_write("Publish Academic Results", "PUBLISH", tuple(review)):
+    confirmation_word = "SHARE" if teacher_facing else "PUBLISH"
+    if not confirm_write(
+        confirmation_title,
+        confirmation_word,
+        tuple(review),
+    ):
         return
     if not superseding:
         result = publish_concord_academic_results(
@@ -437,49 +456,98 @@ def _publish(
                 standards_library=load_menu_standards_library(),
                 clock=lambda: preview.manifest.generated_at,
             )
-    show_result(
-        "Publication Result",
-        (
-            f"Disposition: {result.disposition}",
-            f"Publication: {result.publication.publication_id}",
-            f"Record-set revision: {result.publication.record_set_revision}",
-        ),
-    )
+    if teacher_facing:
+        show_result(
+            "Results Shared",
+            (
+                "The Activity results are now shared through Paper Data Suite.",
+                f"Shared revision: {result.publication.record_set_revision}",
+            ),
+        )
+    else:
+        show_result(
+            "Publication Result",
+            (
+                f"Disposition: {result.disposition}",
+                f"Publication: {result.publication.publication_id}",
+                f"Record-set revision: {result.publication.record_set_revision}",
+            ),
+        )
 
 
-def _withdraw(activity: ActivitySummary) -> None:
+def _withdraw(
+    activity: ActivitySummary,
+    *,
+    teacher_facing: bool = False,
+) -> None:
     state = load_concord_publication_series_status(
         activity.class_id, activity.activity_id, workspace_root=_root()
     )
-    if not state.publications:
-        show_result("Withdraw Publication", ("No Core publications exist.",))
-        return
-    publication_id = prompt_text(
-        "Withdraw Publication",
-        "Publication ID",
-        help_text="Enter the exact Core Publication Record ID to withdraw.",
-        default=(state.core_head.publication_id if state.core_head else None),
-    )
-    assert publication_id is not None
-    reason = prompt_text(
-        "Withdraw Publication",
-        "Publication-safe reason",
-        help_text=(
-            "Use deliberate operational text only; do not paste student or "
-            "moderation narrative."
-        ),
-    )
-    assert reason is not None
-    if not confirm_write(
-        "Withdraw Publication",
-        "WITHDRAW",
-        (
-            f"Activity: {activity.title}",
-            f"Publication: {publication_id}",
-            f"Reason: {reason}",
-        ),
-    ):
-        return
+    publication_id: str
+    if teacher_facing:
+        current = state.current_selectable_publication
+        if current is None:
+            show_result(
+                "Stop Sharing",
+                ("There are no currently shared results to stop sharing.",),
+            )
+            return
+        current_publication_id = current.publication_id
+        if current_publication_id is None:
+            raise ValueError(
+                "Current shared results have no publication identifier."
+            )
+        publication_id = current_publication_id
+        reason = prompt_text(
+            "Stop Sharing",
+            "Reason",
+            help_text=(
+                "Use a short operational reason. Do not include student "
+                "or moderation narrative."
+            ),
+        )
+        assert reason is not None
+        if not confirm_write(
+            "Stop Sharing",
+            "STOP",
+            (
+                f"Activity: {activity.title}",
+                f"Current shared revision: {current.record_set_revision}",
+                f"Reason: {reason}",
+            ),
+        ):
+            return
+    else:
+        if not state.publications:
+            show_result("Withdraw Publication", ("No Core publications exist.",))
+            return
+        publication_id_value = prompt_text(
+            "Withdraw Publication",
+            "Publication ID",
+            help_text="Enter the exact Core Publication Record ID to withdraw.",
+            default=(state.core_head.publication_id if state.core_head else None),
+        )
+        assert publication_id_value is not None
+        publication_id = publication_id_value
+        reason = prompt_text(
+            "Withdraw Publication",
+            "Publication-safe reason",
+            help_text=(
+                "Use deliberate operational text only; do not paste student or "
+                "moderation narrative."
+            ),
+        )
+        assert reason is not None
+        if not confirm_write(
+            "Withdraw Publication",
+            "WITHDRAW",
+            (
+                f"Activity: {activity.title}",
+                f"Publication: {publication_id}",
+                f"Reason: {reason}",
+            ),
+        ):
+            return
     result = withdraw_concord_academic_result_publication(
         activity.class_id,
         activity.activity_id,
@@ -487,14 +555,20 @@ def _withdraw(activity: ActivitySummary) -> None:
         reason=reason,
         workspace_root=_root(),
     )
-    show_result(
-        "Withdrawal Result",
-        (
-            f"Disposition: {result.disposition}",
-            f"Publication: {result.publication.publication_id}",
-            f"Manifest verification: {result.manifest_verification}",
-        ),
-    )
+    if teacher_facing:
+        show_result(
+            "Sharing Stopped",
+            ("The current shared results are no longer selectable.",),
+        )
+    else:
+        show_result(
+            "Withdrawal Result",
+            (
+                f"Disposition: {result.disposition}",
+                f"Publication: {result.publication.publication_id}",
+                f"Manifest verification: {result.manifest_verification}",
+            ),
+        )
 
 
 def _catalog_status(activity: ActivitySummary) -> None:
@@ -595,6 +669,223 @@ def _publication_help() -> None:
             "Publication does not calculate Grades, proficiency, or reporting policy.",
         ),
     )
+
+
+def _sharing_setup_status(activity: ActivitySummary) -> None:
+    registration = load_current_concord_academic_work_registration(
+        _root(), activity.class_id, activity.activity_id
+    )
+    lines = [f"Activity: {activity.title}"]
+    if registration is None:
+        lines.append("Sharing setup: not configured")
+    else:
+        lines.extend(
+            (
+                "Sharing setup: configured",
+                (
+                    "Academic intent: "
+                    + registration.academic_intent.replace("_", " ").title()
+                ),
+                f"Activity status: {registration.lifecycle.title()}",
+            )
+        )
+    show_result("Sharing Setup", tuple(lines))
+
+
+def _launch_sharing_setup_menu(activity: ActivitySummary) -> None:
+    while True:
+        clear_screen()
+        print_menu_header("Set Up Sharing")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. View sharing setup")
+        print("2. Set up this Activity for sharing")
+        print("3. Update sharing setup")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Sharing Setup Help",
+                (
+                    "Set the Activity's academic intent and lifecycle.",
+                    "This does not share results by itself.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            _sharing_setup_status(activity)
+        elif choice == "2":
+            _register(activity)
+        elif choice == "3":
+            _update_registration(activity)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def _share_review_lines(
+    activity: ActivitySummary,
+    preview: AcademicResultManifestPreview,
+    *,
+    academic_intent: str,
+    lifecycle: str,
+) -> tuple[str, ...]:
+    summary = manifest_preview_summary(preview)
+    return (
+        f"Activity: {activity.title}",
+        f"Academic intent: {academic_intent.replace('_', ' ').title()}",
+        f"Activity status: {lifecycle.title()}",
+        f"Scores included: {summary['score_count']}",
+        (
+            "Current / historical Scores: "
+            f"{summary['current_score_count']} / {summary['historical_score_count']}"
+        ),
+        (
+            "Standards-backed / Activity-specific Scores: "
+            f"{summary['standard_backed_score_count']} / "
+            f"{summary['local_score_count']}"
+        ),
+        f"Non-score records included: {summary['non_score_count']}",
+        (
+            "Scores requiring moderation: "
+            f"{summary['moderation_dependent_count']}"
+        ),
+    )
+
+
+def _show_share_preview(
+    activity: ActivitySummary,
+    session: MenuSessionContext,
+) -> None:
+    _request_value, preview = _preview(activity, session)
+    registration = load_current_concord_academic_work_registration(
+        _root(), activity.class_id, activity.activity_id
+    )
+    assert registration is not None
+    show_result(
+        "Review What Will Be Shared",
+        _share_review_lines(
+            activity,
+            preview,
+            academic_intent=registration.academic_intent,
+            lifecycle=registration.lifecycle,
+        ),
+    )
+
+
+def _share_results(
+    activity: ActivitySummary,
+    session: MenuSessionContext,
+) -> None:
+    state = load_concord_publication_series_status(
+        activity.class_id,
+        activity.activity_id,
+        workspace_root=_root(),
+    )
+    _publish(
+        activity,
+        session,
+        superseding=state.core_head is not None,
+        teacher_facing=True,
+    )
+
+
+def _share_history(activity: ActivitySummary) -> None:
+    state = load_concord_publication_series_status(
+        activity.class_id,
+        activity.activity_id,
+        workspace_root=_root(),
+    )
+    lines = [f"Shared revisions: {len(state.publications)}"]
+    if state.current_selectable_publication is None:
+        lines.append("Currently shared: no")
+    else:
+        lines.extend(
+            (
+                "Currently shared: yes",
+                (
+                    "Current shared revision: "
+                    f"{state.current_selectable_publication.record_set_revision}"
+                ),
+            )
+        )
+    for publication in state.publications:
+        withdrawn = any(
+            item.publication_id == publication.publication_id
+            for item in state.withdrawals
+        )
+        current = (
+            state.current_selectable_publication is not None
+            and state.current_selectable_publication.publication_id
+            == publication.publication_id
+        )
+        if current:
+            status = "current"
+        elif withdrawn:
+            status = "withdrawn"
+        else:
+            status = "earlier"
+        lines.append(f"Revision {publication.record_set_revision}: {status}")
+    show_result("Sharing History", tuple(lines))
+
+
+def launch_share_results_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open the focused teacher-facing result-sharing surface."""
+    while True:
+        clear_screen()
+        print_menu_header("Share")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. Set up sharing")
+        print("2. Review what will be shared")
+        print("3. Share results")
+        print("4. View sharing history")
+        print("5. Stop sharing current results")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Share Help",
+                (
+                    "Share deliberate Activity results through Paper Data Suite.",
+                    "Review the result set before sharing it.",
+                    "Sharing does not calculate Grades or reporting policy.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            return
+        try:
+            activity = show_activity(
+                activity.class_id,
+                activity.activity_id,
+                workspace_root=_root(),
+            ).summary
+            if choice == "1":
+                _launch_sharing_setup_menu(activity)
+            elif choice == "2":
+                _show_share_preview(activity, state)
+            elif choice == "3":
+                _share_results(activity, state)
+            elif choice == "4":
+                _share_history(activity)
+            elif choice == "5":
+                _withdraw(activity, teacher_facing=True)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except Exception as error:
+            _handle_error(error)
 
 
 def launch_publication_menu(

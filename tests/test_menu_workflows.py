@@ -306,7 +306,7 @@ def test_activity_context_delegates_to_session_menu_with_same_state(
     activity = _activity()
     state = _state()
     called: list[object] = []
-    inputs = iter(["3", "b"])
+    inputs = iter(["1", "2", "b", "b"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
     monkeypatch.setattr(activity_menu, "clear_screen", lambda: None)
     monkeypatch.setattr(

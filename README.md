@@ -168,6 +168,39 @@ complete #65 contract.
 
 [guided-activity-doc]: docs/v0.3.0-guided-create-classroom-activity.md
 
+
+## Task-oriented opened Activity navigation
+
+After an Activity is opened, routine teacher navigation is organized around the
+classroom task rather than Concord's record families:
+
+```text
+Plan
+Prepare
+Collect
+Review
+Score
+Share
+Advanced Activity tools
+```
+
+Plan contains setup, Sessions, student grouping, Roles/Responsibilities, and
+assessment configuration. Prepare contains the classroom-material workflow.
+Collect contains returned work, assembly, Author, and Subject actions. Review
+contains Artifact Review and Moderation. Score contains actual Score
+record/view/revision actions. Share presents existing registration/manifest/
+publication services in teacher language.
+
+The exact record-oriented Activity menu remains available through Advanced
+Activity tools, and the deterministic direct CLI is unchanged. Task navigation
+creates no canonical task state and follows the same Information Density
+clear/redraw contract as guided setup.
+
+See [task-oriented Activity menu documentation][task-activity-menu-doc] for the
+complete #66 contract.
+
+[task-activity-menu-doc]: docs/v0.3.0-task-oriented-activity-menus.md
+
 ## Direct CLI
 
 Direct commands are deterministic and fully noninteractive. They never clear

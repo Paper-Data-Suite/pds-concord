@@ -149,7 +149,7 @@ def test_activity_context_menu_dispatches_to_scoring(
         focus_standard_ids=(),
     )
     calls: list[str] = []
-    answers = iter(("8", "b"))
+    answers = iter(("5", "b"))
 
     monkeypatch.setattr(
         menu_activity,
@@ -158,7 +158,7 @@ def test_activity_context_menu_dispatches_to_scoring(
     )
     monkeypatch.setattr(
         menu_activity,
-        "launch_scoring_menu",
+        "launch_score_menu",
         lambda selected, state: calls.append(selected.activity_id),
     )
     monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))

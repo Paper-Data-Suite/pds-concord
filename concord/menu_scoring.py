@@ -2035,6 +2035,94 @@ def _scale_menu(
             pause_for_user()
 
 
+def launch_assessment_setup_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext | None = None,
+) -> None:
+    """Configure how an Activity will be assessed without recording Scores."""
+    session_state = MenuSessionContext() if state is None else state
+    while True:
+        try:
+            activity = _latest(activity)
+        except Exception:
+            pass
+        clear_screen()
+        print_menu_header("Assessment Setup")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. Use saved assessment setup")
+        print("2. Criteria")
+        print("3. Scoring scales")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Assessment Setup Help",
+                (
+                    "Set up criteria and scoring scales for this Activity.",
+                    "This setup creates no Scores.",
+                    "Actual teacher judgments are recorded from the Score task.",
+                ),
+            )
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            _use_saved_scoring_setup(activity, session_state)
+        elif choice == "2":
+            _criterion_set_menu(activity, session_state)
+        elif choice == "3":
+            _scale_menu(activity, session_state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
+def launch_score_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext | None = None,
+) -> None:
+    """Record, inspect, or revise explicit teacher Score judgments."""
+    session_state = MenuSessionContext() if state is None else state
+    while True:
+        try:
+            activity = _latest(activity)
+        except Exception:
+            pass
+        clear_screen()
+        print_menu_header("Score")
+        print(f"Activity: {activity.title}")
+        print()
+        print("1. Record a Score")
+        print("2. View Scores")
+        print("3. Revise a Score")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Score Help")
+            print("Record explicit teacher-approved judgments here.")
+            print("Assessment criteria and scales are configured under Plan.")
+            print("Concord never infers a Score from evidence.")
+            print("A Group Score never creates individual student Scores.")
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            _record_score(activity, session_state)
+        elif choice == "2":
+            _browse_scores(activity)
+        elif choice == "3":
+            _revise_score(activity, session_state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
 def launch_scoring_menu(
     activity: ActivitySummary,
     state: MenuSessionContext | None = None,
@@ -2091,4 +2179,8 @@ def launch_scoring_menu(
             pause_for_user()
 
 
-__all__ = ["launch_scoring_menu"]
+__all__ = [
+    "launch_assessment_setup_menu",
+    "launch_score_menu",
+    "launch_scoring_menu",
+]

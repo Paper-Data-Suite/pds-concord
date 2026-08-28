@@ -268,7 +268,7 @@ def test_open_activity_menu_dispatches_packet_generation(
         "launch_packet_generation_menu",
         fake_packet_menu,
     )
-    responses = iter(("11", "b"))
+    responses = iter(("7", "11", "b", "b"))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     launch_activity_context_menu(activity, MenuSessionContext())

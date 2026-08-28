@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -416,6 +418,45 @@ def _preview_lines(
             for item in prepared.diagnostics
         )
     return tuple(lines)
+
+
+def show_prepared_materials(activity: ActivitySummary) -> None:
+    """Show a low-density, read-only summary of prepared classroom materials."""
+    try:
+        items = list_packet_instances(activity.class_id, activity.activity_id)
+        if not items:
+            show_result(
+                "Prepared Materials",
+                ("No classroom materials have been prepared yet.",),
+            )
+            return
+
+        ready_count = sum(
+            1 for item in items if item.generation_status == "generated"
+        )
+        attention_count = len(items) - ready_count
+        lines = [
+            f"Prepared sets: {len(items)}",
+            f"Ready to print: {ready_count}",
+        ]
+        if attention_count:
+            lines.append(f"Need attention: {attention_count}")
+
+        filenames = tuple(
+            dict.fromkeys(
+                Path(item.output_relative_path).name
+                for item in items
+                if item.output_relative_path
+            )
+        )
+        if filenames:
+            lines.append("")
+            lines.append("Files:")
+            lines.extend(filenames)
+
+        show_result("Prepared Materials", tuple(lines))
+    except Exception as error:
+        show_result("Prepared Materials", (str(error),))
 
 
 def _list_instances(activity: ActivitySummary) -> None:
