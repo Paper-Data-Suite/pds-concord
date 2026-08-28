@@ -80,6 +80,9 @@ GUIDED_ACTIVITY_WORKFLOW_DOC = (
 TASK_ORIENTED_ACTIVITY_MENU_DOC = (
     ROOT / "docs" / "v0.3.0-task-oriented-activity-menus.md"
 )
+ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
+    ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -139,6 +142,25 @@ REQUIRED_TASK_ORIENTED_ACTIVITY_MENU_PHRASES = (
     "publication != downstream ingestion",
     "presentation routing != domain mutation logic",
     "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
+    "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
+    "ActivityAttentionItem",
+    "ActivityAttentionSummary",
+    "inspect_activity_attention",
+    "list_activity_attention",
+    "attention != readiness",
+    "Plan -> Prepare -> Collect -> Review -> Score -> Share",
+    "concord_score_ready",
+    "concord_share_publish",
+    "concord_attention_partial",
+    "concord_attention_unavailable",
+    "paper_data_suite.module_operations",
+    "concord.pds_operations:get_module_operations_profile",
+    "readiness_provider = None",
+    "A. Open next action",
+    "A. Attention needed",
+    "scripts/smoke_test_attention_provider_wheel.py",
     "pds-core>=0.6.3,<0.7",
 )
 REQUIRED_REUSABLE_PRESETS_PHRASES = (
@@ -805,6 +827,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the task-oriented Activity "
                 "menu document."
+            )
+
+    if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Activity attention/next-actions document is missing."
+        )
+    else:
+        attention_doc = ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES:
+            if phrase not in attention_doc:
+                failures.append(
+                    "Activity attention/next-actions document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Activity attention/"
+                "next-actions document."
             )
 
     for active_path in (

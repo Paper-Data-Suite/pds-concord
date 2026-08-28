@@ -10,6 +10,10 @@ from concord.menu_artifact import (
     launch_collect_work_menu,
     launch_review_work_menu,
 )
+from concord.menu_attention import (
+    launch_activity_attention_discovery,
+    print_activity_attention_summary,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group import launch_group_menu
 from concord.menu_guided_activity import (
@@ -86,6 +90,7 @@ from concord.workflows import (
     show_activity,
     update_activity,
 )
+from concord.workflows.activity_attention import inspect_activity_attention
 from concord.workflows.models import UNSET, OptionalTextUpdate, TextUpdate
 
 _ACTIVITY_TYPES = ("socratic_seminar", "laboratory", "project")
@@ -891,6 +896,30 @@ def launch_share_menu(
     launch_share_results_menu(activity, state)
 
 
+def launch_activity_attention_action(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    action_id: str,
+) -> None:
+    """Route one stable Concord attention action into an existing #66 task."""
+    if action_id == "open_activity_plan":
+        launch_plan_menu(activity, state)
+    elif action_id == "open_activity_prepare":
+        launch_prepare_menu(activity, state)
+    elif action_id == "open_activity_collect":
+        launch_collect_menu(activity, state)
+    elif action_id == "open_activity_review":
+        launch_review_task_menu(activity, state)
+    elif action_id == "open_activity_score":
+        launch_score_task_menu(activity, state)
+    elif action_id == "open_activity_share":
+        launch_share_menu(activity, state)
+    else:
+        raise ConcordWorkflowError(
+            f"Unsupported Concord attention action: {action_id}"
+        )
+
+
 def launch_advanced_open_activity_tools_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -969,6 +998,18 @@ def launch_activity_context_menu(
             pass
         clear_screen()
         print_menu_header(f"Activity: {activity.title}")
+        try:
+            loaded_attention = inspect_activity_attention(
+                activity.class_id,
+                activity.activity_id,
+            )
+        except Exception:
+            attention = None
+            print("Attention: unavailable")
+            print()
+        else:
+            attention = loaded_attention
+            print_activity_attention_summary(loaded_attention)
         print("1. Plan")
         print("2. Prepare")
         print("3. Collect")
@@ -976,6 +1017,8 @@ def launch_activity_context_menu(
         print("5. Score")
         print("6. Share")
         print("7. Advanced Activity tools")
+        if attention is not None and attention.next_item is not None:
+            print("A. Open next action")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -995,6 +1038,16 @@ def launch_activity_context_menu(
             )
         elif navigation is NavigationChoice.BACK:
             return
+        elif (
+            choice.casefold() == "a"
+            and attention is not None
+            and attention.next_item is not None
+        ):
+            launch_activity_attention_action(
+                activity,
+                session_state,
+                attention.next_item.action_id,
+            )
         elif choice == "1":
             launch_plan_menu(activity, session_state)
         elif choice == "2":
@@ -1142,6 +1195,7 @@ def launch_activity_management_menu(
         print("1. Create Classroom Activity")
         print("2. Continue setup for an Activity")
         print("3. Advanced Activity tools")
+        print("A. Attention needed")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1162,6 +1216,11 @@ def launch_activity_management_menu(
             launch_guided_continue_setup(session_state)
         elif choice == "3":
             launch_advanced_activity_tools_menu(session_state)
+        elif choice.casefold() == "a":
+            launch_activity_attention_discovery(
+                session_state,
+                route_action=launch_activity_attention_action,
+            )
         else:
             print(navigation_hint_with_help())
             pause_for_user()

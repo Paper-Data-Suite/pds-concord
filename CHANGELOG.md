@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Read-only Activity attention and deterministic next-action guidance now derive
+  current `Plan` / `Prepare` / `Collect` / `Review` / `Score` / `Share` work from
+  canonical Concord/Core state without persisting dashboard/task state.
+- Teacher Activity screens expose bounded attention discovery and owner-routed next
+  actions while preserving issue #66 numbering, workflow authority, privacy, and
+  the Information Density clear/redraw contract.
+- Concord now installs a Core v1 `paper_data_suite.module_operations` attention
+  provider with stable codes/count units, partial-versus-unavailable handling,
+  and `readiness_provider=None` for the issue #68 handoff.
+- Issue #67 qualification adds package metadata checks and isolated installed-wheel
+  provider acceptance against released Core v0.6.3 with no Suite/sibling module
+  dependency and a file-fingerprint read-only assertion.
 
 - Opened Activities now use task-oriented `Plan`, `Prepare`, `Collect`, `Review`,
   `Score`, and `Share` teacher navigation with one bounded Advanced escape hatch

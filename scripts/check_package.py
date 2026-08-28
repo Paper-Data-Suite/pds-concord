@@ -25,6 +25,7 @@ FORBIDDEN_PREFIXES = (
 )
 FORBIDDEN_PARTS = ("__pycache__", ".pytest_cache", ".mypy_cache", "credentials")
 FORBIDDEN_RUNTIME_DEPENDENCIES = {
+    "paper-data-suite",
     "pds-scoreform",
     "pds-quillan",
     "pds-portia",
@@ -138,10 +139,36 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(
             "The Concord publication-producer entry point must occur exactly once."
         )
+    expected_operations = (
+        "[paper_data_suite.module_operations]\n"
+        "concord = concord.pds_operations:get_module_operations_profile"
+    )
+    if expected_operations not in entry_points:
+        raise PackageValidationError(
+            "The Concord module-operations entry point is missing."
+        )
+    if entry_points.count("[paper_data_suite.module_operations]") != 1:
+        raise PackageValidationError(
+            "The module-operations entry-point group must occur exactly once."
+        )
+    if entry_points.count(
+        "concord = concord.pds_operations:get_module_operations_profile"
+    ) != 1:
+        raise PackageValidationError(
+            "The Concord module-operations entry point must occur exactly once."
+        )
     required = {
         "concord/__init__.py",
         "concord/academic_result_artifacts.py",
         "concord/academic_result_reader.py",
+        "concord/academic_result_share_attention.py",
+        "concord/attention_provider.py",
+        "concord/menu_attention.py",
+        "concord/pds_operations.py",
+        "concord/workflows/activity_attention.py",
+        "concord/workflows/artifact_collection.py",
+        "concord/workflows/artifact_review_attention.py",
+        "concord/workflows/artifact_scoring_attention.py",
         "concord/artifact_rendering.py",
         "concord/cli.py",
         "concord/cli_app/handlers/reusable_presets.py",
