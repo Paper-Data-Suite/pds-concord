@@ -75,6 +75,11 @@ def _patch_common(
 ) -> None:
     monkeypatch.setattr(
         share,
+        "resolve_read_workspace_root",
+        lambda *_a, **_k: Path("workspace"),
+    )
+    monkeypatch.setattr(
+        share,
         "load_current_concord_academic_work_registration",
         lambda *_a, **_k: _registration(),
     )
