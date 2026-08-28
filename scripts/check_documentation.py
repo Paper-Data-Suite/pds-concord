@@ -83,6 +83,9 @@ TASK_ORIENTED_ACTIVITY_MENU_DOC = (
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
+SUITE_INTEROPERABILITY_DOC = (
+    ROOT / "docs" / "v0.3.0-suite-interoperability.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -162,6 +165,23 @@ REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "A. Attention needed",
     "scripts/smoke_test_attention_provider_wheel.py",
     "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_SUITE_INTEROPERABILITY_PHRASES = (
+    "readiness != attention",
+    "concord_readiness_unavailable",
+    "concord_class_not_ready",
+    "readiness_provider = present",
+    "attention_provider = present",
+    "paper_data_suite.module_operations",
+    "concord.pds_operations:get_module_operations_profile",
+    "concord = concord.cli:main",
+    "handle_concord_route",
+    "dispatch_routes",
+    "module_operations.provider_failed",
+    "module_operations.result_invalid",
+    "pds-core>=0.6.3,<0.7",
+    "Paper Data Suite v0.1.0",
+    "scripts/smoke_test_attention_provider_wheel.py",
 )
 REQUIRED_REUSABLE_PRESETS_PHRASES = (
     "concord_reusable_preset_library_v1",
@@ -847,6 +867,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the Activity attention/"
                 "next-actions document."
+            )
+
+    if not SUITE_INTEROPERABILITY_DOC.is_file():
+        failures.append(
+            "Current v0.3.0 Suite interoperability document is missing."
+        )
+    else:
+        interoperability_doc = SUITE_INTEROPERABILITY_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_SUITE_INTEROPERABILITY_PHRASES:
+            if phrase not in interoperability_doc:
+                failures.append(
+                    "Suite interoperability document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if SUITE_INTEROPERABILITY_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the Suite "
+                "interoperability document."
             )
 
     for active_path in (

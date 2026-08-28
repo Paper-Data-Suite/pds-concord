@@ -802,3 +802,13 @@ Significant architectural changes should be recorded through a new ADR that supe
   composition of the #48-#64 services without persistent wizard state.
 
 [guided-activity]: v0.3.0-guided-create-classroom-activity.md
+
+### v0.3.0 Suite interoperability and structural readiness
+
+[`v0.3.0-suite-interoperability.md`](v0.3.0-suite-interoperability.md)
+
+Documents issue #68 structural readiness, the current Core v1 operations
+profile, provider/doctor boundaries, installed launcher identity, mixed
+PDS2 routing ownership and failure isolation, privacy/read-only guarantees,
+the current Suite release-qualification boundary, and installed-wheel
+qualification against released Core 0.6.3.

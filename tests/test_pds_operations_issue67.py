@@ -6,14 +6,13 @@ from pds_core.module_operations import (
     MODULE_OPERATIONS_CONTRACT_VERSION,
     ModuleOperationsRequest,
     invoke_module_attention,
-    invoke_module_readiness,
     validate_module_operations_profile,
 )
 
 from concord.pds_operations import get_module_operations_profile
 
 
-def test_profile_exposes_attention_only_for_issue67() -> None:
+def test_profile_preserves_issue67_attention_capability() -> None:
     profile = get_module_operations_profile()
     assert validate_module_operations_profile(profile) is profile
     assert profile.module_id == "concord"
@@ -21,18 +20,12 @@ def test_profile_exposes_attention_only_for_issue67() -> None:
         {MODULE_OPERATIONS_CONTRACT_VERSION}
     )
     assert profile.attention_provider is not None
-    assert profile.readiness_provider is None
 
 
-def test_core_invocation_preserves_absent_readiness_and_unavailable_attention() -> None:
+def test_core_invocation_preserves_unavailable_attention_without_workspace() -> None:
     profile = get_module_operations_profile()
-    request = ModuleOperationsRequest()
+    attention = invoke_module_attention(profile, ModuleOperationsRequest())
 
-    readiness = invoke_module_readiness(profile, request)
-    attention = invoke_module_attention(profile, request)
-
-    assert readiness.code == "module_operations.capability_absent"
-    assert readiness.report is None
     assert attention.code == "module_operations.evaluation_unavailable"
     assert attention.report is not None
     assert attention.report.evaluation == "unavailable"

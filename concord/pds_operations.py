@@ -7,6 +7,7 @@ from pds_core.module_operations import (
     ModuleAttentionReport,
     ModuleOperationsProfile,
     ModuleOperationsRequest,
+    ModuleReadinessReport,
     validate_module_operations_profile,
 )
 
@@ -23,18 +24,32 @@ def evaluate_concord_attention(
     return _evaluate(request)
 
 
+def evaluate_concord_readiness(
+    request: ModuleOperationsRequest,
+    /,
+) -> ModuleReadinessReport:
+    """Lazily evaluate Concord-owned readiness for one neutral Core request."""
+    from concord.readiness_provider import evaluate_concord_readiness as _evaluate
+
+    return _evaluate(request)
+
+
 def get_module_operations_profile() -> ModuleOperationsProfile:
-    """Return Concord's validated Core v1 operations profile for Issue #67."""
+    """Return Concord's validated Core v1 operations profile."""
     return validate_module_operations_profile(
         ModuleOperationsProfile(
             module_id=CONCORD_MODULE_ID,
             supported_core_operations_contract_versions=frozenset(
                 {MODULE_OPERATIONS_CONTRACT_VERSION}
             ),
-            readiness_provider=None,
+            readiness_provider=evaluate_concord_readiness,
             attention_provider=evaluate_concord_attention,
         )
     )
 
 
-__all__ = ["evaluate_concord_attention", "get_module_operations_profile"]
+__all__ = [
+    "evaluate_concord_attention",
+    "evaluate_concord_readiness",
+    "get_module_operations_profile",
+]

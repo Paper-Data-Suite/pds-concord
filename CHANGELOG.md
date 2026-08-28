@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Concord now exposes structural readiness through the same Core v1
+  `paper_data_suite.module_operations` profile introduced by issue #67,
+  preserving attention as an independent capability.
+- Readiness distinguishes safely determined not-ready state from unavailable
+  evaluation, requires an explicit workspace, performs no repair/mutation, and
+  keeps roster/task backlog outside global structural readiness.
+- Issue #68 qualifies the existing `concord = concord.cli:main` launcher and
+  Core PDS2 route handler for future Suite doctor/launcher/mixed-intake use,
+  including mixed-route ownership and per-page failure isolation.
+- Installed-wheel operations acceptance now proves both readiness and attention
+  against exact Core 0.6.3 with no Suite/sibling dependency or source shadowing.
+
 - Read-only Activity attention and deterministic next-action guidance now derive
   current `Plan` / `Prepare` / `Collect` / `Review` / `Score` / `Share` work from
   canonical Concord/Core state without persisting dashboard/task state.

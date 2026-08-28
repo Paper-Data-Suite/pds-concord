@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented through the v0.3.0 Activity attention and next-action workflow in issue #67.
+Implemented through the v0.3.0 Suite interoperability/readiness workflow in issue #68.
 
 ## Two interfaces, one service layer
 
@@ -50,6 +50,19 @@ clear/redraw Information Density contract as the rest of the teacher menu.
 
 The underlying native projection and Core v1 adapter are documented in
 [`v0.3.0-activity-attention-next-actions.md`](v0.3.0-activity-attention-next-actions.md).
+
+## Core readiness and Suite interoperability
+
+Issue #68 extends the existing Core v1 module-operations profile with a
+read-only structural readiness provider. `readiness != attention` and
+`launchability != readiness`; the installed application identity remains
+`concord = concord.cli:main`.
+
+Mixed returned-paper intake remains Core/Suite orchestration over the
+existing Concord PDS2 route profile and `handle_concord_route`. Concord does
+not implement another batch dispatcher or interpret foreign module routes.
+
+See [`v0.3.0-suite-interoperability.md`](v0.3.0-suite-interoperability.md).
 
 ## Direct command inventory
 
