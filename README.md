@@ -217,14 +217,34 @@ paper_data_suite.module_operations
     concord = concord.pds_operations:get_module_operations_profile
 ```
 
-The #67 profile provides attention only. `readiness_provider` remains `None` for
-issue #68, which owns readiness plus suite doctor/launcher/mixed-intake work.
+Issue #67 originally shipped this profile with attention only. Issue #68 now
+extends the same Core v1 profile with structural readiness; attention codes,
+counts, ordering, and owner actions remain unchanged.
 
 See [Activity attention and next-action documentation][activity-attention-doc]
 for the complete semantic, privacy, count-unit, aggregation, and installed-wheel
 contract.
 
 [activity-attention-doc]: docs/v0.3.0-activity-attention-next-actions.md
+
+## Suite interoperability and structural readiness
+
+Issue #68 adds read-only structural readiness to the existing Core v1
+`paper_data_suite.module_operations` profile. A valid Concord context may
+be ready while #67 attention is nonempty; readiness is not launchability,
+routing, publication authorization, diagnostics, or teacher priority.
+
+Concord preserves its existing `concord = concord.cli:main` launcher and
+Core PDS2 `paper_data_suite.modules` route handler. Mixed returned-paper
+ownership remains Core/Suite orchestration: Concord receives and writes only
+Concord-owned routes. No `paper-data-suite` or sibling-module runtime
+dependency is added.
+
+See [Suite interoperability documentation][suite-interoperability-doc] for
+the complete #68 readiness, doctor/launcher boundary, mixed-routing, privacy,
+and installed-wheel contract.
+
+[suite-interoperability-doc]: docs/v0.3.0-suite-interoperability.md
 
 ## Direct CLI
 

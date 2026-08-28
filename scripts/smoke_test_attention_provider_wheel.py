@@ -1,4 +1,4 @@
-"""Install Concord/Core wheels in isolation and smoke-test issue #67 attention."""
+"Install Concord/Core wheels in isolation and smoke-test module operations."
 
 from __future__ import annotations
 
@@ -19,6 +19,14 @@ def _python(venv_root: Path) -> Path:
     )
 
 
+def _concord(venv_root: Path) -> Path:
+    return (
+        venv_root / "Scripts" / "concord.exe"
+        if os.name == "nt"
+        else venv_root / "bin" / "concord"
+    )
+
+
 def _clean_env() -> dict[str, str]:
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
@@ -34,6 +42,17 @@ def _run(command: list[str], cwd: Path) -> None:
         cwd=cwd,
         check=True,
         env=_clean_env(),
+    )
+
+
+def _run_with_input(command: list[str], cwd: Path, text: str) -> None:
+    subprocess.run(
+        command,
+        cwd=cwd,
+        check=True,
+        env=_clean_env(),
+        input=text,
+        text=True,
     )
 
 
@@ -61,6 +80,7 @@ def _smoke_code() -> str:
             ModuleAttentionReport,
             ModuleOperationsProfile,
             ModuleOperationsRequest,
+            ModuleReadinessReport,
             invoke_module_attention,
             invoke_module_readiness,
         )
@@ -105,6 +125,13 @@ def _smoke_code() -> str:
                     f"unexpected sibling distribution installed: {distribution}"
                 )
 
+        console_entries = tuple(metadata.entry_points(group="console_scripts"))
+        concord_console_entries = tuple(
+            entry for entry in console_entries if entry.name == "concord"
+        )
+        assert len(concord_console_entries) == 1
+        assert concord_console_entries[0].value == "concord.cli:main"
+
         operation_entries = tuple(
             metadata.entry_points(group=MODULE_OPERATIONS_ENTRY_POINT_GROUP)
         )
@@ -142,7 +169,7 @@ def _smoke_code() -> str:
         assert isinstance(profile, ModuleOperationsProfile)
         assert profile.module_id == "concord"
         assert profile.attention_provider is not None
-        assert profile.readiness_provider is None
+        assert profile.readiness_provider is not None
 
         def fingerprint(root: Path) -> tuple[tuple[str, str], ...]:
             rows = []
@@ -156,7 +183,7 @@ def _smoke_code() -> str:
                     )
             return tuple(rows)
 
-        with tempfile.TemporaryDirectory(prefix="concord-attention-installed-") as raw:
+        with tempfile.TemporaryDirectory(prefix="concord-operations-installed-") as raw:
             root = ensure_workspace_root(Path(raw) / "workspace")
             write_class_metadata_for_class(
                 root,
@@ -189,7 +216,7 @@ def _smoke_code() -> str:
                 CreateActivityContextRequest(
                     class_id="class-1",
                     activity_id="activity-1",
-                    title="Attention Acceptance Activity",
+                    title="Operations Acceptance Activity",
                     activity_type="project",
                     scoring_orientation="evidence_only",
                     session_id="session-1",
@@ -223,9 +250,19 @@ def _smoke_code() -> str:
                 active_school_year="2026-2027",
                 class_id="class-1",
             )
+
+            readiness = invoke_module_readiness(profile, request)
+            assert readiness.code == "module_operations.evaluated"
+            assert readiness.result_validation == "passed"
+            readiness_report = readiness.report
+            assert isinstance(readiness_report, ModuleReadinessReport)
+            assert readiness_report.evaluation == "evaluated"
+            assert readiness_report.ready is True
+            assert readiness_report.notices == ()
+            assert fingerprint(root) == before
+
             invocation = invoke_module_attention(profile, request)
-            after = fingerprint(root)
-            assert after == before
+            assert fingerprint(root) == before
 
             assert invocation.code == "module_operations.evaluated"
             assert invocation.result_validation == "passed"
@@ -248,7 +285,7 @@ def _smoke_code() -> str:
             assert summary.action.module_id == "concord"
             assert summary.action.action_id == "open_activity_plan"
 
-            rendered = repr(report)
+            rendered = repr((readiness_report, report))
             for private_value in (
                 "student-1",
                 "PrivateLast",
@@ -261,23 +298,54 @@ def _smoke_code() -> str:
             ):
                 assert private_value not in rendered
 
-            readiness = invoke_module_readiness(profile, request)
-            assert readiness.code == "module_operations.capability_absent"
-            assert readiness.report is None
+            missing_class = invoke_module_readiness(
+                profile,
+                ModuleOperationsRequest(
+                    workspace_root=root,
+                    class_id="missing-class",
+                ),
+            )
+            assert missing_class.code == "module_operations.evaluated"
+            missing_report = missing_class.report
+            assert isinstance(missing_report, ModuleReadinessReport)
+            assert missing_report.evaluation == "evaluated"
+            assert missing_report.ready is False
+            assert tuple(notice.code for notice in missing_report.notices) == (
+                "concord_class_not_ready",
+            )
             assert fingerprint(root) == before
 
-        unavailable = invoke_module_attention(
+        unavailable_attention = invoke_module_attention(
             profile,
             ModuleOperationsRequest(active_school_year="2026-2027"),
         )
-        assert unavailable.code == "module_operations.evaluation_unavailable"
-        unavailable_report = unavailable.report
-        assert isinstance(unavailable_report, ModuleAttentionReport)
-        assert unavailable_report.evaluation == "unavailable"
-        assert unavailable_report.summaries == ()
-        assert tuple(notice.code for notice in unavailable_report.notices) == (
-            "concord_attention_unavailable",
+        assert (
+            unavailable_attention.code
+            == "module_operations.evaluation_unavailable"
         )
+        unavailable_attention_report = unavailable_attention.report
+        assert isinstance(unavailable_attention_report, ModuleAttentionReport)
+        assert unavailable_attention_report.evaluation == "unavailable"
+        assert unavailable_attention_report.summaries == ()
+        assert tuple(
+            notice.code for notice in unavailable_attention_report.notices
+        ) == ("concord_attention_unavailable",)
+
+        unavailable_readiness = invoke_module_readiness(
+            profile,
+            ModuleOperationsRequest(active_school_year="2026-2027"),
+        )
+        assert (
+            unavailable_readiness.code
+            == "module_operations.evaluation_unavailable"
+        )
+        unavailable_readiness_report = unavailable_readiness.report
+        assert isinstance(unavailable_readiness_report, ModuleReadinessReport)
+        assert unavailable_readiness_report.evaluation == "unavailable"
+        assert unavailable_readiness_report.ready is None
+        assert tuple(
+            notice.code for notice in unavailable_readiness_report.notices
+        ) == ("concord_readiness_unavailable",)
         """
     )
 
@@ -288,7 +356,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
     if not core_wheel.is_file():
         raise FileNotFoundError(core_wheel)
 
-    with tempfile.TemporaryDirectory(prefix="concord-attention-wheel-") as raw:
+    with tempfile.TemporaryDirectory(prefix="concord-operations-wheel-") as raw:
         work = Path(raw)
         env_root = work / "venv"
         venv.EnvBuilder(with_pip=True).create(env_root)
@@ -303,9 +371,15 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
         )
         _run([str(python), "-m", "pip", "check"], work)
 
-        smoke_path = work / "attention_provider_smoke.py"
+        smoke_path = work / "module_operations_smoke.py"
         smoke_path.write_text(_smoke_code(), encoding="utf-8")
         _run([str(python), "-I", str(smoke_path)], work)
+
+        concord = _concord(env_root)
+        if not concord.is_file():
+            raise AssertionError(f"installed concord executable is missing: {concord}")
+        _run([str(concord), "--help"], work)
+        _run_with_input([str(concord)], work, "Q\n")
 
 
 def main() -> int:
