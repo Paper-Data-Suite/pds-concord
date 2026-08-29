@@ -1,7 +1,7 @@
 # Concord validation and CI performance
 
-**Status:** Implemented for issue #93  
-**Applies to:** Concord `0.3.0.dev0` development validation  
+**Status:** Implemented for issue #93
+**Applies to:** Concord `0.3.0.dev0` development validation
 **Released Core baseline:** `pds-core` `0.6.3` / `pds-core>=0.6.3,<0.7`
 
 Issue #93 reduces Concord validation and CI cost without reducing substantive
