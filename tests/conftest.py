@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -73,7 +74,18 @@ def built_dist(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
-def built_wheel(built_dist: Path) -> Path:
+def built_wheel(request: pytest.FixtureRequest) -> Path:
+    supplied = os.environ.get("PDS_CONCORD_TEST_WHEEL")
+    if supplied is not None:
+        wheel = Path(supplied)
+        assert wheel.is_file(), f"supplied Concord test wheel is missing: {wheel}"
+        assert wheel.suffix == ".whl", (
+            f"supplied Concord test wheel is not a wheel: {wheel}"
+        )
+        return wheel
+
+    built_dist = request.getfixturevalue("built_dist")
+    assert isinstance(built_dist, Path)
     wheels = list(built_dist.glob("*.whl"))
     assert len(wheels) == 1
     return wheels[0]

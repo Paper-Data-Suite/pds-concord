@@ -59,10 +59,12 @@ def test_guided_menu_source_keeps_teacher_language_and_refresh_calls() -> None:
 
 def test_repository_qualification_wires_guided_installed_smoke_and_package() -> None:
     validator = _text("scripts/validate_repository.py")
+    feature_smokes = _text("scripts/smoke_test_feature_wheels.py")
     package = _text("scripts/check_package.py")
     documentation = _text("scripts/check_documentation.py")
 
-    assert "scripts/smoke_test_guided_activity_wheel.py" in validator
+    assert "scripts/smoke_test_feature_wheels.py" in validator
+    assert "scripts/smoke_test_guided_activity_wheel.py" in feature_smokes
     assert '"concord/menu_guided_activity.py"' in package
     assert '"concord/workflows/guided_activity_setup.py"' in package
     assert "GUIDED_ACTIVITY_WORKFLOW_DOC" in documentation

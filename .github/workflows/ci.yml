@@ -14,8 +14,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+            complete: true
+          - os: ubuntu-latest
+            python: "3.12"
+            complete: false
+          - os: ubuntu-latest
+            python: "3.13"
+            complete: false
+          - os: ubuntu-latest
+            python: "3.14"
+            complete: false
+          - os: windows-latest
+            python: "3.11"
+            complete: false
+          - os: windows-latest
+            python: "3.12"
+            complete: false
+          - os: windows-latest
+            python: "3.13"
+            complete: false
+          - os: windows-latest
+            python: "3.14"
+            complete: true
 
     runs-on: ${{ matrix.os }}
 
@@ -44,22 +67,13 @@ jobs:
             $coreDirectory `
             "pds-core-0.6.1-grouping-signal-fixtures.zip"
 
-          $ruffCache = Join-Path $env:RUNNER_TEMP "ruff-cache"
-          $mypyCache = Join-Path $env:RUNNER_TEMP "mypy-cache"
-
           "PDS_CORE_WHEEL=$coreWheel" |
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           "PDS_CORE_GROUPING_FIXTURES=$coreGroupingFixtures" |
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          "RUFF_CACHE_DIR=$ruffCache" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          "MYPY_CACHE_DIR=$mypyCache" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Download official Core release wheel
+      - name: Download official Core release inputs
         shell: pwsh
         run: |
           Invoke-WebRequest `
@@ -76,15 +90,22 @@ jobs:
             -OutFile $env:PDS_CORE_GROUPING_FIXTURES `
             -ErrorAction Stop
 
-          if (-not (Test-Path -LiteralPath $env:PDS_CORE_GROUPING_FIXTURES -PathType Leaf)) {
-            throw "Core grouping fixture download did not create $env:PDS_CORE_GROUPING_FIXTURES."
+          if (
+            -not (
+              Test-Path `
+                -LiteralPath $env:PDS_CORE_GROUPING_FIXTURES `
+                -PathType Leaf
+            )
+          ) {
+            throw "Core grouping fixture download did not create the expected file."
           }
 
       - name: Authenticate and install Core
         shell: pwsh
         run: |
           python scripts/verify_core_wheel.py "$env:PDS_CORE_WHEEL"
-          python scripts/verify_core_grouping_fixtures.py "$env:PDS_CORE_GROUPING_FIXTURES"
+          python scripts/verify_core_grouping_fixtures.py `
+            "$env:PDS_CORE_GROUPING_FIXTURES"
           python -m pip install "$env:PDS_CORE_WHEEL"
 
       - name: Install Concord development dependencies
@@ -103,70 +124,28 @@ jobs:
             }
           }
 
-      - name: Verify installed dependency boundary
+      - name: Run compatibility validation
+        if: ${{ matrix.complete == false }}
         shell: pwsh
         run: |
           python scripts/verify_core_wheel.py --installed
           python -m pip check
-
-      - name: Test
-        shell: pwsh
-        run: >-
-          python -m pytest
-          --basetemp "${{ runner.temp }}/pytest"
-          -o cache_dir="${{ runner.temp }}/pytest-cache"
-
-      - name: Lint and type-check
-        shell: pwsh
-        run: |
-          python -m ruff check .
-          python -m mypy --cache-dir "$env:MYPY_CACHE_DIR"
-
-      - name: Check documentation
-        run: python scripts/check_documentation.py
-
-      - name: Verify release compatibility
-        run: python scripts/verify_release_compatibility.py
-
-      - name: Build and validate distributions
-        shell: pwsh
-        run: |
-          $dist = Join-Path $env:RUNNER_TEMP "dist"
-
-          python -m build --outdir $dist
-          python -m twine check "$dist/*"
-
-          $wheels = @(
-            Get-ChildItem `
-              -LiteralPath $dist `
-              -Filter "*.whl" `
-              -File
-          )
-
-          if ($wheels.Count -ne 1) {
-            throw "Expected exactly one Concord wheel; found $($wheels.Count)."
-          }
-
-          $concordWheel = $wheels[0].FullName
-
-          python scripts/check_package.py "$concordWheel"
-          python scripts/verify_release_artifacts.py "$dist"
-          python scripts/smoke_test_wheel.py `
-            "$concordWheel" `
-            "$env:PDS_CORE_WHEEL"
-
-          python scripts/smoke_test_activity_copying_wheel.py `
-            "$concordWheel" `
-            "$env:PDS_CORE_WHEEL"
-
-      - name: Verify repository hygiene
-        shell: pwsh
-        run: |
+          python -c "import concord"
+          python -m pytest `
+            --basetemp "${{ runner.temp }}/pytest" `
+            -o cache_dir="${{ runner.temp }}/pytest-cache" `
+            --durations=25
           git diff --check
 
           $residue = git status --porcelain --untracked-files=all
-
           if ($residue) {
             $residue
-            throw "Validation left tracked or untracked repository residue."
+            throw "Compatibility validation left repository residue."
           }
+
+      - name: Run complete repository qualification
+        if: ${{ matrix.complete == true }}
+        shell: pwsh
+        run: |
+          python scripts/validate_repository.py `
+            --core-wheel "$env:PDS_CORE_WHEEL"
