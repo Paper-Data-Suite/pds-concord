@@ -386,6 +386,19 @@ grouping-signal/privacy exclusions, teacher next-action UI, Core v1
 read-only guarantees, #68 readiness boundary, and isolated installed-wheel
 qualification against released Core 0.6.3.
 
+
+### v0.3.0 validation and CI performance
+
+[`development/validation-performance.md`](development/validation-performance.md)
+
+Documents issue #93's measured validation baseline, stable timing diagnostics,
+installed-wheel environment de-duplication, in-operation immutable-history
+reuse, linear snapshot validation, single-pass record-history inspection,
+candidate release-wheel reuse, opt-in external Ruff/Mypy caches, factored
+eight-cell compatibility versus two-cell complete CI qualification, storage
+microbenchmark evidence, preserved fail-closed invariants, and measured
+before/after results.
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)

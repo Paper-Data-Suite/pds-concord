@@ -133,6 +133,9 @@ def test_repository_qualification_requires_preset_docs_package_and_wheel_smoke(
     validator = (root / "scripts" / "validate_repository.py").read_text(
         encoding="utf-8"
     )
+    feature_smokes = (root / "scripts" / "smoke_test_feature_wheels.py").read_text(
+        encoding="utf-8"
+    )
     package_check = (root / "scripts" / "check_package.py").read_text(
         encoding="utf-8"
     )
@@ -141,7 +144,8 @@ def test_repository_qualification_requires_preset_docs_package_and_wheel_smoke(
     )
     docs_index = (root / "docs" / "README.md").read_text(encoding="utf-8")
 
-    assert "scripts/smoke_test_reusable_presets_wheel.py" in validator
+    assert "scripts/smoke_test_feature_wheels.py" in validator
+    assert "scripts/smoke_test_reusable_presets_wheel.py" in feature_smokes
     assert '"concord/cli_app/handlers/reusable_presets.py"' in package_check
     assert '"concord/menu_presets.py"' in package_check
     assert '"concord/reusable_preset_storage.py"' in package_check

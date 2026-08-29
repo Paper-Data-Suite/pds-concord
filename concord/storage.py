@@ -257,10 +257,11 @@ def list_record_revisions(
     return tuple(sorted(result))
 
 
-def list_record_identities(
-    workspace_root: str | Path, work: ModuleWorkRef
-) -> tuple[tuple[str, str], ...]:
-    result: list[tuple[str, str]] = []
+def _list_record_history(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+) -> dict[tuple[str, str], tuple[int, ...]]:
+    result: dict[tuple[str, str], tuple[int, ...]] = {}
     for kind_path in _visible(records_path(workspace_root, work), "record kinds"):
         descriptor_for_kind(kind_path.name)
         if kind_path.is_symlink() or not kind_path.is_dir():
@@ -277,11 +278,20 @@ def list_record_identities(
                 raise ConcordStorageIntegrityError(
                     f"unexpected record identity contents: {identity_path}"
                 )
-            list_record_revisions(
-                workspace_root, work, kind_path.name, identity_path.name
+            identity = (kind_path.name, identity_path.name)
+            result[identity] = list_record_revisions(
+                workspace_root,
+                work,
+                identity[0],
+                identity[1],
             )
-            result.append((kind_path.name, identity_path.name))
-    return tuple(sorted(result))
+    return result
+
+
+def list_record_identities(
+    workspace_root: str | Path, work: ModuleWorkRef
+) -> tuple[tuple[str, str], ...]:
+    return tuple(sorted(_list_record_history(workspace_root, work)))
 
 
 def _load_snapshot_chain(
@@ -400,7 +410,7 @@ def load_record_graph_at_snapshot(
 def list_work_snapshots(
     workspace_root: str | Path, work: ModuleWorkRef
 ) -> tuple[int, ...]:
-    result: list[int] = []
+    entries: list[tuple[int, Path]] = []
     for path in _visible(snapshots_path(workspace_root, work), "snapshots"):
         if (
             path.is_symlink()
@@ -410,33 +420,60 @@ def list_work_snapshots(
             or path.stem.startswith("0")
         ):
             raise ConcordStorageIntegrityError(f"unexpected snapshot entry: {path}")
-        revision = int(path.stem)
-        load_work_snapshot(workspace_root, work, revision)
+        entries.append((int(path.stem), path))
+
+    entries.sort(key=lambda item: item[0])
+    previous_bytes: bytes | None = None
+    result: list[int] = []
+    for expected_revision, (revision, path) in enumerate(entries, start=1):
+        if revision != expected_revision:
+            raise ConcordStorageIntegrityError(
+                "snapshot history is noncontiguous or contains orphan revisions."
+            )
+        snapshot, snapshot_bytes = _parse(
+            path,
+            snapshot_from_dict,
+            missing=True,
+        )
+        if snapshot.work != work or snapshot.snapshot_revision != revision:
+            raise ConcordStorageIntegrityError(
+                "snapshot identity disagrees with its canonical path."
+            )
+        if revision > 1:
+            assert previous_bytes is not None
+            if snapshot.previous_snapshot_revision != revision - 1:
+                raise ConcordStorageIntegrityError(
+                    "snapshot predecessor revision mismatch."
+                )
+            if snapshot.previous_snapshot_sha256 != _sha(previous_bytes):
+                raise ConcordStorageIntegrityError(
+                    "snapshot predecessor digest mismatch."
+                )
+        _validated_snapshot_graph(workspace_root, work, snapshot)
+        previous_bytes = snapshot_bytes
         result.append(revision)
-    return tuple(sorted(result))
+    return tuple(result)
 
 
-def load_current_snapshot(
-    workspace_root: str | Path, work: ModuleWorkRef
-) -> ConcordCurrentSnapshot:
-    value, _ = _parse(
-        current_snapshot_path(workspace_root, work), current_from_dict, missing=True
+def _load_current_snapshot_state(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+) -> tuple[
+    ConcordCurrentSnapshot,
+    ConcordWorkSnapshot,
+    str,
+    ConcordRecordGraph,
+]:
+    """Load and verify the current pointer, snapshot chain, and selected graph once."""
+    current, _ = _parse(
+        current_snapshot_path(workspace_root, work),
+        current_from_dict,
+        missing=True,
     )
-    if value.work != work:
+    if current.work != work:
         raise ConcordStorageIntegrityError(
             "current pointer work disagrees with canonical path."
         )
-    _, digest = load_work_snapshot(workspace_root, work, value.snapshot_revision)
-    if digest != value.snapshot_sha256:
-        raise ConcordStorageIntegrityError("current pointer snapshot digest mismatch.")
-    return value
-
-
-def load_current_record_graph(
-    workspace_root: str | Path, work: ModuleWorkRef, *, standards_library: Any = None
-) -> ConcordLoadedRecordGraph:
-    load_work_marker(workspace_root, work)
-    current = load_current_snapshot(workspace_root, work)
     snapshot, snapshot_bytes = _load_snapshot_chain(
         workspace_root,
         work,
@@ -448,8 +485,21 @@ def load_current_record_graph(
             "current pointer snapshot digest mismatch."
         )
     graph = _validated_snapshot_graph(workspace_root, work, snapshot)
+    return current, snapshot, snapshot_sha256, graph
+
+
+def load_current_snapshot(
+    workspace_root: str | Path, work: ModuleWorkRef
+) -> ConcordCurrentSnapshot:
+    current, _, _, _ = _load_current_snapshot_state(workspace_root, work)
+    return current
+
+
+def _validate_loaded_graph_standards(
+    graph: ConcordRecordGraph,
+    standards_library: Any,
+) -> None:
     try:
-        validate_record_graph(graph)
         requires_standards = (
             graph.activities[0].scoring_orientation in {"standards_based", "mixed"}
             or any(item.criterion_kind == "standard_backed" for item in graph.criteria)
@@ -471,6 +521,17 @@ def load_current_record_graph(
         raise ConcordStorageIntegrityError(
             f"current graph is invalid: {error}"
         ) from error
+
+
+def load_current_record_graph(
+    workspace_root: str | Path, work: ModuleWorkRef, *, standards_library: Any = None
+) -> ConcordLoadedRecordGraph:
+    load_work_marker(workspace_root, work)
+    current, _, snapshot_sha256, graph = _load_current_snapshot_state(
+        workspace_root,
+        work,
+    )
+    _validate_loaded_graph_standards(graph, standards_library)
     return ConcordLoadedRecordGraph(
         graph,
         current.snapshot_revision,
@@ -550,7 +611,8 @@ def _validate_canonical_write_history(
 ) -> None:
     try:
         snapshot_revisions = list_work_snapshots(workspace_root, work)
-        record_identities = list_record_identities(workspace_root, work)
+        record_history = _list_record_history(workspace_root, work)
+        record_identities = tuple(sorted(record_history))
     except ConcordStorageIntegrityError:
         raise
     except ConcordStorageError as error:
@@ -581,12 +643,7 @@ def _validate_canonical_write_history(
         )
 
     for identity, reference in sorted(selected.items()):
-        revisions = list_record_revisions(
-            workspace_root,
-            work,
-            identity[0],
-            identity[1],
-        )
+        revisions = record_history[identity]
         expected_revisions = tuple(range(1, reference.record_revision + 1))
         if revisions != expected_revisions:
             raise ConcordStorageIntegrityError(
@@ -854,13 +911,20 @@ def commit_record_batch(
                 "marker/current presence is contradictory."
             )
         if current_exists:
-            loaded = load_current_record_graph(
-                status.root, work, standards_library=standards_library
+            load_work_marker(status.root, work)
+            (
+                current,
+                current_snapshot,
+                current_snapshot_sha256,
+                current_graph,
+            ) = _load_current_snapshot_state(status.root, work)
+            _validate_loaded_graph_standards(current_graph, standards_library)
+            loaded = ConcordLoadedRecordGraph(
+                current_graph,
+                current.snapshot_revision,
+                current_snapshot_sha256,
             )
             current_revision = loaded.snapshot_revision
-            current_snapshot, _ = load_work_snapshot(
-                status.root, work, current_revision
-            )
             _validate_canonical_write_history(
                 status.root,
                 work,
@@ -969,9 +1033,7 @@ def commit_record_batch(
             raise ConcordStorageIntegrityError(
                 "orphan/colliding snapshot blocks commit."
             )
-        previous_digest = None
-        if current_revision:
-            _, previous_digest = load_work_snapshot(status.root, work, current_revision)
+        previous_digest = loaded.snapshot_sha256 if current_revision else None
         snapshot = ConcordWorkSnapshot(
             CONCORD_STORAGE_SCHEMA_VERSION,
             "concord_work_snapshot",
