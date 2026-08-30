@@ -399,6 +399,18 @@ eight-cell compatibility versus two-cell complete CI qualification, storage
 microbenchmark evidence, preserved fail-closed invariants, and measured
 before/after results.
 
+### v0.3.0 installed and physical starter-workflow acceptance
+
+[`v0.3.0-installed-physical-starter-workflow-acceptance.md`](v0.3.0-installed-physical-starter-workflow-acceptance.md)
+
+Documents issue #70's single-environment installed qualification for seminar,
+signal-backed group-project, and peer-review starter workflows; exact Core 0.6.3
+baseline; GroupPlan-to-canonical-state boundary; paper/PDS2/retained-scan path;
+grouping-signal privacy sentinel; owner-only all-three-family real-paper sample; physical
+hardware/settings provenance; raw-evidence retention prohibition; and the
+post-merge `PENDING OWNER` gate before #71.
+
+
 ### Future v0.3.0 Group Planning / Template / Packet plan
 
 [`pds-group-planning-interoperability-development-plan.md`](pds-group-planning-interoperability-development-plan.md)
