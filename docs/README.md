@@ -825,3 +825,13 @@ profile, provider/doctor boundaries, installed launcher identity, mixed
 PDS2 routing ownership and failure isolation, privacy/read-only guarantees,
 the current Suite release-qualification boundary, and installed-wheel
 qualification against released Core 0.6.3.
+
+### v0.3.0 Group-planning repository-local acceptance
+
+[`v0.3.0-group-planning-acceptance.md`](v0.3.0-group-planning-acceptance.md)
+
+Documents issue #69's fresh-state repository-local acceptance across direct
+Groups, manual/arrangement/random GroupPlans, exact Core-backed similar/mixed
+planning, all three missing-signal dispositions, preview/approval/application
+boundaries, Meridian runtime isolation, and the explicit deferral of real
+Meridian-producer acceptance until a stable producer export exists.
