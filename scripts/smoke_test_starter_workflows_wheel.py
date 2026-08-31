@@ -177,7 +177,7 @@ def _smoke_code() -> str:
 
 
         assert metadata.version("pds-core") == "0.6.3"
-        assert metadata.version("pds-concord") == "0.3.0.dev0"
+        assert metadata.version("pds-concord") == "0.3.0"
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
         requirements = tuple(metadata.requires("pds-concord") or ())

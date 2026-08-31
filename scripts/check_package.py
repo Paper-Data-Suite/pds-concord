@@ -8,10 +8,17 @@ from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
 
-EXPECTED_CORE_REQUIREMENT = Requirement("pds-core>=0.6.3,<0.7")
-EXPECTED_VERSION = "0.3.0.dev0"
+EXPECTED_VERSION = "0.3.0"
+EXPECTED_RUNTIME_REQUIREMENTS = (
+    "pds-core>=0.6.3,<0.7",
+    "Pillow>=11,<13",
+    "qrcode>=8,<9",
+    "pypdfium2>=4.30,<5",
+    "zxing-cpp>=2.3,<3",
+)
 FORBIDDEN_PREFIXES = (
     "tests/",
     "pds_core/",
@@ -83,6 +90,65 @@ def _metadata(archive: zipfile.ZipFile, names: list[str]) -> Message:
     )
 
 
+def validate_runtime_requirements(values: list[str]) -> None:
+    """Require the exact direct runtime dependency set for the release."""
+    requirements: list[Requirement] = []
+    for value in values:
+        try:
+            requirements.append(Requirement(value))
+        except InvalidRequirement as error:
+            raise PackageValidationError(
+                f"Wheel has invalid Requires-Dist: {value}"
+            ) from error
+
+    runtime_requirements = [
+        item
+        for item in requirements
+        if item.marker is None or "extra" not in str(item.marker)
+    ]
+    expected = {
+        canonicalize_name(item.name): item
+        for item in (Requirement(value) for value in EXPECTED_RUNTIME_REQUIREMENTS)
+    }
+    observed: dict[str, Requirement] = {}
+    for item in runtime_requirements:
+        name = canonicalize_name(item.name)
+        if name in observed:
+            raise PackageValidationError(
+                f"Wheel has duplicate direct runtime dependency: {item.name}."
+            )
+        observed[name] = item
+
+    forbidden_runtime = set(observed) & {
+        canonicalize_name(name) for name in FORBIDDEN_RUNTIME_DEPENDENCIES
+    }
+    if forbidden_runtime:
+        raise PackageValidationError(
+            "Sibling PDS runtime dependencies are forbidden: "
+            + ", ".join(sorted(forbidden_runtime))
+        )
+
+    if set(observed) != set(expected):
+        missing = sorted(set(expected) - set(observed))
+        unexpected = sorted(set(observed) - set(expected))
+        raise PackageValidationError(
+            "Direct runtime dependency set changed; "
+            f"missing={missing}, unexpected={unexpected}."
+        )
+
+    for name, wanted in expected.items():
+        actual = observed[name]
+        if (
+            actual.specifier != wanted.specifier
+            or actual.url is not None
+            or actual.marker is not None
+            or actual.extras
+        ):
+            raise PackageValidationError(
+                f"Direct runtime requirement changed for {wanted.name}: {actual}."
+            )
+
+
 def validate_wheel(path: str | Path) -> None:
     """Validate metadata, intended files, and required integration entry points."""
     wheel = Path(path)
@@ -103,21 +169,9 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(f"Version must be {EXPECTED_VERSION}.")
     if metadata["Requires-Python"] != ">=3.11":
         raise PackageValidationError("Requires-Python must be >=3.11.")
-    requirements = [Requirement(item) for item in metadata.get_all("Requires-Dist", [])]
-    runtime = [
-        item for item in requirements if item.name == "pds-core" and item.marker is None
-    ]
-    if runtime != [EXPECTED_CORE_REQUIREMENT]:
-        raise PackageValidationError(
-            "Runtime Core requirement must be pds-core>=0.6.3,<0.7."
-        )
-    runtime_names = {item.name for item in requirements if item.marker is None}
-    forbidden_runtime = runtime_names & FORBIDDEN_RUNTIME_DEPENDENCIES
-    if forbidden_runtime:
-        raise PackageValidationError(
-            "Sibling PDS runtime dependencies are forbidden: "
-            + ", ".join(sorted(forbidden_runtime))
-        )
+    validate_runtime_requirements(
+        [str(item) for item in metadata.get_all("Requires-Dist", [])]
+    )
     if "[console_scripts]\nconcord = concord.cli:main" not in entry_points:
         raise PackageValidationError("The concord console script is missing.")
     expected_routing = (

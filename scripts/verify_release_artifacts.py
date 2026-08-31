@@ -1,4 +1,4 @@
-"""Validate the current Concord v0.3.0.dev0 development artifacts."""
+"""Validate the Concord v0.3.0 release artifacts."""
 
 from __future__ import annotations
 
@@ -19,17 +19,27 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-RELEASE_VERSION = "0.3.0.dev0"
-EXPECTED_WHEEL = "pds_concord-0.3.0.dev0-py3-none-any.whl"
-EXPECTED_SDIST = "pds_concord-0.3.0.dev0.tar.gz"
-EXPECTED_DIST_INFO = "pds_concord-0.3.0.dev0.dist-info"
+RELEASE_VERSION = "0.3.0"
+EXPECTED_WHEEL = "pds_concord-0.3.0-py3-none-any.whl"
+EXPECTED_SDIST = "pds_concord-0.3.0.tar.gz"
+EXPECTED_DIST_INFO = "pds_concord-0.3.0.dist-info"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
+EXPECTED_RUNTIME_REQUIREMENTS = (
+    "pds-core>=0.6.3,<0.7",
+    "Pillow>=11,<13",
+    "qrcode>=8,<9",
+    "pypdfium2>=4.30,<5",
+    "zxing-cpp>=2.3,<3",
+)
 EXPECTED_ENTRY_POINTS = {
     "console_scripts": {"concord": "concord.cli:main"},
     "paper_data_suite.modules": {"concord": "concord.pds_module:get_module_profile"},
     "paper_data_suite.publication_producers": {
         "concord": "concord.pds_publication:get_publication_producer_profile"
+    },
+    "paper_data_suite.module_operations": {
+        "concord": "concord.pds_operations:get_module_operations_profile"
     },
 }
 REQUIRED_WHEEL_FILES = frozenset(
@@ -38,6 +48,7 @@ REQUIRED_WHEEL_FILES = frozenset(
         "concord/_version.py",
         "concord/pds_contract.py",
         "concord/pds_module.py",
+        "concord/pds_operations.py",
         "concord/pds_publication.py",
         "concord/academic_result_manifest.py",
         "concord/academic_result_reader.py",
@@ -176,22 +187,28 @@ def validate_requirements(values: list[str], label: str) -> None:
             raise ArtifactValidationError(
                 f"{label} has invalid Requires-Dist: {value}"
             ) from error
-    core = [
+
+    runtime_requirements = [
         item
         for item in requirements
-        if canonicalize_name(item.name) == canonicalize_name("pds-core")
+        if item.marker is None or "extra" not in str(item.marker)
     ]
-    if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
-        raise ArtifactValidationError(
-            f"{label} must require exactly pds-core>=0.6.3,<0.7"
-        )
-    if core[0].url is not None or core[0].marker is not None or core[0].extras:
-        raise ArtifactValidationError(
-            f"{label} pds-core requirement cannot use URL, marker, or extras"
-        )
+    expected = {
+        canonicalize_name(item.name): item
+        for item in (Requirement(value) for value in EXPECTED_RUNTIME_REQUIREMENTS)
+    }
+    observed: dict[str, Requirement] = {}
+    for item in runtime_requirements:
+        name = canonicalize_name(item.name)
+        if name in observed:
+            raise ArtifactValidationError(
+                f"{label} has duplicate direct runtime dependency: {item.name}"
+            )
+        observed[name] = item
+
     siblings = sorted(
         item.name
-        for item in requirements
+        for item in runtime_requirements
         if canonicalize_name(item.name)
         in {canonicalize_name(name) for name in SIBLING_DISTRIBUTIONS}
     )
@@ -199,6 +216,27 @@ def validate_requirements(values: list[str], label: str) -> None:
         raise ArtifactValidationError(
             f"{label} has sibling runtime dependencies: " + ", ".join(siblings)
         )
+
+    if set(observed) != set(expected):
+        missing = sorted(set(expected) - set(observed))
+        unexpected = sorted(set(observed) - set(expected))
+        raise ArtifactValidationError(
+            f"{label} direct runtime dependency set changed; "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
+    for name, wanted in expected.items():
+        actual = observed[name]
+        if (
+            actual.specifier != wanted.specifier
+            or actual.url is not None
+            or actual.marker is not None
+            or actual.extras
+        ):
+            raise ArtifactValidationError(
+                f"{label} direct runtime requirement changed for "
+                f"{wanted.name}: {actual}"
+            )
 
 
 def validate_package_metadata(text: str, label: str) -> None:
@@ -308,6 +346,7 @@ def validate_sdist_project(text: str, label: str = "sdist") -> None:
     for group in (
         "paper_data_suite.modules",
         "paper_data_suite.publication_producers",
+        "paper_data_suite.module_operations",
     ):
         if entry_points.get(group) != EXPECTED_ENTRY_POINTS[group]:
             raise ArtifactValidationError(

@@ -63,7 +63,7 @@ def _provenance(day: int = 1) -> Provenance:
         ),
         timestamp=_clock(day).isoformat(),
         source_kind="manual",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
     )
 
 

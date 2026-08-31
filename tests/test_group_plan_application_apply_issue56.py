@@ -68,7 +68,7 @@ def _provenance(day: int, actor_id: str = "teacher-plan") -> Provenance:
         ),
         timestamp=_clock(day).isoformat(),
         source_kind="manual",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
     )
 
 

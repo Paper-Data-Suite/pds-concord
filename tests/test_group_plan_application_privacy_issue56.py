@@ -47,7 +47,7 @@ def _provenance() -> Provenance:
             tzinfo=timezone.utc,
         ).isoformat(),
         source_kind="manual",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
     )
 
 

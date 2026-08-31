@@ -34,7 +34,7 @@ def _provenance() -> Provenance:
         ),
         timestamp="2026-08-25T17:30:00-04:00",
         source_kind="generated",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
     )
 
 
