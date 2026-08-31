@@ -563,7 +563,6 @@ def _installed_prepare(run_root: Path) -> int:
             activity_id=seminar_activity_id,
             group_plan_id=seminar_plan.group_plan_id,
             application_id="apply-seminar-issue70-physical",
-            fallback_effective_context=seminar_context,
         ),
         workspace_root=workspace,
     )
@@ -576,7 +575,6 @@ def _installed_prepare(run_root: Path) -> int:
             application_digest=seminar_application.application_digest,
             expected_snapshot_revision=seminar_application.expected_snapshot_revision,
             actor=actor,
-            fallback_effective_context=seminar_context,
         ),
         workspace_root=workspace,
     )

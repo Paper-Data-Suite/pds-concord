@@ -48,6 +48,22 @@ def test_prepare_uses_all_three_groupplan_and_starter_paths() -> None:
     assert "issue #70 physical sample must contain exactly six packets" in source
 
 
+
+def test_prepare_uses_fallback_context_only_for_generated_plans() -> None:
+    source = _source()
+    seminar_start = source.index('group_plan_id="plan-seminar-issue70-physical"')
+    project_start = source.index('group_plan_id="plan-project-issue70-physical"')
+    peer_start = source.index('group_plan_id="plan-peer-review-issue70-physical"')
+
+    seminar_section = source[seminar_start:project_start]
+    project_section = source[project_start:peer_start]
+    peer_section = source[peer_start:]
+
+    assert "fallback_effective_context=seminar_context" not in seminar_section
+    assert project_section.count("fallback_effective_context=project_context") == 2
+    assert peer_section.count("fallback_effective_context=peer_context") == 2
+
+
 def test_prepare_preserves_project_privacy_sentinel() -> None:
     source = _source()
     assert "issue70-physical-private-signal-set" in source
