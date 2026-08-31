@@ -415,12 +415,11 @@ completed owner PASS that now serves as #71's authoritative physical-path eviden
 
 [`v0.3.0-release-audit.md`](v0.3.0-release-audit.md)
 
-Tracks issue #71's source-grounded final milestone audit, exact Core 0.6.3
+Records issue #71's completed final milestone audit, exact Core 0.6.3
 qualification baseline, architecture/privacy/usability/interoperability evidence,
 carry-forward of the completed #70 physical acceptance without a redundant
-physical rerun, release-artifact gates, and the deliberately unrecorded final
-release verdict until exact post-merge artifacts and fresh-download verification
-are complete.
+physical rerun, exact v0.3.0 release artifact identities, GitHub Release
+publication, fresh-download verification, and final release PASS verdict.
 
 
 ### Future v0.3.0 Group Planning / Template / Packet plan

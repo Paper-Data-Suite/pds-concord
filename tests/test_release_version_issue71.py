@@ -64,3 +64,10 @@ def test_release_documentation_is_rolled_to_v030() -> None:
     assert "do not perform a new physical print/mark/scan run" in normalized_checklist
     assert "- [x] authoritative validator passes with `--allow-dirty`" in checklist
     assert "- [x] physical qualification delta audit confirms" in checklist
+    assert "- [ ]" not in checklist
+    assert "fe37f9fca3dd7894a86f5a5c4e74bbe09c1e84ed" in checklist
+    assert (
+        "dd827f7059c91c79bd69b6190b3c673d6b3bbc02bc25fa666286bbf5883c5e12"
+        in checklist
+    )
+    assert "final release verdict: PASS" in checklist
