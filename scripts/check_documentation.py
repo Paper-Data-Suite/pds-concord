@@ -86,6 +86,9 @@ ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
 SUITE_INTEROPERABILITY_DOC = (
     ROOT / "docs" / "v0.3.0-suite-interoperability.md"
 )
+V03_RELEASE_AUDIT_DOC = (
+    ROOT / "docs" / "v0.3.0-release-audit.md"
+)
 REQUIRED_PACKET_INSTANTIATION_RENDERING_PHRASES = (
     'PacketInstance',
     'PacketTargetContext',
@@ -166,6 +169,46 @@ REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "scripts/smoke_test_attention_provider_wheel.py",
     "pds-core>=0.6.3,<0.7",
 )
+REQUIRED_V03_RELEASE_AUDIT_PHRASES = (
+    "Status:** IN PROGRESS",
+    "33bd916978da21f4a317a1509adc77981a25aa26",
+    "pds-core>=0.6.3,<0.7",
+    "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5",
+    "GroupPlan != Group != GroupMembership",
+    "TemplateDefinition != TemplateVersion",
+    "PacketVersion != PacketInstance",
+    "Score != reusable configuration",
+    "scan return != Artifact Review",
+    "missing signal != lowest band",
+    "attention != readiness",
+    "paper_data_suite.module_operations",
+    "0001 — Concord Module Boundaries",
+    "0004 — Contextual Groups, Memberships, and Roles",
+    "0013 — Keep Activity-Specific Structures Optional",
+    "0015 — Publish Versioned Concord Academic Result Manifests "
+    "Through the Core Registry",
+    "11 CONFORMS",
+    "4 CONFORMS — DEFERRED SURFACE NOT REQUIRED BY v0.3.0",
+    "0 BLOCKERS",
+    "540.941s",
+    "TEACHER USABILITY: CONFORMS",
+    "ATTENTION / NEXT ACTIONS: CONFORMS",
+    "INSTALLED INTEROPERABILITY: CONFORMS",
+    "ARCHITECTURE AUDIT: CONFORMS — 0 BLOCKERS",
+    "PRIVACY AUDIT: CONFORMS — 0 BLOCKERS",
+    "USABILITY AUDIT: CONFORMS — 0 BLOCKERS",
+    "INTEROPERABILITY AUDIT: CONFORMS — 0 BLOCKERS",
+    "RELEASE ARTIFACT AUDIT: RELEASE-PREPARATION QUALIFIED — POST-MERGE FREEZE PENDING",
+    "PHYSICAL PATH: PASS — ISSUE #70 QUALIFICATION INHERITED; NO RERUN REQUIRED",
+    "1,947.167s",
+    "BEHAVIOR-CHANGING PHYSICAL-PATH DELTA: NO",
+    "94b9b2ef1b65a256b079cd71fb1ce09c83a677e42a41bbdc09c22f52b1514dbe",
+    "804bfee0c1df02788fd992784a032b8271c13c7a51746ae1eb1beab1cbbe25aa",
+    "PHYSICAL PATH: PASS — ISSUE #70 QUALIFICATION INHERITED; "
+    "NO RERUN REQUIRED",
+    "FINAL RELEASE VERDICT: NOT YET RECORDED",
+)
+
 REQUIRED_SUITE_INTEROPERABILITY_PHRASES = (
     "readiness != attention",
     "concord_readiness_unavailable",
@@ -887,6 +930,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the Suite "
                 "interoperability document."
+            )
+
+    if not V03_RELEASE_AUDIT_DOC.is_file():
+        failures.append("Current v0.3.0 release-audit document is missing.")
+    else:
+        release_audit_doc = V03_RELEASE_AUDIT_DOC.read_text(encoding="utf-8")
+        for phrase in REQUIRED_V03_RELEASE_AUDIT_PHRASES:
+            if phrase not in release_audit_doc:
+                failures.append(
+                    "v0.3.0 release-audit document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if "FINAL RELEASE VERDICT: PASS" in release_audit_doc:
+            failures.append(
+                "v0.3.0 release audit must not declare PASS before final "
+                "post-release qualification."
+            )
+        if V03_RELEASE_AUDIT_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the v0.3.0 release-audit document."
             )
 
     for active_path in (

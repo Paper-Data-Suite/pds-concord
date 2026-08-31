@@ -21,9 +21,13 @@ from scripts.verify_release_artifacts import (
 
 METADATA = """Metadata-Version: 2.4
 Name: pds-concord
-Version: 0.3.0.dev0
+Version: 0.3.0
 Requires-Python: >=3.11
 Requires-Dist: pds-core<0.7,>=0.6.3
+Requires-Dist: Pillow<13,>=11
+Requires-Dist: qrcode<9,>=8
+Requires-Dist: pypdfium2<5,>=4.30
+Requires-Dist: zxing-cpp<3,>=2.3
 
 Synthetic test package.
 """
@@ -35,12 +39,21 @@ concord = concord.pds_module:get_module_profile
 
 [paper_data_suite.publication_producers]
 concord = concord.pds_publication:get_publication_producer_profile
+
+[paper_data_suite.module_operations]
+concord = concord.pds_operations:get_module_operations_profile
 """
 PYPROJECT = """[project]
 name = "pds-concord"
 dynamic = ["version"]
 requires-python = ">=3.11"
-dependencies = ["pds-core>=0.6.3,<0.7"]
+dependencies = [
+    "pds-core>=0.6.3,<0.7",
+    "Pillow>=11,<13",
+    "qrcode>=8,<9",
+    "pypdfium2>=4.30,<5",
+    "zxing-cpp>=2.3,<3",
+]
 
 [project.scripts]
 concord = "concord.cli:main"
@@ -51,10 +64,13 @@ concord = "concord.pds_module:get_module_profile"
 [project.entry-points."paper_data_suite.publication_producers"]
 concord = "concord.pds_publication:get_publication_producer_profile"
 
+[project.entry-points."paper_data_suite.module_operations"]
+concord = "concord.pds_operations:get_module_operations_profile"
+
 [tool.setuptools.dynamic]
 version = { attr = "concord._version.__version__" }
 """
-VERSION_SOURCE = '__version__ = "0.3.0.dev0"\n'
+VERSION_SOURCE = '__version__ = "0.3.0"\n'
 
 
 def _write_wheel(
@@ -64,9 +80,9 @@ def _write_wheel(
         for name in sorted(REQUIRED_WHEEL_FILES):
             if name != omit:
                 archive.writestr(name, "")
-        archive.writestr("pds_concord-0.3.0.dev0.dist-info/METADATA", metadata)
+        archive.writestr("pds_concord-0.3.0.dist-info/METADATA", metadata)
         archive.writestr(
-            "pds_concord-0.3.0.dev0.dist-info/entry_points.txt",
+            "pds_concord-0.3.0.dist-info/entry_points.txt",
             ENTRY_POINTS,
         )
 
@@ -86,7 +102,7 @@ def _write_sdist(
     pyproject: str = PYPROJECT,
     version_source: str = VERSION_SOURCE,
 ) -> None:
-    root = "pds_concord-0.3.0.dev0"
+    root = "pds_concord-0.3.0"
     with tarfile.open(path, "w:gz") as archive:
         _tar_file(archive, f"{root}/PKG-INFO", metadata)
         fixture_root = f"{root}/tests/fixtures/core_grouping_signals/v1"
@@ -133,7 +149,7 @@ def test_release_directory_rejects_wrong_name_and_extra_artifact(
 
 
 def test_wheel_rejects_wrong_metadata_version(tmp_path: Path) -> None:
-    wrong = METADATA.replace("Version: 0.3.0.dev0", "Version: 0.2.1")
+    wrong = METADATA.replace("Version: 0.3.0", "Version: 0.2.1")
     path = tmp_path / EXPECTED_WHEEL
     _write_wheel(path, metadata=wrong)
     with pytest.raises(ArtifactValidationError):
@@ -174,6 +190,40 @@ def test_wheel_rejects_core_and_sibling_dependency_drift(
     _write_wheel(path, metadata=metadata)
     with pytest.raises(ArtifactValidationError):
         validate_wheel(path)
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        METADATA.replace("Requires-Dist: qrcode<9,>=8\n", ""),
+        METADATA.replace(
+            "Requires-Dist: Pillow<13,>=11",
+            "Requires-Dist: Pillow<12,>=11",
+        ),
+        METADATA.replace(
+            "Requires-Dist: zxing-cpp<3,>=2.3",
+            "Requires-Dist: zxing-cpp<3,>=2.3; python_version<'3.14'",
+        ),
+    ],
+)
+def test_wheel_rejects_direct_runtime_dependency_drift(
+    tmp_path: Path, metadata: str
+) -> None:
+    path = tmp_path / EXPECTED_WHEEL
+    _write_wheel(path, metadata=metadata)
+    with pytest.raises(ArtifactValidationError):
+        validate_wheel(path)
+
+
+def test_sdist_rejects_direct_runtime_dependency_drift(tmp_path: Path) -> None:
+    path = tmp_path / EXPECTED_SDIST
+    wrong = PYPROJECT.replace(
+        '    "pypdfium2>=4.30,<5",\n',
+        "",
+    )
+    _write_sdist(path, pyproject=wrong)
+    with pytest.raises(ArtifactValidationError):
+        validate_sdist(path)
 
 
 def test_sdist_rejects_missing_required_public_module(tmp_path: Path) -> None:

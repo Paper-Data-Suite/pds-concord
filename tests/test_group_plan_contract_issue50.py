@@ -64,7 +64,7 @@ def _native_provenance(day: int = 1) -> Provenance:
         ),
         timestamp=_timestamp(day),
         source_kind="manual",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
     )
 
 

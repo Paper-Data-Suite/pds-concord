@@ -5,6 +5,7 @@ from email.parser import BytesParser
 from pathlib import Path
 
 from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 from concord import __version__
 from scripts.check_package import validate_wheel
@@ -25,12 +26,25 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     assert metadata["Name"] == "pds-concord"
     assert metadata["Version"] == __version__
     assert metadata["Requires-Python"] == ">=3.11"
-    runtime = [
-        Requirement(item)
-        for item in metadata.get_all("Requires-Dist", [])
-        if Requirement(item).name == "pds-core" and Requirement(item).marker is None
+    runtime_requirements = [
+        Requirement(item) for item in metadata.get_all("Requires-Dist", [])
     ]
-    assert runtime == [Requirement("pds-core>=0.6.3,<0.7")]
+    runtime = {
+        canonicalize_name(requirement.name): requirement
+        for requirement in runtime_requirements
+        if requirement.marker is None or "extra" not in str(requirement.marker)
+    }
+    expected_runtime = {
+        canonicalize_name(requirement.name): requirement
+        for requirement in (
+            Requirement("pds-core>=0.6.3,<0.7"),
+            Requirement("Pillow>=11,<13"),
+            Requirement("qrcode>=8,<9"),
+            Requirement("pypdfium2>=4.30,<5"),
+            Requirement("zxing-cpp>=2.3,<3"),
+        )
+    }
+    assert runtime == expected_runtime
     assert "concord/py.typed" in names
     assert any(name.endswith(".dist-info/licenses/LICENSE") for name in names)
     assert "[console_scripts]\nconcord = concord.cli:main" in entry_points
@@ -43,6 +57,13 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     ) in entry_points
     assert entry_points.count(
         "concord = concord.pds_publication:get_publication_producer_profile"
+    ) == 1
+    assert (
+        "[paper_data_suite.module_operations]\n"
+        "concord = concord.pds_operations:get_module_operations_profile"
+    ) in entry_points
+    assert entry_points.count(
+        "concord = concord.pds_operations:get_module_operations_profile"
     ) == 1
 
 

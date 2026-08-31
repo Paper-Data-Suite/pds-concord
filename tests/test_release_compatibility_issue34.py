@@ -20,7 +20,13 @@ def _project(*, core: str = "pds-core>=0.6.3,<0.7") -> dict[str, object]:
     return {
         "name": "pds-concord",
         "requires-python": ">=3.11",
-        "dependencies": [core, "Pillow>=11,<13"],
+        "dependencies": [
+            core,
+            "Pillow>=11,<13",
+            "qrcode>=8,<9",
+            "pypdfium2>=4.30,<5",
+            "zxing-cpp>=2.3,<3",
+        ],
     }
 
 
@@ -61,8 +67,8 @@ def test_live_release_compatibility_audit_passes() -> None:
     ("version", "core", "extra"),
     [
         ("0.2.0", "pds-core>=0.6.3,<0.7", None),
-        ("0.3.0.dev0", "pds-core>=0.6.1,<0.7", None),
-        ("0.3.0.dev0", "pds-core>=0.6.3,<0.7", "pds-meridian>=0.1"),
+        ("0.3.0", "pds-core>=0.6.1,<0.7", None),
+        ("0.3.0", "pds-core>=0.6.3,<0.7", "pds-meridian>=0.1"),
     ],
 )
 def test_release_metadata_rejects_version_core_and_sibling_drift(
@@ -75,6 +81,31 @@ def test_release_metadata_rejects_version_core_and_sibling_drift(
         dependencies.append(extra)
     with pytest.raises(ReleaseCompatibilityError):
         validate_release_metadata(project, version)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("Pillow>=11,<13", "Pillow>=11,<12"),
+        ("qrcode>=8,<9", "qrcode>=8"),
+        ("pypdfium2>=4.30,<5", ""),
+        ("zxing-cpp>=2.3,<3", "zxing-cpp>=2.3,<3; python_version<'3.14'"),
+    ],
+)
+def test_release_metadata_rejects_direct_runtime_dependency_drift(
+    old: str, new: str
+) -> None:
+    project = _project()
+    dependencies = project["dependencies"]
+    assert isinstance(dependencies, list)
+    index = dependencies.index(old)
+    if new:
+        dependencies[index] = new
+    else:
+        dependencies.pop(index)
+
+    with pytest.raises(ReleaseCompatibilityError):
+        validate_release_metadata(project, "0.3.0")
 
 
 @pytest.mark.parametrize(

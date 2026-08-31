@@ -406,9 +406,21 @@ before/after results.
 Documents issue #70's single-environment installed qualification for seminar,
 signal-backed group-project, and peer-review starter workflows; exact Core 0.6.3
 baseline; GroupPlan-to-canonical-state boundary; paper/PDS2/retained-scan path;
-grouping-signal privacy sentinel; owner-only all-three-family real-paper sample; physical
-hardware/settings provenance; raw-evidence retention prohibition; and the
-post-merge `PENDING OWNER` gate before #71.
+grouping-signal privacy sentinel; owner-executed all-three-family real-paper sample;
+physical hardware/settings provenance; raw-evidence retention prohibition; and the
+completed owner PASS that now serves as #71's authoritative physical-path evidence.
+
+
+### v0.3.0 architecture, privacy, usability, interoperability, and release audit
+
+[`v0.3.0-release-audit.md`](v0.3.0-release-audit.md)
+
+Tracks issue #71's source-grounded final milestone audit, exact Core 0.6.3
+qualification baseline, architecture/privacy/usability/interoperability evidence,
+carry-forward of the completed #70 physical acceptance without a redundant
+physical rerun, release-artifact gates, and the deliberately unrecorded final
+release verdict until exact post-merge artifacts and fresh-download verification
+are complete.
 
 
 ### Future v0.3.0 Group Planning / Template / Packet plan

@@ -1,4 +1,4 @@
-"""Verify the current Concord development package and frozen public boundary."""
+"""Verify the Concord v0.3.0 release package and frozen public boundary."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
@@ -28,9 +28,16 @@ from concord.pds_contract import (
 from concord.pds_publication import get_publication_producer_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVELOPMENT_VERSION = "0.3.0.dev0"
+RELEASE_VERSION = "0.3.0"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
+EXPECTED_RUNTIME_REQUIREMENTS = (
+    "pds-core>=0.6.3,<0.7",
+    "Pillow>=11,<13",
+    "qrcode>=8,<9",
+    "pypdfium2>=4.30,<5",
+    "zxing-cpp>=2.3,<3",
+)
 EXPECTED_CAPABILITIES = frozenset(
     {"criterion_scores", "moderated_scores", "standards_ratings"}
 )
@@ -65,7 +72,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the v0.2.0 release boundary has drifted."""
+    """Raised when the current v0.3.0 release boundary has drifted."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,8 +134,8 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
     """Validate release identity and dependency metadata from parsed TOML."""
     if project.get("name") != "pds-concord":
         raise ReleaseCompatibilityError("distribution name must be pds-concord")
-    if version != DEVELOPMENT_VERSION:
-        raise ReleaseCompatibilityError(f"source version must be {DEVELOPMENT_VERSION}")
+    if version != RELEASE_VERSION:
+        raise ReleaseCompatibilityError(f"source version must be {RELEASE_VERSION}")
     if project.get("requires-python") != str(EXPECTED_PYTHON_SPECIFIER):
         raise ReleaseCompatibilityError("Requires-Python must be exactly >=3.11")
     raw_dependencies = project.get("dependencies")
@@ -136,18 +143,28 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
         isinstance(item, str) for item in raw_dependencies
     ):
         raise ReleaseCompatibilityError("project dependencies must be a string list")
-    dependencies = tuple(Requirement(item) for item in raw_dependencies)
-    core = tuple(
-        item
-        for item in dependencies
-        if canonicalize_name(item.name) == canonicalize_name("pds-core")
-    )
-    if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
-        raise ReleaseCompatibilityError("Core requirement must be exactly >=0.6.3,<0.7")
-    if core[0].url is not None or core[0].marker is not None or core[0].extras:
-        raise ReleaseCompatibilityError(
-            "Core requirement cannot use URL, marker, or extras"
-        )
+    dependencies: list[Requirement] = []
+    for value in raw_dependencies:
+        try:
+            dependencies.append(Requirement(value))
+        except InvalidRequirement as error:
+            raise ReleaseCompatibilityError(
+                f"project has invalid runtime dependency: {value}"
+            ) from error
+
+    expected = {
+        canonicalize_name(item.name): item
+        for item in (Requirement(value) for value in EXPECTED_RUNTIME_REQUIREMENTS)
+    }
+    observed: dict[str, Requirement] = {}
+    for item in dependencies:
+        name = canonicalize_name(item.name)
+        if name in observed:
+            raise ReleaseCompatibilityError(
+                f"duplicate direct runtime dependency: {item.name}"
+            )
+        observed[name] = item
+
     siblings = sorted(
         item.name
         for item in dependencies
@@ -158,6 +175,26 @@ def validate_release_metadata(project: Mapping[str, object], version: str) -> No
         raise ReleaseCompatibilityError(
             "sibling runtime dependencies are forbidden: " + ", ".join(siblings)
         )
+
+    if set(observed) != set(expected):
+        missing = sorted(set(expected) - set(observed))
+        unexpected = sorted(set(observed) - set(expected))
+        raise ReleaseCompatibilityError(
+            "direct runtime dependency set changed; "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
+    for name, wanted in expected.items():
+        actual = observed[name]
+        if (
+            actual.specifier != wanted.specifier
+            or actual.url is not None
+            or actual.marker is not None
+            or actual.extras
+        ):
+            raise ReleaseCompatibilityError(
+                f"direct runtime requirement changed for {wanted.name}: {actual}"
+            )
 
 
 def validate_contract_values(values: ReleaseContractValues) -> None:
@@ -344,9 +381,9 @@ def validate_release_compatibility() -> None:
         version_literals.extend(
             source_version_literals(path.read_text(encoding="utf-8"))
         )
-    if version_literals != [DEVELOPMENT_VERSION]:
+    if version_literals != [RELEASE_VERSION]:
         raise ReleaseCompatibilityError(
-            "Concord must have exactly one authoritative 0.3.0.dev0 version literal"
+            "Concord must have exactly one authoritative 0.3.0 release version literal"
         )
     validate_release_metadata(project, version_literals[0])
     validate_sibling_import_isolation()
@@ -400,10 +437,10 @@ def main() -> int:
         KeyError,
         ReleaseCompatibilityError,
     ) as error:
-        print(f"Development compatibility audit failed: {error}")
+        print(f"Release compatibility audit failed: {error}")
         return 1
     print(
-        "Concord v0.3.0.dev0 development compatibility passed: Core >=0.6.3,<0.7; "
+        "Concord v0.3.0 release compatibility passed: Core >=0.6.3,<0.7; "
         "contracts/profile exact; reader consumer-neutral; Artifact gate separate; "
         "sibling and grading/selection policy absent."
     )

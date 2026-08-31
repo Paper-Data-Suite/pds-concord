@@ -61,7 +61,7 @@ def _provenance() -> Provenance:
         ),
         timestamp="2026-08-25T12:00:00-04:00",
         source_kind="system",
-        application_version="0.3.0.dev0",
+        application_version="0.3.0",
         note="Synthetic issue #61 catalog validation.",
     )
 
