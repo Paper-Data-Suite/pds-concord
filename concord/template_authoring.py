@@ -15,6 +15,7 @@ from concord.models import (
     TemplatePageDefinition,
     TemplateRenderingInput,
     TemplateSubjectExpectation,
+    TemplateSubjectResolutionExpectation,
 )
 from concord.template_serialization import (
     TemplateSerializationError,
@@ -64,7 +65,11 @@ class TemplateVersionAuthoring:
     default_privacy_policy: PrivacyPolicy
     compatibility: TemplateCompatibility
     default_authorship_expectation: TemplateAuthorshipExpectation | None = None
-    default_subject_expectation: TemplateSubjectExpectation | None = None
+    default_subject_expectation: (
+        TemplateSubjectExpectation
+        | TemplateSubjectResolutionExpectation
+        | None
+    ) = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.version_label, str) or not self.version_label.strip():

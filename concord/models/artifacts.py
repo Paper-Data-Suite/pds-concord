@@ -63,6 +63,17 @@ AUTHORSHIP_MODES = frozenset(
         "unknown",
     }
 )
+ARTIFACT_SUBJECT_ROLES = frozenset(
+    {
+        "observed_participant",
+        "represented_group",
+        "activity_context",
+        "session_context",
+        "evaluated_artifact",
+        "reviewed_subject",
+        "general_subject",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -388,16 +399,7 @@ class ArtifactSubject:
         controlled_key(
             self.subject_role,
             "subject_role",
-            frozenset(
-                {
-                    "observed_participant",
-                    "represented_group",
-                    "activity_context",
-                    "session_context",
-                    "evaluated_artifact",
-                    "general_subject",
-                }
-            ),
+            ARTIFACT_SUBJECT_ROLES,
         )
         controlled(
             self.confirmation_status,

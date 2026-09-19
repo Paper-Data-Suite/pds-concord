@@ -10,6 +10,7 @@ from concord.models.artifacts import (
     ARTIFACT_CATEGORIES,
     ARTIFACT_EXPECTED_RETURN_STATUSES,
     ARTIFACT_PAGE_KINDS,
+    ARTIFACT_SUBJECT_ROLES,
     AUTHORSHIP_MODES,
 )
 from concord.models.collaboration import ACTIVITY_TYPES, SCORING_ORIENTATIONS
@@ -75,17 +76,8 @@ TEMPLATE_SUBJECT_KINDS = frozenset(
 TEMPLATE_SUBJECT_RESOLUTION_MODES = frozenset(
     {"target", "target_group", "session", "activity", "explicit"}
 )
-TEMPLATE_SUBJECT_ROLES = frozenset(
-    {
-        "observed_participant",
-        "represented_group",
-        "activity_context",
-        "session_context",
-        "evaluated_artifact",
-        "reviewed_subject",
-        "general_subject",
-    }
-)
+# Backward-compatible Template-facing alias; ArtifactSubject owns this vocabulary.
+TEMPLATE_SUBJECT_ROLES = ARTIFACT_SUBJECT_ROLES
 TEMPLATE_DIRECT_PRIVACY_CLASSIFICATIONS = frozenset(
     {
         "teacher_restricted",
