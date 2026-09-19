@@ -26,7 +26,7 @@ from concord.models import (
     PacketTargetContext,
     Provenance,
     SubjectReference,
-    TemplatePageDefinition,
+    TemplateVersion,
 )
 from concord.storage import commit_record_batch, load_current_record_graph
 from concord.storage_errors import ConcordStorageConflictError, ConcordStorageError
@@ -324,9 +324,11 @@ def _build_generation(
                 )
             artifact_id = _new_id(_ARTIFACT_PREFIX)
             pages = _build_pages(
+                prepared.request.class_id,
                 prepared.request.activity_id,
                 artifact_id,
-                template_version.page_manifest,
+                template_version,
+                target_plan.participant_print_label,
                 created,
             )
             artifact = ArtifactInstance(
@@ -389,21 +391,41 @@ def _build_generation(
 
 
 def _build_pages(
+    class_id: str,
     activity_id: str,
     artifact_instance_id: str,
-    manifest: tuple[TemplatePageDefinition, ...],
+    template_version: TemplateVersion,
+    participant_print_label: str | None,
     created: Provenance,
 ) -> tuple[ArtifactPage, ...]:
+    manifest = template_version.page_manifest
+    input_by_key = {
+        item.input_key: item for item in template_version.rendering_inputs
+    }
     pages: list[ArtifactPage] = []
     count = len(manifest)
     for definition in manifest:
         page_id = _new_id(_PAGE_PREFIX)
         route_id = generate_route_id() if definition.route_required else None
-        fallback = (
-            f"Concord {activity_id} page {page_id}"
-            if definition.route_required
-            else None
-        )
+        fallback = None
+        if definition.route_required:
+            fallback = _physical_human_fallback(
+                class_id,
+                activity_id,
+                page_id,
+                participant_print_label,
+            )
+            fallback_key = definition.human_fallback_input_key
+            assert fallback_key is not None
+            fallback_input = input_by_key[fallback_key]
+            if (
+                fallback_input.max_length is not None
+                and len(fallback) > fallback_input.max_length
+            ):
+                raise ConcordWorkflowValidationError(
+                    "physical human fallback exceeds exact Template "
+                    f"max_length {fallback_input.max_length}."
+                )
         pages.append(
             ArtifactPage(
                 artifact_page_id=page_id,
@@ -420,6 +442,21 @@ def _build_pages(
             )
         )
     return tuple(pages)
+
+
+def _physical_human_fallback(
+    class_id: str,
+    activity_id: str,
+    artifact_page_id: str,
+    participant_print_label: str | None,
+) -> str:
+    parts = [
+        f"Concord {activity_id} page {artifact_page_id}",
+        f"Class: {class_id}",
+    ]
+    if participant_print_label is not None:
+        parts.append(f"Student: {participant_print_label}")
+    return " | ".join(parts)
 
 
 def _frozen_rendering_values(
