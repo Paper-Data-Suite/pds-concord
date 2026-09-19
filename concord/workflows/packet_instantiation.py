@@ -69,6 +69,9 @@ from concord.workflows.participants import (
     load_required_roster,
     participant_display_label,
 )
+from concord.workflows.participants import (
+    participant_print_label as resolve_participant_print_label,
+)
 
 RenderingScalar: TypeAlias = str | int | bool
 
@@ -149,6 +152,7 @@ class PacketInstantiationTargetPlan:
     target_key: str
     target_context: PacketTargetContext
     artifacts: tuple[PlannedPacketArtifact, ...]
+    participant_print_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -454,6 +458,10 @@ def prepare_packet_instantiation(
                         item.template_version_id,
                     ),
                 )
+            ),
+            participant_print_label=resolve_participant_print_label(
+                roster,
+                target.participant_reference,
             ),
         )
         for target, artifacts in sorted(
@@ -1627,6 +1635,7 @@ def _review_digest(
         "targets": [
             {
                 "target_key": target.target_key,
+                "participant_print_label": target.participant_print_label,
                 "artifacts": [
                     {
                         "packet_component_id": artifact.packet_component_id,

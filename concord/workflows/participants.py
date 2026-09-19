@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from pathlib import Path
 
 from pds_core.classes import load_class_roster
@@ -92,6 +93,38 @@ def participant_display_label(
     student = student_lookup(roster).get(participant.participant_id)
     return None if student is None else student_display_name(student)
 
+
+def participant_print_label(
+    roster: Roster | None,
+    participant: ParticipantReference | None,
+) -> str | None:
+    """Return a privacy-minimized physical label from structured roster data."""
+    if participant is None or participant.participant_kind != "core_student":
+        return None
+    if participant.owning_system != "core":
+        raise ConcordWorkflowValidationError(
+            "core_student print labels require a Core-owned participant."
+        )
+    if roster is None:
+        raise ConcordWorkflowNotFoundError(
+            "Core roster is required for a student physical-paper label."
+        )
+    student = student_lookup(roster).get(participant.participant_id)
+    if student is None:
+        raise ConcordWorkflowNotFoundError(
+            "Student is not available in the Core roster for physical-paper "
+            f"labeling: {participant.participant_id}"
+        )
+    label = f"{student.first_name} {student.last_name[0]}."
+    if any(
+        unicodedata.category(character) in {"Cc", "Zl", "Zp"}
+        for character in label
+    ):
+        raise ConcordWorkflowValidationError(
+            "student physical-paper label must be single-line and free of "
+            "control characters."
+        )
+    return label
 
 
 def participant_sort_label(

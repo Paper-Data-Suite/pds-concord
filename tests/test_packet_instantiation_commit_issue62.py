@@ -277,6 +277,15 @@ def test_commit_publishes_one_native_generation_then_reconciles_routes(
         registration = load_route_registration(root, locator)
         assert registration.target.record_kind == "artifact_page"
         assert registration.target.record_id == committed_page.artifact_page_id
+        page = next(
+            item
+            for item in graph.artifact_pages
+            if item.artifact_page_id == committed_page.artifact_page_id
+        )
+        assert page.human_fallback == registration.human_fallback
+        assert "Class: class-1" in registration.human_fallback
+        assert "Student:" not in registration.human_fallback
+        assert "Alex" not in registration.human_fallback
         assert set(registration.module_details) == {
             "activity_id",
             "artifact_instance_id",
