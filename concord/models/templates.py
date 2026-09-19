@@ -68,7 +68,22 @@ TEMPLATE_SUBJECT_KINDS = frozenset(
         "concord_group",
         "concord_session",
         "concord_activity",
+        "concord_artifact_instance",
         "external_record",
+    }
+)
+TEMPLATE_SUBJECT_RESOLUTION_MODES = frozenset(
+    {"target", "target_group", "session", "activity", "explicit"}
+)
+TEMPLATE_SUBJECT_ROLES = frozenset(
+    {
+        "observed_participant",
+        "represented_group",
+        "activity_context",
+        "session_context",
+        "evaluated_artifact",
+        "reviewed_subject",
+        "general_subject",
     }
 )
 TEMPLATE_DIRECT_PRIVACY_CLASSIFICATIONS = frozenset(
@@ -280,6 +295,69 @@ class TemplateSubjectExpectation:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class TemplateSubjectResolutionExpectation:
+    """Identity-free rules for resolving an Artifact Subject at generation time."""
+
+    subject_kinds: tuple[str, ...]
+    resolution_mode: str
+    subject_role: str
+    required: bool = True
+    multiple_allowed: bool = False
+    allow_target_subject_match: bool = True
+
+    def __post_init__(self) -> None:
+        kinds = _controlled_tuple(
+            self.subject_kinds,
+            "subject_kinds",
+            TEMPLATE_SUBJECT_KINDS,
+        )
+        if not kinds:
+            raise ConcordModelError("subject_kinds must not be empty.")
+        object.__setattr__(self, "subject_kinds", kinds)
+        mode = controlled(
+            self.resolution_mode,
+            "resolution_mode",
+            TEMPLATE_SUBJECT_RESOLUTION_MODES,
+        )
+        controlled(
+            self.subject_role,
+            "subject_role",
+            TEMPLATE_SUBJECT_ROLES,
+        )
+        require_bool(self.required, "required")
+        require_bool(self.multiple_allowed, "multiple_allowed")
+        require_bool(
+            self.allow_target_subject_match,
+            "allow_target_subject_match",
+        )
+
+        exact_kind = {
+            "target_group": "concord_group",
+            "session": "concord_session",
+            "activity": "concord_activity",
+        }.get(mode)
+        if exact_kind is not None and kinds != (exact_kind,):
+            raise ConcordModelError(
+                f"{mode} Subject resolution requires exactly {exact_kind}."
+            )
+        if mode == "target" and any(
+            kind not in {"core_student", "concord_group"} for kind in kinds
+        ):
+            raise ConcordModelError(
+                "target Subject resolution supports only core_student or "
+                "concord_group kinds."
+            )
+
+    @property
+    def subject_kind(self) -> str:
+        """Reject legacy single-kind planning until resolution-aware planning runs."""
+        raise ConcordModelError(
+            "relationship-aware Template Subject expectations require "
+            "subject-resolution planning."
+        )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class TemplateCompatibility:
     """Identity-free compatibility guidance for later Template selection."""
 
@@ -384,7 +462,9 @@ class TemplateVersion:
     status: str
     supersedes_template_version_id: str | None = None
     default_authorship_expectation: TemplateAuthorshipExpectation | None = None
-    default_subject_expectation: TemplateSubjectExpectation | None = None
+    default_subject_expectation: (
+        TemplateSubjectExpectation | TemplateSubjectResolutionExpectation | None
+    ) = None
 
     def __post_init__(self) -> None:
         identifier(self.template_version_id, "template_version_id")
@@ -476,7 +556,10 @@ class TemplateVersion:
             self.default_subject_expectation is not None
             and not isinstance(
                 self.default_subject_expectation,
-                TemplateSubjectExpectation,
+                (
+                    TemplateSubjectExpectation,
+                    TemplateSubjectResolutionExpectation,
+                ),
             )
         ):
             raise ConcordModelError("default_subject_expectation is invalid.")
@@ -546,5 +629,6 @@ __all__ = [
     "TemplateRenderingInput",
     "TemplateResponseRegion",
     "TemplateSubjectExpectation",
+    "TemplateSubjectResolutionExpectation",
     "TemplateVersion",
 ]

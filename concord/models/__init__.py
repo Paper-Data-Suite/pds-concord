@@ -65,6 +65,7 @@ from concord.models.templates import (
     TemplateRenderingInput,
     TemplateResponseRegion,
     TemplateSubjectExpectation,
+    TemplateSubjectResolutionExpectation,
     TemplateVersion,
 )
 
@@ -123,5 +124,6 @@ __all__ = [
     "TemplateRenderingInput",
     "TemplateResponseRegion",
     "TemplateSubjectExpectation",
+    "TemplateSubjectResolutionExpectation",
     "TemplateVersion",
 ]
