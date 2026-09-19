@@ -13,6 +13,7 @@ from concord.starter_templates.catalog import (
     list_starter_templates,
 )
 from concord.starter_templates.catalog_lineage import (
+    RELATIONSHIP_AWARE_STARTER_KEYS,
     build_starter_template_lineage,
 )
 from concord.starter_templates.lineage import (
@@ -78,8 +79,9 @@ def _synthetic_v2_lineage(
     )
 
 
-def test_all_real_catalog_entries_remain_single_version_v1() -> None:
+def test_real_catalog_lineages_preserve_v1_and_only_five_add_v2() -> None:
     created = provenance(_actor(), clock=_clock, source_kind="imported")
+    affected = set(RELATIONSHIP_AWARE_STARTER_KEYS)
 
     for entry in list_starter_templates():
         lineage = build_starter_template_lineage(
@@ -87,14 +89,25 @@ def test_all_real_catalog_entries_remain_single_version_v1() -> None:
             created_provenance=created,
         )
         assert lineage.template_id == entry.template_id
-        assert len(lineage.versions) == 1
-        packaged = lineage.versions[0]
-        assert packaged.version.template_version_id == entry.template_version_id
-        assert packaged.version.revision_sequence == 1
-        assert packaged.version.supersedes_template_version_id is None
-        assert packaged.rendering_specification == (
+
+        packaged_v1 = lineage.versions[0]
+        assert packaged_v1.version.template_version_id == entry.template_version_id
+        assert packaged_v1.version.revision_sequence == 1
+        assert packaged_v1.version.supersedes_template_version_id is None
+        assert packaged_v1.rendering_specification == (
             entry.rendering_specification_bytes()
         )
+
+        if entry.starter_key in affected:
+            assert len(lineage.versions) == 2
+            packaged_v2 = lineage.versions[1]
+            assert packaged_v2.version.revision_sequence == 2
+            assert (
+                packaged_v2.version.supersedes_template_version_id
+                == packaged_v1.version.template_version_id
+            )
+        else:
+            assert len(lineage.versions) == 1
 
 
 def test_existing_v1_install_all_behavior_is_unchanged(tmp_path: Path) -> None:
@@ -234,7 +247,9 @@ def test_install_all_counts_future_upgrade_separately(
         workspace_root=workspace,
     )
 
-    target = get_starter_template("talk_moves_observer")
+    # Use a starter that is intentionally still package-v1-only. The five
+    # relationship-aware starters now have real packaged v2 successors.
+    target = get_starter_template("think_pair_share")
     real_builder = build_starter_template_lineage
 
     def build_with_one_v2(

@@ -8,6 +8,8 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 from concord import __version__
+from concord.starter_templates.catalog import list_starter_templates
+from concord.starter_templates.catalog_lineage import packaged_starter_asset_names
 from scripts.check_package import validate_wheel
 
 
@@ -65,6 +67,19 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     assert entry_points.count(
         "concord = concord.pds_operations:get_module_operations_profile"
     ) == 1
+
+    starter_prefix = "concord/starter_templates/assets/"
+    expected_assets = {
+        starter_prefix + name
+        for name in packaged_starter_asset_names(list_starter_templates())
+    }
+    actual_assets = {
+        name
+        for name in names
+        if name.startswith(starter_prefix) and name.endswith(".json")
+    }
+    assert len(expected_assets) == 35
+    assert actual_assets == expected_assets
 
 
 def test_wheel_contains_only_concord_package(built_wheel: Path) -> None:
