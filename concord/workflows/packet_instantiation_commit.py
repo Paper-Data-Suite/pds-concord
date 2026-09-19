@@ -25,7 +25,6 @@ from concord.models import (
     PacketRenderingValue,
     PacketTargetContext,
     Provenance,
-    SubjectReference,
     TemplateVersion,
 )
 from concord.storage import commit_record_batch, load_current_record_graph
@@ -510,27 +509,23 @@ def _build_subject(
     created: Provenance,
 ) -> ArtifactSubject | None:
     reference = planned.proposed_subject_reference
+    role = planned.proposed_subject_role
     if reference is None:
         return None
+    if role is None:
+        raise ConcordWorkflowValidationError(
+            "reviewed Artifact Subject is missing its exact relationship role."
+        )
     return ArtifactSubject(
         artifact_subject_id=_new_id(_SUBJECT_PREFIX),
         artifact_instance_id=artifact_instance_id,
         subject_reference=reference,
-        subject_role=_subject_role(reference),
+        subject_role=role,
         confirmation_status="proposed",
         assignment_source="system",
         created_provenance=created,
         privacy_policy=planned.effective_privacy_policy,
     )
-
-
-def _subject_role(reference: SubjectReference) -> str:
-    return {
-        "core_student": "observed_participant",
-        "concord_group": "represented_group",
-        "concord_session": "session_context",
-        "concord_activity": "activity_context",
-    }.get(reference.subject_kind, "general_subject")
 
 
 def _resume_durable_generation(

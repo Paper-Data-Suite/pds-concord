@@ -248,8 +248,8 @@ def test_template_version_accepts_both_subject_expectation_contracts() -> None:
         TemplateSubjectResolutionExpectation,
     )
 
-def test_relationship_aware_expectation_fails_closed_under_legacy_subject_kind_access(
-) -> None:
+
+def test_relationship_aware_expectation_has_no_legacy_single_kind_accessor() -> None:
     expectation = TemplateSubjectResolutionExpectation(
         subject_kinds=("core_student",),
         resolution_mode="explicit",
@@ -257,6 +257,4 @@ def test_relationship_aware_expectation_fails_closed_under_legacy_subject_kind_a
         allow_target_subject_match=False,
     )
 
-    with pytest.raises(ConcordModelError, match="subject-resolution planning"):
-        _ = expectation.subject_kind
-
+    assert not hasattr(expectation, "subject_kind")

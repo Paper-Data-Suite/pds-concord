@@ -340,15 +340,6 @@ class TemplateSubjectResolutionExpectation:
                 "concord_group kinds."
             )
 
-    @property
-    def subject_kind(self) -> str:
-        """Reject legacy single-kind planning until resolution-aware planning runs."""
-        raise ConcordModelError(
-            "relationship-aware Template Subject expectations require "
-            "subject-resolution planning."
-        )
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TemplateCompatibility:
     """Identity-free compatibility guidance for later Template selection."""

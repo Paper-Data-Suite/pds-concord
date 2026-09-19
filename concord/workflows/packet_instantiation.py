@@ -31,6 +31,8 @@ from concord.models import (
     Session,
     SubjectReference,
     TemplateRenderingInput,
+    TemplateSubjectExpectation,
+    TemplateSubjectResolutionExpectation,
     TemplateVersion,
 )
 from concord.packet_storage import (
@@ -107,6 +109,23 @@ class PacketRenderingBinding:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PacketSubjectBinding:
+    """Reviewed generation-only mapping from one Packet target to its Subject."""
+
+    packet_component_id: str
+    target_key: str
+    subject_reference: SubjectReference
+
+    def __post_init__(self) -> None:
+        _identifier(self.packet_component_id, "packet_component_id")
+        _validate_target_key_value(self.target_key)
+        if not isinstance(self.subject_reference, SubjectReference):
+            raise ConcordWorkflowValidationError(
+                "subject_reference must be SubjectReference."
+            )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class PacketInstantiationDiagnostic:
     """Structured preview diagnostic; blocking items prevent commit."""
 
@@ -145,6 +164,7 @@ class PlannedPacketArtifact:
         ParticipantReference | ActorReference | ConcordRecordReference | None
     )
     proposed_subject_reference: SubjectReference | None
+    proposed_subject_role: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -191,6 +211,7 @@ class PreparePacketInstantiationRequest:
     actor: WorkflowActor
     component_choices: tuple[PacketComponentChoice, ...] = ()
     rendering_bindings: tuple[PacketRenderingBinding, ...] = ()
+    subject_bindings: tuple[PacketSubjectBinding, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -314,7 +335,13 @@ def prepare_packet_instantiation(
 
     choices = _choice_index(request, packet_version)
     bindings = _binding_index(request, packet_version)
+    subject_bindings = _subject_binding_index(request, packet_version)
     roster = _load_roster_if_needed(root, request.class_id, packet_version)
+    if roster is None and any(
+        reference.subject_kind == "core_student"
+        for reference in subject_bindings.values()
+    ):
+        roster = load_required_roster(root, request.class_id)
     roster_sha = None if roster is None else _roster_sha256(roster)
 
     sources: dict[tuple[str, str], ResolvedTemplateSource] = {}
@@ -354,6 +381,7 @@ def prepare_packet_instantiation(
     previews: list[PacketInstantiationComponentPreview] = []
     target_artifacts: dict[PacketTargetContext, list[PlannedPacketArtifact]] = {}
     consumed_bindings: set[tuple[str, str]] = set()
+    consumed_subject_bindings: set[tuple[str, str]] = set()
 
     for component in packet_version.components:
         assert component.template_id is not None
@@ -389,7 +417,7 @@ def prepare_packet_instantiation(
         route_count = 0
         for target in selected_targets:
             for copy_index in range(1, component.copies_per_target + 1):
-                planned, used = _plan_artifact(
+                planned, used, used_subject = _plan_artifact(
                     root,
                     request.class_id,
                     activity,
@@ -399,11 +427,15 @@ def prepare_packet_instantiation(
                     target,
                     copy_index,
                     bindings,
+                    subject_bindings,
                     diagnostics,
                     generation_date,
                     graph,
+                    roster,
+                    groups,
                 )
                 consumed_bindings.update(used)
+                consumed_subject_bindings.update(used_subject)
                 target_artifacts.setdefault(target, []).append(planned)
                 artifact_count += 1
                 page_count += planned.page_count
@@ -443,6 +475,17 @@ def prepare_packet_instantiation(
         raise ConcordWorkflowValidationError(
             "rendering binding does not match a teacher-resolved input used by "
             f"the selected exact Template: {component_id}:{input_key}"
+        )
+
+    unknown_subject_bindings = sorted(
+        set(subject_bindings) - consumed_subject_bindings
+    )
+    if unknown_subject_bindings:
+        component_id, target_key = unknown_subject_bindings[0]
+        raise ConcordWorkflowValidationError(
+            "Packet Subject binding does not match an explicit Subject "
+            "resolution used by the selected exact Template/target: "
+            f"{component_id}:{target_key}"
         )
 
     target_plans = tuple(
@@ -539,6 +582,27 @@ def _identifier(value: object, field_name: str) -> str:
         return validate_identifier(cast(str, value), field_name)
     except (IdentifierValidationError, TypeError, ValueError) as error:
         raise ConcordWorkflowValidationError(str(error)) from error
+
+
+def _validate_target_key_value(value: object) -> str:
+    if not isinstance(value, str) or value != value.strip() or not value:
+        raise ConcordWorkflowValidationError(
+            "target_key must be a nonempty string without surrounding whitespace."
+        )
+    prefix, separator, identity = value.partition(":")
+    if separator != ":" or prefix not in {
+        "activity",
+        "teacher",
+        "group",
+        "participant",
+        "role",
+    }:
+        raise ConcordWorkflowValidationError(
+            "target_key must use an Activity, teacher, Group, participant, or "
+            "Role target prefix."
+        )
+    _identifier(identity, "target_key identity")
+    return value
 
 
 def _validate_request(request: PreparePacketInstantiationRequest) -> None:
@@ -720,6 +784,33 @@ def _binding_index(
                 "rendering_bindings must not duplicate component/input pairs."
             )
         result[key] = binding.value
+    return result
+
+
+def _subject_binding_index(
+    request: PreparePacketInstantiationRequest,
+    packet_version: PacketVersion,
+) -> dict[tuple[str, str], SubjectReference]:
+    component_ids = {
+        item.packet_component_id for item in packet_version.components
+    }
+    result: dict[tuple[str, str], SubjectReference] = {}
+    for binding in request.subject_bindings:
+        if not isinstance(binding, PacketSubjectBinding):
+            raise ConcordWorkflowValidationError(
+                "subject_bindings contains an invalid value."
+            )
+        if binding.packet_component_id not in component_ids:
+            raise ConcordWorkflowValidationError(
+                "Packet Subject binding references an unknown Packet component: "
+                f"{binding.packet_component_id}"
+            )
+        key = (binding.packet_component_id, binding.target_key)
+        if key in result:
+            raise ConcordWorkflowValidationError(
+                "subject_bindings must not duplicate component/target pairs."
+            )
+        result[key] = binding.subject_reference
     return result
 
 
@@ -1114,10 +1205,17 @@ def _plan_artifact(
     target: PacketTargetContext,
     copy_index: int,
     bindings: dict[tuple[str, str], RenderingScalar],
+    subject_bindings: dict[tuple[str, str], SubjectReference],
     diagnostics: list[PacketInstantiationDiagnostic],
     generation_date: str,
     graph: ConcordRecordGraph,
-) -> tuple[PlannedPacketArtifact, set[tuple[str, str]]]:
+    roster: Roster | None,
+    groups: tuple[Group, ...],
+) -> tuple[
+    PlannedPacketArtifact,
+    set[tuple[str, str]],
+    set[tuple[str, str]],
+]:
     target_key = _target_key(target)
     used_input_keys = {
         key for page in version.page_manifest for key in page.rendering_input_keys
@@ -1204,18 +1302,37 @@ def _plan_artifact(
                 target_key=target_key,
             )
         )
-    subject, subject_notice = _plan_subject(version, target, session)
+    subject_binding_key = (component.packet_component_id, target_key)
+    subject_binding = subject_bindings.get(subject_binding_key)
+    (
+        subject,
+        subject_role,
+        subject_notice,
+        subject_blocking_code,
+        subject_binding_used,
+    ) = _plan_subject(
+        version,
+        target,
+        session,
+        activity,
+        roster,
+        groups,
+        subject_binding,
+    )
     if subject_notice is not None:
         diagnostics.append(
             PacketInstantiationDiagnostic(
-                code="subject_deferred",
+                code=subject_blocking_code or "subject_deferred",
                 message=subject_notice,
-                blocking=False,
+                blocking=subject_blocking_code is not None,
                 packet_component_id=component.packet_component_id,
                 target_key=target_key,
             )
         )
     privacy = _effective_privacy(activity, version, target, subject)
+    consumed_subject: set[tuple[str, str]] = (
+        {subject_binding_key} if subject_binding_used else set()
+    )
 
     return (
         PlannedPacketArtifact(
@@ -1235,8 +1352,10 @@ def _plan_artifact(
             authorship_mode=author_mode,
             proposed_author_reference=author,
             proposed_subject_reference=subject,
+            proposed_subject_role=subject_role,
         ),
         consumed,
+        consumed_subject,
     )
 
 
@@ -1330,7 +1449,10 @@ def _plan_author(
     if expectation is None:
         return None, None, None
     mode = expectation.authorship_mode
-    if mode == "individual_author" and target.participant_reference is not None:
+    if (
+        mode in {"individual_author", "observer"}
+        and target.participant_reference is not None
+    ):
         return mode, target.participant_reference, None
     if mode == "collective_group_author" and target.group_id is not None:
         return (
@@ -1360,10 +1482,113 @@ def _plan_subject(
     version: TemplateVersion,
     target: PacketTargetContext,
     session: Session,
-) -> tuple[SubjectReference | None, str | None]:
+    activity: Activity,
+    roster: Roster | None,
+    groups: tuple[Group, ...],
+    binding: SubjectReference | None,
+) -> tuple[
+    SubjectReference | None,
+    str | None,
+    str | None,
+    str | None,
+    bool,
+]:
     expectation = version.default_subject_expectation
     if expectation is None:
-        return None, None
+        return None, None, None, None, False
+
+    if isinstance(expectation, TemplateSubjectExpectation):
+        legacy_subject, legacy_notice = _plan_legacy_subject(
+            expectation,
+            target,
+            session,
+        )
+        role = (
+            None
+            if legacy_subject is None
+            else _legacy_subject_role(legacy_subject)
+        )
+        return legacy_subject, role, legacy_notice, None, False
+
+    if not isinstance(expectation, TemplateSubjectResolutionExpectation):
+        raise ConcordWorkflowValidationError(
+            "Template Subject expectation is not supported by Packet generation."
+        )
+
+    mode = expectation.resolution_mode
+    if mode == "explicit":
+        if binding is None:
+            if expectation.required:
+                return (
+                    None,
+                    None,
+                    "Artifact Subject binding is required for this Packet target.",
+                    "artifact_subject_binding_required",
+                    False,
+                )
+            return None, None, None, None, False
+        _validate_explicit_subject_binding(
+            binding,
+            expectation,
+            target,
+            session,
+            activity,
+            roster,
+            groups,
+        )
+        return binding, expectation.subject_role, None, None, True
+
+    subject: SubjectReference | None
+    if mode == "target":
+        subject = _target_subject(target)
+    elif mode == "target_group":
+        subject = (
+            None
+            if target.group_id is None
+            else SubjectReference(
+                subject_kind="concord_group",
+                subject_id=target.group_id,
+                owning_system="concord",
+            )
+        )
+    elif mode == "session":
+        subject = SubjectReference(
+            subject_kind="concord_session",
+            subject_id=session.session_id,
+            owning_system="concord",
+        )
+    elif mode == "activity":
+        subject = SubjectReference(
+            subject_kind="concord_activity",
+            subject_id=activity.activity_id,
+            owning_system="concord",
+        )
+    else:
+        raise ConcordWorkflowValidationError(
+            f"unsupported Template Subject resolution mode: {mode}"
+        )
+
+    if subject is not None and subject.subject_kind not in expectation.subject_kinds:
+        subject = None
+    if subject is not None:
+        return subject, expectation.subject_role, None, None, False
+    if expectation.required:
+        return (
+            None,
+            None,
+            "Required Template Subject resolution cannot be satisfied for this "
+            "Packet target.",
+            "artifact_subject_resolution_unresolved",
+            False,
+        )
+    return None, None, None, None, False
+
+
+def _plan_legacy_subject(
+    expectation: TemplateSubjectExpectation,
+    target: PacketTargetContext,
+    session: Session,
+) -> tuple[SubjectReference | None, str | None]:
     kind = expectation.subject_kind
     if kind == "core_student" and target.participant_reference is not None:
         participant = target.participant_reference
@@ -1410,6 +1635,82 @@ def _plan_subject(
             "the selected target and is deferred.",
         )
     return None, None
+
+
+def _legacy_subject_role(reference: SubjectReference) -> str:
+    return {
+        "core_student": "observed_participant",
+        "concord_group": "represented_group",
+        "concord_session": "session_context",
+        "concord_activity": "activity_context",
+    }.get(reference.subject_kind, "general_subject")
+
+
+def _validate_explicit_subject_binding(
+    reference: SubjectReference,
+    expectation: TemplateSubjectResolutionExpectation,
+    target: PacketTargetContext,
+    session: Session,
+    activity: Activity,
+    roster: Roster | None,
+    groups: tuple[Group, ...],
+) -> None:
+    if reference.subject_kind not in expectation.subject_kinds:
+        raise ConcordWorkflowValidationError(
+            "Packet Subject kind is not permitted by the exact Template Version: "
+            f"{reference.subject_kind}"
+        )
+
+    if reference.subject_kind == "core_student":
+        if reference.owning_system != "core":
+            raise ConcordWorkflowValidationError(
+                "core_student Packet Subjects must be owned by Core."
+            )
+        if roster is None or reference.subject_id not in student_lookup(roster):
+            raise ConcordWorkflowValidationError(
+                "Packet Subject student is not present in the exact Core class "
+                f"roster: {reference.subject_id}"
+            )
+    elif reference.subject_kind == "concord_group":
+        if reference.owning_system != "concord":
+            raise ConcordWorkflowValidationError(
+                "concord_group Packet Subjects must be owned by Concord."
+            )
+        if reference.subject_id not in {item.group_id for item in groups}:
+            raise ConcordWorkflowValidationError(
+                "Packet Subject Group is not active in the selected "
+                f"Activity/Session: {reference.subject_id}"
+            )
+    elif reference.subject_kind == "concord_session":
+        if (
+            reference.owning_system != "concord"
+            or reference.subject_id != session.session_id
+        ):
+            raise ConcordWorkflowValidationError(
+                "Packet Subject Session must be the selected exact Session."
+            )
+    elif reference.subject_kind == "concord_activity":
+        if (
+            reference.owning_system != "concord"
+            or reference.subject_id != activity.activity_id
+        ):
+            raise ConcordWorkflowValidationError(
+                "Packet Subject Activity must be the selected exact Activity."
+            )
+    else:
+        raise ConcordWorkflowValidationError(
+            "explicit Packet Subject selection currently supports only Core "
+            "students and Concord Activity/Session/Group references."
+        )
+
+    if (
+        not expectation.allow_target_subject_match
+        and _target_subject(target) == reference
+    ):
+        raise ConcordWorkflowValidationError(
+            "Packet Subject must differ from the Packet target for this exact "
+            "Template Version."
+        )
 
 
 def _effective_privacy(
@@ -1536,6 +1837,17 @@ def _target_sort_key(target: PacketTargetContext) -> tuple[int, str]:
     return order[target.audience_kind], _target_key(target)
 
 
+def _subject_reference_payload(
+    reference: SubjectReference,
+) -> dict[str, str | None]:
+    return {
+        "subject_kind": reference.subject_kind,
+        "subject_id": reference.subject_id,
+        "owning_system": reference.owning_system,
+        "contract_version": reference.contract_version,
+    }
+
+
 def _review_digest(
     *,
     request: PreparePacketInstantiationRequest,
@@ -1589,6 +1901,22 @@ def _review_digest(
                     key=lambda item: (
                         item.packet_component_id,
                         item.input_key,
+                    ),
+                )
+            ],
+            "subject_bindings": [
+                {
+                    "packet_component_id": item.packet_component_id,
+                    "target_key": item.target_key,
+                    "subject_reference": _subject_reference_payload(
+                        item.subject_reference
+                    ),
+                }
+                for item in sorted(
+                    request.subject_bindings,
+                    key=lambda item: (
+                        item.packet_component_id,
+                        item.target_key,
                     ),
                 )
             ],
@@ -1648,6 +1976,14 @@ def _review_digest(
                         "privacy": (
                             artifact.effective_privacy_policy.classification
                         ),
+                        "subject_reference": (
+                            None
+                            if artifact.proposed_subject_reference is None
+                            else _subject_reference_payload(
+                                artifact.proposed_subject_reference
+                            )
+                        ),
+                        "subject_role": artifact.proposed_subject_role,
                         "inputs": [
                             {
                                 "input_key": value.input_key,
@@ -1694,6 +2030,7 @@ __all__ = [
     "PacketInstantiationDiagnostic",
     "PacketInstantiationTargetPlan",
     "PacketRenderingBinding",
+    "PacketSubjectBinding",
     "PlannedPacketArtifact",
     "PlannedRenderingInput",
     "PreparedPacketInstantiation",
