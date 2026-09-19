@@ -15,6 +15,7 @@ from concord.template_storage import (
     TemplateStorageConflictError,
     TemplateStorageError,
     TemplateStorageNotFoundError,
+    TemplateStoragePartialSuccessError,
     activate_template_version,
     create_successor_template_version,
     create_template_library,
@@ -457,6 +458,8 @@ def _create_initial_package_version(
             initial_version=initial.version,
             rendering_specification=initial.rendering_specification,
         )
+    except TemplateStoragePartialSuccessError:
+        raise
     except TemplateStorageConflictError as error:
         raise StarterTemplateLineageConflictError(str(error)) from error
     except TemplateStorageError as error:
@@ -480,6 +483,8 @@ def _advance_to_package_head(
                     expected_snapshot_revision=loaded.snapshot_revision,
                     operation_provenance=loaded.head_version.created_provenance,
                 )
+            except TemplateStoragePartialSuccessError:
+                raise
             except TemplateStorageConflictError as error:
                 raise StarterTemplateLineageConflictError(str(error)) from error
             except TemplateStorageError as error:
@@ -500,6 +505,8 @@ def _advance_to_package_head(
                 expected_snapshot_revision=loaded.snapshot_revision,
                 operation_provenance=successor.created_provenance,
             )
+        except TemplateStoragePartialSuccessError:
+            raise
         except TemplateStorageConflictError as error:
             raise StarterTemplateLineageConflictError(str(error)) from error
         except TemplateStorageError as error:

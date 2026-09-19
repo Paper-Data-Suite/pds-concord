@@ -1,11 +1,11 @@
-"""Presentation-neutral installation workflows for packaged starter Templates."""
+"""Presentation-neutral reconciliation workflows for packaged starter Templates."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
-from concord.models import TemplateDefinition, TemplateVersion
+from concord.models import Provenance, TemplateDefinition, TemplateVersion
 from concord.starter_templates.catalog import (
     StarterTemplateCatalogEntry,
     StarterTemplateCatalogError,
@@ -13,12 +13,27 @@ from concord.starter_templates.catalog import (
     get_starter_template,
     list_starter_templates,
 )
+from concord.starter_templates.catalog_lineage import (
+    build_starter_template_lineage,
+    current_packaged_template_version_id,
+)
+from concord.starter_templates.lineage import (
+    STARTER_LINEAGE_CONFLICT,
+    STARTER_LINEAGE_CURRENT,
+    STARTER_LINEAGE_MISSING,
+    STARTER_LINEAGE_UPGRADE_AVAILABLE,
+    PackagedStarterTemplateLineage,
+    PreparedStarterTemplateLineageReconciliation,
+    StarterTemplateLineageConflictError,
+    StarterTemplateLineageValidationError,
+    commit_packaged_starter_lineage_reconciliation,
+    inspect_packaged_starter_lineage,
+    prepare_packaged_starter_lineage_reconciliation,
+)
 from concord.template_storage import (
-    TemplateStorageConflictError,
     TemplateStorageError,
     TemplateStorageNotFoundError,
     TemplateStoragePartialSuccessError,
-    create_template_library,
     load_current_template,
 )
 from concord.template_storage_models import LoadedTemplateLibrary
@@ -38,11 +53,13 @@ from concord.workflows.models import WorkflowActor
 
 STARTER_INSTALLATION_MISSING = "missing"
 STARTER_INSTALLATION_ALREADY_INSTALLED = "already_installed"
+STARTER_INSTALLATION_UPGRADE_AVAILABLE = "upgrade_available"
 STARTER_INSTALLATION_CONFLICT = "conflict"
 _STARTER_INSTALLATION_STATES = frozenset(
     {
         STARTER_INSTALLATION_MISSING,
         STARTER_INSTALLATION_ALREADY_INSTALLED,
+        STARTER_INSTALLATION_UPGRADE_AVAILABLE,
         STARTER_INSTALLATION_CONFLICT,
     }
 )
@@ -50,7 +67,7 @@ _STARTER_INSTALLATION_STATES = frozenset(
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StarterTemplateStatus:
-    """Read-only packaged-starter status against one workspace."""
+    """Read-only package reconciliation status against one workspace."""
 
     starter_key: str
     family: str
@@ -86,21 +103,46 @@ class PreparedStarterTemplateInstall:
     rendering_sha256: str
     definition: TemplateDefinition | None = None
     version: TemplateVersion | None = None
+    lineage: PackagedStarterTemplateLineage | None = None
+    lineage_reconciliation: (
+        PreparedStarterTemplateLineageReconciliation | None
+    ) = None
 
     def __post_init__(self) -> None:
         if self.initial_state not in {
             STARTER_INSTALLATION_MISSING,
             STARTER_INSTALLATION_ALREADY_INSTALLED,
+            STARTER_INSTALLATION_UPGRADE_AVAILABLE,
         }:
             raise ConcordWorkflowValidationError(
                 "prepared starter installation state is invalid."
             )
         if self.initial_state == STARTER_INSTALLATION_MISSING:
-            if self.definition is None or self.version is None:
+            if (
+                self.definition is None
+                or self.version is None
+                or self.lineage is None
+                or self.lineage_reconciliation is None
+            ):
                 raise ConcordWorkflowValidationError(
-                    "missing starter installation requires prepared records."
+                    "missing starter installation requires prepared lineage records."
                 )
-        elif self.definition is not None or self.version is not None:
+        elif self.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE:
+            if (
+                self.definition is not None
+                or self.version is not None
+                or self.lineage is None
+                or self.lineage_reconciliation is None
+            ):
+                raise ConcordWorkflowValidationError(
+                    "starter upgrade requires a prepared lineage only."
+                )
+        elif (
+            self.definition is not None
+            or self.version is not None
+            or self.lineage is not None
+            or self.lineage_reconciliation is not None
+        ):
             raise ConcordWorkflowValidationError(
                 "already-installed starter must not prepare replacement records."
             )
@@ -124,6 +166,7 @@ class StarterTemplateInstallResult:
     def __post_init__(self) -> None:
         if self.outcome not in {
             "installed",
+            "upgraded",
             STARTER_INSTALLATION_ALREADY_INSTALLED,
         }:
             raise ConcordWorkflowValidationError(
@@ -140,6 +183,10 @@ class StarterTemplateInstallAllResult:
         return sum(item.outcome == "installed" for item in self.results)
 
     @property
+    def upgraded_count(self) -> int:
+        return sum(item.outcome == "upgraded" for item in self.results)
+
+    @property
     def already_installed_count(self) -> int:
         return sum(
             item.outcome == STARTER_INSTALLATION_ALREADY_INSTALLED
@@ -148,7 +195,7 @@ class StarterTemplateInstallAllResult:
 
 
 class StarterTemplateInstallAllPartialSuccessError(ConcordWorkflowError):
-    """A multi-Template install stopped after earlier starters committed."""
+    """A multi-Template reconciliation stopped after earlier commits."""
 
     def __init__(
         self,
@@ -192,7 +239,7 @@ def prepare_starter_template_install(
     workspace_root: str | Path | None = None,
     clock: Clock | None = None,
 ) -> PreparedStarterTemplateInstall:
-    """Prepare one explicit starter installation without canonical mutation."""
+    """Prepare one explicit package reconciliation without canonical mutation."""
     if not isinstance(request.actor, WorkflowActor):
         raise ConcordWorkflowValidationError("actor must be WorkflowActor.")
     entry = _entry(request.starter_key)
@@ -203,7 +250,13 @@ def prepare_starter_template_install(
             "starter Template identity exists with incompatible content: "
             f"{entry.template_id}"
         )
-    return _prepare_entry(entry, state, request.actor, clock=clock)
+    return _prepare_entry(
+        entry,
+        state,
+        request.actor,
+        root=root,
+        clock=clock,
+    )
 
 
 def commit_starter_template_install(
@@ -211,57 +264,67 @@ def commit_starter_template_install(
     *,
     workspace_root: str | Path | None = None,
 ) -> StarterTemplateInstallResult:
-    """Install one reviewed packaged starter through #58 canonical storage."""
-    entry, rendering = _revalidate_prepared(prepared)
+    """Reconcile one reviewed packaged starter through canonical Template storage."""
+    entry = _revalidate_prepared(prepared)
     root = resolve_read_workspace_root(workspace_root)
     state, loaded = _installation_state(root, entry)
-    if state == STARTER_INSTALLATION_ALREADY_INSTALLED:
-        assert loaded is not None
-        return _result(entry, loaded, outcome=state)
+
+    if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
+        if state == STARTER_INSTALLATION_ALREADY_INSTALLED and loaded is not None:
+            return _result(
+                entry,
+                loaded,
+                outcome=STARTER_INSTALLATION_ALREADY_INSTALLED,
+            )
+        raise ConcordWorkflowConflictError(
+            "starter Template changed after already-installed preparation: "
+            f"{entry.template_id}"
+        )
+
     if state == STARTER_INSTALLATION_CONFLICT:
         raise ConcordWorkflowConflictError(
             "starter Template identity became incompatible before commit: "
             f"{entry.template_id}"
         )
-    if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
-        raise ConcordWorkflowConflictError(
-            "starter Template disappeared after preparation: "
-            f"{entry.template_id}"
-        )
-    if prepared.definition is None or prepared.version is None:
+
+    if prepared.lineage_reconciliation is None or prepared.lineage is None:
         raise ConcordWorkflowValidationError(
-            "prepared starter installation records are missing."
+            "prepared starter lineage reconciliation is missing."
         )
 
     bootstrap = ensure_mutating_workspace_root(workspace_root)
     try:
-        loaded = create_template_library(
-            bootstrap.root,
-            definition=prepared.definition,
-            initial_version=prepared.version,
-            rendering_specification=rendering,
+        reconciled = commit_packaged_starter_lineage_reconciliation(
+            prepared.lineage_reconciliation,
+            workspace_root=bootstrap.root,
         )
     except TemplateStoragePartialSuccessError:
         raise
-    except TemplateStorageConflictError as error:
-        state, raced = _installation_state(bootstrap.root, entry)
-        if (
-            state == STARTER_INSTALLATION_ALREADY_INSTALLED
-            and raced is not None
-        ):
-            return _result(entry, raced, outcome=state)
+    except StarterTemplateLineageConflictError as error:
         raise ConcordWorkflowConflictError(str(error)) from error
-    except TemplateStorageError as error:
+    except StarterTemplateLineageValidationError as error:
         raise ConcordWorkflowValidationError(str(error)) from error
 
-    if not _matches_starter(loaded, entry):
+    outcome = {
+        "installed": "installed",
+        "upgraded": "upgraded",
+        "already_current": STARTER_INSTALLATION_ALREADY_INSTALLED,
+    }[reconciled.outcome]
+    verified_state, verified_loaded = _installation_state(
+        bootstrap.root,
+        entry,
+    )
+    if (
+        verified_state != STARTER_INSTALLATION_ALREADY_INSTALLED
+        or verified_loaded is None
+    ):
         raise ConcordWorkflowValidationError(
-            "installed starter failed exact post-commit verification."
+            "starter reconciliation failed exact post-commit verification."
         )
     return _result(
         entry,
-        loaded,
-        outcome="installed",
+        verified_loaded,
+        outcome=outcome,
         workspace_created=bootstrap.created,
     )
 
@@ -272,7 +335,7 @@ def prepare_starter_template_install_all(
     workspace_root: str | Path | None = None,
     clock: Clock | None = None,
 ) -> PreparedStarterTemplateInstallAll:
-    """Preflight all packaged starters and prepare every missing lineage."""
+    """Preflight and prepare every missing or package-upgradable starter."""
     if not isinstance(request.actor, WorkflowActor):
         raise ConcordWorkflowValidationError("actor must be WorkflowActor.")
     root = resolve_read_workspace_root(workspace_root)
@@ -291,38 +354,36 @@ def prepare_starter_template_install_all(
             + ", ".join(conflicts)
         )
 
-    created = None
-    if any(state == STARTER_INSTALLATION_MISSING for _, state in inspected):
-        created = provenance(
+    writes_required = any(
+        state
+        in {
+            STARTER_INSTALLATION_MISSING,
+            STARTER_INSTALLATION_UPGRADE_AVAILABLE,
+        }
+        for _, state in inspected
+    )
+    created = (
+        provenance(
             request.actor,
             clock=clock,
             source_kind="imported",
         )
+        if writes_required
+        else None
+    )
+
     items: list[PreparedStarterTemplateInstall] = []
     for entry, state in inspected:
-        if state == STARTER_INSTALLATION_MISSING:
-            assert created is not None
-            definition, version = entry.build_template_records(
+        items.append(
+            _prepare_entry(
+                entry,
+                state,
+                request.actor,
+                root=root,
+                clock=clock,
                 created_provenance=created,
-                status="active",
             )
-            items.append(
-                PreparedStarterTemplateInstall(
-                    entry=entry,
-                    initial_state=state,
-                    rendering_sha256=entry.rendering_sha256(),
-                    definition=definition,
-                    version=version,
-                )
-            )
-        else:
-            items.append(
-                PreparedStarterTemplateInstall(
-                    entry=entry,
-                    initial_state=state,
-                    rendering_sha256=entry.rendering_sha256(),
-                )
-            )
+        )
     return PreparedStarterTemplateInstallAll(items=tuple(items))
 
 
@@ -331,7 +392,7 @@ def commit_starter_template_install_all(
     *,
     workspace_root: str | Path | None = None,
 ) -> StarterTemplateInstallAllResult:
-    """Commit starters in deterministic catalog order with idempotent replay."""
+    """Commit reconciliations in deterministic catalog order with safe replay."""
     results: list[StarterTemplateInstallResult] = []
     for item in prepared.items:
         try:
@@ -347,7 +408,7 @@ def commit_starter_template_install_all(
                 raise
             raise StarterTemplateInstallAllPartialSuccessError(
                 "starter install-all stopped after earlier Template commits; "
-                "rerun safely to reconcile exact installed starters.",
+                "rerun safely to reconcile exact packaged lineages.",
                 completed_results=tuple(results),
                 failed_starter_key=item.entry.starter_key,
             ) from error
@@ -360,26 +421,70 @@ def _prepare_entry(
     state: str,
     actor: WorkflowActor,
     *,
+    root: Path | None,
     clock: Clock | None,
+    created_provenance: Provenance | None = None,
 ) -> PreparedStarterTemplateInstall:
-    digest = entry.rendering_sha256()
     if state == STARTER_INSTALLATION_ALREADY_INSTALLED:
         return PreparedStarterTemplateInstall(
             entry=entry,
             initial_state=state,
-            rendering_sha256=digest,
+            rendering_sha256=entry.rendering_sha256(),
         )
-    created = provenance(actor, clock=clock, source_kind="imported")
-    definition, version = entry.build_template_records(
-        created_provenance=created,
-        status="active",
+    if state == STARTER_INSTALLATION_CONFLICT:
+        raise ConcordWorkflowConflictError(
+            "starter Template identity exists with incompatible content: "
+            f"{entry.template_id}"
+        )
+
+    created = (
+        created_provenance
+        if created_provenance is not None
+        else provenance(actor, clock=clock, source_kind="imported")
     )
+    lineage = _build_lineage(entry, created)
+    head_digest = lineage.current_version.version.rendering_specification_sha256
+
+    if root is None:
+        reconciliation = PreparedStarterTemplateLineageReconciliation(
+            lineage=lineage,
+            initial_state=STARTER_LINEAGE_MISSING,
+            expected_snapshot_revision=None,
+            expected_snapshot_sha256=None,
+        )
+    else:
+        try:
+            reconciliation = prepare_packaged_starter_lineage_reconciliation(
+                root,
+                lineage,
+            )
+        except StarterTemplateLineageConflictError as error:
+            raise ConcordWorkflowConflictError(str(error)) from error
+        except StarterTemplateLineageValidationError as error:
+            raise ConcordWorkflowValidationError(str(error)) from error
+
+    if state == STARTER_INSTALLATION_MISSING:
+        initial = lineage.versions[0].version
+        return PreparedStarterTemplateInstall(
+            entry=entry,
+            initial_state=state,
+            rendering_sha256=head_digest,
+            definition=lineage.definition,
+            version=initial,
+            lineage=lineage,
+            lineage_reconciliation=reconciliation,
+        )
+
+    if state != STARTER_INSTALLATION_UPGRADE_AVAILABLE:
+        raise ConcordWorkflowValidationError(
+            "unsupported starter preparation state."
+        )
     return PreparedStarterTemplateInstall(
         entry=entry,
         initial_state=state,
-        rendering_sha256=digest,
-        definition=definition,
-        version=version,
+        rendering_sha256=head_digest,
+        lineage=lineage,
+        lineage_reconciliation=reconciliation,
     )
 
 
@@ -401,7 +506,7 @@ def _status(
         family=entry.family,
         display_name=entry.display_name,
         template_id=entry.template_id,
-        template_version_id=entry.template_version_id,
+        template_version_id=current_packaged_template_version_id(entry),
         page_count=entry.page_count,
         orientation=entry.orientation,
         installation_state=state,
@@ -420,67 +525,78 @@ def _installation_state(
         return STARTER_INSTALLATION_MISSING, None
     except TemplateStorageError as error:
         raise ConcordWorkflowValidationError(str(error)) from error
-    if _matches_starter(loaded, entry):
-        return STARTER_INSTALLATION_ALREADY_INSTALLED, loaded
-    return STARTER_INSTALLATION_CONFLICT, loaded
 
-
-def _matches_starter(
-    loaded: LoadedTemplateLibrary,
-    entry: StarterTemplateCatalogEntry,
-) -> bool:
-    if loaded.definition.artifact_category != entry.artifact_category:
-        return False
-    candidate = next(
-        (
-            version
-            for version in loaded.versions
-            if version.template_version_id == entry.template_version_id
-        ),
-        None,
-    )
-    if candidate is None:
-        return False
     try:
-        _, expected = entry.build_template_records(
-            created_provenance=candidate.created_provenance,
-            status="active",
+        lineage = _build_lineage(
+            entry,
+            loaded.versions[0].created_provenance,
+        )
+        inspection = inspect_packaged_starter_lineage(root, lineage)
+    except StarterTemplateLineageValidationError as error:
+        raise ConcordWorkflowValidationError(str(error)) from error
+
+    state = {
+        STARTER_LINEAGE_MISSING: STARTER_INSTALLATION_MISSING,
+        STARTER_LINEAGE_CURRENT: STARTER_INSTALLATION_ALREADY_INSTALLED,
+        STARTER_LINEAGE_UPGRADE_AVAILABLE: (
+            STARTER_INSTALLATION_UPGRADE_AVAILABLE
+        ),
+        STARTER_LINEAGE_CONFLICT: STARTER_INSTALLATION_CONFLICT,
+    }[inspection.state]
+    return state, inspection.loaded
+
+
+def _build_lineage(
+    entry: StarterTemplateCatalogEntry,
+    created_provenance: Provenance,
+) -> PackagedStarterTemplateLineage:
+    try:
+        return build_starter_template_lineage(
+            entry,
+            created_provenance=created_provenance,
         )
     except StarterTemplateCatalogError as error:
         raise ConcordWorkflowValidationError(str(error)) from error
-    return replace(candidate, status="active") == expected
+    except StarterTemplateLineageValidationError as error:
+        raise ConcordWorkflowValidationError(str(error)) from error
 
 
 def _revalidate_prepared(
     prepared: PreparedStarterTemplateInstall,
-) -> tuple[StarterTemplateCatalogEntry, bytes]:
+) -> StarterTemplateCatalogEntry:
     current = _entry(prepared.entry.starter_key)
     if current != prepared.entry:
         raise ConcordWorkflowConflictError(
             "packaged starter metadata changed after preparation."
         )
-    try:
-        rendering = current.rendering_specification_bytes()
-        digest = current.rendering_sha256()
-    except StarterTemplateCatalogError as error:
-        raise ConcordWorkflowValidationError(str(error)) from error
-    if digest != prepared.rendering_sha256:
+
+    if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
+        if current.rendering_sha256() != prepared.rendering_sha256:
+            raise ConcordWorkflowConflictError(
+                "packaged starter rendering bytes changed after preparation."
+            )
+        return current
+
+    if prepared.lineage is None:
+        raise ConcordWorkflowValidationError(
+            "prepared starter lineage is missing."
+        )
+    expected = _build_lineage(
+        current,
+        prepared.lineage.definition.created_provenance,
+    )
+    if expected != prepared.lineage:
+        raise ConcordWorkflowConflictError(
+            "packaged starter lineage changed after preparation."
+        )
+    if (
+        expected.current_version.version.rendering_specification_sha256
+        != prepared.rendering_sha256
+    ):
         raise ConcordWorkflowConflictError(
             "packaged starter rendering bytes changed after preparation."
         )
-    if prepared.definition is not None and prepared.version is not None:
-        expected_definition, expected_version = current.build_template_records(
-            created_provenance=prepared.definition.created_provenance,
-            status="active",
-        )
-        if (
-            expected_definition != prepared.definition
-            or expected_version != prepared.version
-        ):
-            raise ConcordWorkflowConflictError(
-                "packaged starter Template semantics changed after preparation."
-            )
-    return current, rendering
+    return current
 
 
 def _result(
@@ -490,10 +606,15 @@ def _result(
     outcome: str,
     workspace_created: bool = False,
 ) -> StarterTemplateInstallResult:
+    version_id = (
+        loaded.current_template_version_id
+        if loaded.current_template_version_id is not None
+        else loaded.head_template_version_id
+    )
     return StarterTemplateInstallResult(
         starter_key=entry.starter_key,
         template_id=entry.template_id,
-        template_version_id=entry.template_version_id,
+        template_version_id=version_id,
         outcome=outcome,
         snapshot_revision=loaded.snapshot_revision,
         snapshot_sha256=loaded.snapshot_sha256,
@@ -505,6 +626,7 @@ __all__ = [
     "STARTER_INSTALLATION_ALREADY_INSTALLED",
     "STARTER_INSTALLATION_CONFLICT",
     "STARTER_INSTALLATION_MISSING",
+    "STARTER_INSTALLATION_UPGRADE_AVAILABLE",
     "PrepareStarterTemplateInstallAllRequest",
     "PrepareStarterTemplateInstallRequest",
     "PreparedStarterTemplateInstall",
