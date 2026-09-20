@@ -77,8 +77,17 @@ SEMINAR_ROLE_KEY = "observer"
 SEMINAR_SESSION_LABEL = (
     "Socratic Seminar — Evidence, Memory, Responsibility, and Competing Interpretations"
 )
+SEMINAR_ACTIVITY_TITLE = (
+    "Seminar Relationship Review: Memory, Evidence, and Responsibility"
+)
 
 PROJECT_ACTIVITY_ID = "issue113-project-relationship-review"
+PROJECT_ACTIVITY_TITLE = (
+    "Project Relationship Review: Accessible Community Information System Prototype"
+)
+PROJECT_SESSION_LABEL = (
+    "Prototype Critique — Accessibility, Evidence, Testing, and Revision"
+)
 PROJECT_SESSION_ID = "issue113-project-session"
 PROJECT_ROLE_ID = "issue113-project-reviewer-role"
 PROJECT_ROLE_KEY = "observer"
@@ -296,10 +305,7 @@ def _create_workspace(run_root: Path) -> Path:
         CreateActivityContextRequest(
             class_id=CLASS_ID,
             activity_id=SEMINAR_ACTIVITY_ID,
-            title=(
-                "Seminar Relationship Review: Memory, Evidence, Responsibility, "
-                "and Competing Interpretations"
-            ),
+            title=SEMINAR_ACTIVITY_TITLE,
             activity_type="socratic_seminar",
             scoring_orientation="evidence_only",
             session_id=SEMINAR_SESSION_ID,
@@ -349,19 +355,14 @@ def _create_workspace(run_root: Path) -> Path:
         CreateActivityContextRequest(
             class_id=CLASS_ID,
             activity_id=PROJECT_ACTIVITY_ID,
-            title=(
-                "Project Relationship Review: Accessible Community Information "
-                "System Prototype"
-            ),
+            title=PROJECT_ACTIVITY_TITLE,
             activity_type="project",
             scoring_orientation="evidence_only",
             session_id=PROJECT_SESSION_ID,
             actor=_actor(),
             activity_status="active",
             session_status="active",
-            session_label=(
-                "Prototype Critique — Accessibility, Evidence, Testing, and Revision"
-            ),
+            session_label=PROJECT_SESSION_LABEL,
         ),
         workspace_root=root,
         clock=_clock,

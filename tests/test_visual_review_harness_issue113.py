@@ -3,6 +3,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
+from concord.routing import starter_layout_pdf
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "run_visual_review_issue113.py"
 DOC = ROOT / "docs" / "v0.3.1-starter-subject-relationships.md"
@@ -116,6 +120,56 @@ def test_issue113_visual_fallback_stress_cases_fit_v2_bound() -> None:
     assert 230 <= len(observer_fallback) <= 240
     assert 230 <= len(group_review_fallback) <= 240
     assert len(student_review_fallback) <= 240
+
+
+def test_issue113_visual_header_stress_values_fit_exact_renderer_bound() -> None:
+    size = starter_layout_pdf._LETTER_PORTRAIT
+    margin = starter_layout_pdf._MARGIN_X
+    header_right = (
+        size[0]
+        - margin
+        - (starter_layout_pdf._QR_SIZE + 26)
+    )
+    grid_width = header_right - margin
+    column_width = grid_width // 2
+    printable_width = column_width - 18
+
+    image = Image.new("RGB", size, "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=18)
+
+    reviewer = (
+        f'{_string_constant("REVIEWER_FIRST")} '
+        f'{_string_constant("REVIEWER_LAST")}'
+    )
+    reviewee = (
+        f'{_string_constant("REVIEWEE_FIRST")} '
+        f'{_string_constant("REVIEWEE_LAST")}'
+    )
+    values = (
+        ("Activity", _string_constant("SEMINAR_ACTIVITY_TITLE")),
+        ("Session", _string_constant("SEMINAR_SESSION_LABEL")),
+        ("Observer", reviewer),
+        ("Observed", _string_constant("SEMINAR_SESSION_LABEL")),
+        ("Activity", _string_constant("PROJECT_ACTIVITY_TITLE")),
+        ("Session", _string_constant("PROJECT_SESSION_LABEL")),
+        ("Reviewer", reviewer),
+        ("Reviewee", reviewee),
+        ("Reviewed", _string_constant("REVIEWED_GROUP_LABEL")),
+    )
+
+    line_counts = []
+    for label, value in values:
+        lines = starter_layout_pdf._wrap_text(
+            draw,
+            f"{label}: {value}",
+            font,
+            printable_width,
+        )
+        line_counts.append(len(lines))
+        assert len(lines) <= 2, (label, value, lines)
+
+    assert 2 in line_counts
 
 
 def test_issue113_visual_harness_uses_real_packet_rendering_and_qr_gate() -> None:
