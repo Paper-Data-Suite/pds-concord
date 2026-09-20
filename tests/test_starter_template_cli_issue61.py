@@ -121,7 +121,8 @@ def test_starter_install_all_installs_only_missing(
     ) == EXIT_OK
     output = capsys.readouterr().out
     assert "Installed: 29" in output
-    assert "Already installed: 1" in output
+    assert "Upgraded: 0" in output
+    assert "Already current: 1" in output
     assert "Processed: 30" in output
 
     assert main(
@@ -135,4 +136,5 @@ def test_starter_install_all_installs_only_missing(
     ) == EXIT_OK
     output = capsys.readouterr().out
     assert "Installed: 0" in output
-    assert "Already installed: 30" in output
+    assert "Upgraded: 0" in output
+    assert "Already current: 30" in output

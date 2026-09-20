@@ -41,12 +41,15 @@ head/current selection, successor/activation/retirement workflows, a direct
 `concord packet` CLI family, and a workspace-level teacher Packet Library.
 Issue #61 now ships a 30-form synthetic collaborative-learning starter Template
 catalog using the bounded non-executable `concord_starter_layout_v1` format.
-Teachers can browse the packaged catalog read-only, explicitly install one or all
-missing starters through the canonical #58 Template authority, and then revise
-installed starters through ordinary immutable Template successor workflows.
-Stable starter identities, exact packaged rendering digests, idempotent install,
-explicit collision handling, and package/wheel qualification prevent hidden
-workspace mutation or package-owned overwrite of teacher state.
+Teachers can browse the packaged catalog read-only and explicitly reconcile one
+or all packaged starter lineages through the canonical #58 Template authority.
+Missing starters install their complete package-owned lineage; safe package
+successors append without rewriting historical Versions; package-current
+lineages are idempotent no-ops; incompatible teacher-authored successors fail
+closed. Teachers may then revise installed starters through ordinary immutable
+Template successor workflows. Stable starter identities, exact packaged
+rendering digests, explicit collision handling, and package/wheel qualification
+prevent hidden workspace mutation or package-owned overwrite of teacher state.
 Issue #62 now implements the first complete Activity-specific Packet generation
 and printable-paper path: exact Packet/Template resolution, zero-write target
 preview, review-digest-bound generation, fresh PacketInstance/Artifact/Page/Core
@@ -54,6 +57,11 @@ PDS2 identities, deterministic starter-layout PDFs, explicit recovery/reprint,
 direct runtime Packet commands, and the opened-Activity `Prepare / Generate
 Packet` teacher workflow. The same typed service layer supports both fully
 noninteractive direct commands and the low-information-density menu.
+Issue #113 now separates Packet target, Artifact Author, and Artifact Subject for
+the five relationship-aware observer/peer-review starters. Their immutable v1
+Versions remain exact; package-owned v2 successors add Session or explicit
+reviewed-Subject resolution, role-aware physical identity, direct/menu Subject
+binding, frozen historical rendering values, and safe starter-lineage upgrades.
 Issue #63 now adds safe Activity copying: exact source selection, a positive
 configuration allowlist, target-specific privacy resolution, one fresh first
 Session, zero-write review digests, and create-only commit semantics.

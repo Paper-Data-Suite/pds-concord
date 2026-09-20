@@ -19,7 +19,7 @@ def test_template_library_menu_exposes_starter_library(
 ) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt="": "B")
     menu_template.launch_template_library_menu(_state())
-    assert "9. Browse / install starter Templates" in capsys.readouterr().out
+    assert "9. Browse / install / update starter Templates" in capsys.readouterr().out
 
 
 def test_starter_library_submenu_lists_surfaces(
@@ -35,8 +35,8 @@ def test_starter_library_submenu_lists_surfaces(
     output = capsys.readouterr().out
     assert "Starter Template Library" in output
     assert "1. Browse / preview starter Templates" in output
-    assert "2. Install one starter Template" in output
-    assert "3. Install all missing starter Templates" in output
+    assert "2. Install / update one starter Template" in output
+    assert "3. Install / update packaged starter Templates" in output
 
 
 def test_starter_install_menu_requires_install_confirmation(

@@ -316,14 +316,18 @@ by Concord.
 The packaged starter Template catalog is a read-only package resource until an
 explicit install command runs. `starter-list` and `starter-show` never initialize
 an absent workspace. `starter-install` requires `--starter-key` plus actor
-provenance and creates the exact packaged initial Version as active/current
-through the #58 Template storage authority. `starter-install-all` preflights all
-30 stable identities, fails before writes on incompatible collisions, and then
-installs only missing starters in deterministic order. Exact existing installs
-are idempotent no-ops; teacher metadata revisions, successor Versions, and
-retirement are never reset. A later failure after earlier successful independent
-Template creates is exit code 4 partial success and is safe to reconcile by
-rerunning install-all.
+provenance and reconciles the exact package-owned immutable lineage through the
+#58 Template storage authority. A fresh affected #113 starter installs historical
+v1 and its active package-current v2 successor; an exact v1 workspace reports
+`upgrade_available` and appends v2 without rewriting v1; a package-current
+workspace is an idempotent no-op. `starter-install-all` preflights all 30 stable
+identities, fails before writes on incompatible collisions, then installs missing
+lineages and applies safe package-owned upgrades in deterministic order. Its
+result reports installed, upgraded, and already-current counts separately.
+Teacher-authored incompatible successors are never overwritten, retired, or
+superseded automatically. A later failure after earlier successful independent
+Template reconciliations is exit code 4 partial success and is safe to reconcile
+by rerunning install-all.
 
 `packet` is also a workspace-level reusable family and never requires class or
 Activity identity. `list`, `show`, `version-list`, and `version-show` are
@@ -343,9 +347,16 @@ requires class, Activity, Session, exact Packet Definition/Version, and actor
 context, performs no writes, and prints the exact `review_digest`.
 `instantiate` requires that digest and re-runs current canonical resolution before
 allocating runtime identities. Optional strict `--options-file` input may carry
-only explicit component choices and teacher rendering bindings. An optional
-caller-supplied `--generation-id` is a retry/reconciliation identity, not a way
-to clone an existing generation. `instantiate-resume` reconciles already-durable
+explicit component choices, teacher rendering bindings, and zero-write
+`subject_bindings`. Subject bindings identify one exact Packet component/target
+pair and one typed `SubjectReference`; they are reviewed inputs, not a new
+canonical reviewer/reviewee record. Relationship-aware peer-review v2 Templates
+require these bindings, while historical v1 Templates retain their exact prior
+semantics. The direct CLI remains deterministic and noninteractive; no peer
+pairing is inferred from roster order, Groups, Roles, or prior generations. An
+optional caller-supplied `--generation-id` is a retry/reconciliation identity,
+not a way to clone an existing generation. `instantiate-resume` reconciles
+already-durable
 native generation state with immutable Core routes. `instance-list` and
 `instance-show` are read-only. `instance-render` and `generation-render` reuse
 existing route identities for completed reprints. There is no force, skip-review,

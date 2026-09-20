@@ -24,6 +24,8 @@ from concord.template_storage import TemplateStoragePartialSuccessError
 from concord.workflows.errors import ConcordWorkflowError
 from concord.workflows.starter_template import (
     STARTER_INSTALLATION_ALREADY_INSTALLED,
+    STARTER_INSTALLATION_MISSING,
+    STARTER_INSTALLATION_UPGRADE_AVAILABLE,
     PrepareStarterTemplateInstallAllRequest,
     PrepareStarterTemplateInstallRequest,
     StarterTemplateInstallAllPartialSuccessError,
@@ -518,6 +520,7 @@ def _starter_detail_lines(
         f"Description: {entry.description}",
         f"Template: {entry.template_id}",
         f"Initial Version: {entry.template_version_id}",
+        f"Package Current Version: {status.template_version_id}",
         f"Artifact category: {entry.artifact_category}",
         f"Pages: {entry.page_count}",
         f"Orientation: {entry.orientation}",
@@ -532,13 +535,13 @@ def _starter_detail_lines(
                 else "-"
             )
         ),
-        f"Authorship: {entry.default_authorship_mode}",
-        f"Subject: {entry.default_subject_kind}",
+        f"Initial v1 Authorship: {entry.default_authorship_mode}",
+        f"Initial v1 Subject: {entry.default_subject_kind}",
         (
-            "Rendering reference: "
+            "Initial rendering reference: "
             f"{entry.rendering_specification_reference}"
         ),
-        f"Rendering SHA-256: {entry.rendering_sha256()}",
+        f"Initial rendering SHA-256: {entry.rendering_sha256()}",
         f"Installation state: {status.installation_state}",
     )
 
@@ -581,11 +584,22 @@ def _install_starter(state: MenuSessionContext) -> None:
             + ("No canonical write is required.",),
         )
         return
-    lines = _starter_detail_lines(selected) + (
-        "Initial starter Version will be installed active/current.",
-        "Future customization uses the ordinary successor workflow.",
+    if prepared.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE:
+        action_lines = (
+            "A package-owned successor Version will be appended and activated.",
+            "Historical packaged Versions remain immutable and loadable.",
+            f"Package Current Version after update: {selected.template_version_id}",
+        )
+    else:
+        action_lines = (
+            "The complete package-owned starter lineage will be installed.",
+            "Relationship-aware starters preserve historical v1 and activate v2.",
+            f"Package Current Version after install: {selected.template_version_id}",
+        )
+    lines = _starter_detail_lines(selected) + action_lines + (
+        "Future teacher customization uses the ordinary successor workflow.",
     )
-    if not confirm_write("Install Starter Template", "INSTALL", lines):
+    if not confirm_write("Install / Update Starter Template", "INSTALL", lines):
         return
     result = commit_starter_template_install(prepared)
     show_result(
@@ -599,7 +613,8 @@ def _starter_install_all_lines(
 ) -> tuple[str, ...]:
     return (
         f"Installed: {result.installed_count}",
-        f"Already installed: {result.already_installed_count}",
+        f"Upgraded: {result.upgraded_count}",
+        f"Already current: {result.already_installed_count}",
         f"Processed: {len(result.results)}",
     )
 
@@ -611,26 +626,34 @@ def _install_all_starters(state: MenuSessionContext) -> None:
         )
     )
     missing = sum(
-        item.initial_state != STARTER_INSTALLATION_ALREADY_INSTALLED
+        item.initial_state == STARTER_INSTALLATION_MISSING
         for item in prepared.items
     )
-    already = len(prepared.items) - missing
-    if missing == 0:
+    upgrades = sum(
+        item.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE
+        for item in prepared.items
+    )
+    current = sum(
+        item.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED
+        for item in prepared.items
+    )
+    if missing == 0 and upgrades == 0:
         show_result(
             "Starter Template Library",
             (
-                "All 30 packaged starter Templates are already installed.",
+                "All 30 packaged starter Templates are already current.",
                 "No canonical write is required.",
             ),
         )
         return
     lines = (
         f"Missing starters to install: {missing}",
-        f"Already installed: {already}",
-        "Each missing starter becomes an ordinary active reusable Template.",
-        "Existing exact starter lineages will not be rewritten.",
+        f"Package upgrades available: {upgrades}",
+        f"Already current: {current}",
+        "Missing starters install their complete package-owned lineage.",
+        "Package upgrades append successors without rewriting historical Versions.",
     )
-    if not confirm_write("Install Starter Templates", "INSTALL", lines):
+    if not confirm_write("Install / Update Starter Templates", "INSTALL", lines):
         return
     result = commit_starter_template_install_all(prepared)
     show_result(
@@ -644,8 +667,8 @@ def _starter_library_menu(state: MenuSessionContext) -> None:
         clear_screen()
         print_menu_header("Starter Template Library")
         print("1. Browse / preview starter Templates")
-        print("2. Install one starter Template")
-        print("3. Install all missing starter Templates")
+        print("2. Install / update one starter Template")
+        print("3. Install / update packaged starter Templates")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -654,9 +677,10 @@ def _starter_library_menu(state: MenuSessionContext) -> None:
             clear_screen()
             print_menu_header("Starter Template Library Help")
             print("Starters are packaged synthetic reusable Templates.")
-            print("Browsing is read-only; installation is always explicit.")
+            print("Browsing is read-only; install/update is always explicit.")
+            print("Safe package successors append to immutable starter lineage.")
             print("Installed starters use the ordinary Template authority.")
-            print("Teacher revisions are never reset by reinstalling.")
+            print("Teacher-authored incompatible successors fail closed.")
             print()
             pause_for_user()
             continue
@@ -711,7 +735,7 @@ def launch_template_library_menu(state: MenuSessionContext) -> None:
         print("6. Update Template metadata")
         print("7. Retire version")
         print("8. Retire Template")
-        print("9. Browse / install starter Templates")
+        print("9. Browse / install / update starter Templates")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
