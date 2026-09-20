@@ -99,7 +99,22 @@ def test_issue113_documentation_defines_installed_wheel_gate() -> None:
         "Artifact Author/Subject inspection",
         "historical v1 byte-for-byte replay",
         "python -I",
-        "PENDING",
+    )
+    for fragment in required:
+        assert fragment in text
+
+
+def test_issue113_documentation_records_installed_wheel_acceptance() -> None:
+    text = DOC.read_text(encoding="utf-8")
+    required = (
+        "### Accepted installed-wheel evidence — 2026-09-20",
+        "038f37a450addb1c267d9e89a9bb082b398cc4f6",
+        "78a133e0317f336dc81efb3dbc977bb84ed4b20048d2d00ace11ebc0f56322e2",
+        "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5",
+        "pip check:",
+        "historical v1 byte-for-byte replay after upgrade:",
+        "overall installed-wheel acceptance:",
+        "PASS",
     )
     for fragment in required:
         assert fragment in text
