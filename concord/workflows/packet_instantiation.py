@@ -165,6 +165,7 @@ class PlannedPacketArtifact:
     )
     proposed_subject_reference: SubjectReference | None
     proposed_subject_role: str | None = None
+    subject_print_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -1255,16 +1256,19 @@ def _plan_artifact(
                     "teacher rendering binding cannot override system-controlled "
                     f"input: {component.packet_component_id}:{input_key}"
                 )
-            value, status = _resolve_system_input(
-                root,
-                class_id,
-                activity,
-                session,
-                target,
-                declaration.source_kind,
-                generation_date,
-                graph,
-            )
+            if declaration.source_kind == "subject_display_label":
+                value, status = None, "pending_subject"
+            else:
+                value, status = _resolve_system_input(
+                    root,
+                    class_id,
+                    activity,
+                    session,
+                    target,
+                    declaration.source_kind,
+                    generation_date,
+                    graph,
+                )
             if status == "unresolved" and declaration.required:
                 diagnostics.append(
                     PacketInstantiationDiagnostic(
@@ -1330,6 +1334,66 @@ def _plan_artifact(
             )
         )
     privacy = _effective_privacy(activity, version, target, subject)
+    has_subject_display = any(
+        item.source_kind == "subject_display_label"
+        for item in planned_inputs
+    )
+    subject_print_label = (
+        _subject_display_label(
+            root,
+            class_id,
+            activity,
+            session,
+            subject,
+            roster,
+            groups,
+            privacy_minimized=True,
+        )
+        if has_subject_display
+        else None
+    )
+    for index, planned_input in enumerate(planned_inputs):
+        if planned_input.source_kind != "subject_display_label":
+            continue
+        declaration = input_by_key[planned_input.input_key]
+        value = _subject_display_label(
+            root,
+            class_id,
+            activity,
+            session,
+            subject,
+            roster,
+            groups,
+            privacy_minimized=False,
+        )
+        status = "resolved" if value is not None else "unresolved"
+        if (
+            status == "unresolved"
+            and declaration.required
+            and subject_blocking_code is None
+        ):
+            diagnostics.append(
+                PacketInstantiationDiagnostic(
+                    code="required_system_input_unresolved",
+                    message=(
+                        "Required system rendering input cannot be resolved "
+                        "for this target."
+                    ),
+                    blocking=True,
+                    packet_component_id=component.packet_component_id,
+                    target_key=target_key,
+                    input_key=planned_input.input_key,
+                )
+            )
+        if value is not None:
+            _validate_rendering_value(declaration, value)
+        planned_inputs[index] = PlannedRenderingInput(
+            input_key=planned_input.input_key,
+            source_kind=planned_input.source_kind,
+            value_kind=planned_input.value_kind,
+            status=status,
+            value=value,
+        )
     consumed_subject: set[tuple[str, str]] = (
         {subject_binding_key} if subject_binding_used else set()
     )
@@ -1353,6 +1417,7 @@ def _plan_artifact(
             proposed_author_reference=author,
             proposed_subject_reference=subject,
             proposed_subject_role=subject_role,
+            subject_print_label=subject_print_label,
         ),
         consumed,
         consumed_subject,
@@ -1711,6 +1776,55 @@ def _validate_explicit_subject_binding(
             "Packet Subject must differ from the Packet target for this exact "
             "Template Version."
         )
+
+
+def _subject_display_label(
+    root: Path,
+    class_id: str,
+    activity: Activity,
+    session: Session,
+    subject: SubjectReference | None,
+    roster: Roster | None,
+    groups: tuple[Group, ...],
+    *,
+    privacy_minimized: bool,
+) -> str | None:
+    if subject is None:
+        return None
+    if subject.subject_kind == "core_student":
+        if subject.owning_system != "core":
+            return None
+        participant = ParticipantReference(
+            participant_kind="core_student",
+            participant_id=subject.subject_id,
+            owning_system="core",
+        )
+        if privacy_minimized:
+            return resolve_participant_print_label(roster, participant)
+        return participant_display_label(root, class_id, participant)
+    if subject.subject_kind == "concord_group":
+        if subject.owning_system != "concord":
+            return None
+        group = next(
+            (item for item in groups if item.group_id == subject.subject_id),
+            None,
+        )
+        return None if group is None else group.label
+    if subject.subject_kind == "concord_session":
+        if (
+            subject.owning_system != "concord"
+            or subject.subject_id != session.session_id
+        ):
+            return None
+        return session.label or f"Session {session.sequence}"
+    if subject.subject_kind == "concord_activity":
+        if (
+            subject.owning_system != "concord"
+            or subject.subject_id != activity.activity_id
+        ):
+            return None
+        return activity.title
+    return None
 
 
 def _effective_privacy(

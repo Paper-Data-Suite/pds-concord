@@ -51,6 +51,11 @@ STARTER_HEADER_INPUT_KEYS = frozenset(
         "session_label",
         "group_label",
         "participant_display_label",
+        "reviewer_display_label",
+        "reviewee_display_label",
+        "reviewed_display_label",
+        "observer_display_label",
+        "observed_display_label",
         "current_date",
         "teacher_prompt",
     }

@@ -327,6 +327,7 @@ def _build_generation(
                 prepared.request.activity_id,
                 artifact_id,
                 template_version,
+                planned,
                 target_plan.participant_print_label,
                 created,
             )
@@ -394,6 +395,7 @@ def _build_pages(
     activity_id: str,
     artifact_instance_id: str,
     template_version: TemplateVersion,
+    planned: PlannedPacketArtifact,
     participant_print_label: str | None,
     created: Provenance,
 ) -> tuple[ArtifactPage, ...]:
@@ -412,6 +414,7 @@ def _build_pages(
                 class_id,
                 activity_id,
                 page_id,
+                planned,
                 participant_print_label,
             )
             fallback_key = definition.human_fallback_input_key
@@ -447,15 +450,47 @@ def _physical_human_fallback(
     class_id: str,
     activity_id: str,
     artifact_page_id: str,
+    planned: PlannedPacketArtifact,
     participant_print_label: str | None,
 ) -> str:
     parts = [
         f"Concord {activity_id} page {artifact_page_id}",
         f"Class: {class_id}",
     ]
-    if participant_print_label is not None:
+    relationship = _physical_relationship_labels(planned)
+    if (
+        relationship is not None
+        and participant_print_label is not None
+        and planned.subject_print_label is not None
+    ):
+        author_label, subject_label = relationship
+        parts.append(f"{author_label}: {participant_print_label}")
+        parts.append(f"{subject_label}: {planned.subject_print_label}")
+    elif participant_print_label is not None:
         parts.append(f"Student: {participant_print_label}")
     return " | ".join(parts)
+
+
+def _physical_relationship_labels(
+    planned: PlannedPacketArtifact,
+) -> tuple[str, str] | None:
+    input_keys = {item.input_key for item in planned.rendering_inputs}
+    if {
+        "reviewer_display_label",
+        "reviewee_display_label",
+    }.issubset(input_keys):
+        return "Reviewer", "Reviewee"
+    if {
+        "reviewer_display_label",
+        "reviewed_display_label",
+    }.issubset(input_keys):
+        return "Reviewer", "Reviewed"
+    if {
+        "observer_display_label",
+        "observed_display_label",
+    }.issubset(input_keys):
+        return "Observer", "Observed"
+    return None
 
 
 def _frozen_rendering_values(

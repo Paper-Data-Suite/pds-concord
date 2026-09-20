@@ -41,6 +41,7 @@ TEMPLATE_RENDERING_INPUT_SOURCES = frozenset(
         "session_label",
         "group_label",
         "participant_display_label",
+        "subject_display_label",
         "current_date",
         "criterion_label",
         "pds2_route_payload",

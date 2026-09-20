@@ -221,9 +221,47 @@ def test_v2_rendering_uses_separate_canonical_package_assets() -> None:
         assert v2.version.rendering_specification_reference != (
             v1.version.rendering_specification_reference
         )
-        # Slice 5 intentionally keeps the printable layout unchanged while
-        # freezing the corrected relationship semantics in a new Version.
-        assert v2.rendering_specification == v1.rendering_specification
+        assert v2.rendering_specification != v1.rendering_specification
+
+        expected_headers = {
+            "fishbowl_observer": (
+                "observer_display_label",
+                "observed_display_label",
+            ),
+            "talk_moves_observer": (
+                "observer_display_label",
+                "observed_display_label",
+            ),
+            "peer_review_writing": (
+                "reviewer_display_label",
+                "reviewee_display_label",
+            ),
+            "peer_review_presentation": (
+                "reviewer_display_label",
+                "reviewed_display_label",
+            ),
+            "peer_design_code_review": (
+                "reviewer_display_label",
+                "reviewed_display_label",
+            ),
+        }[starter_key]
+        for page in v2.version.page_manifest:
+            assert "participant_display_label" not in page.rendering_input_keys
+            assert set(expected_headers).issubset(page.rendering_input_keys)
+        inputs = {
+            item.input_key: item for item in v2.version.rendering_inputs
+        }
+        assert inputs[expected_headers[0]].source_kind == (
+            "participant_display_label"
+        )
+        assert inputs[expected_headers[1]].source_kind == (
+            "subject_display_label"
+        )
+        assert inputs["human_fallback"].max_length == 240
+        v1_inputs = {
+            item.input_key: item for item in v1.version.rendering_inputs
+        }
+        assert v1_inputs["human_fallback"].max_length == 160
 
 
 def test_socratic_seminar_remains_exact_v1_only() -> None:
