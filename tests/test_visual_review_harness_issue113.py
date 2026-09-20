@@ -226,6 +226,29 @@ def test_issue113_visual_harness_requires_explicit_owner_classification() -> Non
     assert "overall visual review: PASS" not in source
 
 
+def test_issue113_visual_documentation_records_accepted_evidence() -> None:
+    text = DOC.read_text(encoding="utf-8")
+    required = (
+        "### Accepted visual-review evidence — 2026-09-20",
+        "1c5e132b39e5f1844bf2fd72f8cf84274e4ebc24",
+        "2150442",
+        "682897cbb12a3cebaecb010cd86d4ceaf6772bec194d117a268b837054c5fc01",
+        "Stephen Severino",
+        "2026-09-20T15:41:10.145190-04:00",
+        "classification source:",
+        "explicit owner/tester CLI input",
+        "Fishbowl Observer v2: PASS",
+        "Talk-Moves Observer v2: PASS",
+        "Peer Review — Writing v2: PASS",
+        "Peer Review — Presentation / Product v2: PASS",
+        "Peer Design / Code Review v2: PASS",
+        "overall visual review: PASS",
+        "Installed-wheel acceptance was **not yet run**",
+    )
+    for fragment in required:
+        assert fragment in text
+
+
 def test_issue113_visual_documentation_points_to_persistent_harness() -> None:
     text = DOC.read_text(encoding="utf-8")
     required = (
