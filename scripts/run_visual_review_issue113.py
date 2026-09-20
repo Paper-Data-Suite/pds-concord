@@ -70,7 +70,7 @@ REVIEWEE_LAST = "Van-Der-Meer-Santiago"
 COLLABORATOR_FIRST = "Marisol"
 COLLABORATOR_LAST = "O'Connell-Ramirez"
 
-SEMINAR_ACTIVITY_ID = "issue113-seminar-relationship-review"
+SEMINAR_ACTIVITY_ID = "i113-seminar"
 SEMINAR_SESSION_ID = "issue113-seminar-session"
 SEMINAR_ROLE_ID = "issue113-seminar-observer-role"
 SEMINAR_ROLE_KEY = "observer"

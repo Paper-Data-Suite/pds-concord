@@ -12,6 +12,21 @@ def _source() -> str:
     return SCRIPT.read_text(encoding="utf-8")
 
 
+def _string_constant(name: str) -> str:
+    tree = ast.parse(_source())
+    for node in tree.body:
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name) or target.id != name:
+            continue
+        value = ast.literal_eval(node.value)
+        if not isinstance(value, str):
+            raise AssertionError(f"{name} is not a string constant")
+        return value
+    raise AssertionError(f"missing string constant: {name}")
+
+
 def test_issue113_visual_harness_compiles_and_has_prepare_approve_stages() -> None:
     source = _source()
     ast.parse(source)
@@ -56,6 +71,51 @@ def test_issue113_visual_harness_stresses_long_realistic_identity_text() -> None
     )
     for fragment in required:
         assert fragment in source
+
+
+def test_issue113_visual_fallback_stress_cases_fit_v2_bound() -> None:
+    class_id = _string_constant("CLASS_ID")
+    seminar_activity = _string_constant("SEMINAR_ACTIVITY_ID")
+    project_activity = _string_constant("PROJECT_ACTIVITY_ID")
+    reviewer_first = _string_constant("REVIEWER_FIRST")
+    reviewer_last = _string_constant("REVIEWER_LAST")
+    reviewee_first = _string_constant("REVIEWEE_FIRST")
+    reviewee_last = _string_constant("REVIEWEE_LAST")
+    session_label = _string_constant("SEMINAR_SESSION_LABEL")
+    group_label = _string_constant("REVIEWED_GROUP_LABEL")
+
+    page_id = "page_" + ("0" * 32)
+    reviewer = f"{reviewer_first} {reviewer_last[0]}."
+    reviewee = f"{reviewee_first} {reviewee_last[0]}."
+
+    observer_fallback = " | ".join(
+        (
+            f"Concord {seminar_activity} page {page_id}",
+            f"Class: {class_id}",
+            f"Observer: {reviewer}",
+            f"Observed: {session_label}",
+        )
+    )
+    group_review_fallback = " | ".join(
+        (
+            f"Concord {project_activity} page {page_id}",
+            f"Class: {class_id}",
+            f"Reviewer: {reviewer}",
+            f"Reviewed: {group_label}",
+        )
+    )
+    student_review_fallback = " | ".join(
+        (
+            f"Concord {project_activity} page {page_id}",
+            f"Class: {class_id}",
+            f"Reviewer: {reviewer}",
+            f"Reviewee: {reviewee}",
+        )
+    )
+
+    assert 230 <= len(observer_fallback) <= 240
+    assert 230 <= len(group_review_fallback) <= 240
+    assert len(student_review_fallback) <= 240
 
 
 def test_issue113_visual_harness_uses_real_packet_rendering_and_qr_gate() -> None:
