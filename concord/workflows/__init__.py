@@ -340,6 +340,10 @@ from concord.workflows.participants import (
     participant_display_label,
     validate_participant_reference,
 )
+from concord.workflows.rendered_output import (
+    ResolvedRenderedPacketOutput,
+    resolve_rendered_packet_output,
+)
 from concord.workflows.responsibility import (
     assign_responsibility,
     end_responsibility,
@@ -505,6 +509,8 @@ __all__ = [
     "PacketInstanceSummary",
     "list_packet_instances",
     "show_packet_instance",
+    "ResolvedRenderedPacketOutput",
+    "resolve_rendered_packet_output",
     "PacketCommittedPage",
     "PacketInstantiationCommitResult",
     "PacketInstantiationPartialSuccessError",
