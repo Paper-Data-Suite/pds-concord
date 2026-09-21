@@ -1,6 +1,7 @@
 """Supported Concord-native immutable models."""
 
 from concord.models.artifacts import (
+    ARTIFACT_SUBJECT_ROLES,
     ArtifactAuthor,
     ArtifactInstance,
     ArtifactPage,
@@ -65,12 +66,14 @@ from concord.models.templates import (
     TemplateRenderingInput,
     TemplateResponseRegion,
     TemplateSubjectExpectation,
+    TemplateSubjectResolutionExpectation,
     TemplateVersion,
 )
 
 __all__ = [
     "Activity",
     "ActorReference",
+    "ARTIFACT_SUBJECT_ROLES",
     "ArtifactAuthor",
     "ArtifactInstance",
     "ArtifactPage",
@@ -123,5 +126,6 @@ __all__ = [
     "TemplateRenderingInput",
     "TemplateResponseRegion",
     "TemplateSubjectExpectation",
+    "TemplateSubjectResolutionExpectation",
     "TemplateVersion",
 ]

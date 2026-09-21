@@ -91,6 +91,7 @@ def _smoke_code() -> str:
         from concord.routing.scan_intake import route_scan_sources
         from concord.starter_templates import get_starter_template
         from concord.storage import load_current_record_graph
+        from concord.template_storage import load_current_template
         from concord.workflows import (
             AddArtifactReviewRequest,
             AddScoreRequest,
@@ -104,6 +105,7 @@ def _smoke_code() -> str:
             CreateScoringScaleRequest,
             CreateSignalGroupPlanRequest,
             CriterionSpec,
+            PacketSubjectBinding,
             PrepareGroupPlanApplicationRequest,
             PreparePacketInstantiationRequest,
             PrepareStarterTemplateInstallRequest,
@@ -1561,8 +1563,6 @@ def _smoke_code() -> str:
             peer_stage("random GroupPlan approval and application")
 
             peer_starter = get_starter_template("peer_review_writing")
-            peer_page_count = peer_starter.page_count
-            assert peer_page_count > 0
             assert "participant" in peer_starter.suggested_audience_kinds
             assert peer_starter.default_authorship_mode == "individual_author"
             assert peer_starter.default_subject_kind == "core_student"
@@ -1581,8 +1581,80 @@ def _smoke_code() -> str:
             assert peer_starter_result.template_id == peer_starter.template_id
             assert (
                 peer_starter_result.template_version_id
+                != peer_starter.template_version_id
+            )
+
+            peer_template_library = load_current_template(
+                root,
+                peer_starter.template_id,
+            )
+            peer_current_version = peer_template_library.current_version
+            assert peer_current_version is not None
+            assert (
+                peer_current_version.template_version_id
+                == peer_starter_result.template_version_id
+            )
+            assert (
+                peer_current_version.supersedes_template_version_id
                 == peer_starter.template_version_id
             )
+            peer_page_count = len(peer_current_version.page_manifest)
+            assert peer_page_count == peer_starter.page_count
+            assert peer_page_count > 0
+
+            peer_memberships_for_pairing = list_memberships(
+                class_id,
+                peer_activity_id,
+                workspace_root=root,
+            )
+            assert len(peer_memberships_for_pairing) == 4
+            peer_students_by_group: dict[str, list[str]] = {}
+            for membership in peer_memberships_for_pairing:
+                participant = membership.participant_reference
+                assert participant.participant_kind == "core_student"
+                assert participant.owning_system == "core"
+                peer_students_by_group.setdefault(
+                    membership.group_id,
+                    [],
+                ).append(participant.participant_id)
+            assert set(peer_students_by_group) == peer_group_ids
+            assert sorted(
+                len(student_ids)
+                for student_ids in peer_students_by_group.values()
+            ) == [2, 2]
+
+            peer_reviewee_by_reviewer: dict[str, str] = {}
+            for student_ids in peer_students_by_group.values():
+                first, second = sorted(student_ids)
+                peer_reviewee_by_reviewer[first] = second
+                peer_reviewee_by_reviewer[second] = first
+            assert set(peer_reviewee_by_reviewer) == {
+                "student-1",
+                "student-2",
+                "student-3",
+                "student-4",
+            }
+            assert all(
+                reviewer_id != reviewee_id
+                for reviewer_id, reviewee_id in peer_reviewee_by_reviewer.items()
+            )
+
+            peer_subject_bindings = tuple(
+                PacketSubjectBinding(
+                    packet_component_id="component-peer-review-issue70",
+                    target_key=f"participant:{reviewer_id}",
+                    subject_reference=SubjectReference(
+                        subject_kind="core_student",
+                        subject_id=reviewee_id,
+                        owning_system="core",
+                    ),
+                )
+                for reviewer_id, reviewee_id in sorted(
+                    peer_reviewee_by_reviewer.items()
+                )
+            )
+            assert len(peer_subject_bindings) == 4
+
             peer_packet_prepared = prepare_packet_from_template(
                 PreparePacketFromTemplateRequest(
                     packet_definition_id="packet-peer-review-issue70",
@@ -1590,8 +1662,8 @@ def _smoke_code() -> str:
                     packet_component_id="component-peer-review-issue70",
                     name="Issue 70 Peer Review Packet",
                     purpose="Representative installed peer-review acceptance.",
-                    template_id=peer_starter.template_id,
-                    template_version_id=peer_starter.template_version_id,
+                    template_id=peer_starter_result.template_id,
+                    template_version_id=peer_starter_result.template_version_id,
                     audience_kind="participant",
                     actor=actor,
                 ),
@@ -1602,6 +1674,7 @@ def _smoke_code() -> str:
                 workspace_root=root,
             )
             assert peer_packet_result.status == "active"
+            peer_stage("package-current starter and explicit reviewee mapping")
 
             peer_prepared_generation = prepare_packet_instantiation(
                 PreparePacketInstantiationRequest(
@@ -1611,6 +1684,7 @@ def _smoke_code() -> str:
                     packet_definition_id="packet-peer-review-issue70",
                     packet_version_id="packet-peer-review-issue70-v1",
                     actor=actor,
+                    subject_bindings=peer_subject_bindings,
                 ),
                 workspace_root=root,
             )
@@ -1619,6 +1693,32 @@ def _smoke_code() -> str:
             assert peer_prepared_generation.artifact_count == 4
             assert peer_prepared_generation.page_count == 4 * peer_page_count
             assert peer_prepared_generation.route_count == 4 * peer_page_count
+            for target_plan in peer_prepared_generation.target_plans:
+                target = target_plan.target_context
+                assert target.audience_kind == "participant"
+                assert target.participant_reference is not None
+                reviewer_id = target.participant_reference.participant_id
+                reviewee_id = peer_reviewee_by_reviewer[reviewer_id]
+                assert target_plan.target_key == f"participant:{reviewer_id}"
+                assert len(target_plan.artifacts) == 1
+                planned_artifact = target_plan.artifacts[0]
+                assert (
+                    planned_artifact.template_version_id
+                    == peer_starter_result.template_version_id
+                )
+                assert planned_artifact.proposed_author_reference is not None
+                assert (
+                    planned_artifact.proposed_author_reference.participant_id
+                    == reviewer_id
+                )
+                assert planned_artifact.proposed_subject_reference == (
+                    SubjectReference(
+                        subject_kind="core_student",
+                        subject_id=reviewee_id,
+                        owning_system="core",
+                    )
+                )
+                assert planned_artifact.proposed_subject_role == "reviewed_subject"
             peer_planned_students = {
                 target.target_context.participant_reference.participant_id
                 for target in peer_prepared_generation.target_plans

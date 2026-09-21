@@ -295,6 +295,11 @@ def _draw_metadata_grid(
         "session_label": "Session",
         "group_label": "Group",
         "participant_display_label": "Participant",
+        "reviewer_display_label": "Reviewer",
+        "reviewee_display_label": "Reviewee",
+        "reviewed_display_label": "Reviewed",
+        "observer_display_label": "Observer",
+        "observed_display_label": "Observed",
         "current_date": "Date",
     }
     width = right - left

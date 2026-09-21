@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pds_core.classes import load_class_roster
+from pds_core.rosters import student_display_name, student_sort_name
+from pds_core.workspace import resolve_workspace_root
+
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -23,9 +27,15 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
-from concord.models import PacketComponent, TemplateRenderingInput
+from concord.models import (
+    PacketComponent,
+    SubjectReference,
+    TemplateRenderingInput,
+    TemplateSubjectResolutionExpectation,
+)
 from concord.workflows import ActivitySummary, SessionSummary, list_sessions
 from concord.workflows.errors import ConcordWorkflowError
+from concord.workflows.group import list_groups
 from concord.workflows.packet import PacketSummary, get_packet, list_packets
 from concord.workflows.packet_instance import (
     PacketInstanceSummary,
@@ -35,6 +45,7 @@ from concord.workflows.packet_instance import (
 from concord.workflows.packet_instantiation import (
     PacketComponentChoice,
     PacketRenderingBinding,
+    PacketSubjectBinding,
     PreparedPacketInstantiation,
     PreparePacketInstantiationRequest,
     prepare_packet_instantiation,
@@ -97,6 +108,10 @@ def _help() -> None:
     print_menu_header("Packet Generation Help")
     print("Choose one exact active Packet Version and one explicit Session.")
     print("Concord resolves audience targets before any generation state is written.")
+    print(
+        "Relationship-aware peer review asks you to assign each reviewed "
+        "Student or Group explicitly."
+    )
     print("The preview shows exact counts, diagnostics, and a review digest.")
     print("Type GENERATE only after reviewing the resolved generation.")
     print("A retry reuses durable Packet, Artifact, Page, and route identities.")
@@ -155,6 +170,21 @@ def _generate(
                     actor=state.require_actor(),
                     component_choices=choices,
                     rendering_bindings=bindings,
+                )
+            )
+        subject_bindings = _prompt_missing_subject_bindings(prepared)
+        if subject_bindings:
+            prepared = prepare_packet_instantiation(
+                PreparePacketInstantiationRequest(
+                    class_id=activity.class_id,
+                    activity_id=activity.activity_id,
+                    session_id=session.session_id,
+                    packet_definition_id=summary.packet_definition_id,
+                    packet_version_id=version.packet_version_id,
+                    actor=state.require_actor(),
+                    component_choices=choices,
+                    rendering_bindings=bindings,
+                    subject_bindings=subject_bindings,
                 )
             )
         lines = _preview_lines(prepared)
@@ -358,6 +388,165 @@ def _prompt_missing_bindings(
     return tuple(bindings)
 
 
+def _prompt_missing_subject_bindings(
+    prepared: PreparedPacketInstantiation,
+) -> tuple[PacketSubjectBinding, ...]:
+    """Collect explicit peer-review Subjects without inferring pairings."""
+    missing: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for diagnostic in prepared.diagnostics:
+        if (
+            diagnostic.code == "artifact_subject_binding_required"
+            and diagnostic.packet_component_id is not None
+            and diagnostic.target_key is not None
+        ):
+            key = (diagnostic.packet_component_id, diagnostic.target_key)
+            if key not in seen:
+                seen.add(key)
+                missing.append(key)
+    if not missing:
+        return ()
+
+    root = resolve_workspace_root()
+    roster = load_class_roster(root, prepared.request.class_id)
+    students = tuple(sorted(roster.students, key=student_sort_name))
+    groups = tuple(
+        item
+        for item in list_groups(
+            prepared.request.class_id,
+            prepared.request.activity_id,
+            workspace_root=root,
+        )
+        if item.status in {"planned", "active"}
+    )
+    expectations = _explicit_subject_expectation_index(prepared)
+    targets = {item.target_key: item for item in prepared.target_plans}
+    bindings: list[PacketSubjectBinding] = []
+
+    for component_id, target_key in missing:
+        expectation = expectations.get(component_id)
+        if expectation is None:
+            raise ConcordWorkflowError(
+                "Packet preview requested an explicit Subject for a component "
+                "without an explicit Subject-resolution contract."
+            )
+        target = targets.get(target_key)
+        if target is None:
+            raise ConcordWorkflowError(
+                "Packet preview Subject assignment target is no longer available."
+            )
+        reviewer_id = (
+            None
+            if target.target_context.participant_reference is None
+            else target.target_context.participant_reference.participant_id
+        )
+        available_kinds = tuple(
+            kind
+            for kind in ("core_student", "concord_group")
+            if kind in expectation.subject_kinds
+            and (
+                (
+                    kind == "core_student"
+                    and any(
+                        expectation.allow_target_subject_match
+                        or item.student_id != reviewer_id
+                        for item in students
+                    )
+                )
+                or (kind == "concord_group" and bool(groups))
+            )
+        )
+        if not available_kinds:
+            raise ConcordWorkflowError(
+                "No eligible reviewed Subjects are available for this "
+                "relationship-aware Packet component."
+            )
+        if len(available_kinds) == 1:
+            subject_kind = available_kinds[0]
+        else:
+            subject_kind = select_one(
+                "Choose Reviewed Subject Type",
+                available_kinds,
+                tuple(
+                    "Student" if item == "core_student" else "Group"
+                    for item in available_kinds
+                ),
+                help_text=(
+                    "Choose whether this reviewer is evaluating one student or "
+                    "one Activity Group. Concord will not infer a pairing."
+                ),
+            )
+
+        reviewer_label = target.participant_print_label or "this reviewer"
+        if subject_kind == "core_student":
+            candidates = tuple(
+                item
+                for item in students
+                if expectation.allow_target_subject_match
+                or item.student_id != reviewer_id
+            )
+            selected = select_one(
+                "Assign Review Subject",
+                candidates,
+                tuple(student_display_name(item) for item in candidates),
+                help_text=(
+                    f"Choose the student reviewed by {reviewer_label}. "
+                    "No reviewer/reviewee pairing is inferred automatically."
+                ),
+            )
+            subject = SubjectReference(
+                subject_kind="core_student",
+                subject_id=selected.student_id,
+                owning_system="core",
+            )
+        else:
+            selected_group = select_one(
+                "Assign Review Subject",
+                groups,
+                tuple(f"{item.label} [{item.status}]" for item in groups),
+                help_text=(
+                    f"Choose the Activity Group reviewed by {reviewer_label}. "
+                    "Group membership is not expanded into student Subjects."
+                ),
+            )
+            subject = SubjectReference(
+                subject_kind="concord_group",
+                subject_id=selected_group.group_id,
+                owning_system="concord",
+            )
+        bindings.append(
+            PacketSubjectBinding(
+                packet_component_id=component_id,
+                target_key=target_key,
+                subject_reference=subject,
+            )
+        )
+    return tuple(bindings)
+
+
+def _explicit_subject_expectation_index(
+    prepared: PreparedPacketInstantiation,
+) -> dict[str, TemplateSubjectResolutionExpectation]:
+    versions = {
+        source.template_version_id: source.template_version
+        for source in prepared.template_sources
+    }
+    result: dict[str, TemplateSubjectResolutionExpectation] = {}
+    for component in prepared.packet_version.components:
+        if component.template_version_id is None:
+            continue
+        version = versions.get(component.template_version_id)
+        if version is None:
+            continue
+        expectation = version.default_subject_expectation
+        if (
+            isinstance(expectation, TemplateSubjectResolutionExpectation)
+            and expectation.resolution_mode == "explicit"
+        ):
+            result[component.packet_component_id] = expectation
+    return result
+
+
 def _rendering_input_index(
     prepared: PreparedPacketInstantiation,
 ) -> dict[tuple[str, str], TemplateRenderingInput]:
@@ -407,6 +596,11 @@ def _preview_lines(
         f"{target.target_key}: {len(target.artifacts)} artifact(s)"
         for target in prepared.target_plans
     )
+    relationships = _relationship_preview_lines(prepared)
+    if relationships:
+        lines.append("")
+        lines.append("Relationships:")
+        lines.extend(relationships)
     if prepared.diagnostics:
         lines.append("")
         lines.append("Diagnostics:")
@@ -417,6 +611,44 @@ def _preview_lines(
             )
             for item in prepared.diagnostics
         )
+    return tuple(lines)
+
+
+def _relationship_preview_lines(
+    prepared: PreparedPacketInstantiation,
+) -> tuple[str, ...]:
+    """Render reviewed peer/observer relationships without exposing raw IDs."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for target in prepared.target_plans:
+        target_label = target.participant_print_label
+        if target_label is None:
+            continue
+        for artifact in target.artifacts:
+            subject_label = artifact.subject_print_label
+            if subject_label is None:
+                continue
+            if artifact.proposed_subject_role == "reviewed_subject":
+                input_keys = {item.input_key for item in artifact.rendering_inputs}
+                subject_role = (
+                    "Reviewee"
+                    if "reviewee_display_label" in input_keys
+                    else "Reviewed"
+                )
+                line = (
+                    f"Reviewer: {target_label} | "
+                    f"{subject_role}: {subject_label}"
+                )
+            elif (
+                artifact.authorship_mode == "observer"
+                and artifact.proposed_subject_role == "session_context"
+            ):
+                line = f"Observer: {target_label} | Observed: {subject_label}"
+            else:
+                continue
+            if line not in seen:
+                seen.add(line)
+                lines.append(line)
     return tuple(lines)
 
 

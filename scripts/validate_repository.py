@@ -253,6 +253,16 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_issue113_relationships_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: issue #113 starter relationships",
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,

@@ -8,10 +8,13 @@ from pathlib import Path
 from typing import cast
 
 from concord.cli_app.common import workflow_actor, workspace_arg
+from concord.models import ParticipantReference, SubjectReference
+from concord.workflows.context import resolve_read_workspace_root
 from concord.workflows.errors import (
     ConcordWorkflowConflictError,
     ConcordWorkflowValidationError,
 )
+from concord.workflows.group import show_group
 from concord.workflows.packet_instance import (
     PacketInstanceDetail,
     list_packet_instances,
@@ -19,7 +22,10 @@ from concord.workflows.packet_instance import (
 )
 from concord.workflows.packet_instantiation import (
     PacketComponentChoice,
+    PacketInstantiationTargetPlan,
     PacketRenderingBinding,
+    PacketSubjectBinding,
+    PlannedPacketArtifact,
     PreparedPacketInstantiation,
     PreparePacketInstantiationRequest,
     prepare_packet_instantiation,
@@ -34,11 +40,15 @@ from concord.workflows.packet_rendering import (
     render_packet_generation,
     render_packet_instance,
 )
+from concord.workflows.participants import (
+    load_required_roster,
+    participant_print_label,
+)
 
 
 def handle_instantiate_preview(args: argparse.Namespace) -> int:
     prepared = _prepare(args)
-    _print_preview(prepared)
+    _print_preview(prepared, workspace_root=workspace_arg(args))
     return 0
 
 
@@ -49,7 +59,7 @@ def handle_instantiate(args: argparse.Namespace) -> int:
             "review digest does not match the current zero-write Packet preview."
         )
     if not prepared.ready_for_commit:
-        _print_preview(prepared)
+        _print_preview(prepared, workspace_root=workspace_arg(args))
         raise ConcordWorkflowValidationError(
             "Packet preview contains blocking diagnostics."
         )
@@ -159,7 +169,7 @@ def handle_generation_render(args: argparse.Namespace) -> int:
 
 
 def _prepare(args: argparse.Namespace) -> PreparedPacketInstantiation:
-    choices, bindings = _load_options(args.options_file)
+    choices, bindings, subject_bindings = _load_options(args.options_file)
     return prepare_packet_instantiation(
         PreparePacketInstantiationRequest(
             class_id=args.class_id,
@@ -170,6 +180,7 @@ def _prepare(args: argparse.Namespace) -> PreparedPacketInstantiation:
             actor=workflow_actor(args),
             component_choices=choices,
             rendering_bindings=bindings,
+            subject_bindings=subject_bindings,
         ),
         workspace_root=workspace_arg(args),
     )
@@ -177,9 +188,13 @@ def _prepare(args: argparse.Namespace) -> PreparedPacketInstantiation:
 
 def _load_options(
     path_value: str | None,
-) -> tuple[tuple[PacketComponentChoice, ...], tuple[PacketRenderingBinding, ...]]:
+) -> tuple[
+    tuple[PacketComponentChoice, ...],
+    tuple[PacketRenderingBinding, ...],
+    tuple[PacketSubjectBinding, ...],
+]:
     if path_value is None:
-        return (), ()
+        return (), (), ()
     path = Path(path_value).expanduser()
     try:
         raw: object = json.loads(path.read_text(encoding="utf-8"))
@@ -192,7 +207,11 @@ def _load_options(
             "Packet instantiation options must be a JSON object."
         )
     document = cast(dict[str, object], raw)
-    allowed = {"component_choices", "rendering_bindings"}
+    allowed = {
+        "component_choices",
+        "rendering_bindings",
+        "subject_bindings",
+    }
     unknown = set(document) - allowed
     if unknown:
         raise ConcordWorkflowValidationError(
@@ -201,7 +220,10 @@ def _load_options(
         )
     choices = _parse_choices(document.get("component_choices", []))
     bindings = _parse_bindings(document.get("rendering_bindings", []))
-    return choices, bindings
+    subject_bindings = _parse_subject_bindings(
+        document.get("subject_bindings", [])
+    )
+    return choices, bindings, subject_bindings
 
 
 def _parse_choices(value: object) -> tuple[PacketComponentChoice, ...]:
@@ -272,7 +294,89 @@ def _parse_bindings(value: object) -> tuple[PacketRenderingBinding, ...]:
     return tuple(result)
 
 
-def _print_preview(prepared: PreparedPacketInstantiation) -> None:
+def _parse_subject_bindings(
+    value: object,
+) -> tuple[PacketSubjectBinding, ...]:
+    if not isinstance(value, list):
+        raise ConcordWorkflowValidationError(
+            "subject_bindings must be a JSON array."
+        )
+    result: list[PacketSubjectBinding] = []
+    for raw_item in cast(list[object], value):
+        if not isinstance(raw_item, dict):
+            raise ConcordWorkflowValidationError(
+                "each Subject binding must be a JSON object."
+            )
+        item = cast(dict[str, object], raw_item)
+        if set(item) != {"packet_component_id", "target_key", "subject"}:
+            raise ConcordWorkflowValidationError(
+                "Subject binding keys must be packet_component_id, "
+                "target_key, and subject."
+            )
+        component_id = item["packet_component_id"]
+        target_key = item["target_key"]
+        raw_subject = item["subject"]
+        if not isinstance(component_id, str) or not isinstance(target_key, str):
+            raise ConcordWorkflowValidationError(
+                "Subject binding component and target identities must be strings."
+            )
+        if not isinstance(raw_subject, dict):
+            raise ConcordWorkflowValidationError(
+                "Subject binding subject must be a JSON object."
+            )
+        subject_document = cast(dict[str, object], raw_subject)
+        required = {"subject_kind", "subject_id", "owning_system"}
+        allowed = required | {"contract_version"}
+        if not required.issubset(subject_document) or (
+            set(subject_document) - allowed
+        ):
+            raise ConcordWorkflowValidationError(
+                "Subject keys must be subject_kind, subject_id, owning_system, "
+                "with optional contract_version."
+            )
+        subject_kind = subject_document["subject_kind"]
+        subject_id = subject_document["subject_id"]
+        owning_system = subject_document["owning_system"]
+        contract_version = subject_document.get("contract_version")
+        if (
+            not isinstance(subject_kind, str)
+            or not isinstance(subject_id, str)
+            or not isinstance(owning_system, str)
+            or (
+                contract_version is not None
+                and not isinstance(contract_version, str)
+            )
+        ):
+            raise ConcordWorkflowValidationError(
+                "Subject identity fields must be strings; contract_version "
+                "may also be null."
+            )
+        try:
+            subject = SubjectReference(
+                subject_kind=subject_kind,
+                subject_id=subject_id,
+                owning_system=owning_system,
+                contract_version=contract_version,
+            )
+            result.append(
+                PacketSubjectBinding(
+                    packet_component_id=component_id,
+                    target_key=target_key,
+                    subject_reference=subject,
+                )
+            )
+        except (TypeError, ValueError) as error:
+            raise ConcordWorkflowValidationError(
+                f"invalid Subject binding: {error}"
+            ) from error
+    return tuple(result)
+
+
+def _print_preview(
+    prepared: PreparedPacketInstantiation,
+    *,
+    workspace_root: str | Path | None = None,
+) -> None:
     print(f"Packet: {prepared.packet_definition.packet_definition_id}")
     print(f"Packet Version: {prepared.packet_version.packet_version_id}")
     print(f"Activity: {prepared.activity.activity_id}")
@@ -298,6 +402,16 @@ def _print_preview(prepared: PreparedPacketInstantiation) -> None:
             f"Target: {target.target_key} artifacts={len(target.artifacts)} "
             f"pages={sum(item.page_count for item in target.artifacts)}"
         )
+        target_label = _target_preview_label(prepared, target, workspace_root)
+        for artifact in target.artifacts:
+            relationship = _relationship_preview(
+                prepared,
+                artifact,
+                target_label=target_label,
+                workspace_root=workspace_root,
+            )
+            if relationship is not None:
+                print(f"Relationship: {relationship}")
     for diagnostic in prepared.diagnostics:
         level = "BLOCKING" if diagnostic.blocking else "NOTICE"
         context = []
@@ -309,6 +423,101 @@ def _print_preview(prepared: PreparedPacketInstantiation) -> None:
             context.append(f"input={diagnostic.input_key}")
         suffix = f" ({', '.join(context)})" if context else ""
         print(f"Diagnostic: {level} {diagnostic.code}{suffix}: {diagnostic.message}")
+
+
+def _target_preview_label(
+    prepared: PreparedPacketInstantiation,
+    target: PacketInstantiationTargetPlan,
+    workspace_root: str | Path | None,
+) -> str:
+    if target.participant_print_label is not None:
+        return target.participant_print_label
+    context = target.target_context
+    if context.group_id is not None:
+        return show_group(
+            prepared.request.class_id,
+            prepared.request.activity_id,
+            context.group_id,
+            workspace_root=workspace_root,
+        ).summary.label
+    if context.actor_reference is not None:
+        return (
+            context.actor_reference.display_label_snapshot
+            or context.actor_reference.actor_id
+        )
+    return target.target_key
+
+
+def _relationship_preview(
+    prepared: PreparedPacketInstantiation,
+    artifact: PlannedPacketArtifact,
+    *,
+    target_label: str,
+    workspace_root: str | Path | None,
+) -> str | None:
+    subject = artifact.proposed_subject_reference
+    role = artifact.proposed_subject_role
+    if subject is None or role is None:
+        return None
+
+    subject_label = _subject_preview_label(
+        prepared,
+        subject,
+        workspace_root=workspace_root,
+    )
+    if role == "reviewed_subject":
+        right_label = (
+            "Reviewee" if subject.subject_kind == "core_student" else "Reviewed"
+        )
+        return f"Reviewer: {target_label} | {right_label}: {subject_label}"
+    if artifact.authorship_mode == "observer" and role == "session_context":
+        return f"Observer: {target_label} | Observed: {subject_label}"
+    return f"Author: {target_label} | Subject: {subject_label}"
+
+
+def _subject_preview_label(
+    prepared: PreparedPacketInstantiation,
+    subject: SubjectReference,
+    *,
+    workspace_root: str | Path | None,
+) -> str:
+    if subject.subject_kind == "core_student":
+        root = resolve_read_workspace_root(workspace_root)
+        if root is None:
+            raise ConcordWorkflowValidationError(
+                "Paper Data Suite workspace does not exist."
+            )
+        roster = load_required_roster(
+            root,
+            prepared.request.class_id,
+        )
+        label = participant_print_label(
+            roster,
+            ParticipantReference(
+                participant_kind="core_student",
+                participant_id=subject.subject_id,
+                owning_system=subject.owning_system,
+            ),
+        )
+        return label or subject.subject_id
+    if subject.subject_kind == "concord_group":
+        return show_group(
+            prepared.request.class_id,
+            prepared.request.activity_id,
+            subject.subject_id,
+            workspace_root=workspace_root,
+        ).summary.label
+    if (
+        subject.subject_kind == "concord_session"
+        and subject.subject_id == prepared.session.session_id
+    ):
+        return prepared.session.label or f"Session {prepared.session.sequence}"
+    if (
+        subject.subject_kind == "concord_activity"
+        and subject.subject_id == prepared.activity.activity_id
+    ):
+        return prepared.activity.title
+    return f"{subject.subject_kind}:{subject.subject_id}"
 
 
 def _print_detail(detail: PacketInstanceDetail) -> None:

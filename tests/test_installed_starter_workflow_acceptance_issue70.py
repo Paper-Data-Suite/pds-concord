@@ -154,7 +154,13 @@ def test_issue70_slice3_peer_review_smoke_covers_random_participant_path() -> No
         'random_plan.mutation.group_plan_id',
         'fallback_effective_context=peer_context',
         'get_starter_template("peer_review_writing")',
-        'peer_page_count = peer_starter.page_count',
+        'peer_current_version = peer_template_library.current_version',
+        'peer_page_count = len(peer_current_version.page_manifest)',
+        'PacketSubjectBinding(',
+        'target_key=f"participant:{reviewer_id}"',
+        'subject_bindings=peer_subject_bindings',
+        'planned_artifact.proposed_subject_role == "reviewed_subject"',
+        'template_version_id=peer_starter_result.template_version_id',
         'audience_kind="participant"',
         'target.group_id in peer_group_ids',
         'generation_id="generation-peer-review-issue70"',
@@ -171,6 +177,28 @@ def test_issue70_slice3_peer_review_smoke_covers_random_participant_path() -> No
     assert 'peer_previewed.plan.source_signal_set_id is None' in source
     assert 'peer_previewed.plan.source_signal_set_digest is None' in source
     assert 'peer_previewed.plan.source_signal_dimension_id is None' in source
+
+    peer_section = source[
+        source.index('peer_starter = get_starter_template("peer_review_writing")') :
+    ]
+    normalized_peer_section = " ".join(peer_section.split())
+    assert (
+        "peer_starter_result.template_version_id "
+        "!= peer_starter.template_version_id"
+        in normalized_peer_section
+    )
+    assert (
+        "peer_current_version.supersedes_template_version_id "
+        "== peer_starter.template_version_id"
+        in normalized_peer_section
+    )
+    assert (
+        "template_version_id=peer_starter_result.template_version_id"
+        in peer_section
+    )
+    assert "subject_bindings=peer_subject_bindings" in peer_section
+    assert "PacketSubjectBinding(" in peer_section
+    assert 'proposed_subject_role == "reviewed_subject"' in peer_section
 
     peer_plan = source.index("random_plan = create_random_group_plan(")
     peer_preview = source.index("peer_previewed = preview_group_plan(")

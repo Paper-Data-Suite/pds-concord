@@ -33,7 +33,8 @@ def _print_install_result(result: StarterTemplateInstallResult) -> None:
 
 def _print_install_all_result(result: StarterTemplateInstallAllResult) -> None:
     print(f"Installed: {result.installed_count}")
-    print(f"Already installed: {result.already_installed_count}")
+    print(f"Upgraded: {result.upgraded_count}")
+    print(f"Already current: {result.already_installed_count}")
     print(f"Processed: {len(result.results)}")
     for item in result.results:
         print(
@@ -52,6 +53,7 @@ def handle_starter_list(args: argparse.Namespace) -> int:
             f"{item.starter_key}: {item.display_name} "
             f"[{item.family}] "
             f"{item.page_count} page(s) {item.orientation} "
+            f"package_current={item.template_version_id} "
             f"status={item.installation_state}"
         )
     return 0
@@ -69,7 +71,13 @@ def handle_starter_show(args: argparse.Namespace) -> int:
     print(f"Purpose: {entry.purpose}")
     print(f"Description: {entry.description}")
     print(f"Template: {entry.template_id}")
-    print(f"Template Version: {entry.template_version_id}")
+    print(f"Initial Version: {entry.template_version_id}")
+    print(f"Package Current Version: {status.template_version_id}")
+    if status.template_version_id != entry.template_version_id:
+        print(
+            "Packaged Lineage: "
+            f"{entry.template_version_id} -> {status.template_version_id}"
+        )
     print(f"Artifact Category: {entry.artifact_category}")
     print(f"Pages: {entry.page_count}")
     print(f"Orientation: {entry.orientation}")
@@ -87,14 +95,14 @@ def handle_starter_show(args: argparse.Namespace) -> int:
             else "-"
         )
     )
-    print(f"Authorship: {entry.default_authorship_mode}")
-    print(f"Subject: {entry.default_subject_kind}")
+    print(f"Initial v1 Authorship: {entry.default_authorship_mode}")
+    print(f"Initial v1 Subject: {entry.default_subject_kind}")
     print(f"Rendering Contract: {entry.layout().schema_version}")
     print(
-        "Rendering Reference: "
+        "Initial Rendering Reference: "
         f"{entry.rendering_specification_reference}"
     )
-    print(f"Rendering SHA-256: {entry.rendering_sha256()}")
+    print(f"Initial Rendering SHA-256: {entry.rendering_sha256()}")
     print(f"Installation State: {status.installation_state}")
     return 0
 

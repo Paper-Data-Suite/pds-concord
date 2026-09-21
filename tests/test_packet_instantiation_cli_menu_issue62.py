@@ -11,11 +11,13 @@ from concord.cli_app.handlers import packet_runtime
 from concord.cli_app.parser import build_parser
 from concord.menu_activity import launch_activity_context_menu
 from concord.menu_context import MenuSessionContext
+from concord.models import SubjectReference
 from concord.workflows import ActivitySummary
 from concord.workflows.errors import ConcordWorkflowValidationError
 from concord.workflows.packet_instantiation import (
     PacketComponentChoice,
     PacketRenderingBinding,
+    PacketSubjectBinding,
 )
 
 
@@ -137,7 +139,7 @@ def test_packet_runtime_commands_are_exposed_by_parser() -> None:
     assert generation_render.handler is packet_runtime.handle_generation_render
 
 
-def test_options_file_parses_explicit_choices_and_typed_bindings(
+def test_options_file_parses_explicit_choices_typed_and_subject_bindings(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "packet-options.json"
@@ -162,11 +164,22 @@ def test_options_file_parses_explicit_choices_and_typed_bindings(
                         "value": 3,
                     },
                 ],
+                "subject_bindings": [
+                    {
+                        "packet_component_id": "component-review",
+                        "target_key": "participant:student-1",
+                        "subject": {
+                            "subject_kind": "core_student",
+                            "subject_id": "student-2",
+                            "owning_system": "core",
+                        },
+                    }
+                ],
             }
         ),
         encoding="utf-8",
     )
-    choices, bindings = packet_runtime._load_options(str(path))
+    choices, bindings, subject_bindings = packet_runtime._load_options(str(path))
     assert choices == (
         PacketComponentChoice(
             packet_component_id="component-1",
@@ -185,6 +198,17 @@ def test_options_file_parses_explicit_choices_and_typed_bindings(
             value=3,
         ),
     )
+    assert subject_bindings == (
+        PacketSubjectBinding(
+            packet_component_id="component-review",
+            target_key="participant:student-1",
+            subject_reference=SubjectReference(
+                subject_kind="core_student",
+                subject_id="student-2",
+                owning_system="core",
+            ),
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -194,9 +218,33 @@ def test_options_file_parses_explicit_choices_and_typed_bindings(
         {"unknown": []},
         {"component_choices": {}},
         {"rendering_bindings": {}},
+        {"subject_bindings": {}},
         {
             "component_choices": [
                 {"packet_component_id": "component-1", "include": "yes"}
+            ]
+        },
+        {
+            "subject_bindings": [
+                {
+                    "packet_component_id": "component-review",
+                    "target_key": "participant:student-1",
+                    "subject": {"subject_kind": "core_student"},
+                }
+            ]
+        },
+        {
+            "subject_bindings": [
+                {
+                    "packet_component_id": "component-review",
+                    "target_key": "participant:student-1",
+                    "subject": {
+                        "subject_kind": "core_student",
+                        "subject_id": "student-2",
+                        "owning_system": "core",
+                        "unexpected": "value",
+                    },
+                }
             ]
         },
     ],
@@ -209,6 +257,10 @@ def test_options_file_rejects_noncanonical_shapes(
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ConcordWorkflowValidationError):
         packet_runtime._load_options(str(path))
+
+
+def test_options_file_without_path_returns_three_empty_binding_groups() -> None:
+    assert packet_runtime._load_options(None) == ((), (), ())
 
 
 def test_instance_render_expected_snapshot_is_optional() -> None:

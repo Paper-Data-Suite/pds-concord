@@ -347,6 +347,17 @@ authorship boundaries, typed partial-success recovery, exact reprint, direct
 runtime Packet commands, opened-Activity `GENERATE` flow, installed-wheel smoke,
 and the accepted 30-starter / 35-QR visual-review gate.
 
+### v0.3.1 starter Subject relationships
+
+[`v0.3.1-starter-subject-relationships.md`](v0.3.1-starter-subject-relationships.md)
+
+Documents issue #113's explicit Packet-target / Artifact-Author /
+Artifact-Subject separation; the exhaustive 30-starter semantic audit; immutable
+v1 to relationship-aware v2 package lineages; observer Session Subjects; explicit
+peer-review Student/Group Subjects; role-aware paper identity; direct/menu
+Subject binding; privacy and historical replay guarantees; and the final visual
+and installed-wheel qualification boundary.
+
 ### 39. v0.3.0 safe Activity copying
 
 [`v0.3.0-activity-copying.md`](v0.3.0-activity-copying.md)
