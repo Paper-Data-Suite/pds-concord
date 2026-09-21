@@ -20,6 +20,7 @@ from pds_core.scan_resolution_metadata import (
     ScanResolutionMetadataReadError,
     ScanResolutionMetadataWriteError,
 )
+from pds_core.scan_routes import scans_inbox_dir
 from pds_core.workspace import WorkspaceRootError
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
@@ -43,9 +44,38 @@ from concord.routing.review import (
     list_routing_failures,
     resolve_routing_failure_with_route,
 )
-from concord.routing.scan_intake import route_scan_sources
+from concord.routing.scan_intake import (
+    SUPPORTED_SCAN_EXTENSIONS,
+    route_scan_sources,
+)
 from concord.storage_errors import ConcordStorageError
 from concord.workflows import ConcordWorkflowError
+
+
+def _scan_inbox_sources(
+    workspace_root: str | Path,
+) -> tuple[Path, tuple[Path, ...]]:
+    """Return the shared inbox and its routable top-level regular files."""
+    inbox = scans_inbox_dir(workspace_root)
+    if not inbox.exists():
+        return inbox, ()
+    if not inbox.is_dir():
+        raise NotADirectoryError(
+            f"Shared scan inbox is not a directory: {inbox}"
+        )
+    sources = tuple(
+        sorted(
+            (
+                path
+                for path in inbox.iterdir()
+                if not path.is_symlink()
+                and path.is_file()
+                and path.suffix.casefold() in SUPPORTED_SCAN_EXTENSIONS
+            ),
+            key=lambda path: (path.name.casefold(), path.name),
+        )
+    )
+    return inbox, sources
 
 
 def _show_routing_partial(error: RoutingResolutionPartialSuccessError) -> None:
