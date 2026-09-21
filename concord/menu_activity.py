@@ -31,7 +31,7 @@ from concord.menu_navigation import (
 )
 from concord.menu_packet_generation import (
     launch_packet_generation_menu,
-    show_prepared_materials,
+    launch_prepared_materials_menu,
 )
 from concord.menu_prompts import (
     choose_class,
@@ -856,7 +856,7 @@ def launch_prepare_menu(
         elif choice == "1":
             launch_classroom_materials_menu(activity, state)
         elif choice == "2":
-            show_prepared_materials(activity)
+            launch_prepared_materials_menu(activity, state)
         elif choice == "3":
             launch_manage_saved_materials_menu(state)
         else:

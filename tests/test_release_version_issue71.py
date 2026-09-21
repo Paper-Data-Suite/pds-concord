@@ -54,7 +54,11 @@ def test_release_documentation_is_rolled_to_v030() -> None:
         encoding="utf-8"
     )
 
-    assert "## Unreleased\n\n## 0.3.0 - 2026-08-31" in changelog
+    assert "## Unreleased" in changelog
+    assert "## 0.3.0 - 2026-08-31" in changelog
+    assert changelog.index("## Unreleased") < changelog.index(
+        "## 0.3.0 - 2026-08-31"
+    )
     assert notes.startswith("# Concord v0.3.0\n")
     assert "Issue #71 intentionally does not repeat the physical run." in notes
     assert checklist.startswith("# Concord v0.3.0 release checklist\n")

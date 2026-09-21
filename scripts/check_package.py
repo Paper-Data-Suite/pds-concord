@@ -204,6 +204,7 @@ def validate_wheel(path: str | Path) -> None:
         "concord/reusable_presets.py",
         "concord/workflows/guided_activity_setup.py",
         "concord/workflows/reusable_presets.py",
+        "concord/workflows/rendered_output.py",
         "concord/py.typed",
         "concord/starter_templates/__init__.py",
         "concord/starter_templates/catalog.py",

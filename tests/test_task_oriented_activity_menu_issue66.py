@@ -305,7 +305,7 @@ def test_prepare_exposes_low_density_material_tasks(
     ("choice", "target_name"),
     (
         ("1", "launch_classroom_materials_menu"),
-        ("2", "show_prepared_materials"),
+        ("2", "launch_prepared_materials_menu"),
     ),
 )
 def test_prepare_routes_activity_material_actions(

@@ -44,6 +44,10 @@ from concord.workflows.participants import (
     load_required_roster,
     participant_print_label,
 )
+from concord.workflows.rendered_output import (
+    open_rendered_packet_output,
+    open_rendered_packet_output_directory,
+)
 
 
 def handle_instantiate_preview(args: argparse.Namespace) -> int:
@@ -143,6 +147,28 @@ def handle_instance_render(args: argparse.Namespace) -> int:
     print(f"Pages: {result.page_count}")
     print(f"Routes: {result.route_count}")
     print(f"Replayed: {'yes' if result.replayed else 'no'}")
+    return 0
+
+
+def handle_instance_open(args: argparse.Namespace) -> int:
+    resolved = open_rendered_packet_output(
+        args.class_id,
+        args.activity_id,
+        args.packet_instance_id,
+        workspace_root=workspace_arg(args),
+    )
+    print(f"Opened rendered Packet: {resolved.output_path}")
+    return 0
+
+
+def handle_instance_open_folder(args: argparse.Namespace) -> int:
+    resolved = open_rendered_packet_output_directory(
+        args.class_id,
+        args.activity_id,
+        args.packet_instance_id,
+        workspace_root=workspace_arg(args),
+    )
+    print(f"Opened rendered Packet folder: {resolved.output_directory}")
     return 0
 
 

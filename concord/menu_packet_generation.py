@@ -33,7 +33,13 @@ from concord.models import (
     TemplateRenderingInput,
     TemplateSubjectResolutionExpectation,
 )
-from concord.workflows import ActivitySummary, SessionSummary, list_sessions
+from concord.workflows import (
+    ActivitySummary,
+    SessionSummary,
+    list_sessions,
+    open_rendered_packet_output,
+    open_rendered_packet_output_directory,
+)
 from concord.workflows.errors import ConcordWorkflowError
 from concord.workflows.group import list_groups
 from concord.workflows.packet import PacketSummary, get_packet, list_packets
@@ -59,6 +65,7 @@ from concord.workflows.packet_rendering import (
     PacketGenerationRenderPartialSuccessError,
     PacketRenderPartialSuccessError,
     RenderPacketGenerationRequest,
+    RenderPacketGenerationResult,
     RenderPacketInstanceRequest,
     render_packet_generation,
     render_packet_instance,
@@ -80,6 +87,8 @@ def launch_packet_generation_menu(
         print("3. Inspect a Packet Instance")
         print("4. Render / reprint a Packet Instance")
         print("5. Resume incomplete route preparation")
+        print("6. Open a rendered Packet")
+        print("7. Open rendered Packet folder")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -98,6 +107,10 @@ def launch_packet_generation_menu(
             _render_instance(activity, state)
         elif choice == "5":
             _resume_generation(activity)
+        elif choice == "6":
+            _open_ready_packet(activity)
+        elif choice == "7":
+            _open_ready_folder(activity)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
@@ -202,17 +215,7 @@ def _generate(
                 actor=state.require_actor(),
             )
         )
-        result_lines = [
-            "Packet generation completed.",
-            f"Generation: {committed.generation_id}",
-            f"Packet Instances: {len(rendered.packets)}",
-            f"Pages: {rendered.page_count}",
-            f"Routes: {rendered.route_count}",
-        ]
-        result_lines.extend(
-            f"Output: {item.output_path}" for item in rendered.packets
-        )
-        show_result("Packet Generation Result", tuple(result_lines))
+        _post_generation_open_menu(activity, rendered)
     except CancelMenuAction:
         return
     except PacketInstantiationPartialSuccessError as error:
@@ -250,6 +253,51 @@ def _generate(
         )
     except Exception as error:
         show_result("Packet Generation Error", (str(error),))
+
+
+def _post_generation_open_menu(
+    activity: ActivitySummary,
+    rendered: RenderPacketGenerationResult,
+) -> None:
+    # Offer read-only local Open actions for the just-completed generation.
+    while True:
+        clear_screen()
+        print_menu_header("Packet Generation Result")
+        print("Packet generation completed.")
+        print(f"Ready PDFs: {len(rendered.packets)}")
+        print(f"Pages: {rendered.page_count}")
+        print(f"Routes: {rendered.route_count}")
+        print()
+        print("1. Open one rendered Packet")
+        print("2. Open rendered Packet folder")
+        print("3. Finish")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Packet Generation Result Help")
+            print("Open uses the completed generation's current canonical outputs.")
+            print("Concord verifies the selected PDF before requesting the viewer.")
+            print("Open does not rerender, reprint, repair, or record viewed state.")
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK or choice == "3":
+            return
+        elif choice == "1":
+            _open_ready_packet(
+                activity,
+                generation_id=rendered.generation_id,
+            )
+        elif choice == "2":
+            _open_ready_folder(
+                activity,
+                generation_id=rendered.generation_id,
+            )
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
 
 
 def generate_saved_packet(
@@ -691,6 +739,236 @@ def show_prepared_materials(activity: ActivitySummary) -> None:
         show_result("Prepared Materials", (str(error),))
 
 
+def _teacher_instance_labels(
+    activity: ActivitySummary,
+    items: tuple[PacketInstanceSummary, ...],
+) -> tuple[str, ...]:
+    """Return privacy-minimized teacher labels without exposing target IDs."""
+    student_labels: dict[str, str] = {}
+    group_labels: dict[str, str] = {}
+    try:
+        root = resolve_workspace_root()
+        roster = load_class_roster(root, activity.class_id)
+        student_labels = {
+            student.student_id: student_display_name(student)
+            for student in roster.students
+        }
+    except Exception:
+        # A display-label lookup failure must not turn routine browsing into
+        # a raw-ID disclosure. Fall back to audience-kind labels instead.
+        student_labels = {}
+    try:
+        group_labels = {
+            group.group_id: group.label
+            for group in list_groups(activity.class_id, activity.activity_id)
+        }
+    except Exception:
+        group_labels = {}
+
+    labels: list[str] = []
+    for item in items:
+        target_kind, separator, target_id = item.target_key.partition(":")
+        if not separator:
+            label = "Prepared material"
+        elif target_kind == "participant":
+            label = student_labels.get(target_id, "Participant")
+        elif target_kind == "group":
+            label = group_labels.get(target_id, "Group")
+        elif target_kind == "activity":
+            label = "Whole Activity"
+        elif target_kind == "teacher":
+            label = "Teacher"
+        elif target_kind == "role":
+            label = "Role-targeted material"
+        else:
+            label = "Prepared material"
+        labels.append(label)
+    return tuple(labels)
+
+
+def _ready_packet_instances(
+    activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
+) -> tuple[PacketInstanceSummary, ...]:
+    return tuple(
+        item
+        for item in list_packet_instances(
+            activity.class_id,
+            activity.activity_id,
+            generation_id=generation_id,
+        )
+        if item.generation_status == "generated"
+    )
+
+
+def _ready_instance_labels(
+    activity: ActivitySummary,
+    items: tuple[PacketInstanceSummary, ...],
+) -> tuple[str, ...]:
+    target_labels = _teacher_instance_labels(activity, items)
+    labels: list[str] = []
+    for target_label, item in zip(target_labels, items, strict=True):
+        filename: str | None = None
+        if item.output_relative_path:
+            candidate = Path(item.output_relative_path).name
+            if item.packet_instance_id not in candidate:
+                filename = candidate
+        if filename is None:
+            labels.append(f"{target_label} - Ready to print")
+        else:
+            labels.append(f"{target_label} - {filename} - Ready to print")
+    return tuple(labels)
+
+
+def _choose_ready_instance(
+    activity: ActivitySummary,
+    *,
+    title: str,
+    generation_id: str | None = None,
+) -> PacketInstanceSummary:
+    items = _ready_packet_instances(
+        activity,
+        generation_id=generation_id,
+    )
+    if not items:
+        raise ConcordWorkflowError(
+            "No rendered Packet outputs are ready to open. "
+            "Use Render / reprint to create or restore the output."
+        )
+    return select_one(
+        title,
+        items,
+        _ready_instance_labels(activity, items),
+        help_text=(
+            "Choose the classroom material to open. Concord verifies the current "
+            "recorded output and SHA-256 before requesting the system viewer."
+        ),
+    )
+
+
+def _open_ready_packet(
+    activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
+) -> None:
+    try:
+        selected = _choose_ready_instance(
+            activity,
+            title="Open Rendered Packet",
+            generation_id=generation_id,
+        )
+        open_rendered_packet_output(
+            activity.class_id,
+            activity.activity_id,
+            selected.packet_instance_id,
+        )
+        label = _teacher_instance_labels(activity, (selected,))[0]
+        show_result(
+            "Open Rendered Packet",
+            (
+                f"Opened: {label}",
+                "Concord requested the system viewer for the verified PDF.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        show_result("Open Rendered Packet", (str(error),))
+
+
+def _open_ready_folder(
+    activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
+) -> None:
+    try:
+        items = _ready_packet_instances(
+            activity,
+            generation_id=generation_id,
+        )
+        if not items:
+            raise ConcordWorkflowError(
+                "No rendered Packet outputs are ready to open. "
+                "Use Render / reprint to create or restore the output."
+            )
+        anchor = items[-1]
+        open_rendered_packet_output_directory(
+            activity.class_id,
+            activity.activity_id,
+            anchor.packet_instance_id,
+        )
+        show_result(
+            "Open Rendered Packet Folder",
+            (
+                "Opened the verified rendered-Packet folder.",
+                "This is a local viewing/printing folder, not a share-safe export.",
+            ),
+        )
+    except Exception as error:
+        show_result("Open Rendered Packet Folder", (str(error),))
+
+
+def launch_prepared_materials_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Open prepared classroom materials without exposing storage internals."""
+    while True:
+        try:
+            items = list_packet_instances(activity.class_id, activity.activity_id)
+        except Exception as error:
+            show_result("Prepared Materials", (str(error),))
+            return
+        if not items:
+            show_result(
+                "Prepared Materials",
+                ("No classroom materials have been prepared yet.",),
+            )
+            return
+
+        ready_count = sum(
+            1 for item in items if item.generation_status == "generated"
+        )
+        attention_count = len(items) - ready_count
+        clear_screen()
+        print_menu_header("Prepared Materials")
+        print(f"Activity: {activity.title}")
+        print(f"Ready to print: {ready_count}")
+        if attention_count:
+            print(f"Need attention: {attention_count}")
+        print()
+        print("1. Open one ready PDF")
+        print("2. Open rendered output folder")
+        print("3. View preparation status")
+        print("4. Prepare / generate / reprint")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Prepared Materials Help")
+            print("Open verifies current Concord output state before launching it.")
+            print("Open does not render, reprint, repair, or record viewed state.")
+            print("Use Render / reprint when an output is missing or must be rebuilt.")
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK:
+            return
+        elif choice == "1":
+            _open_ready_packet(activity)
+        elif choice == "2":
+            _open_ready_folder(activity)
+        elif choice == "3":
+            show_prepared_materials(activity)
+        elif choice == "4":
+            launch_packet_generation_menu(activity, state)
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
+
+
 def _list_instances(activity: ActivitySummary) -> None:
     try:
         items = list_packet_instances(activity.class_id, activity.activity_id)
@@ -869,4 +1147,7 @@ def _resume_generation(activity: ActivitySummary) -> None:
         show_result("Packet Generation Recovery Error", (str(error),))
 
 
-__all__ = ["launch_packet_generation_menu"]
+__all__ = [
+    "launch_packet_generation_menu",
+    "launch_prepared_materials_menu",
+]

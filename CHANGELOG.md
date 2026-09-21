@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Issue #101 adds read-only opening of exact existing rendered Packet PDFs and
+  their controlled rendered-Packet directory through Core local-open, with
+  canonical path/digest verification and no render/reprint side effects.
+- Teacher Prepare and post-generation workflows now expose privacy-minimized Open
+  actions, while deterministic `packet instance-open` and
+  `packet instance-open-folder` commands provide the same verified boundary to
+  noninteractive callers.
+- Isolated-wheel acceptance now proves exact rendered-output resolution/opening,
+  canonical and route nonmutation, tamper rejection, and missing-output
+  non-regeneration against released Core 0.6.3.
+
+
 ## 0.3.0 - 2026-08-31
 
 ### Added

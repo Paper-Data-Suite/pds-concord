@@ -344,6 +344,26 @@ def _packet_commands(
         handler=packet_runtime.handle_instance_render
     )
 
+    instance_open = actions.add_parser(
+        "instance-open",
+        help="Open one exact verified rendered Packet output.",
+    )
+    _workspace_option(instance_open)
+    _class_activity(instance_open)
+    instance_open.add_argument("--packet-instance-id", required=True)
+    instance_open.set_defaults(handler=packet_runtime.handle_instance_open)
+
+    instance_open_folder = actions.add_parser(
+        "instance-open-folder",
+        help="Open the verified rendered-Packet folder for one exact Packet.",
+    )
+    _workspace_option(instance_open_folder)
+    _class_activity(instance_open_folder)
+    instance_open_folder.add_argument("--packet-instance-id", required=True)
+    instance_open_folder.set_defaults(
+        handler=packet_runtime.handle_instance_open_folder
+    )
+
     generation_render = actions.add_parser(
         "generation-render",
         help="Render every target-specific Packet Instance in one generation.",

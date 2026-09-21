@@ -15,5 +15,9 @@ class ConcordWorkflowNotFoundError(ConcordWorkflowError):
     """Raised when an exact workflow target cannot be found."""
 
 
+class ConcordWorkflowOpenError(ConcordWorkflowError):
+    """Raised when a verified local workflow target cannot be opened."""
+
+
 class ConcordWorkflowConflictError(ConcordWorkflowError):
     """Raised when a workflow operation would collide with existing identity."""
