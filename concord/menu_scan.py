@@ -21,7 +21,7 @@ from pds_core.scan_resolution_metadata import (
     ScanResolutionMetadataWriteError,
 )
 from pds_core.scan_routes import scans_inbox_dir
-from pds_core.workspace import WorkspaceRootError
+from pds_core.workspace import WorkspaceRootError, inspect_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
@@ -29,11 +29,14 @@ from concord.menu_navigation import (
     NavigationChoice,
     QuitPDS,
     ReturnToMainMenu,
+    navigation_hint_with_help,
     parse_menu_navigation,
 )
 from concord.menu_prompts import confirm_write, prompt_text, select_one, show_result
 from concord.menu_ui import (
     clear_screen,
+    page_count,
+    page_items,
     pause_for_user,
     print_menu_header,
     print_navigation,
@@ -78,6 +81,118 @@ def _scan_inbox_sources(
     return inbox, sources
 
 
+def _custom_route_sources() -> tuple[Path, ...]:
+    """Collect one or more explicit power-user scan sources."""
+    while True:
+        raw = prompt_text(
+            "Route Scans — Custom Path",
+            "Source file/folder paths (semicolon separated)",
+            help_text=(
+                "Enter one or more explicit scan files or folders. "
+                "Separate several sources with semicolons."
+            ),
+        )
+        assert raw is not None
+        sources = tuple(
+            Path(item.strip())
+            for item in raw.split(";")
+            if item.strip()
+        )
+        if sources:
+            return sources
+        show_result(
+            "Route Scans — Custom Path",
+            ("Enter at least one file or folder path.",),
+        )
+
+
+def _choose_route_sources() -> tuple[Path, ...]:
+    """Choose one exact inbox scan or explicit custom source paths."""
+    status = inspect_workspace_root()
+    if status.exists and not status.is_dir:
+        raise WorkspaceRootError(
+            f"Workspace root is not a directory: {status.root}"
+        )
+    workspace_root = status.root
+    page_index = 0
+    while True:
+        inbox, sources = _scan_inbox_sources(workspace_root)
+        pages = page_count(len(sources))
+        page_index = min(page_index, pages - 1)
+        visible = page_items(sources, page_index)
+
+        clear_screen()
+        print_menu_header("Scan Routing — Route Scans")
+        print("Scan inbox:")
+        print(inbox)
+        print()
+        if visible:
+            print("Available scans:")
+            print()
+            for index, source in enumerate(visible, start=1):
+                print(f"{index}. {source.name}")
+        else:
+            print("No supported scans were found.")
+            print()
+            print(
+                "Place scanned PDFs or images in the scan inbox, "
+                "then choose Refresh."
+            )
+
+        if pages > 1:
+            print()
+            print(f"Page {page_index + 1} of {pages}")
+            if page_index + 1 < pages:
+                print("N. Next page")
+            if page_index > 0:
+                print("P. Previous page")
+
+        print()
+        print("C. Choose custom file/folder path")
+        print("R. Refresh")
+        print_navigation()
+        print()
+        raw = input("Select scan: ").strip()
+        navigation = parse_menu_navigation(raw)
+
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Route Scans Help",
+                (
+                    "Choose a listed scan from the shared Paper Data Suite inbox.",
+                    "Use Custom Path when a scan is stored somewhere else.",
+                    (
+                        "Routing retains the source and lets Core PDS2 determine "
+                        "page ownership."
+                    ),
+                    "Browsing and selection do not route or modify scan files.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+
+        normalized = raw.casefold()
+        if normalized == "r":
+            page_index = 0
+            continue
+        if normalized == "c":
+            return _custom_route_sources()
+        if normalized == "n" and page_index + 1 < pages:
+            page_index += 1
+            continue
+        if normalized == "p" and page_index > 0:
+            page_index -= 1
+            continue
+        if raw.isdigit():
+            selected = int(raw)
+            if 1 <= selected <= len(visible):
+                return (visible[selected - 1],)
+
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
 def _show_routing_partial(error: RoutingResolutionPartialSuccessError) -> None:
     partial = error.result
     show_result(
@@ -94,16 +209,25 @@ def _show_routing_partial(error: RoutingResolutionPartialSuccessError) -> None:
 
 
 def _route() -> None:
-    raw = prompt_text(
-        "Route Scans",
-        "Source file paths (semicolon separated)",
-        help_text=(
-            "Each selected file is retained once before its physical pages are decoded."
-        ),
-    )
-    assert raw is not None
-    sources = tuple(Path(item.strip()) for item in raw.split(";") if item.strip())
-    if not confirm_write("Route Scans", "ROUTE", (f"Source files: {len(sources)}",)):
+    sources = _choose_route_sources()
+    review_lines: tuple[str, ...]
+    if len(sources) == 1:
+        review_lines = (
+            f"Source: {sources[0]}",
+            (
+                "This scan will be retained and its physical pages routed "
+                "through Paper Data Suite."
+            ),
+        )
+    else:
+        review_lines = (
+            f"Source files/folders: {len(sources)}",
+            (
+                "These sources will be retained and their physical pages routed "
+                "through Paper Data Suite."
+            ),
+        )
+    if not confirm_write("Route Scans", "ROUTE", review_lines):
         return
     result = route_scan_sources(sources)
     show_result(
