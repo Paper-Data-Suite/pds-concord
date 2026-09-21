@@ -6,7 +6,7 @@ import pytest
 
 import concord.menu_packet_generation as menu_generation
 from concord.menu_context import MenuSessionContext
-from concord.workflows import ActivitySummary
+from concord.workflows import ActivitySummary, WorkflowActor
 
 
 def _activity() -> ActivitySummary:
@@ -237,3 +237,226 @@ def test_teacher_instance_labels_use_names_without_raw_target_ids(
     assert labels == ("Alex One", "Lab Team Blue")
     assert "student-secret" not in " ".join(labels)
     assert "group-secret" not in " ".join(labels)
+
+
+def test_post_generation_menu_scopes_open_actions_to_completed_generation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    activity = _activity()
+    new_one = SimpleNamespace(
+        generation_status="generated",
+        output_relative_path="rendered/packets/new-one.pdf",
+        packet_instance_id="new-one",
+        generation_id="generation-new",
+        target_key="participant:student-one",
+        output_sha256="c" * 64,
+    )
+    new_two = SimpleNamespace(
+        generation_status="generated",
+        output_relative_path="rendered/packets/new-two.pdf",
+        packet_instance_id="new-two",
+        generation_id="generation-new",
+        target_key="participant:student-two",
+        output_sha256="d" * 64,
+    )
+    old = SimpleNamespace(
+        generation_status="generated",
+        output_relative_path="rendered/packets/old.pdf",
+        packet_instance_id="old-one",
+        generation_id="generation-old",
+        target_key="participant:student-old",
+        output_sha256="e" * 64,
+    )
+    rendered = SimpleNamespace(
+        generation_id="generation-new",
+        packets=(
+            SimpleNamespace(packet_instance_id="new-one"),
+            SimpleNamespace(packet_instance_id="new-two"),
+        ),
+        page_count=4,
+        route_count=4,
+    )
+    queried_generations: list[str | None] = []
+    opened_pdf: list[str] = []
+    opened_folder: list[str] = []
+
+    def list_instances(
+        _class_id: str,
+        _activity_id: str,
+        *,
+        generation_id: str | None = None,
+    ):
+        queried_generations.append(generation_id)
+        if generation_id == "generation-new":
+            return (new_one, new_two)
+        return (old, new_one, new_two)
+
+    monkeypatch.setattr(menu_generation, "list_packet_instances", list_instances)
+    monkeypatch.setattr(
+        menu_generation,
+        "_teacher_instance_labels",
+        lambda _activity, items: tuple(
+            {
+                "new-one": "Alex One",
+                "new-two": "Blair Two",
+                "old-one": "Older Output",
+            }[item.packet_instance_id]
+            for item in items
+        ),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "open_rendered_packet_output",
+        lambda _class_id, _activity_id, packet_id: opened_pdf.append(packet_id),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "open_rendered_packet_output_directory",
+        lambda _class_id, _activity_id, packet_id: opened_folder.append(packet_id),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "render_packet_generation",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("post-generation Open must not render again")
+        ),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "render_packet_instance",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("post-generation Open must not reprint")
+        ),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "confirm_write",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("post-generation Open must not confirm a write")
+        ),
+    )
+    monkeypatch.setattr(menu_generation, "clear_screen", lambda: None)
+    monkeypatch.setattr(menu_generation, "show_result", lambda *_args: None)
+    answers = iter(("1", "2", "2", "3"))
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    menu_generation._post_generation_open_menu(activity, rendered)
+
+    assert opened_pdf == ["new-two"]
+    assert opened_folder == ["new-two"]
+    assert queried_generations
+    assert set(queried_generations) == {"generation-new"}
+    output = capsys.readouterr().out
+    assert "Packet generation completed." in output
+    assert "1. Open one rendered Packet" in output
+    assert "2. Open rendered Packet folder" in output
+    assert "old-one" not in output
+    assert "generation-new" not in output
+    assert "rendered/packets" not in output
+
+
+def test_successful_generate_enters_post_generation_open_affordance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    activity = _activity()
+    state = MenuSessionContext(actor=WorkflowActor(actor_id="teacher-1"))
+    packet = SimpleNamespace(packet_definition_id="packet-1")
+    version = SimpleNamespace(
+        packet_version_id="packet-version-1",
+        components=(),
+    )
+    detail = SimpleNamespace(
+        summary=SimpleNamespace(
+            current_packet_version_id="packet-version-1",
+        ),
+        versions=(version,),
+    )
+    session = SimpleNamespace(session_id="session-1")
+    prepared = SimpleNamespace(ready_for_commit=True)
+    committed = SimpleNamespace(generation_id="generation-new")
+    rendered = SimpleNamespace(
+        generation_id="generation-new",
+        packets=(SimpleNamespace(packet_instance_id="packet-new"),),
+        page_count=1,
+        route_count=1,
+    )
+    post_generation: list[object] = []
+
+    monkeypatch.setattr(menu_generation, "get_packet", lambda _id: detail)
+    monkeypatch.setattr(
+        menu_generation,
+        "_choose_session",
+        lambda _activity: session,
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "_component_choices",
+        lambda _components: (),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "prepare_packet_instantiation",
+        lambda _request: prepared,
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "_prompt_missing_bindings",
+        lambda _prepared: (),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "_prompt_missing_subject_bindings",
+        lambda _prepared: (),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "_preview_lines",
+        lambda _prepared: ("review",),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "confirm_write",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "commit_packet_instantiation",
+        lambda _prepared: committed,
+    )
+    render_calls: list[str] = []
+
+    def render_generation(request):
+        render_calls.append(request.generation_id)
+        return rendered
+
+    monkeypatch.setattr(
+        menu_generation,
+        "render_packet_generation",
+        render_generation,
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "_post_generation_open_menu",
+        lambda selected_activity, result: post_generation.append(
+            (selected_activity.activity_id, result)
+        ),
+    )
+    monkeypatch.setattr(
+        menu_generation,
+        "show_result",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "successful generation should hand off to the Open affordance"
+            )
+        ),
+    )
+
+    menu_generation._generate(
+        activity,
+        state,
+        selected_packet=packet,
+    )
+
+    assert render_calls == ["generation-new"]
+    assert post_generation == [("activity-1", rendered)]

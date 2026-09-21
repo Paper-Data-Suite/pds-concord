@@ -65,6 +65,7 @@ from concord.workflows.packet_rendering import (
     PacketGenerationRenderPartialSuccessError,
     PacketRenderPartialSuccessError,
     RenderPacketGenerationRequest,
+    RenderPacketGenerationResult,
     RenderPacketInstanceRequest,
     render_packet_generation,
     render_packet_instance,
@@ -214,17 +215,7 @@ def _generate(
                 actor=state.require_actor(),
             )
         )
-        result_lines = [
-            "Packet generation completed.",
-            f"Generation: {committed.generation_id}",
-            f"Packet Instances: {len(rendered.packets)}",
-            f"Pages: {rendered.page_count}",
-            f"Routes: {rendered.route_count}",
-        ]
-        result_lines.extend(
-            f"Output: {item.output_path}" for item in rendered.packets
-        )
-        show_result("Packet Generation Result", tuple(result_lines))
+        _post_generation_open_menu(activity, rendered)
     except CancelMenuAction:
         return
     except PacketInstantiationPartialSuccessError as error:
@@ -262,6 +253,51 @@ def _generate(
         )
     except Exception as error:
         show_result("Packet Generation Error", (str(error),))
+
+
+def _post_generation_open_menu(
+    activity: ActivitySummary,
+    rendered: RenderPacketGenerationResult,
+) -> None:
+    # Offer read-only local Open actions for the just-completed generation.
+    while True:
+        clear_screen()
+        print_menu_header("Packet Generation Result")
+        print("Packet generation completed.")
+        print(f"Ready PDFs: {len(rendered.packets)}")
+        print(f"Pages: {rendered.page_count}")
+        print(f"Routes: {rendered.route_count}")
+        print()
+        print("1. Open one rendered Packet")
+        print("2. Open rendered Packet folder")
+        print("3. Finish")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Packet Generation Result Help")
+            print("Open uses the completed generation's current canonical outputs.")
+            print("Concord verifies the selected PDF before requesting the viewer.")
+            print("Open does not rerender, reprint, repair, or record viewed state.")
+            print()
+            pause_for_user()
+        elif navigation is NavigationChoice.BACK or choice == "3":
+            return
+        elif choice == "1":
+            _open_ready_packet(
+                activity,
+                generation_id=rendered.generation_id,
+            )
+        elif choice == "2":
+            _open_ready_folder(
+                activity,
+                generation_id=rendered.generation_id,
+            )
+        else:
+            print(navigation_hint_with_help())
+            pause_for_user()
 
 
 def generate_saved_packet(
@@ -752,10 +788,16 @@ def _teacher_instance_labels(
 
 def _ready_packet_instances(
     activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
 ) -> tuple[PacketInstanceSummary, ...]:
     return tuple(
         item
-        for item in list_packet_instances(activity.class_id, activity.activity_id)
+        for item in list_packet_instances(
+            activity.class_id,
+            activity.activity_id,
+            generation_id=generation_id,
+        )
         if item.generation_status == "generated"
     )
 
@@ -783,8 +825,12 @@ def _choose_ready_instance(
     activity: ActivitySummary,
     *,
     title: str,
+    generation_id: str | None = None,
 ) -> PacketInstanceSummary:
-    items = _ready_packet_instances(activity)
+    items = _ready_packet_instances(
+        activity,
+        generation_id=generation_id,
+    )
     if not items:
         raise ConcordWorkflowError(
             "No rendered Packet outputs are ready to open. "
@@ -801,11 +847,16 @@ def _choose_ready_instance(
     )
 
 
-def _open_ready_packet(activity: ActivitySummary) -> None:
+def _open_ready_packet(
+    activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
+) -> None:
     try:
         selected = _choose_ready_instance(
             activity,
             title="Open Rendered Packet",
+            generation_id=generation_id,
         )
         open_rendered_packet_output(
             activity.class_id,
@@ -826,9 +877,16 @@ def _open_ready_packet(activity: ActivitySummary) -> None:
         show_result("Open Rendered Packet", (str(error),))
 
 
-def _open_ready_folder(activity: ActivitySummary) -> None:
+def _open_ready_folder(
+    activity: ActivitySummary,
+    *,
+    generation_id: str | None = None,
+) -> None:
     try:
-        items = _ready_packet_instances(activity)
+        items = _ready_packet_instances(
+            activity,
+            generation_id=generation_id,
+        )
         if not items:
             raise ConcordWorkflowError(
                 "No rendered Packet outputs are ready to open. "
