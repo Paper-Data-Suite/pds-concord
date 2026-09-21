@@ -49,6 +49,7 @@ from concord.routing.review import (
 )
 from concord.routing.scan_intake import (
     SUPPORTED_SCAN_EXTENSIONS,
+    ScanBatchResult,
     route_scan_sources,
 )
 from concord.storage_errors import ConcordStorageError
@@ -193,6 +194,32 @@ def _choose_route_sources() -> tuple[Path, ...]:
         pause_for_user()
 
 
+def _show_scan_batch_result(result: ScanBatchResult) -> None:
+    """Show truthful routing counts plus any source-level failures."""
+    source_errors = tuple(
+        source
+        for source in result.sources
+        if source.source_error is not None
+    )
+    lines = [
+        f"Sources: {len(result.sources)}",
+        f"Dispatched: {result.dispatched_count}",
+        f"Review required: {result.failure_count}",
+    ]
+    if source_errors:
+        lines.append(f"Source errors: {len(source_errors)}")
+        for source in source_errors:
+            lines.append(f"{source.source_path}: {source.source_error}")
+    show_result(
+        (
+            "Scan Routing Completed with Source Errors"
+            if source_errors
+            else "Scan Routing Complete"
+        ),
+        tuple(lines),
+    )
+
+
 def _show_routing_partial(error: RoutingResolutionPartialSuccessError) -> None:
     partial = error.result
     show_result(
@@ -230,14 +257,7 @@ def _route() -> None:
     if not confirm_write("Route Scans", "ROUTE", review_lines):
         return
     result = route_scan_sources(sources)
-    show_result(
-        "Scan Routing Complete",
-        (
-            f"Sources: {len(result.sources)}",
-            f"Dispatched: {result.dispatched_count}",
-            f"Review required: {result.failure_count}",
-        ),
-    )
+    _show_scan_batch_result(result)
 
 
 def _review(state: MenuSessionContext) -> None:

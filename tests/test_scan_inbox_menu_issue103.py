@@ -288,7 +288,12 @@ def test_route_confirmed_selection_delegates_exact_sources_once(
     routed: list[tuple[Path, ...]] = []
     shown: list[tuple[str, tuple[str, ...]]] = []
     result = SimpleNamespace(
-        sources=(SimpleNamespace(),),
+        sources=(
+            SimpleNamespace(
+                source_path=selected,
+                source_error=None,
+            ),
+        ),
         dispatched_count=2,
         failure_count=1,
     )
@@ -323,3 +328,306 @@ def test_route_confirmed_selection_delegates_exact_sources_once(
             ),
         )
     ]
+
+def test_route_source_error_is_reported_truthfully(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = tmp_path / "missing.pdf"
+    shown: list[tuple[str, tuple[str, ...]]] = []
+    result = SimpleNamespace(
+        sources=(
+            SimpleNamespace(
+                source_path=selected,
+                source_error="scan source must be a regular non-symlink file",
+            ),
+        ),
+        dispatched_count=0,
+        failure_count=0,
+    )
+    monkeypatch.setattr(menu_scan, "_choose_route_sources", lambda: (selected,))
+    monkeypatch.setattr(menu_scan, "confirm_write", lambda *args, **kwargs: True)
+    monkeypatch.setattr(menu_scan, "route_scan_sources", lambda _sources: result)
+    monkeypatch.setattr(
+        menu_scan,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+
+    menu_scan._route()
+
+    assert shown[0][0] == "Scan Routing Completed with Source Errors"
+    assert "Source errors: 1" in shown[0][1]
+    assert str(selected) in "\n".join(shown[0][1])
+    assert "regular non-symlink file" in "\n".join(shown[0][1])
+
+
+def test_disappeared_selected_source_is_never_substituted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = tmp_path / "selected.pdf"
+    replacement = tmp_path / "replacement.pdf"
+    selected.write_bytes(b"selected")
+    replacement.write_bytes(b"replacement")
+    routed: list[tuple[Path, ...]] = []
+    shown: list[tuple[str, tuple[str, ...]]] = []
+    monkeypatch.setattr(menu_scan, "_choose_route_sources", lambda: (selected,))
+    monkeypatch.setattr(menu_scan, "confirm_write", lambda *args, **kwargs: True)
+
+    def route(sources: tuple[Path, ...]) -> object:
+        routed.append(tuple(sources))
+        selected.unlink()
+        return SimpleNamespace(
+            sources=(
+                SimpleNamespace(
+                    source_path=selected,
+                    source_error="scan source must be a regular non-symlink file",
+                ),
+            ),
+            dispatched_count=0,
+            failure_count=0,
+        )
+
+    monkeypatch.setattr(menu_scan, "route_scan_sources", route)
+    monkeypatch.setattr(
+        menu_scan,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+
+    menu_scan._route()
+
+    assert routed == [(selected,)]
+    assert replacement not in routed[0]
+    assert shown[0][0] == "Scan Routing Completed with Source Errors"
+
+
+def test_route_result_preserves_success_summary_without_source_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = tmp_path / "selected.pdf"
+    shown: list[tuple[str, tuple[str, ...]]] = []
+    result = SimpleNamespace(
+        sources=(SimpleNamespace(source_path=selected, source_error=None),),
+        dispatched_count=3,
+        failure_count=1,
+    )
+    monkeypatch.setattr(
+        menu_scan,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+
+    menu_scan._show_scan_batch_result(result)
+
+    assert shown == [
+        (
+            "Scan Routing Complete",
+            (
+                "Sources: 1",
+                "Dispatched: 3",
+                "Review required: 1",
+            ),
+        )
+    ]
+
+
+def test_choose_route_sources_help_returns_to_same_browser(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    inbox = scans_inbox_dir(workspace)
+    inbox.mkdir(parents=True)
+    scan = inbox / "teacher.pdf"
+    scan.write_bytes(b"scan")
+    shown: list[tuple[str, tuple[str, ...]]] = []
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=True, is_dir=True),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+    monkeypatch.setattr(
+        menu_scan,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+    values = iter(["h", "1"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
+
+    selected = menu_scan._choose_route_sources()
+
+    assert selected == (scan,)
+    assert shown[0][0] == "Route Scans Help"
+    help_text = "\n".join(shown[0][1])
+    assert "shared Paper Data Suite inbox" in help_text
+    assert "Custom Path" in help_text
+    assert "do not route or modify" in help_text
+
+
+def test_choose_route_sources_back_returns_to_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=False, is_dir=False),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "b")
+
+    with pytest.raises(menu_scan.CancelMenuAction):
+        menu_scan._choose_route_sources()
+
+    assert not workspace.exists()
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    (
+        ("m", menu_scan.ReturnToMainMenu),
+        ("q", menu_scan.QuitPDS),
+    ),
+)
+def test_choose_route_sources_main_and_quit_unwind(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    raw: str,
+    expected: type[Exception],
+) -> None:
+    workspace = tmp_path / "workspace"
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=False, is_dir=False),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+    monkeypatch.setattr("builtins.input", lambda _prompt="": raw)
+
+    with pytest.raises(expected):
+        menu_scan._choose_route_sources()
+
+    assert not workspace.exists()
+
+
+@pytest.mark.parametrize("error_type", (KeyboardInterrupt, EOFError))
+def test_choose_route_sources_interrupts_unwind(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[BaseException],
+) -> None:
+    workspace = tmp_path / "workspace"
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=False, is_dir=False),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+
+    def interrupt(_prompt: str = "") -> str:
+        raise error_type
+
+    monkeypatch.setattr("builtins.input", interrupt)
+
+    with pytest.raises(error_type):
+        menu_scan._choose_route_sources()
+
+    assert not workspace.exists()
+
+
+def test_scan_routing_menu_reports_inaccessible_inbox_as_controlled_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shown: list[tuple[str, tuple[str, ...]]] = []
+    inputs = iter(["1", "b"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+    monkeypatch.setattr(menu_scan, "clear_screen", lambda: None)
+    monkeypatch.setattr(menu_scan, "pause_for_user", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        menu_scan,
+        "_choose_route_sources",
+        lambda: (_ for _ in ()).throw(PermissionError("synthetic inbox denial")),
+    )
+    monkeypatch.setattr(
+        menu_scan,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+
+    menu_scan.launch_scan_routing_menu()
+
+    assert shown == [
+        ("Scan Routing Error", ("synthetic inbox denial",)),
+    ]
+
+
+def test_browse_select_cancel_preserves_inbox_bytes_and_names(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    inbox = scans_inbox_dir(workspace)
+    inbox.mkdir(parents=True)
+    first = inbox / "first.pdf"
+    second = inbox / "second.png"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    before = {path.name: path.read_bytes() for path in sorted(inbox.iterdir())}
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=True, is_dir=True),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+    values = iter(["r", "1"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
+    monkeypatch.setattr(menu_scan, "confirm_write", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        menu_scan,
+        "route_scan_sources",
+        lambda _sources: pytest.fail("routing service must not be called"),
+    )
+
+    menu_scan._route()
+
+    after = {path.name: path.read_bytes() for path in sorted(inbox.iterdir())}
+    assert after == before
+
+
+def test_custom_directory_reaches_existing_routing_service_after_confirmation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    directory = tmp_path / "external-scans"
+    directory.mkdir()
+    routed: list[tuple[Path, ...]] = []
+    monkeypatch.setattr(
+        menu_scan,
+        "inspect_workspace_root",
+        lambda: SimpleNamespace(root=workspace, exists=False, is_dir=False),
+    )
+    _patch_scan_browser_ui(monkeypatch)
+    values = iter(["c", str(directory)])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
+    monkeypatch.setattr(menu_scan, "confirm_write", lambda *args, **kwargs: True)
+
+    def route(sources: tuple[Path, ...]) -> object:
+        routed.append(tuple(sources))
+        return SimpleNamespace(
+            sources=(),
+            dispatched_count=0,
+            failure_count=0,
+        )
+
+    monkeypatch.setattr(menu_scan, "route_scan_sources", route)
+    monkeypatch.setattr(menu_scan, "show_result", lambda *args, **kwargs: None)
+
+    menu_scan._route()
+
+    assert routed == [(directory,)]
