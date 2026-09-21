@@ -263,6 +263,16 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_rendered_output_opening_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: issue #101 rendered output opening",
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,

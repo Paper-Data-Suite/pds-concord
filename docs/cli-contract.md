@@ -64,6 +64,26 @@ not implement another batch dispatcher or interpret foreign module routes.
 
 See [`v0.3.0-suite-interoperability.md`](v0.3.0-suite-interoperability.md).
 
+## Rendered Packet opening
+
+Issue #101 keeps Open distinct from Render / reprint. Open is read-only: it
+reloads one exact current Packet Instance, verifies the recorded rendered PDF
+path and SHA-256, and only then delegates to Core's local-open service.
+
+Routine teachers use:
+
+```text
+Activity -> Prepare -> View prepared materials -> Open
+```
+
+The deterministic direct equivalents are `concord packet instance-open` and
+`concord packet instance-open-folder`. They accept no arbitrary path and prompt
+for nothing. Missing or tampered output is not repaired by Open; use the
+existing `instance-render` / teacher `Render / reprint` workflow instead.
+
+See
+[`v0.3.1-rendered-output-opening.md`](v0.3.1-rendered-output-opening.md).
+
 ## Direct command inventory
 
 ```text
@@ -175,6 +195,8 @@ concord packet instantiate-resume
 concord packet instance-list
 concord packet instance-show
 concord packet instance-render
+concord packet instance-open
+concord packet instance-open-folder
 concord packet generation-render
 
 concord criterion-set create

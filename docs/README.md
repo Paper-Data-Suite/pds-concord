@@ -347,6 +347,16 @@ authorship boundaries, typed partial-success recovery, exact reprint, direct
 runtime Packet commands, opened-Activity `GENERATE` flow, installed-wheel smoke,
 and the accepted 30-starter / 35-QR visual-review gate.
 
+### v0.3.1 rendered Packet output opening
+
+[`v0.3.1-rendered-output-opening.md`](v0.3.1-rendered-output-opening.md)
+
+Documents issue #101's canonical rendered-output authority, read-only
+path/SHA-256 verification, Core local-open boundary, Open versus Render/reprint
+separation, teacher Prepare/post-generation/advanced actions, deterministic
+direct CLI, local-folder privacy semantics, historical compatibility, and the
+isolated installed-wheel qualification wired into #111.
+
 ### v0.3.1 starter Subject relationships
 
 [`v0.3.1-starter-subject-relationships.md`](v0.3.1-starter-subject-relationships.md)
