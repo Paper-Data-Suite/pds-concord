@@ -9,6 +9,7 @@ from pds_core.class_metadata import (
     write_class_metadata_for_class,
 )
 from pds_core.classes import write_class_roster
+from pds_core.local_open import LocalOpenError
 from pds_core.rosters import create_roster
 from pds_core.routing_models import ModuleWorkRef
 from pds_core.workspace import ensure_workspace_root
@@ -25,6 +26,7 @@ from concord.packet_storage import create_packet_library
 from concord.starter_templates.catalog import list_starter_templates
 from concord.storage import load_current_record_graph
 from concord.workflows import (
+    ConcordWorkflowOpenError,
     CreateActivityContextRequest,
     CreateGroupWithMembersRequest,
     GroupMemberSpec,
@@ -37,6 +39,8 @@ from concord.workflows import (
     commit_starter_template_install,
     create_activity_context,
     create_group_with_members,
+    open_rendered_packet_output,
+    open_rendered_packet_output_directory,
     prepare_packet_instantiation,
     prepare_starter_template_install,
     render_packet_instance,
@@ -376,3 +380,175 @@ def test_resolve_rendered_packet_output_rejects_symlinked_pdf(
             packet_id,
             workspace_root=root,
         )
+
+
+def test_open_rendered_packet_output_delegates_only_after_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    packet_id, rendered = _rendered_packet(root)
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    before = load_current_record_graph(root, work)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.rendered_output.open_local_path",
+        _open,
+    )
+
+    resolved = open_rendered_packet_output(
+        "class-1",
+        "activity-1",
+        packet_id,
+        workspace_root=root,
+    )
+
+    assert resolved.output_path == rendered.output_path
+    assert opened == [rendered.output_path.resolve(strict=False)]
+    after = load_current_record_graph(root, work)
+    assert after.snapshot_revision == before.snapshot_revision
+    assert after.snapshot_sha256 == before.snapshot_sha256
+
+
+def test_open_rendered_packet_output_translates_core_open_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    packet_id, _ = _rendered_packet(root)
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    before = load_current_record_graph(root, work)
+
+    def _fail_open(path: str | Path) -> Path:
+        del path
+        raise LocalOpenError("synthetic local viewer failure")
+
+    monkeypatch.setattr(
+        "concord.workflows.rendered_output.open_local_path",
+        _fail_open,
+    )
+
+    with pytest.raises(
+        ConcordWorkflowOpenError,
+        match="verified the rendered Packet.*default application",
+    ) as caught:
+        open_rendered_packet_output(
+            "class-1",
+            "activity-1",
+            packet_id,
+            workspace_root=root,
+        )
+
+    assert isinstance(caught.value.__cause__, LocalOpenError)
+    after = load_current_record_graph(root, work)
+    assert after.snapshot_revision == before.snapshot_revision
+    assert after.snapshot_sha256 == before.snapshot_sha256
+
+
+def test_open_rendered_packet_output_directory_uses_verified_existing_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    packet_id, rendered = _rendered_packet(root)
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    before = load_current_record_graph(root, work)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.rendered_output.open_local_path",
+        _open,
+    )
+
+    resolved = open_rendered_packet_output_directory(
+        "class-1",
+        "activity-1",
+        packet_id,
+        workspace_root=root,
+    )
+
+    assert resolved.output_directory == rendered.output_path.parent
+    assert opened == [rendered.output_path.parent.resolve(strict=False)]
+    after = load_current_record_graph(root, work)
+    assert after.snapshot_revision == before.snapshot_revision
+    assert after.snapshot_sha256 == before.snapshot_sha256
+
+
+def test_open_rendered_packet_output_never_delegates_tampered_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    packet_id, rendered = _rendered_packet(root)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.rendered_output.open_local_path",
+        _open,
+    )
+    rendered.output_path.write_bytes(b"tampered before local open")
+
+    with pytest.raises(
+        ConcordWorkflowConflictError,
+        match="does not match Concord's recorded output",
+    ):
+        open_rendered_packet_output(
+            "class-1",
+            "activity-1",
+            packet_id,
+            workspace_root=root,
+        )
+
+    assert opened == []
+
+
+def test_open_rendered_packet_output_directory_does_not_create_missing_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    packet_id, rendered = _rendered_packet(root)
+    opened: list[Path] = []
+    packet_dir = rendered.output_path.parent
+    rendered.output_path.unlink()
+    packet_dir.rmdir()
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.rendered_output.open_local_path",
+        _open,
+    )
+
+    with pytest.raises(
+        ConcordWorkflowNotFoundError,
+        match="rendered Packet is missing.*Render / reprint",
+    ):
+        open_rendered_packet_output_directory(
+            "class-1",
+            "activity-1",
+            packet_id,
+            workspace_root=root,
+        )
+
+    assert not packet_dir.exists()
+    assert opened == []

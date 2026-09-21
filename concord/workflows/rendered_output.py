@@ -7,6 +7,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+from pds_core.local_open import LocalOpenError, open_local_path
 from pds_core.routes import module_work_dir, safe_module_work_descendant
 from pds_core.routing_models import ModuleWorkRef
 
@@ -14,6 +15,7 @@ from concord.workflows.context import resolve_read_workspace_root
 from concord.workflows.errors import (
     ConcordWorkflowConflictError,
     ConcordWorkflowNotFoundError,
+    ConcordWorkflowOpenError,
     ConcordWorkflowValidationError,
 )
 from concord.workflows.packet_instance import show_packet_instance
@@ -121,6 +123,67 @@ def resolve_rendered_packet_output(
     )
 
 
+def open_rendered_packet_output(
+    class_id: str,
+    activity_id: str,
+    packet_instance_id: str,
+    *,
+    workspace_root: str | Path | None = None,
+) -> ResolvedRenderedPacketOutput:
+    """Verify and open one existing rendered Packet PDF.
+
+    Verification always precedes the Core local-open boundary. This operation
+    never renders, repairs, rewrites, or advances Concord state.
+    """
+    resolved = resolve_rendered_packet_output(
+        class_id,
+        activity_id,
+        packet_instance_id,
+        workspace_root=workspace_root,
+    )
+    _open_verified_path(
+        resolved.output_path,
+        target_label="rendered Packet",
+    )
+    return resolved
+
+
+def open_rendered_packet_output_directory(
+    class_id: str,
+    activity_id: str,
+    packet_instance_id: str,
+    *,
+    workspace_root: str | Path | None = None,
+) -> ResolvedRenderedPacketOutput:
+    """Verify one Packet output, then open its existing rendered folder.
+
+    The directory is derived only from the verified canonical Packet output.
+    It is never created by this operation and is not a distribution/share
+    boundary.
+    """
+    resolved = resolve_rendered_packet_output(
+        class_id,
+        activity_id,
+        packet_instance_id,
+        workspace_root=workspace_root,
+    )
+    _open_verified_path(
+        resolved.output_directory,
+        target_label="rendered Packet folder",
+    )
+    return resolved
+
+
+def _open_verified_path(path: Path, *, target_label: str) -> None:
+    try:
+        open_local_path(path)
+    except LocalOpenError as error:
+        raise ConcordWorkflowOpenError(
+            f"Concord verified the {target_label}, but the system could not "
+            "open it with the default application."
+        ) from error
+
+
 def _safe_rendered_packet_path(
     root: Path,
     work: ModuleWorkRef,
@@ -202,5 +265,7 @@ def _file_sha256(path: Path) -> str:
 
 __all__ = [
     "ResolvedRenderedPacketOutput",
+    "open_rendered_packet_output",
+    "open_rendered_packet_output_directory",
     "resolve_rendered_packet_output",
 ]

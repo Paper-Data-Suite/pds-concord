@@ -106,6 +106,7 @@ from concord.workflows.errors import (
     ConcordWorkflowConflictError,
     ConcordWorkflowError,
     ConcordWorkflowNotFoundError,
+    ConcordWorkflowOpenError,
     ConcordWorkflowValidationError,
 )
 from concord.workflows.group import (
@@ -342,6 +343,8 @@ from concord.workflows.participants import (
 )
 from concord.workflows.rendered_output import (
     ResolvedRenderedPacketOutput,
+    open_rendered_packet_output,
+    open_rendered_packet_output_directory,
     resolve_rendered_packet_output,
 )
 from concord.workflows.responsibility import (
@@ -510,6 +513,8 @@ __all__ = [
     "list_packet_instances",
     "show_packet_instance",
     "ResolvedRenderedPacketOutput",
+    "open_rendered_packet_output",
+    "open_rendered_packet_output_directory",
     "resolve_rendered_packet_output",
     "PacketCommittedPage",
     "PacketInstantiationCommitResult",
@@ -596,6 +601,7 @@ __all__ = [
     "ConcordWorkflowConflictError",
     "ConcordWorkflowError",
     "ConcordWorkflowNotFoundError",
+    "ConcordWorkflowOpenError",
     "ConcordWorkflowValidationError",
     "CreateActivityContextRequest",
     "CreateGroupRequest",
