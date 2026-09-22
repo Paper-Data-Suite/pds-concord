@@ -16,6 +16,7 @@ from concord.storage import (
 )
 from concord.storage_errors import ConcordStorageNotFoundError
 from concord.workflows.activity_read import (
+    ActivityReadContext,
     activity_detail_from_context,
     activity_summary_from_context,
     load_activity_read_context,
@@ -48,6 +49,26 @@ def _work(class_id: str, activity_id: str) -> ModuleWorkRef:
 def _summary(root: Path, work: ModuleWorkRef) -> ActivitySummary:
     context = load_activity_read_context(root, work)
     return activity_summary_from_context(context)
+
+
+def _load_activity_context(
+    class_id: str,
+    activity_id: str,
+    *,
+    workspace_root: str | Path | None = None,
+) -> ActivityReadContext:
+    """Load one exact Activity state with workflow-level error mapping."""
+    root = resolve_read_workspace_root(workspace_root)
+    if root is None:
+        raise ConcordWorkflowNotFoundError(
+            "Paper Data Suite workspace does not exist."
+        )
+    try:
+        return load_activity_read_context(root, _work(class_id, activity_id))
+    except ConcordStorageNotFoundError as error:
+        raise ConcordWorkflowNotFoundError(
+            f"Activity is not available: {activity_id}"
+        ) from error
 
 
 def create_activity_context(
@@ -136,16 +157,11 @@ def show_activity(
     workspace_root: str | Path | None = None,
 ) -> ActivityDetail:
     """Load one compact Activity detail view without requiring SQLite."""
-    root = resolve_read_workspace_root(workspace_root)
-    if root is None:
-        raise ConcordWorkflowNotFoundError("Paper Data Suite workspace does not exist.")
-    work = _work(class_id, activity_id)
-    try:
-        context = load_activity_read_context(root, work)
-    except ConcordStorageNotFoundError as error:
-        raise ConcordWorkflowNotFoundError(
-            f"Activity is not available: {activity_id}"
-        ) from error
+    context = _load_activity_context(
+        class_id,
+        activity_id,
+        workspace_root=workspace_root,
+    )
     return activity_detail_from_context(context)
 
 
