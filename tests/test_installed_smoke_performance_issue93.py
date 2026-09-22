@@ -11,6 +11,7 @@ def test_issue93_shared_feature_smoke_reuses_existing_scenario_sources() -> None
         "reusable presets",
         "guided Activity",
         "task-oriented menu",
+        "scan inbox routing",
         "starter workflows",
     )
     assert tuple(filename for _, filename, _ in feature_smokes.SCENARIOS) == (
@@ -18,6 +19,7 @@ def test_issue93_shared_feature_smoke_reuses_existing_scenario_sources() -> None
         "reusable_presets_smoke.py",
         "guided_activity_smoke.py",
         "task_oriented_activity_menu_smoke.py",
+        "scan_inbox_routing_smoke.py",
         "starter_workflows_smoke.py",
     )
     assert tuple(script for _, _, script in feature_smokes.SCENARIOS) == (
@@ -25,6 +27,7 @@ def test_issue93_shared_feature_smoke_reuses_existing_scenario_sources() -> None
         "scripts/smoke_test_reusable_presets_wheel.py",
         "scripts/smoke_test_guided_activity_wheel.py",
         "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
+        "scripts/smoke_test_scan_inbox_routing_wheel.py",
         "scripts/smoke_test_starter_workflows_wheel.py",
     )
 
@@ -48,6 +51,7 @@ def test_issue93_repository_validator_batches_only_feature_smokes() -> None:
         "scripts/smoke_test_reusable_presets_wheel.py",
         "scripts/smoke_test_guided_activity_wheel.py",
         "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
+        "scripts/smoke_test_scan_inbox_routing_wheel.py",
         "scripts/smoke_test_starter_workflows_wheel.py",
     ):
         assert removed_direct_call not in source

@@ -153,6 +153,23 @@ The menu clears between stages,
 paginates long selections after ten items, and does not display raw record
 bodies or complete graphs.
 
+## Scan Routing
+
+Routine Scan Routing starts from the shared Paper Data Suite `scans_inbox/`.
+Concord lists supported top-level PDF/image files in deterministic bounded pages
+and lets the teacher choose one exact scan without retaining, decoding, routing,
+or otherwise mutating it. `R. Refresh` rereads current inbox state without
+creating missing workspace/inbox state, while `C. Choose custom file/folder path`
+preserves the existing power-user and recovery workflow, including directories
+and semicolon-separated multiple sources.
+
+After selection, Concord shows the exact source and still requires explicit
+`ROUTE` confirmation before calling the existing routing service. That service
+retains the source first and lets Core PDS2 determine physical-page ownership,
+including mixed installed-module routing. Browsing or successful routing does
+not delete, move, rename, or archive the original inbox file; Routing Review
+remains the separate authority for pages that require teacher intervention.
+
 ## Guided classroom Activity setup
 
 Activity Management presents **Create Classroom Activity** and **Continue setup

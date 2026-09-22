@@ -37,6 +37,11 @@ SCENARIOS: tuple[tuple[str, str, str], ...] = (
         "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
     ),
     (
+        "scan inbox routing",
+        "scan_inbox_routing_smoke.py",
+        "scripts/smoke_test_scan_inbox_routing_wheel.py",
+    ),
+    (
         "starter workflows",
         "starter_workflows_smoke.py",
         "scripts/smoke_test_starter_workflows_wheel.py",

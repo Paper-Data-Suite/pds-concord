@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #103 adds inbox-first teacher scan routing from Core's shared
+  `scans_inbox/`, with deterministic bounded selection, read-only Refresh,
+  and the existing custom file/folder fallback.
+- Numbered inbox selection remains read-only through explicit `ROUTE`
+  confirmation, then delegates unchanged to retain-first Core PDS2 routing;
+  source-level intake errors are now surfaced truthfully in the teacher result.
+- Shared installed-wheel acceptance proves the bare Concord menu can select an
+  exact synthetic inbox scan and cancel before routing with no workspace
+  mutation, retained evidence, or routing-review state.
 - Issue #101 adds read-only opening of exact existing rendered Packet PDFs and
   their controlled rendered-Packet directory through Core local-open, with
   canonical path/digest verification and no render/reprint side effects.
