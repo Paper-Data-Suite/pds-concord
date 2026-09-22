@@ -15,6 +15,10 @@ def test_issue104_installed_task_menu_uses_real_attention_path() -> None:
     assert '"Group plans still need preparation"' in source
     assert '"A. Open next action"' in source
     assert "fingerprint(root) == before" in source
+    assert 'real_load_activity_context = activity_menu._load_activity_context' in source
+    assert '"_load_activity_context"' in source
+    assert "workspace_root=root" in source
+    assert '"Attention: unavailable" not in rendered' in source
     assert '"show_activity",\n                    lambda' not in source
 
 

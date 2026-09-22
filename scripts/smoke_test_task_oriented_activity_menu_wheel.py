@@ -169,6 +169,7 @@ def _smoke_code() -> str:
             before_revision = activity.snapshot_revision
             assert before_revision == planned.commit.snapshot_revision
             before = fingerprint(root)
+            real_load_activity_context = activity_menu._load_activity_context
 
             responses = iter(
                 (
@@ -189,6 +190,15 @@ def _smoke_code() -> str:
                     "builtins.input",
                     side_effect=lambda _prompt="": next(responses),
                 ),
+                patch.object(
+                    activity_menu,
+                    "_load_activity_context",
+                    lambda class_id, activity_id: real_load_activity_context(
+                        class_id,
+                        activity_id,
+                        workspace_root=root,
+                    ),
+                ),
                 patch.object(activity_menu, "clear_screen", lambda: None),
                 patch.object(artifact_menu, "clear_screen", lambda: None),
                 patch.object(publication_menu, "clear_screen", lambda: None),
@@ -202,6 +212,7 @@ def _smoke_code() -> str:
                 )
 
             rendered = output.getvalue()
+            assert "Attention: unavailable" not in rendered
             for label in (
                 "Attention",
                 "Group plans still need preparation",
