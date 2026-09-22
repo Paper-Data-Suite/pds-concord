@@ -78,8 +78,8 @@ def test_attention_loads_one_activity_context_regardless_of_artifact_count(
     monkeypatch.setattr(attention, "_assembly_state", assembly)
     monkeypatch.setattr(
         attention,
-        "inspect_academic_result_share_attention_state",
-        lambda *_a, **_k: _inactive_share(),
+        "_share_attention_from_context",
+        lambda _context: _inactive_share(),
     )
 
     result = attention.inspect_activity_attention(

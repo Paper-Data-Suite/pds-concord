@@ -22,7 +22,13 @@ def _registration() -> SimpleNamespace:
 
 
 def _context() -> SimpleNamespace:
-    return SimpleNamespace(snapshot_revision=9)
+    return SimpleNamespace(
+        work=SimpleNamespace(
+            class_id="class-1",
+            work_id="activity-1",
+        ),
+        snapshot_revision=9,
+    )
 
 
 def _producer_head(revision: int = 1) -> SimpleNamespace:
@@ -80,7 +86,7 @@ def _patch_common(
     )
     monkeypatch.setattr(
         share,
-        "load_current_concord_academic_work_registration",
+        "_load_current_concord_academic_work_registration_from_context",
         lambda *_a, **_k: _registration(),
     )
     monkeypatch.setattr(
@@ -105,7 +111,12 @@ def test_no_registration_means_share_workflow_is_inactive(
 ) -> None:
     monkeypatch.setattr(
         share,
-        "load_current_concord_academic_work_registration",
+        "load_managed_activity_registration_context",
+        lambda *_a, **_k: _context(),
+    )
+    monkeypatch.setattr(
+        share,
+        "_load_current_concord_academic_work_registration_from_context",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
@@ -227,7 +238,7 @@ def test_inconsistent_existing_share_state_requires_inspection(
     if source == "registration":
         monkeypatch.setattr(
             share,
-            "load_current_concord_academic_work_registration",
+            "_load_current_concord_academic_work_registration_from_context",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 ConcordAcademicWorkRegistrationIntegrityError("synthetic")
             ),

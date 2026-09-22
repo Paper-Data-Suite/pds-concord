@@ -18,7 +18,8 @@ from concord.academic_result_publication import (
 )
 from concord.academic_work_registration import (
     ConcordAcademicWorkRegistrationError,
-    load_current_concord_academic_work_registration,
+    ManagedActivityRegistrationContext,
+    _load_current_concord_academic_work_registration_from_context,
     load_managed_activity_registration_context,
 )
 from concord.workflows.context import resolve_read_workspace_root
@@ -62,6 +63,70 @@ def _state(
     )
 
 
+def _inspect_academic_result_share_attention_state_from_registration_context(
+    context: ManagedActivityRegistrationContext,
+    *,
+    workspace_root: str | Path,
+) -> AcademicResultShareAttentionState:
+    """Interpret Share state from one already-validated Activity context."""
+    class_id = context.work.class_id
+    activity_id = context.work.work_id
+
+    try:
+        registration = _load_current_concord_academic_work_registration_from_context(
+            workspace_root,
+            context,
+        )
+    except ConcordAcademicWorkRegistrationError:
+        return _state(class_id, activity_id, "needs_inspection")
+    if registration is None:
+        return _state(class_id, activity_id, "inactive")
+
+    try:
+        series = load_concord_publication_series_status(
+            class_id,
+            activity_id,
+            workspace_root=workspace_root,
+        )
+    except ConcordAcademicResultPublicationError:
+        return _state(class_id, activity_id, "needs_inspection")
+
+    if series.core_head_withdrawal is not None:
+        return _state(class_id, activity_id, "withdrawn")
+
+    revision_reason: RevisionReason = (
+        "initial" if series.producer_head is None else "native_state_change"
+    )
+    try:
+        preview = preview_academic_result_manifest(
+            GenerateAcademicResultManifestRequest(
+                class_id=class_id,
+                activity_id=activity_id,
+                expected_snapshot_revision=context.snapshot_revision,
+                actor=_ATTENTION_ACTOR,
+                revision_reason=revision_reason,
+            ),
+            workspace_root=workspace_root,
+        )
+    except ConcordManifestGenerationError:
+        return _state(class_id, activity_id, "needs_inspection")
+
+    if preview.disposition == "would_create":
+        return _state(class_id, activity_id, "manifest_needed")
+
+    head = series.core_head
+    if head is None:
+        return _state(class_id, activity_id, "publish_ready")
+    if (
+        preview.revision == head.record_set_revision
+        and preview.sha256 == head.manifest_digest
+    ):
+        return _state(class_id, activity_id, "current")
+    if preview.revision > head.record_set_revision:
+        return _state(class_id, activity_id, "supersede_ready")
+    return _state(class_id, activity_id, "needs_inspection")
+
+
 def inspect_academic_result_share_attention_state(
     class_id: str,
     activity_id: str,
@@ -81,71 +146,18 @@ def inspect_academic_result_share_attention_state(
         return _state(class_id, activity_id, "inactive")
 
     try:
-        registration = load_current_concord_academic_work_registration(
+        context = load_managed_activity_registration_context(
             root,
             class_id,
             activity_id,
         )
     except ConcordAcademicWorkRegistrationError:
         return _state(class_id, activity_id, "needs_inspection")
-    if registration is None:
-        return _state(class_id, activity_id, "inactive")
 
-    try:
-        context = load_managed_activity_registration_context(
-            root,
-            class_id,
-            activity_id,
-        )
-        series = load_concord_publication_series_status(
-            class_id,
-            activity_id,
-            workspace_root=root,
-        )
-    except (
-        ConcordAcademicWorkRegistrationError,
-        ConcordAcademicResultPublicationError,
-    ):
-        return _state(class_id, activity_id, "needs_inspection")
-
-    # A structurally current withdrawn head is explicit Share state. Keep that
-    # recovery/review fact distinct from the absence of publication history.
-    if series.core_head_withdrawal is not None:
-        return _state(class_id, activity_id, "withdrawn")
-
-    revision_reason: RevisionReason = (
-        "initial" if series.producer_head is None else "native_state_change"
+    return _inspect_academic_result_share_attention_state_from_registration_context(
+        context,
+        workspace_root=root,
     )
-    try:
-        preview = preview_academic_result_manifest(
-            GenerateAcademicResultManifestRequest(
-                class_id=class_id,
-                activity_id=activity_id,
-                expected_snapshot_revision=context.snapshot_revision,
-                actor=_ATTENTION_ACTOR,
-                revision_reason=revision_reason,
-            ),
-            workspace_root=root,
-        )
-    except ConcordManifestGenerationError:
-        # Registration exists, so Share has begun; a state that cannot be
-        # safely previewed requires inspection rather than a fabricated action.
-        return _state(class_id, activity_id, "needs_inspection")
-
-    if preview.disposition == "would_create":
-        return _state(class_id, activity_id, "manifest_needed")
-
-    head = series.core_head
-    if head is None:
-        return _state(class_id, activity_id, "publish_ready")
-    if (
-        preview.revision == head.record_set_revision
-        and preview.sha256 == head.manifest_digest
-    ):
-        return _state(class_id, activity_id, "current")
-    if preview.revision > head.record_set_revision:
-        return _state(class_id, activity_id, "supersede_ready")
-    return _state(class_id, activity_id, "needs_inspection")
 
 
 __all__ = [

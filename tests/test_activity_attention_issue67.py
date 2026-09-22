@@ -178,8 +178,8 @@ def _patch_activity(
     )
     monkeypatch.setattr(
         attention,
-        "inspect_academic_result_share_attention_state",
-        lambda _class_id, _activity_id, **_k: AcademicResultShareAttentionState(
+        "_share_attention_from_context",
+        lambda _context: AcademicResultShareAttentionState(
             class_id="class-1",
             activity_id="activity-1",
             status=share_status,  # type: ignore[arg-type]
@@ -230,11 +230,7 @@ def _patch_activity(
                 workspace_root=None,
             )
         )
-        share_state = attention.inspect_academic_result_share_attention_state(
-            "class-1",
-            "activity-1",
-            workspace_root=None,
-        )
+        share_state = attention._share_attention_from_context(_context)
         counts.update(attention._share_attention_counts(share_state))
         return counts
 

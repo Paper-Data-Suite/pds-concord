@@ -8,7 +8,10 @@ from typing import Final, Literal, TypeAlias
 
 from concord.academic_result_share_attention import (
     AcademicResultShareAttentionState,
-    inspect_academic_result_share_attention_state,
+    _inspect_academic_result_share_attention_state_from_registration_context,
+)
+from concord.academic_work_registration import (
+    _managed_activity_registration_context_from_verified_activity,
 )
 from concord.models import (
     ArtifactAuthor,
@@ -495,6 +498,24 @@ def _share_attention_counts(
     return {} if code is None else {code: 1}
 
 
+def _share_attention_from_context(
+    context: ActivityReadContext,
+) -> AcademicResultShareAttentionState:
+    """Project Share state without re-reading the verified Activity graph."""
+    registration_context = (
+        _managed_activity_registration_context_from_verified_activity(
+            context.root,
+            context.work,
+            context.activity,
+            context.snapshot_revision,
+        )
+    )
+    return _inspect_academic_result_share_attention_state_from_registration_context(
+        registration_context,
+        workspace_root=context.root,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _ActivityAttentionIndex:
     """Disposable indexes over one already-verified current Activity graph."""
@@ -748,11 +769,7 @@ def _attention_counts_from_context(
         if _score_state_from_context(context, index, artifact_id).scoring_ready:
             _add_count(counts, "concord_score_ready")
 
-    share_state = inspect_academic_result_share_attention_state(
-        context.work.class_id,
-        context.work.work_id,
-        workspace_root=context.root,
-    )
+    share_state = _share_attention_from_context(context)
     counts.update(_share_attention_counts(share_state))
     return counts
 
