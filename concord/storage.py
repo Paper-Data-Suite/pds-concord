@@ -523,20 +523,35 @@ def _validate_loaded_graph_standards(
         ) from error
 
 
-def load_current_record_graph(
-    workspace_root: str | Path, work: ModuleWorkRef, *, standards_library: Any = None
+def load_current_snapshot_graph(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
 ) -> ConcordLoadedRecordGraph:
-    load_work_marker(workspace_root, work)
+    """Load the exact current graph with canonical structural validation.
+
+    This verifies the current pointer, complete predecessor chain, selected
+    record digests, and native record-graph invariants. It intentionally does
+    not require Core standards context. Readers that require standards
+    validation must use ``load_current_record_graph()``.
+    """
     current, _, snapshot_sha256, graph = _load_current_snapshot_state(
         workspace_root,
         work,
     )
-    _validate_loaded_graph_standards(graph, standards_library)
     return ConcordLoadedRecordGraph(
         graph,
         current.snapshot_revision,
         snapshot_sha256,
     )
+
+
+def load_current_record_graph(
+    workspace_root: str | Path, work: ModuleWorkRef, *, standards_library: Any = None
+) -> ConcordLoadedRecordGraph:
+    load_work_marker(workspace_root, work)
+    loaded = load_current_snapshot_graph(workspace_root, work)
+    _validate_loaded_graph_standards(loaded.graph, standards_library)
+    return loaded
 
 def load_current_record(
     workspace_root: str | Path,
