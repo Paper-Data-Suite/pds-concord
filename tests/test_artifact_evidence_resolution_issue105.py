@@ -10,6 +10,7 @@ from pds_core.class_metadata import (
     create_class_metadata,
     write_class_metadata_for_class,
 )
+from pds_core.local_open import LocalOpenError
 from pds_core.pds2 import parse_pds2_payload
 from pds_core.route_registrations import resolve_route_registration
 from pds_core.routing_models import ModuleWorkRef
@@ -25,11 +26,13 @@ from concord.workflows import (
     ArtifactAssemblyNotFoundError,
     AssembleArtifactRequest,
     AssemblyPageSelection,
+    ConcordWorkflowOpenError,
     CreateActivityContextRequest,
     ResolvedReturnedArtifactAssembly,
     WorkflowActor,
     assemble_returned_artifact,
     create_activity_context,
+    open_returned_artifact_evidence,
     resolve_returned_artifact_assembly,
 )
 from concord.workflows.artifact_page import (
@@ -355,3 +358,224 @@ def test_resolve_rejects_tampered_retained_source_custody(
             "artifact-1",
             workspace_root=root,
         )
+
+def test_open_returned_artifact_evidence_delegates_only_after_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-open",
+            filename="open.png",
+            color=(20, 30, 40),
+        ),
+    )
+    assembled = _assemble(root)
+    before = _fingerprint(root)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    resolved = open_returned_artifact_evidence(
+        "class-1",
+        "activity-1",
+        "artifact-1",
+        workspace_root=root,
+    )
+
+    assert resolved.output_path == assembled.output_path
+    assert opened == [assembled.output_path.resolve(strict=False)]
+    assert _fingerprint(root) == before
+
+
+def test_open_returned_artifact_evidence_translates_core_open_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-open-fail",
+            filename="open-fail.png",
+            color=(20, 30, 40),
+        ),
+    )
+    _assemble(root)
+    before = _fingerprint(root)
+
+    def _fail_open(path: str | Path) -> Path:
+        del path
+        raise LocalOpenError("synthetic local viewer failure")
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _fail_open,
+    )
+
+    with pytest.raises(
+        ConcordWorkflowOpenError,
+        match="verified the returned Artifact PDF.*default application",
+    ) as caught:
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert isinstance(caught.value.__cause__, LocalOpenError)
+    assert _fingerprint(root) == before
+
+
+def test_open_returned_artifact_evidence_never_opens_missing_assembly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-not-assembled",
+            filename="not-assembled.png",
+            color=(20, 30, 40),
+        ),
+    )
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    with pytest.raises(ArtifactAssemblyNotFoundError):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []
+
+
+def test_open_returned_artifact_evidence_never_opens_tampered_pdf(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-tampered-open",
+            filename="tampered-open.png",
+            color=(20, 30, 40),
+        ),
+    )
+    assembled = _assemble(root)
+    assembled.output_path.write_bytes(b"tampered immediately before open")
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    with pytest.raises(ArtifactAssemblyIntegrityError):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []
+
+
+def test_open_returned_artifact_evidence_forwards_exact_occurrence_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-open-first",
+            filename="open-first.png",
+            color=(1, 2, 3),
+        ),
+    )
+    second = _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-open-second",
+            filename="open-second.png",
+            color=(4, 5, 6),
+        ),
+    )
+    selection = (
+        AssemblyPageSelection(
+            artifact_page_id="page-1",
+            scan_reference_id=second.scan_reference_id,
+        ),
+    )
+    assembled = _assemble(root, selections=selection)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    resolved = open_returned_artifact_evidence(
+        "class-1",
+        "activity-1",
+        "artifact-1",
+        selections=selection,
+        workspace_root=root,
+    )
+
+    assert resolved.assembly_id == assembled.assembly_id
+    assert opened == [assembled.output_path.resolve(strict=False)]

@@ -60,6 +60,9 @@ from concord.workflows.artifact_attribution import (
     update_artifact_author,
     update_artifact_subject,
 )
+from concord.workflows.artifact_evidence_opening import (
+    open_returned_artifact_evidence,
+)
 from concord.workflows.artifact_page import (
     ArtifactPagePlan,
     ArtifactPageSummary,
@@ -686,6 +689,7 @@ __all__ = [
     "replace_artifact_author",
     "replace_artifact_subject",
     "resolve_returned_artifact_assembly",
+    "open_returned_artifact_evidence",
     "resolve_read_workspace_root",
     "show_activity",
     "show_artifact_author",
