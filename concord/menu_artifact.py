@@ -62,6 +62,7 @@ from concord.workflows import (
     list_artifacts,
     list_groups,
     list_sessions,
+    open_returned_artifact_evidence,
     replace_artifact_author,
     replace_artifact_subject,
     resolve_read_workspace_root,
@@ -345,6 +346,33 @@ def _assembly_selections(
             )
         )
     return tuple(selections)
+
+
+def open_returned_work(activity: ActivitySummary) -> None:
+    """Open one exact existing returned Artifact without changing workflow state."""
+    try:
+        current = _latest(activity)
+        artifact = _choose_artifact(current, title="Open Returned Work")
+        selections = _assembly_selections(current, artifact)
+        open_returned_artifact_evidence(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+            selections=selections,
+        )
+        show_result(
+            "Returned Work Opened",
+            (
+                "Returned work opened in your default PDF viewer.",
+                "Opening this evidence did not Review, Moderate, or Score the work.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+        raise
+    except Exception as error:
+        show_result("Open Returned Work", (str(error),))
 
 
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
@@ -2250,6 +2278,7 @@ def launch_collect_work_menu(
         print("2. Assemble returned work")
         print("3. Confirm who produced the work")
         print("4. Confirm who or what the work is about")
+        print("O. Open returned work")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2262,6 +2291,10 @@ def launch_collect_work_menu(
                 print("Assembly joins returned pages into the intended work.")
                 print("Who produced the work and what it concerns stay separate.")
                 print("Collect does not Review, Moderate, or Score the work.")
+                print(
+                    "Open returned work uses your normal PDF viewer and "
+                    "changes no state."
+                )
                 print()
                 pause_for_user()
             elif navigation is NavigationChoice.BACK:
@@ -2274,6 +2307,8 @@ def launch_collect_work_menu(
                 _launch_author_menu(activity, state)
             elif choice == "4":
                 _launch_subject_menu(activity, state)
+            elif choice.upper() == "O":
+                open_returned_work(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
@@ -2297,6 +2332,7 @@ def launch_review_work_menu(
         print()
         print("1. Review collected work")
         print("2. Moderation")
+        print("O. Open returned work")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2311,6 +2347,10 @@ def launch_review_work_menu(
                     "permitted-use decision."
                 )
                 print("Neither Review nor Moderation creates a Score.")
+                print(
+                    "Open returned work uses your normal PDF viewer and "
+                    "records no Review."
+                )
                 print()
                 pause_for_user()
             elif navigation is NavigationChoice.BACK:
@@ -2319,6 +2359,8 @@ def launch_review_work_menu(
                 _launch_review_menu(activity, state)
             elif choice == "2":
                 _launch_moderation_menu(activity, state)
+            elif choice.upper() == "O":
+                open_returned_work(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
@@ -2402,4 +2444,5 @@ __all__ = [
     "launch_artifact_page_menu",
     "launch_collect_work_menu",
     "launch_review_work_menu",
+    "open_returned_work",
 ]
