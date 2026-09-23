@@ -80,6 +80,9 @@ GUIDED_ACTIVITY_WORKFLOW_DOC = (
 TASK_ORIENTED_ACTIVITY_MENU_DOC = (
     ROOT / "docs" / "v0.3.0-task-oriented-activity-menus.md"
 )
+RETURNED_ARTIFACT_OPENING_DOC = (
+    ROOT / "docs" / "v0.3.1-returned-artifact-evidence-opening.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -149,6 +152,25 @@ REQUIRED_TASK_ORIENTED_ACTIVITY_MENU_PHRASES = (
     "presentation routing != domain mutation logic",
     "scripts/smoke_test_task_oriented_activity_menu_wheel.py",
     "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_RETURNED_ARTIFACT_OPENING_PHRASES = (
+    "OPEN != ASSEMBLE",
+    "OPEN != REVIEW",
+    "OPEN != SCORE",
+    "resolve_returned_artifact_assembly",
+    "open_returned_artifact_evidence",
+    "pds_core.local_open.open_local_path",
+    "expected_snapshot_revision",
+    "snapshot_sha256",
+    "O. Open returned work",
+    "not_applicable",
+    "not_ready",
+    "ready",
+    "selection_required",
+    "assembled",
+    "needs_recovery",
+    "scripts/smoke_test_returned_artifact_evidence_opening_wheel.py",
+    "python -I",
 )
 REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "ActivityAttentionItem",
@@ -897,6 +919,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the task-oriented Activity "
                 "menu document."
+            )
+
+    if not RETURNED_ARTIFACT_OPENING_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 returned Artifact evidence opening document is missing."
+        )
+    else:
+        returned_open_doc = RETURNED_ARTIFACT_OPENING_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_RETURNED_ARTIFACT_OPENING_PHRASES:
+            if phrase not in returned_open_doc:
+                failures.append(
+                    "Returned Artifact evidence opening document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if RETURNED_ARTIFACT_OPENING_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the returned Artifact "
+                "evidence opening document."
             )
 
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():

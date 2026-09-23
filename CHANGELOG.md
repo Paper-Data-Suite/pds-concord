@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #105 adds read-only opening of exact existing returned-Artifact evidence
+  from Collect, Review, and Score through the operating system's default PDF
+  application, without implicit assembly, Review, Moderation, Score, or view state.
+- Exact occurrence selection, retained-source custody, assembly manifest/PDF
+  integrity, and selection-to-open snapshot currentness all fail closed before
+  the Core local-open boundary; routine teacher errors remain privacy-minimal.
+- Isolated installed-wheel acceptance proves real PDS2 return/assembly/opening,
+  canonical nonmutation, stale-selection rejection, tamper/missing-manifest
+  rejection, and viewer-failure translation against released Core 0.6.3.
+
 - Issue #104 makes ordinary opened-Activity rendering reuse one exact,
   operation-scoped verified Activity state for its summary and local
   Plan/Prepare/Collect/Review/Score attention instead of repeatedly
