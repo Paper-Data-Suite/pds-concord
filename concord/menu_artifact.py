@@ -51,6 +51,9 @@ from concord.workflows import (
     AddArtifactSubjectRequest,
     ArtifactAuthorSummary,
     ArtifactSubjectSummary,
+    ConcordWorkflowConflictError,
+    ConcordWorkflowNotFoundError,
+    ConcordWorkflowOpenError,
     ReplaceArtifactAuthorRequest,
     ReplaceArtifactSubjectRequest,
     UpdateArtifactAuthorRequest,
@@ -78,6 +81,11 @@ from concord.workflows.artifact import (
     list_artifact_scan_occurrences,
 )
 from concord.workflows.artifact_assembly import (
+    ArtifactAssemblyAmbiguityError,
+    ArtifactAssemblyError,
+    ArtifactAssemblyIncompleteError,
+    ArtifactAssemblyIntegrityError,
+    ArtifactAssemblyNotFoundError,
     AssembleArtifactRequest,
     AssemblyPageSelection,
     assemble_returned_artifact,
@@ -348,6 +356,51 @@ def _assembly_selections(
     return tuple(selections)
 
 
+
+def _open_returned_work_failure_lines(error: Exception) -> tuple[str, ...]:
+    if isinstance(error, ArtifactAssemblyNotFoundError):
+        return (
+            "This exact returned work has not been assembled yet. "
+            "Use Assemble returned work first.",
+        )
+    if isinstance(error, ArtifactAssemblyIncompleteError):
+        return (
+            "Returned work is not ready to open yet. Wait until all required "
+            "returned pages are available, then assemble the work.",
+        )
+    if isinstance(error, ArtifactAssemblyAmbiguityError):
+        return (
+            "The available returned occurrences changed. Choose the exact "
+            "returned occurrence again.",
+        )
+    if isinstance(error, ArtifactAssemblyIntegrityError):
+        return (
+            "This returned work needs recovery before it can be opened. "
+            "Reassemble the exact returned work after resolving the evidence issue.",
+        )
+    if isinstance(error, ConcordWorkflowConflictError):
+        return (
+            "Returned work changed while it was being opened. "
+            "Try opening the returned work again.",
+        )
+    if isinstance(error, ConcordWorkflowOpenError):
+        return (
+            "The returned work was verified, but the system could not open it "
+            "with the default PDF application.",
+        )
+    if isinstance(error, ConcordWorkflowNotFoundError):
+        return (
+            "The selected returned work is no longer available. Refresh and try again.",
+        )
+    if isinstance(error, ArtifactAssemblyError):
+        return (
+            "This Artifact has no return-expected evidence to open.",
+        )
+    return (
+        "Returned work could not be opened safely. No workflow state was changed.",
+    )
+
+
 def open_returned_work(activity: ActivitySummary) -> None:
     """Open one exact existing returned Artifact without changing workflow state."""
     try:
@@ -359,6 +412,7 @@ def open_returned_work(activity: ActivitySummary) -> None:
             current.activity_id,
             artifact.artifact_instance_id,
             selections=selections,
+            expected_snapshot_revision=current.snapshot_revision,
         )
         show_result(
             "Returned Work Opened",
@@ -372,7 +426,10 @@ def open_returned_work(activity: ActivitySummary) -> None:
     except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
         raise
     except Exception as error:
-        show_result("Open Returned Work", (str(error),))
+        show_result(
+            "Open Returned Work",
+            _open_returned_work_failure_lines(error),
+        )
 
 
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:

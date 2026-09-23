@@ -614,6 +614,7 @@ def resolve_returned_artifact_assembly(
     artifact_instance_id: str,
     *,
     selections: tuple[AssemblyPageSelection, ...] = (),
+    expected_snapshot_revision: int | None = None,
     workspace_root: str | Path | None = None,
 ) -> ResolvedReturnedArtifactAssembly:
     """Resolve one exact existing returned-Artifact assembly without mutation.
@@ -632,6 +633,14 @@ def resolve_returned_artifact_assembly(
     work = ModuleWorkRef("concord", class_id, activity_id)
     library = _standards(root)
     loaded = load_current_record_graph(root, work, standards_library=library)
+    if (
+        expected_snapshot_revision is not None
+        and loaded.snapshot_revision != expected_snapshot_revision
+    ):
+        raise ConcordWorkflowConflictError(
+            "Concord state changed while returned Artifact evidence was being "
+            "selected. Try opening the returned work again."
+        )
     graph = cast(ConcordRecordGraph, loaded.graph)
     artifact = next(
         (

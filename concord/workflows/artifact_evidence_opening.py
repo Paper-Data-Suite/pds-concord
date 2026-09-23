@@ -20,6 +20,7 @@ def open_returned_artifact_evidence(
     artifact_instance_id: str,
     *,
     selections: tuple[AssemblyPageSelection, ...] = (),
+    expected_snapshot_revision: int | None = None,
     workspace_root: str | Path | None = None,
 ) -> ResolvedReturnedArtifactAssembly:
     """Verify and open one exact existing returned-Artifact PDF.
@@ -33,6 +34,7 @@ def open_returned_artifact_evidence(
         activity_id,
         artifact_instance_id,
         selections=selections,
+        expected_snapshot_revision=expected_snapshot_revision,
         workspace_root=workspace_root,
     )
     try:

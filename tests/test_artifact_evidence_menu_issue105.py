@@ -7,9 +7,19 @@ import pytest
 import concord.menu_artifact as artifact_module
 import concord.menu_scoring as scoring_module
 from concord.menu_context import MenuSessionContext
-from concord.workflows import ActivitySummary
+from concord.workflows import (
+    ActivitySummary,
+    ConcordWorkflowConflictError,
+    ConcordWorkflowNotFoundError,
+    ConcordWorkflowOpenError,
+)
 from concord.workflows.artifact_assembly import (
+    ArtifactAssemblyAmbiguityError,
+    ArtifactAssemblyError,
+    ArtifactAssemblyIncompleteError,
+    ArtifactAssemblyIntegrityError,
     ArtifactAssemblyNotFoundError,
+    AssemblyAmbiguity,
     AssemblyPageSelection,
 )
 
@@ -64,7 +74,9 @@ def test_shared_open_returned_work_uses_exact_selection_without_writes(
         artifact_instance_id: str,
         *,
         selections: tuple[AssemblyPageSelection, ...] = (),
+        expected_snapshot_revision: int | None = None,
     ) -> object:
+        assert expected_snapshot_revision == activity.snapshot_revision
         opened.append((class_id, activity_id, artifact_instance_id, selections))
         return SimpleNamespace(
             artifact_instance_id=artifact_instance_id,
@@ -300,3 +312,146 @@ def test_back_navigation_does_not_open_returned_work(
     monkeypatch.setattr(module, "clear_screen", lambda: None)
 
     getattr(module, menu_name)(activity, MenuSessionContext())
+
+def test_shared_open_passes_selection_snapshot_to_verified_opener(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    activity = _activity()
+    artifact = SimpleNamespace(artifact_instance_id="artifact-1")
+    captured: list[int | None] = []
+
+    monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
+    monkeypatch.setattr(
+        artifact_module,
+        "_choose_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(
+        artifact_module,
+        "_assembly_selections",
+        lambda *_args, **_kwargs: (),
+    )
+
+    def _open(
+        _class_id: str,
+        _activity_id: str,
+        _artifact_id: str,
+        *,
+        selections: tuple[AssemblyPageSelection, ...] = (),
+        expected_snapshot_revision: int | None = None,
+    ) -> object:
+        assert selections == ()
+        captured.append(expected_snapshot_revision)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(
+        artifact_module,
+        "open_returned_artifact_evidence",
+        _open,
+    )
+    monkeypatch.setattr(artifact_module, "show_result", lambda *_args: None)
+
+    artifact_module.open_returned_work(activity)
+
+    assert captured == [activity.snapshot_revision]
+
+
+@pytest.mark.parametrize(
+    ("error", "required_text"),
+    (
+        (
+            ArtifactAssemblyNotFoundError("secret /retained/path hash-deadbeef"),
+            "has not been assembled yet",
+        ),
+        (
+            ArtifactAssemblyIncompleteError(((2, "secret-page-id"),)),
+            "not ready to open yet",
+        ),
+        (
+            ArtifactAssemblyAmbiguityError(
+                (
+                    AssemblyAmbiguity(
+                        artifact_page_id="secret-page-id",
+                        logical_page_number=1,
+                        scan_reference_ids=("secret-ref-a", "secret-ref-b"),
+                    ),
+                )
+            ),
+            "returned occurrences changed",
+        ),
+        (
+            ArtifactAssemblyIntegrityError(
+                "assembly path traverses /secret/retained/path hash-deadbeef"
+            ),
+            "needs recovery before it can be opened",
+        ),
+        (
+            ConcordWorkflowConflictError(
+                "secret current pointer /secret/path hash-deadbeef"
+            ),
+            "changed while it was being opened",
+        ),
+        (
+            ConcordWorkflowOpenError(
+                "secret viewer detail /secret/path hash-deadbeef"
+            ),
+            "could not open it with the default PDF application",
+        ),
+        (
+            ConcordWorkflowNotFoundError(
+                "secret artifact identifier /secret/path hash-deadbeef"
+            ),
+            "is no longer available",
+        ),
+        (
+            ArtifactAssemblyError(
+                "Artifact has no return-expected pages to assemble. secret-ref"
+            ),
+            "has no return-expected evidence to open",
+        ),
+    ),
+)
+def test_teacher_open_failures_are_controlled_and_privacy_minimal(
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    required_text: str,
+) -> None:
+    activity = _activity()
+    artifact = SimpleNamespace(artifact_instance_id="artifact-1")
+    shown: list[tuple[str, tuple[str, ...]]] = []
+
+    monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
+    monkeypatch.setattr(
+        artifact_module,
+        "_choose_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(
+        artifact_module,
+        "_assembly_selections",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        artifact_module,
+        "open_returned_artifact_evidence",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+    monkeypatch.setattr(
+        artifact_module,
+        "show_result",
+        lambda title, lines: shown.append((title, tuple(lines))),
+    )
+
+    artifact_module.open_returned_work(activity)
+
+    assert shown
+    rendered = "\n".join(shown[0][1])
+    assert required_text in rendered
+    for secret in (
+        "/secret/",
+        "hash-deadbeef",
+        "secret-ref",
+        "secret-page-id",
+        "secret artifact identifier",
+    ):
+        assert secret not in rendered

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +24,8 @@ from concord.models import PrivacyPolicy
 from concord.storage import load_current_record_graph
 from concord.workflows import (
     ArtifactAssemblyAmbiguityError,
+    ArtifactAssemblyError,
+    ArtifactAssemblyIncompleteError,
     ArtifactAssemblyIntegrityError,
     ArtifactAssemblyNotFoundError,
     AssembleArtifactRequest,
@@ -79,7 +82,13 @@ def _workspace(tmp_path: Path) -> Path:
     return root
 
 
-def _prepare(root: Path) -> Any:
+def _prepare(
+    root: Path,
+    *,
+    pages: tuple[ArtifactPagePlan, ...] = (
+        ArtifactPagePlan(page_number=1, artifact_page_id="page-1"),
+    ),
+) -> Any:
     return prepare_artifact_pages(
         PrepareArtifactPagesRequest(
             class_id="class-1",
@@ -89,7 +98,7 @@ def _prepare(root: Path) -> Any:
             artifact_category="observation",
             expected_snapshot_revision=1,
             actor=_actor(),
-            pages=(ArtifactPagePlan(page_number=1, artifact_page_id="page-1"),),
+            pages=pages,
             privacy_policy=PrivacyPolicy(classification="teacher_restricted"),
         ),
         workspace_root=root,
@@ -118,12 +127,44 @@ def _retained_image(
     )
 
 
-def _return(root: Path, prepared: Any, retained: RetainedSourceScan) -> Any:
-    payload = prepared.pages[0].pds2_payload
+def _retained_pdf(
+    root: Path,
+    *,
+    scan_id: str,
+    filename: str,
+    color: tuple[int, int, int],
+) -> RetainedSourceScan:
+    path = root / "scans" / "source" / "2026-09-22" / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (80, 120), color).save(path, "PDF")
+    return RetainedSourceScan(
+        source_scan_id=scan_id,
+        source_filename=filename,
+        source_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        retained_source_path=path,
+        retained_source_relative_path=path.relative_to(root).as_posix(),
+        intake_timestamp=_clock(),
+        intake_date=date(2026, 9, 22),
+    )
+
+
+def _return(
+    root: Path,
+    prepared: Any,
+    retained: RetainedSourceScan,
+    *,
+    page_index: int = 0,
+    source_page_number: int = 1,
+) -> Any:
+    payload = prepared.pages[page_index].pds2_payload
     assert payload is not None
     locator = parse_pds2_payload(payload)
     resolution = resolve_route_registration(root, locator)
-    return handle_concord_route(resolution, retained, 1)
+    return handle_concord_route(
+        resolution,
+        retained,
+        source_page_number,
+    )
 
 
 def _assemble(
@@ -670,6 +711,290 @@ def test_open_never_delegates_when_canonical_state_changes_during_resolution(
             "class-1",
             "activity-1",
             "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []
+
+@pytest.mark.parametrize("missing_name", ("artifact.pdf", "manifest.json"))
+def test_open_rejects_incomplete_existing_assembly_without_viewer_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    missing_name: str,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id=f"scan-missing-{missing_name.replace('.', '-')}",
+            filename=f"missing-{missing_name}.png",
+            color=(20, 30, 40),
+        ),
+    )
+    assembled = _assemble(root)
+    target = (
+        assembled.output_path
+        if missing_name == "artifact.pdf"
+        else assembled.manifest_path
+    )
+    target.unlink()
+    opened: list[Path] = []
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        lambda path: opened.append(Path(path)),
+    )
+
+    with pytest.raises(
+        ArtifactAssemblyIntegrityError,
+        match="incomplete or link-like",
+    ):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []
+    assert not target.exists()
+
+
+def test_resolve_rejects_manifest_lineage_substitution(tmp_path: Path) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-manifest-substitution",
+            filename="manifest-substitution.png",
+            color=(20, 30, 40),
+        ),
+    )
+    assembled = _assemble(root)
+    manifest = json.loads(assembled.manifest_path.read_text(encoding="utf-8"))
+    manifest["ordered_pages"][0]["artifact_page_id"] = "substituted-page"
+    assembled.manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ArtifactAssemblyIntegrityError,
+        match="contradicts canonical source lineage",
+    ):
+        resolve_returned_artifact_assembly(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+
+def test_open_rejects_link_like_assembly_output_when_supported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-assembly-link",
+            filename="assembly-link.png",
+            color=(20, 30, 40),
+        ),
+    )
+    assembled = _assemble(root)
+    backup = assembled.output_path.with_name("artifact-backing.pdf")
+    assembled.output_path.rename(backup)
+    try:
+        assembled.output_path.symlink_to(backup.name)
+    except OSError as error:
+        backup.rename(assembled.output_path)
+        pytest.skip(f"filesystem cannot create an assembly symlink: {error}")
+
+    opened: list[Path] = []
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        lambda path: opened.append(Path(path)),
+    )
+
+    with pytest.raises(
+        ArtifactAssemblyIntegrityError,
+        match="incomplete or link-like",
+    ):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []
+
+
+def test_open_multipage_mixed_image_pdf_evidence_exactly_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(
+        root,
+        pages=(
+            ArtifactPagePlan(page_number=1, artifact_page_id="page-1"),
+            ArtifactPagePlan(page_number=2, artifact_page_id="page-2"),
+        ),
+    )
+    image = _retained_image(
+        root,
+        scan_id="scan-mixed-image",
+        filename="mixed-image.png",
+        color=(200, 10, 10),
+    )
+    pdf = _retained_pdf(
+        root,
+        scan_id="scan-mixed-pdf",
+        filename="mixed-source.pdf",
+        color=(10, 200, 10),
+    )
+    _return(root, prepared, image, page_index=0)
+    _return(root, prepared, pdf, page_index=1)
+    assembled = _assemble(root)
+    before = _fingerprint(root)
+    opened: list[Path] = []
+
+    def _open(path: str | Path) -> Path:
+        exact = Path(path)
+        opened.append(exact)
+        return exact
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    resolved = open_returned_artifact_evidence(
+        "class-1",
+        "activity-1",
+        "artifact-1",
+        workspace_root=root,
+    )
+
+    assert resolved.page_count == 2
+    assert resolved.output_path == assembled.output_path
+    assert opened == [assembled.output_path]
+    assert _fingerprint(root) == before
+
+
+def test_resolve_reports_incomplete_return_without_creating_output(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(
+        root,
+        pages=(
+            ArtifactPagePlan(page_number=1, artifact_page_id="page-1"),
+            ArtifactPagePlan(page_number=2, artifact_page_id="page-2"),
+        ),
+    )
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-incomplete",
+            filename="incomplete.png",
+            color=(20, 30, 40),
+        ),
+        page_index=0,
+    )
+    before = _fingerprint(root)
+
+    with pytest.raises(
+        ArtifactAssemblyIncompleteError,
+        match="missing required returned pages",
+    ):
+        resolve_returned_artifact_assembly(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert _fingerprint(root) == before
+
+
+def test_resolve_reports_no_return_expected_evidence_as_not_applicable(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(tmp_path)
+    _prepare(
+        root,
+        pages=(
+            ArtifactPagePlan(
+                page_number=1,
+                artifact_page_id="page-1",
+                return_expected=False,
+            ),
+        ),
+    )
+    before = _fingerprint(root)
+
+    with pytest.raises(
+        ArtifactAssemblyError,
+        match="no return-expected pages",
+    ):
+        resolve_returned_artifact_assembly(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert _fingerprint(root) == before
+
+
+def test_expected_snapshot_rejects_state_changed_after_teacher_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-selection-race",
+            filename="selection-race.png",
+            color=(20, 30, 40),
+        ),
+    )
+    _assemble(root)
+    current = load_current_record_graph(root, _work())
+    opened: list[Path] = []
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        lambda path: opened.append(Path(path)),
+    )
+
+    with pytest.raises(
+        ConcordWorkflowConflictError,
+        match="state changed.*selected.*Try opening the returned work again",
+    ):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            expected_snapshot_revision=current.snapshot_revision - 1,
             workspace_root=root,
         )
 
