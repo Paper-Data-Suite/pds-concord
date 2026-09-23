@@ -192,6 +192,7 @@ def validate_wheel(path: str | Path) -> None:
         "concord/pds_operations.py",
         "concord/readiness_provider.py",
         "concord/workflows/activity_attention.py",
+        "concord/workflows/activity_read.py",
         "concord/workflows/artifact_collection.py",
         "concord/workflows/artifact_review_attention.py",
         "concord/workflows/artifact_scoring_attention.py",

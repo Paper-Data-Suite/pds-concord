@@ -467,6 +467,187 @@ than revealing another single dominant algorithmic hotspot.
 
 `pytest-xdist` was not introduced.
 
+## Teacher-runtime opened-Activity performance (issue #104)
+
+Issue #104 is distinct from the validation/CI optimization above.
+
+```text
+#93
+storage / validation / CI optimization
+
+#104
+teacher-runtime opened-Activity projection optimization
+```
+
+Issue #104 preserves the same governing rule at the teacher-runtime boundary:
+
+```text
+faster Activity projection != weaker canonical validation
+```
+
+The ordinary opened-Activity path now creates one ephemeral
+`ActivityReadContext` from one exact verified current Activity head. The
+summary and local Plan, Prepare, Collect, Review, and Score attention
+projections reuse that immutable operation-scoped state. Inactive Share
+attention reuses the same verified Activity identity and snapshot while
+retaining its Core class validation. Once Share is registered, manifest preview
+and publication-series reconciliation remain independent authorities.
+
+There is no persistent canonical-state cache, no second canonical store, no
+background index, and no asynchronous menu rendering.
+
+### Before-change baseline
+
+The pre-#104 baseline was captured on:
+
+```text
+OS: Windows-10-10.0.26200-SP0
+Python: 3.11.9
+pds-core: 0.6.3
+pds-concord: 0.3.0
+Concord commit: 01dc76b4b0859b1cc78fa48840b0de9ed59a8b45
+Fixture: 12 snapshots / 0 Artifacts
+Median repetitions: 5
+```
+
+```text
+show_activity
+  median_seconds: 0.050104
+  snapshot_chain_loads: 4
+  graph_materializations: 3
+  graph_validations: 3
+
+inspect_activity_attention
+  median_seconds: 0.141985
+  snapshot_chain_loads: 11
+  graph_materializations: 9
+  graph_validations: 9
+
+opened_activity_local_projection
+  median_seconds: 0.188104
+  snapshot_chain_loads: 15
+  graph_materializations: 12
+  graph_validations: 12
+```
+
+The structural baseline for one opened Activity projection was therefore:
+
+```text
+15 / 12 / 12
+snapshot-chain loads / graph materializations / graph validations
+```
+
+### Final clean-tree measurement
+
+The repository-owned diagnostic benchmark is:
+
+```text
+scripts/benchmark_open_activity_performance_issue104.py
+```
+
+The final clean-tree measurement was captured on:
+
+```text
+OS: Windows-10-10.0.26200-SP0
+Python: 3.11.9
+pds-core: 0.6.3
+pds-concord: 0.3.0.dev0
+Concord commit: 88f03f52c3fb694ee570b9c926b942899046cb7d
+Branch: 104-optimize-open-activity-performance
+Working tree dirty: False
+Median repetitions: 5
+```
+
+For the equivalent 12-snapshot / 0-Artifact case:
+
+```text
+show_activity
+  median_seconds: 0.015694
+  snapshot_chain_loads: 1
+  graph_materializations: 1
+  graph_validations: 1
+
+inspect_activity_attention
+  median_seconds: 0.015496
+  snapshot_chain_loads: 1
+  graph_materializations: 1
+  graph_validations: 1
+
+opened_activity_local_projection
+  median_seconds: 0.016246
+  snapshot_chain_loads: 1
+  graph_materializations: 1
+  graph_validations: 1
+```
+
+The opened projection moved from `0.188104 s` to `0.016246 s` in this measured
+comparison, while its canonical-read structure moved from `15 / 12 / 12` to
+`1 / 1 / 1`.
+
+The wall-clock numbers are development-machine observations, not contractual
+performance thresholds. The principal acceptance result is removal of duplicate
+canonical reads while preserving complete validation.
+
+### Artifact-count scaling
+
+The same benchmark proves that complete Activity graph reconstruction does not
+scale with Artifact count:
+
+| Fixture | `show_activity` | Activity attention | Opened projection |
+| --- | ---: | ---: | ---: |
+| 12 snapshots / 0 Artifacts | 0.015694 s | 0.015496 s | 0.016246 s |
+| 12 snapshots / 1 Artifact | 0.018653 s | 0.019453 s | 0.019301 s |
+| 21 snapshots / 20 Artifacts | 0.088734 s | 0.088467 s | 0.090158 s |
+
+Every measured operation in all three cases reported:
+
+```text
+1 / 1 / 1
+snapshot-chain loads / graph materializations / graph validations
+```
+
+The 20-Artifact case therefore demonstrates the intended O(1) full-graph
+materialization count with respect to Artifact count. Its larger wall-clock
+cost reflects the larger verified graph and deeper 21-snapshot history rather
+than an N+1 graph-reload pattern.
+
+### Integrity and semantic qualification
+
+Issue #104 regression coverage preserves:
+
+```text
+snapshot predecessor verification
+current pointer digest verification
+record digest verification
+record graph validation
+standards/mixed Activity compatibility
+current-vs-superseded Author and Subject semantics
+current Review head semantics
+Moderation applicability
+Score attention orientation semantics
+GroupPlan lifecycle and leave_unassigned semantics
+Packet generation-status semantics
+Share authority boundaries
+menu redraw freshness
+read-only inspection
+canonical corruption fail-closed behavior
+```
+
+Focused real-workspace tests prove 1-Artifact and 20-Artifact attention both
+remain at one snapshot-chain load, one graph materialization, and one graph
+validation.
+
+The task-oriented-menu installed acceptance uses the candidate wheel in the
+shared feature-wheel environment. It creates a nontrivial synthetic Activity
+with real attention, opens the Activity through the installed optimized path,
+renders attention, reaches Plan/Prepare/Collect/Review/Score/Share and Advanced
+menus, and fingerprints the workspace to prove inspection remains read-only.
+
+The existing installed module-operations acceptance remains separate and
+continues to prove stable attention codes/counts/actions, privacy-minimal
+payloads, read-only behavior, and Core `paper_data_suite.module_operations`
+contract compatibility.
+
 ## Development guidance
 
 For focused iteration, run the narrow affected tests plus Ruff/Mypy rather than

@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #104 makes ordinary opened-Activity rendering reuse one exact,
+  operation-scoped verified Activity state for its summary and local
+  Plan/Prepare/Collect/Review/Score attention instead of repeatedly
+  reconstructing the same current graph.
+- Inactive Share attention now reuses that verified Activity identity and
+  snapshot while preserving Core class validation; registered Share retains
+  its independent manifest/publication reconciliation authorities.
+- Issue #104 regression and benchmark coverage proves bounded canonical graph
+  loading across 0, 1, and 20 Artifacts, preserves corruption/read-only and
+  standards behavior, and extends installed-wheel task-menu acceptance to
+  render real Activity attention through the optimized path.
+
 - Issue #103 adds inbox-first teacher scan routing from Core's shared
   `scans_inbox/`, with deterministic bounded selection, read-only Refresh,
   and the existing custom file/folder fallback.

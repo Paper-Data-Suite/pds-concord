@@ -198,6 +198,40 @@ def _activity_source_record(work: ModuleWorkRef) -> ModuleRecordRef:
         raise ConcordAcademicWorkRegistrationValidationError(str(error)) from error
 
 
+def _require_registration_core_class(root: Path, class_id: str) -> None:
+    """Preserve Core class validation for registration projections."""
+    try:
+        require_core_class(root, class_id)
+    except ConcordWorkflowValidationError as error:
+        raise ConcordAcademicWorkRegistrationValidationError(str(error)) from error
+    except ConcordWorkflowNotFoundError as error:
+        raise ConcordAcademicWorkRegistrationNotFoundError(str(error)) from error
+
+
+def _managed_activity_registration_context_from_verified_activity(
+    root: Path,
+    work: ModuleWorkRef,
+    activity: Activity,
+    snapshot_revision: int,
+) -> ManagedActivityRegistrationContext:
+    """Build registration context from one already-verified current Activity."""
+    _require_registration_core_class(root, work.class_id)
+    if not isinstance(activity, Activity):
+        raise ConcordAcademicWorkRegistrationIntegrityError(
+            "Verified Activity context does not contain an Activity."
+        )
+    if activity.work_reference != work:
+        raise ConcordAcademicWorkRegistrationIntegrityError(
+            "Current Activity identity disagrees with its canonical work."
+        )
+    return ManagedActivityRegistrationContext(
+        work=work,
+        source_record=_activity_source_record(work),
+        title=activity.title,
+        snapshot_revision=snapshot_revision,
+    )
+
+
 def load_managed_activity_registration_context(
     workspace_root: str | Path,
     class_id: str,
@@ -212,12 +246,7 @@ def load_managed_activity_registration_context(
         raise ConcordAcademicWorkRegistrationNotFoundError(
             "Paper Data Suite workspace does not exist."
         )
-    try:
-        require_core_class(root, class_id)
-    except ConcordWorkflowValidationError as error:
-        raise ConcordAcademicWorkRegistrationValidationError(str(error)) from error
-    except ConcordWorkflowNotFoundError as error:
-        raise ConcordAcademicWorkRegistrationNotFoundError(str(error)) from error
+    _require_registration_core_class(root, class_id)
 
     work = _activity_work(class_id, activity_id)
     try:
@@ -291,15 +320,11 @@ def build_concord_academic_work_registration_request(
         raise ConcordAcademicWorkRegistrationValidationError(str(error)) from error
 
 
-def load_current_concord_academic_work_registration(
+def _load_current_concord_academic_work_registration_from_context(
     workspace_root: str | Path,
-    class_id: str,
-    activity_id: str,
+    context: ManagedActivityRegistrationContext,
 ) -> AcademicWorkRegistration | None:
-    """Load Core's explicit current registration for one managed Activity."""
-    context = load_managed_activity_registration_context(
-        workspace_root, class_id, activity_id
-    )
+    """Load Core registration against an already-validated Activity context."""
     try:
         registration = load_current_academic_work_registration(
             workspace_root, context.work
@@ -309,6 +334,21 @@ def load_current_concord_academic_work_registration(
     if registration is not None:
         _verify_registration_identity(context, registration)
     return registration
+
+
+def load_current_concord_academic_work_registration(
+    workspace_root: str | Path,
+    class_id: str,
+    activity_id: str,
+) -> AcademicWorkRegistration | None:
+    """Load Core's explicit current registration for one managed Activity."""
+    context = load_managed_activity_registration_context(
+        workspace_root, class_id, activity_id
+    )
+    return _load_current_concord_academic_work_registration_from_context(
+        workspace_root,
+        context,
+    )
 
 
 def list_concord_academic_work_registration_revisions(

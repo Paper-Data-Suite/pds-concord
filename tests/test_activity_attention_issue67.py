@@ -139,31 +139,6 @@ def _patch_activity(
     scoring_orientation: str = "evidence_only",
     share_status: str = "inactive",
 ) -> None:
-    monkeypatch.setattr(
-        attention,
-        "show_activity",
-        lambda *_a, **_k: SimpleNamespace(
-            summary=_activity(
-                status=status,
-                scoring_orientation=scoring_orientation,
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        attention,
-        "list_group_plans",
-        lambda *_a, **_k: plans,
-    )
-    monkeypatch.setattr(
-        attention,
-        "list_packet_instances",
-        lambda *_a, **_k: packets,
-    )
-    monkeypatch.setattr(
-        attention,
-        "list_artifacts",
-        lambda *_a, **_k: artifacts,
-    )
     states = collection_states or {}
     monkeypatch.setattr(
         attention,
@@ -203,12 +178,66 @@ def _patch_activity(
     )
     monkeypatch.setattr(
         attention,
-        "inspect_academic_result_share_attention_state",
-        lambda _class_id, _activity_id, **_k: AcademicResultShareAttentionState(
+        "_share_attention_from_context",
+        lambda _context: AcademicResultShareAttentionState(
             class_id="class-1",
             activity_id="activity-1",
             status=share_status,  # type: ignore[arg-type]
         ),
+    )
+
+    summary = _activity(
+        status=status,
+        scoring_orientation=scoring_orientation,
+    )
+    context = SimpleNamespace()
+    monkeypatch.setattr(
+        attention,
+        "_load_activity_context",
+        lambda *_a, **_k: context,
+    )
+    monkeypatch.setattr(
+        attention,
+        "activity_summary_from_context",
+        lambda _context: summary,
+    )
+
+    def counts_from_context(_context: object) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        if status in attention._PLAN_ACTIVE_ACTIVITY_STATUSES:
+            counts.update(
+                attention._plan_attention_counts(
+                    plans,
+                    workspace_root=None,
+                )
+            )
+        counts.update(attention._prepare_attention_counts(packets))
+        counts.update(
+            attention._collect_attention_counts(
+                artifacts,
+                workspace_root=None,
+            )
+        )
+        counts.update(
+            attention._review_attention_counts(
+                artifacts,
+                workspace_root=None,
+            )
+        )
+        counts.update(
+            attention._score_attention_counts(
+                artifacts,
+                workspace_root=None,
+            )
+        )
+        share_state = attention._share_attention_from_context(_context)
+        counts.update(attention._share_attention_counts(share_state))
+        return counts
+
+    monkeypatch.setattr(
+        attention,
+        "_attention_counts_from_context",
+        counts_from_context,
     )
 
 

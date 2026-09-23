@@ -13,10 +13,14 @@ from concord.storage import (
     commit_record_batch,
     list_activity_work_refs,
     load_current_record,
-    load_current_snapshot,
-    load_work_snapshot,
 )
 from concord.storage_errors import ConcordStorageNotFoundError
+from concord.workflows.activity_read import (
+    ActivityReadContext,
+    activity_detail_from_context,
+    activity_summary_from_context,
+    load_activity_read_context,
+)
 from concord.workflows.context import (
     Clock,
     ensure_mutating_workspace_root,
@@ -42,41 +46,29 @@ def _work(class_id: str, activity_id: str) -> ModuleWorkRef:
     return ModuleWorkRef(module_id="concord", class_id=class_id, work_id=activity_id)
 
 
-def _activity_and_counts(
-    root: Path,
-    work: ModuleWorkRef,
-) -> tuple[Activity, int, int, int]:
-    current = load_current_snapshot(root, work)
-    snapshot, _ = load_work_snapshot(root, work, current.snapshot_revision)
-    activity_record, _ = load_current_record(
-        root,
-        work,
-        "activity",
-        work.work_id,
-    )
-    if not isinstance(activity_record, Activity):
-        raise ConcordWorkflowNotFoundError(
-            f"Current Activity record is unavailable: {work.work_id}"
-        )
-    session_count = sum(item.record_kind == "session" for item in snapshot.records)
-    group_count = sum(item.record_kind == "group" for item in snapshot.records)
-    return activity_record, session_count, group_count, current.snapshot_revision
-
-
 def _summary(root: Path, work: ModuleWorkRef) -> ActivitySummary:
-    activity, session_count, group_count, snapshot_revision = _activity_and_counts(
-        root, work
-    )
-    return ActivitySummary(
-        class_id=work.class_id,
-        activity_id=activity.activity_id,
-        title=activity.title,
-        status=activity.status,
-        scoring_orientation=activity.scoring_orientation,
-        session_count=session_count,
-        group_count=group_count,
-        snapshot_revision=snapshot_revision,
-    )
+    context = load_activity_read_context(root, work)
+    return activity_summary_from_context(context)
+
+
+def _load_activity_context(
+    class_id: str,
+    activity_id: str,
+    *,
+    workspace_root: str | Path | None = None,
+) -> ActivityReadContext:
+    """Load one exact Activity state with workflow-level error mapping."""
+    root = resolve_read_workspace_root(workspace_root)
+    if root is None:
+        raise ConcordWorkflowNotFoundError(
+            "Paper Data Suite workspace does not exist."
+        )
+    try:
+        return load_activity_read_context(root, _work(class_id, activity_id))
+    except ConcordStorageNotFoundError as error:
+        raise ConcordWorkflowNotFoundError(
+            f"Activity is not available: {activity_id}"
+        ) from error
 
 
 def create_activity_context(
@@ -165,35 +157,12 @@ def show_activity(
     workspace_root: str | Path | None = None,
 ) -> ActivityDetail:
     """Load one compact Activity detail view without requiring SQLite."""
-    root = resolve_read_workspace_root(workspace_root)
-    if root is None:
-        raise ConcordWorkflowNotFoundError("Paper Data Suite workspace does not exist.")
-    work = _work(class_id, activity_id)
-    try:
-        activity, session_count, group_count, snapshot_revision = _activity_and_counts(
-            root, work
-        )
-    except ConcordStorageNotFoundError as error:
-        raise ConcordWorkflowNotFoundError(
-            f"Activity is not available: {activity_id}"
-        ) from error
-    summary = ActivitySummary(
-        class_id=class_id,
-        activity_id=activity.activity_id,
-        title=activity.title,
-        status=activity.status,
-        scoring_orientation=activity.scoring_orientation,
-        session_count=session_count,
-        group_count=group_count,
-        snapshot_revision=snapshot_revision,
+    context = _load_activity_context(
+        class_id,
+        activity_id,
+        workspace_root=workspace_root,
     )
-    return ActivityDetail(
-        summary=summary,
-        description=activity.description,
-        activity_type=activity.activity_type,
-        standards_profile_id=activity.standards_profile_id,
-        focus_standard_ids=activity.focus_standard_ids,
-    )
+    return activity_detail_from_context(context)
 
 
 def update_activity(

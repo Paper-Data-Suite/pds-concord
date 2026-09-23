@@ -1,4 +1,4 @@
-"""Install Concord/Core wheels in isolation and smoke-test issue #66 menus."""
+"""Install wheels and smoke-test issues #66/#104 task-oriented Activity menus."""
 
 from __future__ import annotations
 
@@ -31,10 +31,10 @@ def _run(command: list[str], cwd: Path) -> None:
 def _smoke_code() -> str:
     return textwrap.dedent(
         """
+        import hashlib
         from datetime import datetime, timezone
         from importlib import metadata
         from pathlib import Path
-        from types import SimpleNamespace
         from unittest.mock import patch
         import contextlib
         import io
@@ -54,11 +54,16 @@ def _smoke_code() -> str:
         from pds_core.workspace import ensure_workspace_root
 
         from concord.menu_context import MenuSessionContext
+        from concord.models import PlannedGroup
         from concord.workflows import (
             CreateActivityContextRequest,
             WorkflowActor,
             create_activity_context,
             show_activity,
+        )
+        from concord.workflows.group_plan import (
+            CreateGroupPlanRequest,
+            create_group_plan,
         )
 
         assert metadata.version("pds-core") == "0.6.3"
@@ -83,6 +88,18 @@ def _smoke_code() -> str:
                 raise AssertionError(
                     f"unexpected sibling distribution installed: {distribution}"
                 )
+
+        def fingerprint(root: Path) -> tuple[tuple[str, str], ...]:
+            rows = []
+            for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+                if path.is_file():
+                    rows.append(
+                        (
+                            path.relative_to(root).as_posix(),
+                            hashlib.sha256(path.read_bytes()).hexdigest(),
+                        )
+                    )
+            return tuple(rows)
 
         with tempfile.TemporaryDirectory(prefix="concord-task-menu-installed-") as raw:
             root = ensure_workspace_root(Path(raw) / "workspace")
@@ -126,13 +143,33 @@ def _smoke_code() -> str:
                 ),
                 workspace_root=root,
             )
+            planned = create_group_plan(
+                CreateGroupPlanRequest(
+                    class_id="class-1",
+                    activity_id="activity-1",
+                    group_plan_id="plan-1",
+                    strategy="manual",
+                    expected_snapshot_revision=created.commit.snapshot_revision,
+                    actor=actor,
+                    proposed_groups=(
+                        PlannedGroup(
+                            planned_group_key="group-a",
+                            label="Group A",
+                            student_ids=("student-1",),
+                        ),
+                    ),
+                ),
+                workspace_root=root,
+            )
             activity = show_activity(
                 "class-1",
                 "activity-1",
                 workspace_root=root,
             ).summary
             before_revision = activity.snapshot_revision
-            assert before_revision == created.commit.snapshot_revision
+            assert before_revision == planned.commit.snapshot_revision
+            before = fingerprint(root)
+            real_load_activity_context = activity_menu._load_activity_context
 
             responses = iter(
                 (
@@ -155,8 +192,12 @@ def _smoke_code() -> str:
                 ),
                 patch.object(
                     activity_menu,
-                    "show_activity",
-                    lambda *_args, **_kwargs: SimpleNamespace(summary=activity),
+                    "_load_activity_context",
+                    lambda class_id, activity_id: real_load_activity_context(
+                        class_id,
+                        activity_id,
+                        workspace_root=root,
+                    ),
                 ),
                 patch.object(activity_menu, "clear_screen", lambda: None),
                 patch.object(artifact_menu, "clear_screen", lambda: None),
@@ -171,7 +212,11 @@ def _smoke_code() -> str:
                 )
 
             rendered = output.getvalue()
+            assert "Attention: unavailable" not in rendered
             for label in (
+                "Attention",
+                "Group plans still need preparation",
+                "A. Open next action",
                 "1. Plan",
                 "2. Prepare",
                 "3. Collect",
@@ -196,6 +241,7 @@ def _smoke_code() -> str:
                 workspace_root=root,
             ).summary.snapshot_revision
             assert after_revision == before_revision
+            assert fingerprint(root) == before
         """
     )
 

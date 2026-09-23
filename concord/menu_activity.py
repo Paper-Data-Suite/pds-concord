@@ -90,7 +90,12 @@ from concord.workflows import (
     show_activity,
     update_activity,
 )
-from concord.workflows.activity_attention import inspect_activity_attention
+from concord.workflows.activity import _load_activity_context
+from concord.workflows.activity_attention import (
+    _inspect_activity_attention_from_context,
+    inspect_activity_attention,
+)
+from concord.workflows.activity_read import activity_summary_from_context
 from concord.workflows.models import UNSET, OptionalTextUpdate, TextUpdate
 
 _ACTIVITY_TYPES = ("socratic_seminar", "laboratory", "project")
@@ -992,17 +997,27 @@ def launch_activity_context_menu(
     """Open one Activity around teacher tasks instead of record families."""
     session_state = MenuSessionContext() if state is None else state
     while True:
+        read_context = None
         try:
-            activity = show_activity(activity.class_id, activity.activity_id).summary
+            read_context = _load_activity_context(
+                activity.class_id,
+                activity.activity_id,
+            )
+            activity = activity_summary_from_context(read_context)
         except ConcordWorkflowError:
             pass
         clear_screen()
         print_menu_header(f"Activity: {activity.title}")
         try:
-            loaded_attention = inspect_activity_attention(
-                activity.class_id,
-                activity.activity_id,
-            )
+            if read_context is None:
+                loaded_attention = inspect_activity_attention(
+                    activity.class_id,
+                    activity.activity_id,
+                )
+            else:
+                loaded_attention = _inspect_activity_attention_from_context(
+                    read_context
+                )
         except Exception:
             attention = None
             print("Attention: unavailable")

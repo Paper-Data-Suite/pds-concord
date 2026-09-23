@@ -8,14 +8,30 @@ from typing import Final, Literal, TypeAlias
 
 from concord.academic_result_share_attention import (
     AcademicResultShareAttentionState,
-    inspect_academic_result_share_attention_state,
+    _inspect_academic_result_share_attention_state_from_registration_context,
 )
-from concord.workflows.activity import list_activities, show_activity
-from concord.workflows.artifact import ArtifactSummary, list_artifacts
+from concord.academic_work_registration import (
+    _managed_activity_registration_context_from_verified_activity,
+)
+from concord.models import (
+    ArtifactAuthor,
+    ArtifactReview,
+    ArtifactSubject,
+    EvidenceReference,
+)
+from concord.workflows.activity import _load_activity_context, list_activities
+from concord.workflows.activity_read import (
+    ActivityReadContext,
+    activity_summary_from_context,
+)
+from concord.workflows.artifact import ArtifactSummary
+from concord.workflows.artifact_attribution import _current_authors, _current_subjects
 from concord.workflows.artifact_collection import (
     ArtifactCollectionState,
+    _assembly_state,
     inspect_artifact_collection_state,
 )
+from concord.workflows.artifact_review import _review_heads
 from concord.workflows.artifact_review_attention import (
     ArtifactReviewAttentionState,
     inspect_artifact_review_attention_state,
@@ -24,14 +40,18 @@ from concord.workflows.artifact_scoring_attention import (
     ArtifactScoringAttentionState,
     inspect_artifact_scoring_attention_state,
 )
+from concord.workflows.errors import ConcordWorkflowConflictError
 from concord.workflows.group_plan import (
     GroupPlanSummary,
-    list_group_plans,
     show_group_plan,
+)
+from concord.workflows.moderation import (
+    _applicable_records,
+    _validate_evidence_lineage,
+    _validate_subjects,
 )
 from concord.workflows.packet_instance import (
     PacketInstanceSummary,
-    list_packet_instances,
 )
 
 ActivityAttentionTask: TypeAlias = Literal[
@@ -478,70 +498,307 @@ def _share_attention_counts(
     return {} if code is None else {code: 1}
 
 
+def _share_attention_from_context(
+    context: ActivityReadContext,
+) -> AcademicResultShareAttentionState:
+    """Project Share state without re-reading the verified Activity graph."""
+    registration_context = (
+        _managed_activity_registration_context_from_verified_activity(
+            context.root,
+            context.work,
+            context.activity,
+            context.snapshot_revision,
+        )
+    )
+    return _inspect_academic_result_share_attention_state_from_registration_context(
+        registration_context,
+        workspace_root=context.root,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _ActivityAttentionIndex:
+    """Disposable indexes over one already-verified current Activity graph."""
+
+    authors_by_artifact: dict[str, tuple[ArtifactAuthor, ...]]
+    subjects_by_artifact: dict[str, tuple[ArtifactSubject, ...]]
+    reviews_by_artifact: dict[str, ArtifactReview]
+
+
+def _build_attention_index(context: ActivityReadContext) -> _ActivityAttentionIndex:
+    author_lists: dict[str, list[ArtifactAuthor]] = {}
+    for author in _current_authors(context.graph):
+        author_lists.setdefault(author.artifact_instance_id, []).append(author)
+
+    subject_lists: dict[str, list[ArtifactSubject]] = {}
+    for subject in _current_subjects(context.graph):
+        subject_lists.setdefault(subject.artifact_instance_id, []).append(subject)
+
+    reviews: dict[str, ArtifactReview] = {}
+    for review in _review_heads(context.graph):
+        artifact_id = review.artifact_instance_id
+        if artifact_id in reviews:
+            raise ConcordWorkflowConflictError(
+                "Artifact has competing current Review heads."
+            )
+        reviews[artifact_id] = review
+
+    return _ActivityAttentionIndex(
+        authors_by_artifact={
+            key: tuple(value) for key, value in author_lists.items()
+        },
+        subjects_by_artifact={
+            key: tuple(value) for key, value in subject_lists.items()
+        },
+        reviews_by_artifact=reviews,
+    )
+
+
+def _add_count(counts: dict[str, int], code: str) -> None:
+    if code not in _DEFINITION_BY_CODE:
+        raise ValueError(f"Unknown Concord attention code: {code}")
+    counts[code] = counts.get(code, 0) + 1
+
+
+def _plan_attention_counts_from_context(
+    context: ActivityReadContext,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for plan in context.graph.group_plans:
+        if plan.status == "draft":
+            _add_count(counts, "concord_plan_prepare")
+        elif plan.status == "previewed":
+            _add_count(counts, "concord_plan_approve")
+        elif plan.status == "approved":
+            _add_count(counts, "concord_plan_apply")
+        elif plan.status in {"applied", "cancelled"}:
+            continue
+
+        unresolved = bool(plan.unresolved_student_ids)
+        actionable_status = plan.status in {"draft", "previewed"}
+        signal_strategy = plan.strategy in _SIGNAL_GROUP_PLAN_STRATEGIES
+        leave_unassigned = plan.missing_signal_disposition == "leave_unassigned"
+        if unresolved and actionable_status and not (
+            signal_strategy and leave_unassigned
+        ):
+            _add_count(counts, "concord_plan_unresolved_placements")
+    return counts
+
+
+def _prepare_attention_counts_from_context(
+    context: ActivityReadContext,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for packet in context.graph.packet_instances:
+        if packet.generation_status in {"planned", "rendering"}:
+            _add_count(counts, "concord_prepare_materials")
+        elif packet.generation_status == "routes_pending":
+            _add_count(counts, "concord_prepare_routes_pending")
+        elif packet.generation_status == "failed":
+            _add_count(counts, "concord_prepare_recovery")
+    return counts
+
+
+def _collection_state_from_context(
+    context: ActivityReadContext,
+    index: _ActivityAttentionIndex,
+    artifact_instance_id: str,
+) -> ArtifactCollectionState:
+    artifact = next(
+        item
+        for item in context.graph.artifact_instances
+        if item.artifact_instance_id == artifact_instance_id
+    )
+    authors = index.authors_by_artifact.get(artifact_instance_id, ())
+    subjects = index.subjects_by_artifact.get(artifact_instance_id, ())
+    return ArtifactCollectionState(
+        class_id=context.work.class_id,
+        activity_id=context.work.work_id,
+        artifact_instance_id=artifact_instance_id,
+        assembly_state=_assembly_state(
+            context.root,
+            context.work.class_id,
+            context.work.work_id,
+            artifact,
+            context.graph,
+        ),
+        author_confirmation_pending=any(
+            item.attribution_status in {"proposed", "disputed"}
+            for item in authors
+        ),
+        subject_confirmation_pending=any(
+            item.confirmation_status in {"proposed", "disputed", "unresolved"}
+            for item in subjects
+        ),
+    )
+
+
+def _review_state_from_context(
+    context: ActivityReadContext,
+    index: _ActivityAttentionIndex,
+    artifact_instance_id: str,
+    collection: ArtifactCollectionState,
+) -> ArtifactReviewAttentionState:
+    current = index.reviews_by_artifact.get(artifact_instance_id)
+    if current is None:
+        return ArtifactReviewAttentionState(
+            class_id=context.work.class_id,
+            activity_id=context.work.work_id,
+            artifact_instance_id=artifact_instance_id,
+            first_review_pending=collection.assembly_state == "assembled",
+            review_attention_pending=False,
+            moderation_pending=False,
+            post_moderation_review_pending=False,
+        )
+
+    review_attention_pending = (
+        current.review_outcome
+        in {
+            "incomplete",
+            "unreadable",
+            "misrouted",
+            "duplicate",
+            "awaiting_correction",
+            "awaiting_additional_evidence",
+        }
+    )
+    moderation_pending = False
+    post_moderation_review_pending = False
+    if current.moderation_requirement == "required":
+        subject_context = tuple(
+            item.subject_reference
+            for item in index.subjects_by_artifact.get(artifact_instance_id, ())
+        )
+        reference = EvidenceReference(
+            evidence_kind="artifact_instance",
+            owning_system="concord",
+            record_id=artifact_instance_id,
+        )
+        _validate_evidence_lineage(
+            context.root,
+            context.graph,
+            context.work.work_id,
+            reference,
+        )
+        _validate_subjects(
+            context.root,
+            context.work.class_id,
+            context.graph,
+            context.work.work_id,
+            subject_context,
+        )
+        if _applicable_records(context.graph, reference, subject_context):
+            post_moderation_review_pending = True
+        else:
+            moderation_pending = True
+
+    return ArtifactReviewAttentionState(
+        class_id=context.work.class_id,
+        activity_id=context.work.work_id,
+        artifact_instance_id=artifact_instance_id,
+        first_review_pending=False,
+        review_attention_pending=review_attention_pending,
+        moderation_pending=moderation_pending,
+        post_moderation_review_pending=post_moderation_review_pending,
+    )
+
+
+def _score_state_from_context(
+    context: ActivityReadContext,
+    index: _ActivityAttentionIndex,
+    artifact_instance_id: str,
+) -> ArtifactScoringAttentionState:
+    review = index.reviews_by_artifact.get(artifact_instance_id)
+    ready = bool(
+        context.activity.scoring_orientation != "evidence_only"
+        and review is not None
+        and review.review_outcome in {"ready", "ready_with_qualification"}
+        and review.scoring_readiness in {"ready", "ready_with_qualification"}
+        and review.moderation_requirement != "required"
+    )
+    return ArtifactScoringAttentionState(
+        class_id=context.work.class_id,
+        activity_id=context.work.work_id,
+        artifact_instance_id=artifact_instance_id,
+        scoring_ready=ready,
+    )
+
+
+def _attention_counts_from_context(
+    context: ActivityReadContext,
+) -> dict[str, int]:
+    """Project all local Activity attention from one exact verified graph."""
+    counts: dict[str, int] = {}
+    if context.activity.status in _PLAN_ACTIVE_ACTIVITY_STATUSES:
+        counts.update(_plan_attention_counts_from_context(context))
+    counts.update(_prepare_attention_counts_from_context(context))
+
+    index = _build_attention_index(context)
+    for artifact in sorted(
+        context.graph.artifact_instances,
+        key=lambda item: item.artifact_instance_id,
+    ):
+        artifact_id = artifact.artifact_instance_id
+        collection = _collection_state_from_context(context, index, artifact_id)
+        if collection.assembly_state in {
+            "ready",
+            "selection_required",
+            "needs_recovery",
+        }:
+            _add_count(counts, "concord_collect_assembly")
+        if collection.author_confirmation_pending:
+            _add_count(counts, "concord_collect_author_confirmation")
+        if collection.subject_confirmation_pending:
+            _add_count(counts, "concord_collect_subject_confirmation")
+
+        review = _review_state_from_context(
+            context,
+            index,
+            artifact_id,
+            collection,
+        )
+        if review.first_review_pending:
+            _add_count(counts, "concord_review_first")
+        if review.review_attention_pending:
+            _add_count(counts, "concord_review_attention")
+        if review.moderation_pending:
+            _add_count(counts, "concord_review_moderation")
+        if review.post_moderation_review_pending:
+            _add_count(counts, "concord_review_post_moderation")
+
+        if _score_state_from_context(context, index, artifact_id).scoring_ready:
+            _add_count(counts, "concord_score_ready")
+
+    share_state = _share_attention_from_context(context)
+    counts.update(_share_attention_counts(share_state))
+    return counts
+
+
+def _inspect_activity_attention_from_context(
+    context: ActivityReadContext,
+) -> ActivityAttentionSummary:
+    summary = activity_summary_from_context(context)
+    return ActivityAttentionSummary(
+        class_id=summary.class_id,
+        activity_id=summary.activity_id,
+        title=summary.title,
+        items=_items_from_counts(_attention_counts_from_context(context)),
+    )
+
+
 def inspect_activity_attention(
     class_id: str,
     activity_id: str,
     *,
     workspace_root: str | Path | None = None,
 ) -> ActivityAttentionSummary:
-    """Derive current attention for one Activity from authoritative state only."""
-    detail = show_activity(class_id, activity_id, workspace_root=workspace_root)
-
-    counts: dict[str, int] = {}
-    if detail.summary.status in _PLAN_ACTIVE_ACTIVITY_STATUSES:
-        plans = list_group_plans(
-            class_id,
-            activity_id,
-            workspace_root=workspace_root,
-        )
-        counts.update(
-            _plan_attention_counts(plans, workspace_root=workspace_root)
-        )
-
-    packets = list_packet_instances(
+    """Derive current attention from one exact operation-scoped Activity state."""
+    context = _load_activity_context(
         class_id,
         activity_id,
         workspace_root=workspace_root,
     )
-    counts.update(_prepare_attention_counts(packets))
-
-    artifacts = list_artifacts(
-        class_id,
-        activity_id,
-        workspace_root=workspace_root,
-    )
-    counts.update(
-        _collect_attention_counts(
-            artifacts,
-            workspace_root=workspace_root,
-        )
-    )
-    counts.update(
-        _review_attention_counts(
-            artifacts,
-            workspace_root=workspace_root,
-        )
-    )
-    counts.update(
-        _score_attention_counts(
-            artifacts,
-            workspace_root=workspace_root,
-        )
-    )
-
-    share_state = inspect_academic_result_share_attention_state(
-        class_id,
-        activity_id,
-        workspace_root=workspace_root,
-    )
-    counts.update(_share_attention_counts(share_state))
-
-    return ActivityAttentionSummary(
-        class_id=detail.summary.class_id,
-        activity_id=detail.summary.activity_id,
-        title=detail.summary.title,
-        items=_items_from_counts(counts),
-    )
+    return _inspect_activity_attention_from_context(context)
 
 
 def list_activity_attention(
