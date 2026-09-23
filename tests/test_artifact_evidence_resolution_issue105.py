@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import date, datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -26,6 +27,7 @@ from concord.workflows import (
     ArtifactAssemblyNotFoundError,
     AssembleArtifactRequest,
     AssemblyPageSelection,
+    ConcordWorkflowConflictError,
     ConcordWorkflowOpenError,
     CreateActivityContextRequest,
     ResolvedReturnedArtifactAssembly,
@@ -579,3 +581,96 @@ def test_open_returned_artifact_evidence_forwards_exact_occurrence_selection(
 
     assert resolved.assembly_id == assembled.assembly_id
     assert opened == [assembled.output_path.resolve(strict=False)]
+
+def test_resolve_rejects_canonical_state_change_during_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-currentness",
+            filename="currentness.png",
+            color=(20, 30, 40),
+        ),
+    )
+    _assemble(root)
+    current = load_current_record_graph(root, _work())
+    before = _fingerprint(root)
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_assembly.load_current_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            snapshot_revision=current.snapshot_revision + 1,
+            snapshot_sha256="f" * 64,
+        ),
+    )
+
+    with pytest.raises(
+        ConcordWorkflowConflictError,
+        match="state changed.*Try opening the returned work again",
+    ):
+        resolve_returned_artifact_assembly(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert _fingerprint(root) == before
+
+
+def test_open_never_delegates_when_canonical_state_changes_during_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    prepared = _prepare(root)
+    _return(
+        root,
+        prepared,
+        _retained_image(
+            root,
+            scan_id="scan-open-currentness",
+            filename="open-currentness.png",
+            color=(20, 30, 40),
+        ),
+    )
+    _assemble(root)
+    current = load_current_record_graph(root, _work())
+    opened: list[Path] = []
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_assembly.load_current_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            snapshot_revision=current.snapshot_revision,
+            snapshot_sha256="e" * 64,
+        ),
+    )
+
+    def _open(path: str | Path) -> Path:
+        resolved = Path(path).resolve(strict=False)
+        opened.append(resolved)
+        return resolved
+
+    monkeypatch.setattr(
+        "concord.workflows.artifact_evidence_opening.open_local_path",
+        _open,
+    )
+
+    with pytest.raises(
+        ConcordWorkflowConflictError,
+        match="state changed.*Try opening the returned work again",
+    ):
+        open_returned_artifact_evidence(
+            "class-1",
+            "activity-1",
+            "artifact-1",
+            workspace_root=root,
+        )
+
+    assert opened == []

@@ -24,7 +24,10 @@ from concord.artifact_rendering import (
 )
 from concord.model_validation import ConcordRecordGraph
 from concord.models import ArtifactInstance, ArtifactPage, ScanReference
-from concord.storage import load_current_record_graph
+from concord.storage import (
+    load_current_record_graph,
+    load_current_snapshot,
+)
 from concord.storage_errors import ConcordStorageConflictError
 from concord.storage_paths import work_root
 from concord.workflows.artifact_page import _standards
@@ -36,6 +39,7 @@ from concord.workflows.context import (
     resolve_read_workspace_root,
 )
 from concord.workflows.errors import (
+    ConcordWorkflowConflictError,
     ConcordWorkflowNotFoundError,
     ConcordWorkflowValidationError,
 )
@@ -585,6 +589,25 @@ def _install_assembly(
             shutil.rmtree(temporary, ignore_errors=True)
 
 
+
+def _require_current_snapshot_unchanged(
+    root: Path,
+    work: ModuleWorkRef,
+    *,
+    snapshot_revision: int,
+    snapshot_sha256: str,
+) -> None:
+    current = load_current_snapshot(root, work)
+    if (
+        current.snapshot_revision != snapshot_revision
+        or current.snapshot_sha256 != snapshot_sha256
+    ):
+        raise ConcordWorkflowConflictError(
+            "Concord state changed while returned Artifact evidence was being "
+            "verified. Try opening the returned work again."
+        )
+
+
 def resolve_returned_artifact_assembly(
     class_id: str,
     activity_id: str,
@@ -653,6 +676,12 @@ def resolve_returned_artifact_assembly(
         artifact=artifact,
         assembly_id=assembly_id,
         lineage=lineage,
+    )
+    _require_current_snapshot_unchanged(
+        root,
+        work,
+        snapshot_revision=loaded.snapshot_revision,
+        snapshot_sha256=loaded.snapshot_sha256,
     )
     return ResolvedReturnedArtifactAssembly(
         work=work,
