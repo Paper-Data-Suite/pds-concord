@@ -614,8 +614,14 @@ publication internals that are unnecessary for the current teacher decision.
 This reorganization is interactive presentation only. The direct command
 inventory above remains unchanged and noninteractive.
 
+Issue #105 adds `O. Open returned work` to Collect, Review, and Score. The action
+uses the shared read-only returned-evidence opener, requires an existing verified
+exact assembly, and does not create a Review or Score merely because evidence was
+opened. It also does not add a new direct CLI command or arbitrary-path open
+surface.
+
 See `docs/v0.3.0-task-oriented-activity-menus.md` for the complete issue #66
-contract.
+contract and `docs/v0.3.1-returned-artifact-evidence-opening.md` for issue #105.
 
 ## Concurrency and no-op behavior
 

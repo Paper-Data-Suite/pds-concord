@@ -357,6 +357,16 @@ separation, teacher Prepare/post-generation/advanced actions, deterministic
 direct CLI, local-folder privacy semantics, historical compatibility, and the
 isolated installed-wheel qualification wired into #111.
 
+### v0.3.1 returned Artifact evidence opening
+
+[`v0.3.1-returned-artifact-evidence-opening.md`](v0.3.1-returned-artifact-evidence-opening.md)
+
+Documents issue #105's exact returned-evidence authority, read-only Open versus
+assembly/Review/Score boundaries, duplicate-occurrence selection, assembly
+integrity and link/path safety, selection-to-open currentness, privacy-minimal
+teacher UX across Collect/Review/Score, Core local-open delegation, and isolated
+installed-wheel qualification against released Core 0.6.3.
+
 ### v0.3.1 starter Subject relationships
 
 [`v0.3.1-starter-subject-relationships.md`](v0.3.1-starter-subject-relationships.md)

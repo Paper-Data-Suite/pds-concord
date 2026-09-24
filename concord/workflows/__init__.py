@@ -28,12 +28,15 @@ from concord.workflows.artifact_assembly import (
     ArtifactAssemblyError,
     ArtifactAssemblyIncompleteError,
     ArtifactAssemblyIntegrityError,
+    ArtifactAssemblyNotFoundError,
     AssembleArtifactRequest,
     AssembleArtifactResult,
     AssemblyAmbiguity,
     AssemblyPageLineage,
     AssemblyPageSelection,
+    ResolvedReturnedArtifactAssembly,
     assemble_returned_artifact,
+    resolve_returned_artifact_assembly,
 )
 from concord.workflows.artifact_attribution import (
     AddArtifactAuthorRequest,
@@ -56,6 +59,9 @@ from concord.workflows.artifact_attribution import (
     show_artifact_subject,
     update_artifact_author,
     update_artifact_subject,
+)
+from concord.workflows.artifact_evidence_opening import (
+    open_returned_artifact_evidence,
 )
 from concord.workflows.artifact_page import (
     ArtifactPagePlan,
@@ -587,6 +593,8 @@ __all__ = [
     "ArtifactAssemblyError",
     "ArtifactAssemblyIncompleteError",
     "ArtifactAssemblyIntegrityError",
+    "ArtifactAssemblyNotFoundError",
+    "ResolvedReturnedArtifactAssembly",
     "ArtifactAttributionMutationResult",
     "ArtifactAuthorSummary",
     "ArtifactPagePlan",
@@ -680,6 +688,8 @@ __all__ = [
     "reassign_role",
     "replace_artifact_author",
     "replace_artifact_subject",
+    "resolve_returned_artifact_assembly",
+    "open_returned_artifact_evidence",
     "resolve_read_workspace_root",
     "show_activity",
     "show_artifact_author",

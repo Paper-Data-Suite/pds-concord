@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from pds_core.standards import StandardsLibrary
 
+from concord.menu_artifact import open_returned_work
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -2097,6 +2098,7 @@ def launch_score_menu(
         print("1. Record a Score")
         print("2. View Scores")
         print("3. Revise a Score")
+        print("O. Open returned work")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2108,6 +2110,10 @@ def launch_score_menu(
             print("Assessment criteria and scales are configured under Plan.")
             print("Concord never infers a Score from evidence.")
             print("A Group Score never creates individual student Scores.")
+            print(
+                "Open returned work uses your normal PDF viewer and "
+                "records no Score."
+            )
             print()
             pause_for_user()
         elif navigation is NavigationChoice.BACK:
@@ -2118,6 +2124,8 @@ def launch_score_menu(
             _browse_scores(activity)
         elif choice == "3":
             _revise_score(activity, session_state)
+        elif choice.upper() == "O":
+            open_returned_work(activity)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

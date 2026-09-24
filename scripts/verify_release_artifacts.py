@@ -54,6 +54,7 @@ REQUIRED_WHEEL_FILES = frozenset(
         "concord/academic_result_reader.py",
         "concord/academic_result_artifacts.py",
         "concord/artifact_rendering.py",
+        "concord/workflows/artifact_evidence_opening.py",
         "concord/workflows/rendered_output.py",
         "concord/py.typed",
     }

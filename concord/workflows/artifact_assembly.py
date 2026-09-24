@@ -24,7 +24,10 @@ from concord.artifact_rendering import (
 )
 from concord.model_validation import ConcordRecordGraph
 from concord.models import ArtifactInstance, ArtifactPage, ScanReference
-from concord.storage import load_current_record_graph
+from concord.storage import (
+    load_current_record_graph,
+    load_current_snapshot,
+)
 from concord.storage_errors import ConcordStorageConflictError
 from concord.storage_paths import work_root
 from concord.workflows.artifact_page import _standards
@@ -33,8 +36,10 @@ from concord.workflows.context import (
     ensure_mutating_workspace_root,
     provenance,
     require_core_class,
+    resolve_read_workspace_root,
 )
 from concord.workflows.errors import (
+    ConcordWorkflowConflictError,
     ConcordWorkflowNotFoundError,
     ConcordWorkflowValidationError,
 )
@@ -92,6 +97,20 @@ class AssembleArtifactResult:
     output_sha256: str
     reused: bool
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResolvedReturnedArtifactAssembly:
+    """One exact existing returned-Artifact assembly verified against current state."""
+
+    work: ModuleWorkRef
+    artifact_instance_id: str
+    assembly_id: str
+    output_path: Path
+    manifest_path: Path
+    page_count: int
+    output_sha256: str
+    snapshot_revision: int
+    snapshot_sha256: str
+
 
 class ArtifactAssemblyError(ConcordWorkflowValidationError):
     """Base class for expected returned-Artifact assembly failures."""
@@ -121,6 +140,10 @@ class ArtifactAssemblyAmbiguityError(ArtifactAssemblyError):
 
 class ArtifactAssemblyIntegrityError(ArtifactAssemblyError):
     """Canonical retained-source or derived-output integrity failed."""
+
+
+class ArtifactAssemblyNotFoundError(ArtifactAssemblyError):
+    """The exact current returned evidence has no existing assembly."""
 
 
 def _lineage_dict(lineage: AssemblyPageLineage) -> dict[str, object]:
@@ -566,6 +589,122 @@ def _install_assembly(
             shutil.rmtree(temporary, ignore_errors=True)
 
 
+
+def _require_current_snapshot_unchanged(
+    root: Path,
+    work: ModuleWorkRef,
+    *,
+    snapshot_revision: int,
+    snapshot_sha256: str,
+) -> None:
+    current = load_current_snapshot(root, work)
+    if (
+        current.snapshot_revision != snapshot_revision
+        or current.snapshot_sha256 != snapshot_sha256
+    ):
+        raise ConcordWorkflowConflictError(
+            "Concord state changed while returned Artifact evidence was being "
+            "verified. Try opening the returned work again."
+        )
+
+
+def resolve_returned_artifact_assembly(
+    class_id: str,
+    activity_id: str,
+    artifact_instance_id: str,
+    *,
+    selections: tuple[AssemblyPageSelection, ...] = (),
+    expected_snapshot_revision: int | None = None,
+    workspace_root: str | Path | None = None,
+) -> ResolvedReturnedArtifactAssembly:
+    """Resolve one exact existing returned-Artifact assembly without mutation.
+
+    Current Concord lineage determines the exact assembly identity. Retained
+    source custody and the existing manifest/PDF are verified before a typed
+    result is returned. This service never assembles, repairs, or rewrites
+    evidence.
+    """
+    root = resolve_read_workspace_root(workspace_root)
+    if root is None:
+        raise ConcordWorkflowNotFoundError(
+            "Paper Data Suite workspace does not exist."
+        )
+    require_core_class(root, class_id)
+    work = ModuleWorkRef("concord", class_id, activity_id)
+    library = _standards(root)
+    loaded = load_current_record_graph(root, work, standards_library=library)
+    if (
+        expected_snapshot_revision is not None
+        and loaded.snapshot_revision != expected_snapshot_revision
+    ):
+        raise ConcordWorkflowConflictError(
+            "Concord state changed while returned Artifact evidence was being "
+            "selected. Try opening the returned work again."
+        )
+    graph = cast(ConcordRecordGraph, loaded.graph)
+    artifact = next(
+        (
+            item
+            for item in graph.artifact_instances
+            if item.artifact_instance_id == artifact_instance_id
+        ),
+        None,
+    )
+    if artifact is None or artifact.activity_id != activity_id:
+        raise ConcordWorkflowNotFoundError(
+            f"Artifact Instance is unavailable: {artifact_instance_id}"
+        )
+
+    lineage = _select_lineage(artifact, graph, selections)
+    scans = {item.scan_reference_id: item for item in graph.scan_references}
+    for item in lineage:
+        scan = scans.get(item.scan_reference_id)
+        if scan is None:
+            raise ArtifactAssemblyIntegrityError(
+                "selected Scan Reference disappeared from canonical state."
+            )
+        _validate_retained_source(root, scan)
+
+    assembly_id = _assembly_id(artifact.artifact_instance_id, lineage)
+    output_path, manifest_path = _assembly_paths(
+        root,
+        work,
+        artifact.artifact_instance_id,
+        assembly_id,
+    )
+    if not output_path.parent.exists():
+        raise ArtifactAssemblyNotFoundError(
+            "This exact returned work has not been assembled yet. "
+            "Use Assemble returned work first."
+        )
+
+    output_sha = _verify_existing(
+        output_path=output_path,
+        manifest_path=manifest_path,
+        work=work,
+        artifact=artifact,
+        assembly_id=assembly_id,
+        lineage=lineage,
+    )
+    _require_current_snapshot_unchanged(
+        root,
+        work,
+        snapshot_revision=loaded.snapshot_revision,
+        snapshot_sha256=loaded.snapshot_sha256,
+    )
+    return ResolvedReturnedArtifactAssembly(
+        work=work,
+        artifact_instance_id=artifact.artifact_instance_id,
+        assembly_id=assembly_id,
+        output_path=output_path,
+        manifest_path=manifest_path,
+        page_count=len(lineage),
+        output_sha256=output_sha,
+        snapshot_revision=loaded.snapshot_revision,
+        snapshot_sha256=loaded.snapshot_sha256,
+    )
+
+
 def assemble_returned_artifact(
     request: AssembleArtifactRequest,
     *,
@@ -698,5 +837,8 @@ __all__ = [
     "ArtifactAssemblyError",
     "ArtifactAssemblyIncompleteError",
     "ArtifactAssemblyIntegrityError",
+    "ArtifactAssemblyNotFoundError",
+    "ResolvedReturnedArtifactAssembly",
     "assemble_returned_artifact",
+    "resolve_returned_artifact_assembly",
 ]

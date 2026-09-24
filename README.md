@@ -226,6 +226,26 @@ complete #66 contract.
 
 [task-activity-menu-doc]: docs/v0.3.0-task-oriented-activity-menus.md
 
+## Opening returned Artifact evidence
+
+Issue #105 adds `O. Open returned work` to Collect, Review, and Score while
+preserving every existing numbered task action. Open resolves the exact current
+returned-page lineage, requires an already-existing verified assembly, and then
+delegates only that verified `artifact.pdf` to Core's local-open boundary.
+
+Open is read-only: it does not assemble or repair evidence, choose among duplicate
+returned occurrences implicitly, create Review/Moderation/Score state, publish
+results, or record that evidence was viewed. Selection-to-open snapshot
+currentness plus a final revision/SHA check fail closed if canonical state changes.
+Routine failures do not expose retained paths, hashes, manifests, or route
+internals.
+
+See [returned Artifact evidence opening documentation][returned-evidence-open-doc]
+for the complete #105 authority, integrity, currentness, privacy, and
+installed-wheel contract.
+
+[returned-evidence-open-doc]: docs/v0.3.1-returned-artifact-evidence-opening.md
+
 ## Activity attention and next actions
 
 Issue #67 adds a read-only attention layer over the same six teacher tasks.
