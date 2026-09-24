@@ -63,6 +63,13 @@ from concord.workflows.artifact_attribution import (
     update_artifact_author,
     update_artifact_subject,
 )
+from concord.workflows.artifact_attribution_review import (
+    ArtifactAttributionReview,
+    ArtifactAttributionReviewGroup,
+    ArtifactAuthorReviewItem,
+    ArtifactSubjectReviewItem,
+    inspect_artifact_attribution_review,
+)
 from concord.workflows.artifact_evidence_opening import (
     open_returned_artifact_evidence,
 )
@@ -599,7 +606,11 @@ __all__ = [
     "ArtifactAssemblyNotFoundError",
     "ResolvedReturnedArtifactAssembly",
     "ArtifactAttributionMutationResult",
+    "ArtifactAttributionReview",
+    "ArtifactAttributionReviewGroup",
+    "ArtifactAuthorReviewItem",
     "ArtifactAuthorSummary",
+    "ArtifactSubjectReviewItem",
     "ArtifactPagePlan",
     "ArtifactPageSummary",
     "ArtifactRoutePreparationPartialSuccessError",
@@ -659,6 +670,7 @@ __all__ = [
     "add_artifact_subject",
     "add_membership",
     "batch_confirm_artifact_attribution",
+    "inspect_artifact_attribution_review",
     "add_memberships",
     "assign_responsibility",
     "assign_role",

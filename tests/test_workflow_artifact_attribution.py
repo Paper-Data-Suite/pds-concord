@@ -14,6 +14,7 @@ from pds_core.rosters import create_roster
 from pds_core.routing_models import ModuleWorkRef
 from pds_core.workspace import ensure_workspace_root
 
+import concord.workflows.artifact_attribution_review as attribution_review
 from concord.model_conversion import record_from_dict, record_to_dict
 from concord.models import (
     ActorReference,
@@ -51,6 +52,7 @@ from concord.workflows import (
     core_student_participant,
     create_activity_context,
     create_group_with_members,
+    inspect_artifact_attribution_review,
     list_artifact_authors,
     list_artifact_subjects,
     prepare_artifact_pages,
@@ -1324,3 +1326,232 @@ def test_issue106_batch_requires_nonempty_unique_selection(tmp_path: Path) -> No
         )
 
     assert load_current_record_graph(root, _work()).snapshot_revision == revision
+
+def test_issue106_review_projection_separates_candidates_exceptions_and_resolved(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    disputed = update_artifact_author(
+        UpdateArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_author_id="author-batch-2",
+            attribution_status="disputed",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+    unresolved = update_artifact_subject(
+        UpdateArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_subject_id="subject-batch-2",
+            confirmation_status="unresolved",
+            expected_snapshot_revision=disputed.commit.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+    confirmed_author = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-confirmed",
+            author_reference=_student_author("student-3"),
+            authorship_mode="observer",
+            attribution_status="confirmed",
+            attribution_source="teacher",
+            expected_snapshot_revision=unresolved.commit.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+    confirmed_subject = add_artifact_subject(
+        AddArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_subject_id="subject-confirmed",
+            subject_reference=_student_subject("student-1"),
+            subject_role="observed_participant",
+            confirmation_status="confirmed",
+            assignment_source="teacher",
+            expected_snapshot_revision=confirmed_author.commit.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    review = inspect_artifact_attribution_review(
+        "class-1",
+        "activity-1",
+        workspace_root=root,
+    )
+
+    assert review.snapshot_revision == confirmed_subject.commit.snapshot_revision
+    assert review.candidate_author_ids == ("author-batch-1",)
+    assert review.candidate_subject_ids == ("subject-batch-1",)
+    assert review.candidate_count == 2
+    assert review.exception_count == 2
+    assert review.confirmed_author_count == 1
+    assert review.confirmed_subject_count == 1
+    assert review.confirmed_relationship_count == 2
+    assert len(review.artifacts) == 1
+
+    group = review.artifacts[0]
+    assert group.artifact_instance_id == "artifact-1"
+    assert tuple(item.artifact_author_id for item in group.authors) == (
+        "author-batch-1",
+        "author-batch-2",
+    )
+    assert tuple(item.artifact_subject_id for item in group.subjects) == (
+        "subject-batch-1",
+        "subject-batch-2",
+    )
+    author_rows = {item.artifact_author_id: item for item in group.authors}
+    subject_rows = {item.artifact_subject_id: item for item in group.subjects}
+    assert author_rows["author-batch-1"].disposition == "candidate"
+    assert author_rows["author-batch-2"].exception_code == "disputed"
+    assert subject_rows["subject-batch-1"].disposition == "candidate"
+    assert subject_rows["subject-batch-2"].exception_code == "unresolved"
+    assert "author-confirmed" not in author_rows
+    assert "subject-confirmed" not in subject_rows
+
+
+def test_issue106_review_projection_revalidates_proposed_roster_semantics(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    reduced_roster = create_roster(
+        "class-1",
+        (
+            {
+                "student_id": "student-2",
+                "last_name": "Two",
+                "first_name": "Blair",
+                "period": "1",
+            },
+            {
+                "student_id": "student-3",
+                "last_name": "Three",
+                "first_name": "Casey",
+                "period": "1",
+            },
+        ),
+    )
+    write_class_roster(root, reduced_roster, overwrite=True)
+
+    review = inspect_artifact_attribution_review(
+        "class-1",
+        "activity-1",
+        workspace_root=root,
+    )
+
+    assert review.snapshot_revision == revision
+    assert "author-batch-1" not in review.candidate_author_ids
+    assert review.candidate_author_ids == ("author-batch-2",)
+    author_rows = {
+        item.artifact_author_id: item
+        for group in review.artifacts
+        for item in group.authors
+    }
+    invalid = author_rows["author-batch-1"]
+    assert invalid.disposition == "exception"
+    assert invalid.exception_code == "semantic_invalid"
+    assert invalid.exception_message is not None
+    assert "Core roster" in invalid.exception_message
+
+
+def test_issue106_review_projection_uses_one_exact_activity_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    real_load = attribution_review.load_activity_read_context
+    calls = 0
+
+    def counted_load(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        return real_load(*args, **kwargs)
+
+    monkeypatch.setattr(
+        attribution_review,
+        "load_activity_read_context",
+        counted_load,
+    )
+
+    review = inspect_artifact_attribution_review(
+        "class-1",
+        "activity-1",
+        workspace_root=root,
+    )
+
+    assert calls == 1
+    assert review.snapshot_revision == revision
+    assert review.candidate_author_ids == (
+        "author-batch-1",
+        "author-batch-2",
+    )
+    assert review.candidate_subject_ids == (
+        "subject-batch-1",
+        "subject-batch-2",
+    )
+
+
+def test_issue106_review_projection_excludes_historical_attribution(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    first = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-historical",
+            author_reference=_student_author("student-1"),
+            authorship_mode="observer",
+            attribution_status="proposed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+    replacement = replace_artifact_author(
+        ReplaceArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_author_id="author-historical",
+            replacement_artifact_author_id="author-current",
+            correction_id="correction-issue106-review",
+            reason="Correct the observer identity.",
+            author_reference=_student_author("student-3"),
+            authorship_mode="observer",
+            attribution_status="proposed",
+            attribution_source="teacher",
+            expected_snapshot_revision=first.commit.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    review = inspect_artifact_attribution_review(
+        "class-1",
+        "activity-1",
+        workspace_root=root,
+    )
+
+    assert review.snapshot_revision == replacement.commit.snapshot_revision
+    assert review.candidate_author_ids == ("author-current",)
+    visible_ids = {
+        item.artifact_author_id
+        for group in review.artifacts
+        for item in group.authors
+    }
+    assert "author-historical" not in visible_ids
