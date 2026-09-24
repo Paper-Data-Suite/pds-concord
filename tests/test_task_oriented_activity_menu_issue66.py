@@ -446,8 +446,8 @@ def test_collect_screen_separates_returned_work_from_review(
     output = capsys.readouterr().out
     assert "1. View returned work" in output
     assert "2. Assemble returned work" in output
-    assert "3. Confirm who produced the work" in output
-    assert "4. Confirm who or what the work is about" in output
+    assert "3. Review attribution" in output
+    assert "4. Advanced attribution tools" in output
     assert "Prepare Artifact Pages" not in output
     assert "Render prepared pages" not in output
     assert "Moderation" not in output
@@ -459,8 +459,8 @@ def test_collect_screen_separates_returned_work_from_review(
     (
         ("1", "_list_artifacts"),
         ("2", "_assemble"),
-        ("3", "_launch_author_menu"),
-        ("4", "_launch_subject_menu"),
+        ("3", "_launch_attribution_review_menu"),
+        ("4", "_launch_advanced_attribution_menu"),
     ),
 )
 def test_collect_routes_existing_artifact_services(
@@ -784,4 +784,3 @@ def test_share_navigation_alone_does_not_write(
     monkeypatch.setattr(publication_module, "clear_screen", lambda: None)
 
     publication_module.launch_share_results_menu(activity, MenuSessionContext())
-
