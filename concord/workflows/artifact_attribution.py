@@ -173,6 +173,23 @@ class ArtifactAttributionMutationResult:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class BatchConfirmArtifactAttributionRequest:
+    class_id: str
+    activity_id: str
+    expected_snapshot_revision: int
+    actor: WorkflowActor
+    artifact_author_ids: tuple[str, ...] = ()
+    artifact_subject_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BatchArtifactAttributionResult:
+    commit: WorkflowCommitResult
+    confirmed_author_count: int
+    confirmed_subject_count: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ArtifactAuthorSummary:
     class_id: str
     activity_id: str
@@ -649,6 +666,136 @@ def _subject_display_label(
         )
         return None if activity is None else activity.title
     return reference.subject_id
+
+
+def _require_unique_confirmation_ids(
+    association_ids: tuple[str, ...],
+    label: str,
+) -> None:
+    if len(association_ids) != len(set(association_ids)):
+        raise ConcordWorkflowValidationError(
+            f"{label} confirmation selection contains duplicate association IDs."
+        )
+
+
+def batch_confirm_artifact_attribution(
+    request: BatchConfirmArtifactAttributionRequest,
+    *,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+) -> BatchArtifactAttributionResult:
+    # Confirm current proposed Author/Subject associations in one atomic commit.
+    if (
+        type(request.expected_snapshot_revision) is not int
+        or request.expected_snapshot_revision < 1
+    ):
+        raise ConcordWorkflowValidationError(
+            "expected_snapshot_revision must be a positive integer."
+        )
+    if not request.artifact_author_ids and not request.artifact_subject_ids:
+        raise ConcordWorkflowValidationError(
+            "At least one Artifact Author or Subject must be selected."
+        )
+    _require_unique_confirmation_ids(
+        request.artifact_author_ids,
+        "Artifact Author",
+    )
+    _require_unique_confirmation_ids(
+        request.artifact_subject_ids,
+        "Artifact Subject",
+    )
+
+    bootstrap = ensure_mutating_workspace_root(workspace_root)
+    root = bootstrap.root
+    require_core_class(root, request.class_id)
+    work = work_ref(request.class_id, request.activity_id)
+    graph, snapshot_revision, _ = load_graph(root, work, standards_library)
+    if snapshot_revision != request.expected_snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "Attribution confirmation is stale: expected snapshot "
+            f"{request.expected_snapshot_revision}, found {snapshot_revision}."
+        )
+
+    candidates: list[ArtifactAuthor | ArtifactSubject] = []
+
+    for artifact_author_id in request.artifact_author_ids:
+        current = _require_author(graph, artifact_author_id)
+        _require_current_author(graph, current)
+        artifact = _require_artifact(
+            graph,
+            request.activity_id,
+            current.artifact_instance_id,
+        )
+        if current.attribution_status != "proposed":
+            raise ConcordWorkflowConflictError(
+                "Only current proposed Artifact Authors may be batch-confirmed: "
+                f"{artifact_author_id}"
+            )
+        candidate = replace(current, attribution_status="confirmed")
+        _validate_author_semantics(
+            root,
+            request.class_id,
+            graph,
+            artifact,
+            candidate,
+        )
+        _ensure_author_not_duplicate(
+            graph,
+            candidate,
+            exclude_id=current.artifact_author_id,
+        )
+        candidates.append(candidate)
+
+    for artifact_subject_id in request.artifact_subject_ids:
+        current_subject = _require_subject(graph, artifact_subject_id)
+        _require_current_subject(graph, current_subject)
+        subject_artifact = _require_artifact(
+            graph,
+            request.activity_id,
+            current_subject.artifact_instance_id,
+        )
+        if current_subject.confirmation_status != "proposed":
+            raise ConcordWorkflowConflictError(
+                "Only current proposed Artifact Subjects may be batch-confirmed: "
+                f"{artifact_subject_id}"
+            )
+        subject_candidate = replace(
+            current_subject,
+            confirmation_status="confirmed",
+        )
+        _validate_subject_semantics(
+            root,
+            request.class_id,
+            graph,
+            subject_artifact,
+            subject_candidate,
+        )
+        _ensure_subject_not_duplicate(
+            graph,
+            subject_candidate,
+            exclude_id=current_subject.artifact_subject_id,
+        )
+        candidates.append(subject_candidate)
+
+    # Status-only confirmation mirrors the existing one-record update workflows:
+    # no new provenance is allocated and the durable association identity remains
+    # authoritative.
+    _ = request.actor
+    result = commit_record_batch(
+        root,
+        work,
+        candidates,
+        expected_snapshot_revision=request.expected_snapshot_revision,
+        standards_library=standards_library,
+    )
+    return BatchArtifactAttributionResult(
+        commit=WorkflowCommitResult.from_storage(
+            result,
+            workspace_created=bootstrap.created,
+        ),
+        confirmed_author_count=len(request.artifact_author_ids),
+        confirmed_subject_count=len(request.artifact_subject_ids),
+    )
 
 
 def add_artifact_author(
@@ -1209,6 +1356,8 @@ __all__ = [
     "AddArtifactSubjectRequest",
     "ArtifactAttributionMutationResult",
     "ArtifactAuthorSummary",
+    "BatchArtifactAttributionResult",
+    "BatchConfirmArtifactAttributionRequest",
     "ArtifactSubjectSummary",
     "AuthorWorkflowReference",
     "ReplaceArtifactAuthorRequest",
@@ -1217,6 +1366,7 @@ __all__ = [
     "UpdateArtifactSubjectRequest",
     "add_artifact_author",
     "add_artifact_subject",
+    "batch_confirm_artifact_attribution",
     "list_artifact_authors",
     "list_artifact_subjects",
     "replace_artifact_author",

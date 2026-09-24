@@ -31,6 +31,7 @@ from concord.workflows import (
     AddArtifactAuthorRequest,
     AddArtifactSubjectRequest,
     ArtifactPagePlan,
+    BatchConfirmArtifactAttributionRequest,
     ConcordWorkflowConflictError,
     ConcordWorkflowNotFoundError,
     ConcordWorkflowValidationError,
@@ -46,6 +47,7 @@ from concord.workflows import (
     WorkflowActor,
     add_artifact_author,
     add_artifact_subject,
+    batch_confirm_artifact_attribution,
     core_student_participant,
     create_activity_context,
     create_group_with_members,
@@ -1080,3 +1082,245 @@ def test_peer_observation_and_self_reflection_keep_author_subject_separate(
         "student-2",
     }
     assert len(loaded.graph.artifact_instances) == 1
+
+
+def _issue106_proposed_attribution_set(root: Path, revision: int) -> int:
+    author_one = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-batch-1",
+            author_reference=_student_author("student-1"),
+            authorship_mode="observer",
+            attribution_status="proposed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(10),
+    )
+    author_two = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-batch-2",
+            author_reference=_student_author("student-2"),
+            authorship_mode="observer",
+            attribution_status="proposed",
+            attribution_source="teacher",
+            expected_snapshot_revision=author_one.commit.snapshot_revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(11),
+    )
+    subject_one = add_artifact_subject(
+        AddArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_subject_id="subject-batch-1",
+            subject_reference=_student_subject("student-2"),
+            subject_role="observed_participant",
+            confirmation_status="proposed",
+            assignment_source="teacher",
+            expected_snapshot_revision=author_two.commit.snapshot_revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(12),
+    )
+    subject_two = add_artifact_subject(
+        AddArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_subject_id="subject-batch-2",
+            subject_reference=_student_subject("student-3"),
+            subject_role="observed_participant",
+            confirmation_status="proposed",
+            assignment_source="teacher",
+            expected_snapshot_revision=subject_one.commit.snapshot_revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(13),
+    )
+    return subject_two.commit.snapshot_revision
+
+
+def test_issue106_batch_confirmation_is_one_mixed_atomic_status_commit(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    before = load_current_record_graph(root, _work())
+    before_authors = {
+        item.artifact_author_id: item for item in before.graph.artifact_authors
+    }
+    before_subjects = {
+        item.artifact_subject_id: item for item in before.graph.artifact_subjects
+    }
+
+    result = batch_confirm_artifact_attribution(
+        BatchConfirmArtifactAttributionRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_author_ids=("author-batch-1", "author-batch-2"),
+            artifact_subject_ids=("subject-batch-1", "subject-batch-2"),
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    after = load_current_record_graph(root, _work())
+    assert result.confirmed_author_count == 2
+    assert result.confirmed_subject_count == 2
+    assert result.commit.snapshot_revision == revision + 1
+    assert after.snapshot_revision == result.commit.snapshot_revision
+    assert len(result.commit.changed_records) == 4
+
+    after_authors = {
+        item.artifact_author_id: item for item in after.graph.artifact_authors
+    }
+    after_subjects = {
+        item.artifact_subject_id: item for item in after.graph.artifact_subjects
+    }
+    for artifact_author_id in ("author-batch-1", "author-batch-2"):
+        assert after_authors[artifact_author_id] == replace(
+            before_authors[artifact_author_id],
+            attribution_status="confirmed",
+        )
+        assert list_record_revisions(
+            root,
+            _work(),
+            "artifact_author",
+            artifact_author_id,
+        ) == (1, 2)
+    for artifact_subject_id in ("subject-batch-1", "subject-batch-2"):
+        assert after_subjects[artifact_subject_id] == replace(
+            before_subjects[artifact_subject_id],
+            confirmation_status="confirmed",
+        )
+        assert list_record_revisions(
+            root,
+            _work(),
+            "artifact_subject",
+            artifact_subject_id,
+        ) == (1, 2)
+
+    assert after.graph.correction_records == ()
+    assert after.graph.artifact_reviews == ()
+    assert after.graph.score_records == ()
+
+
+def test_issue106_batch_rejects_exception_without_partial_confirmation(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    disputed = update_artifact_author(
+        UpdateArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_author_id="author-batch-2",
+            attribution_status="disputed",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    with pytest.raises(ConcordWorkflowConflictError, match="proposed"):
+        batch_confirm_artifact_attribution(
+            BatchConfirmArtifactAttributionRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_author_ids=("author-batch-1", "author-batch-2"),
+                expected_snapshot_revision=disputed.commit.snapshot_revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == disputed.commit.snapshot_revision
+    authors = {
+        item.artifact_author_id: item for item in after.graph.artifact_authors
+    }
+    assert authors["author-batch-1"].attribution_status == "proposed"
+    assert authors["author-batch-2"].attribution_status == "disputed"
+
+
+def test_issue106_batch_is_bound_to_exact_expected_snapshot(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+    advanced = update_artifact_subject(
+        UpdateArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_subject_id="subject-batch-2",
+            confirmation_status="disputed",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    with pytest.raises(ConcordWorkflowConflictError, match="stale"):
+        batch_confirm_artifact_attribution(
+            BatchConfirmArtifactAttributionRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_author_ids=("author-batch-1",),
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == advanced.commit.snapshot_revision
+    author = next(
+        item
+        for item in after.graph.artifact_authors
+        if item.artifact_author_id == "author-batch-1"
+    )
+    assert author.attribution_status == "proposed"
+
+
+def test_issue106_batch_requires_nonempty_unique_selection(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    revision = _issue106_proposed_attribution_set(root, revision)
+
+    with pytest.raises(ConcordWorkflowValidationError, match="At least one"):
+        batch_confirm_artifact_attribution(
+            BatchConfirmArtifactAttributionRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+    with pytest.raises(ConcordWorkflowValidationError, match="duplicate"):
+        batch_confirm_artifact_attribution(
+            BatchConfirmArtifactAttributionRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_author_ids=("author-batch-1", "author-batch-1"),
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    assert load_current_record_graph(root, _work()).snapshot_revision == revision
