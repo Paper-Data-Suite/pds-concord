@@ -50,7 +50,9 @@ from concord.routing.rendering import (
 from concord.workflows import (
     ActivitySummary,
     AddArtifactAuthorRequest,
+    AddArtifactAuthorsRequest,
     AddArtifactSubjectRequest,
+    AddArtifactSubjectsRequest,
     ArtifactAttributionReview,
     ArtifactAuthorSummary,
     ArtifactSubjectSummary,
@@ -64,7 +66,9 @@ from concord.workflows import (
     UpdateArtifactAuthorRequest,
     UpdateArtifactSubjectRequest,
     add_artifact_author,
+    add_artifact_authors,
     add_artifact_subject,
+    add_artifact_subjects,
     batch_confirm_artifact_attribution,
     inspect_artifact_attribution_review,
     list_artifact_authors,
@@ -2486,6 +2490,197 @@ def _confirm_selected_straightforward_attribution(
     )
 
 
+
+def _routine_multi_author_mode() -> str:
+    values = (
+        "individual_author",
+        "co_author",
+        "observer",
+        "recorder",
+    )
+    return select_one(
+        "Shared Authorship Mode",
+        values,
+        tuple(item.replace("_", " ").title() for item in values),
+        help_text=(
+            "Every selected student receives this same straightforward "
+            "Author relationship. Use Advanced tools for heterogeneous or "
+            "Group-representation semantics."
+        ),
+    )
+
+
+def _routine_multi_subject_role() -> str:
+    values = ("observed_participant", "general_subject")
+    return select_one(
+        "Shared Subject Role",
+        values,
+        tuple(item.replace("_", " ").title() for item in values),
+        help_text=(
+            "Every selected student receives this same Subject relationship. "
+            "Use Advanced tools for Group, Session, Activity, Artifact, or "
+            "external-record Subjects."
+        ),
+    )
+
+
+def _routine_add_status(*, relationship: str) -> str:
+    values = ("proposed", "confirmed")
+    return select_one(
+        f"{relationship} Status",
+        values,
+        tuple(item.title() for item in values),
+        help_text=(
+            "Routine multi-add creates one shared straightforward state. "
+            "Disputed, unresolved, or unknown cases belong in individual review."
+        ),
+    )
+
+
+def _add_multiple_authors(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Add Several Artifact Authors")
+    students = choose_students(_require_workspace(), current.class_id)
+    mode = _routine_multi_author_mode()
+    status = _routine_add_status(relationship="Author Attribution")
+    if not confirm_write(
+        "Add Several Artifact Authors",
+        "ADD",
+        (
+            f"Artifact: {artifact.artifact_instance_id}",
+            f"Students selected: {len(students)}",
+            f"Shared authorship mode: {mode.replace('_', ' ')}",
+            f"Shared attribution status: {status}",
+            "All selected students receive the same Author semantics.",
+        ),
+    ):
+        return
+
+    result = add_artifact_authors(
+        AddArtifactAuthorsRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            artifact_instance_id=artifact.artifact_instance_id,
+            student_ids=tuple(item.student_id for item in students),
+            authorship_mode=mode,
+            attribution_status=status,
+            attribution_source="teacher",
+            expected_snapshot_revision=artifact.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Artifact Authors Added",
+        (
+            f"Authors added: {len(result.artifact_author_ids)}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _add_multiple_subjects(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Add Several Artifact Subjects")
+    students = choose_students(_require_workspace(), current.class_id)
+    role = _routine_multi_subject_role()
+    status = _routine_add_status(relationship="Subject Confirmation")
+    criterion_id = prompt_text(
+        "Shared Subject Criterion Context",
+        "Criterion ID",
+        help_text=(
+            "Optional existing Criterion context shared by every selected "
+            "student. This does not create a Score."
+        ),
+        optional=True,
+    )
+    if not confirm_write(
+        "Add Several Artifact Subjects",
+        "ADD",
+        (
+            f"Artifact: {artifact.artifact_instance_id}",
+            f"Students selected: {len(students)}",
+            f"Shared Subject role: {role.replace('_', ' ')}",
+            f"Shared confirmation status: {status}",
+            f"Shared Criterion context: {criterion_id or '-'}",
+            "All selected students receive the same Subject semantics.",
+        ),
+    ):
+        return
+
+    result = add_artifact_subjects(
+        AddArtifactSubjectsRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            artifact_instance_id=artifact.artifact_instance_id,
+            student_ids=tuple(item.student_id for item in students),
+            subject_role=role,
+            confirmation_status=status,
+            assignment_source="teacher",
+            expected_snapshot_revision=artifact.snapshot_revision,
+            actor=state.require_actor(),
+            criterion_id=criterion_id,
+        )
+    )
+    show_result(
+        "Artifact Subjects Added",
+        (
+            f"Subjects added: {len(result.artifact_subject_ids)}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _launch_multi_add_attribution_menu(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    while True:
+        clear_screen()
+        print_menu_header("Create Several Attribution Relationships")
+        print("1. Add several student Authors")
+        print("2. Add several student Subjects")
+        print_navigation()
+        print()
+        choice = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(choice)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                show_result(
+                    "Create Several Attribution Relationships Help",
+                    (
+                        "Use this only when several students share the same "
+                        "straightforward relationship semantics.",
+                        "Authors and Subjects remain separate durable relationships.",
+                        (
+                            "Use Advanced attribution tools for heterogeneous, "
+                            "Group-representation, teacher/adult, or non-student "
+                            "Subject cases."
+                        ),
+                    ),
+                )
+            elif navigation is NavigationChoice.BACK:
+                return
+            elif choice == "1":
+                _add_multiple_authors(activity, state)
+            elif choice == "2":
+                _add_multiple_subjects(activity, state)
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
+        except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+            raise
+        except Exception as error:
+            _handle_error(activity, error, title="Attribution Multi-Add Error")
+
+
 def _print_attribution_review(
     activity: ActivitySummary,
     review: ArtifactAttributionReview,
@@ -2533,6 +2728,7 @@ def _print_attribution_review(
     print()
     print("A. Confirm all straightforward proposals")
     print("S. Select multiple proposals")
+    print("C. Create several relationships")
     print("E. Review / edit attribution in Advanced tools")
     print_navigation()
     print()
@@ -2620,6 +2816,10 @@ def _launch_attribution_review_menu(
                         "validation are confirmation candidates.",
                         "Disputed, unresolved, unknown, or invalid relationships "
                         "stay visible for individual review.",
+                        (
+                            "Create several relationships is for homogeneous "
+                            "Core-student Authors or Subjects on one Artifact."
+                        ),
                         "Author and Subject remain separate relationships.",
                     ),
                 )
@@ -2637,6 +2837,8 @@ def _launch_attribution_review_menu(
                     review,
                     state,
                 )
+            elif choice.casefold() == "c":
+                _launch_multi_add_attribution_menu(activity, state)
             elif choice.casefold() == "e":
                 _launch_advanced_attribution_menu(activity, state)
             else:

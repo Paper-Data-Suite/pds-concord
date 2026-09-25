@@ -408,3 +408,240 @@ def test_issue106_subset_cancel_before_confirm_produces_no_mutation(
         _review(),
         _state(),
     )
+
+def test_issue106_review_surface_offers_homogeneous_multi_add(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(menu_artifact, "clear_screen", lambda: None)
+
+    menu_artifact._print_attribution_review(_activity(), _review())
+
+    output = capsys.readouterr().out
+    assert "C. Create several relationships" in output
+
+
+def test_issue106_multi_add_menu_routes_authors_and_subjects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    answers = iter(("1", "2", "b"))
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+    monkeypatch.setattr(menu_artifact, "clear_screen", lambda: None)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_add_multiple_authors",
+        lambda activity, _state: calls.append(f"authors:{activity.activity_id}"),
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_add_multiple_subjects",
+        lambda activity, _state: calls.append(f"subjects:{activity.activity_id}"),
+    )
+
+    menu_artifact._launch_multi_add_attribution_menu(_activity(), _state())
+
+    assert calls == ["authors:activity-1", "subjects:activity-1"]
+
+
+def test_issue106_multi_add_authors_uses_one_reviewed_atomic_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = SimpleNamespace(
+        artifact_instance_id="artifact-selected",
+        snapshot_revision=17,
+    )
+    students = (
+        SimpleNamespace(student_id="student-1"),
+        SimpleNamespace(student_id="student-2"),
+    )
+    confirmations: list[tuple[str, tuple[str, ...]]] = []
+    requests: list[object] = []
+
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(menu_artifact, "_require_workspace", lambda: object())
+    monkeypatch.setattr(
+        menu_artifact,
+        "choose_students",
+        lambda *_args, **_kwargs: students,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_multi_author_mode",
+        lambda: "co_author",
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_add_status",
+        lambda **_kwargs: "confirmed",
+    )
+
+    def _confirm(
+        _title: str,
+        expected: str,
+        lines: object,
+    ) -> bool:
+        confirmations.append((expected, tuple(lines)))
+        return True
+
+    monkeypatch.setattr(menu_artifact, "confirm_write", _confirm)
+    monkeypatch.setattr(menu_artifact, "show_result", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        menu_artifact,
+        "add_artifact_authors",
+        lambda request: requests.append(request)
+        or SimpleNamespace(
+            artifact_author_ids=("generated-1", "generated-2"),
+            commit=SimpleNamespace(snapshot_revision=18),
+        ),
+    )
+
+    menu_artifact._add_multiple_authors(_activity(), _state())
+
+    assert len(confirmations) == 1
+    expected, lines = confirmations[0]
+    assert expected == "ADD"
+    assert "Artifact: artifact-selected" in lines
+    assert "Students selected: 2" in lines
+    assert "Shared authorship mode: co author" in lines
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.student_ids == ("student-1", "student-2")
+    assert request.authorship_mode == "co_author"
+    assert request.attribution_status == "confirmed"
+    assert request.attribution_source == "teacher"
+    assert request.expected_snapshot_revision == 17
+    assert request.actor.actor_id == "teacher-1"
+
+
+def test_issue106_multi_add_subjects_uses_one_reviewed_atomic_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = SimpleNamespace(
+        artifact_instance_id="artifact-selected",
+        snapshot_revision=23,
+    )
+    students = (
+        SimpleNamespace(student_id="student-2"),
+        SimpleNamespace(student_id="student-3"),
+    )
+    confirmations: list[tuple[str, tuple[str, ...]]] = []
+    requests: list[object] = []
+
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(menu_artifact, "_require_workspace", lambda: object())
+    monkeypatch.setattr(
+        menu_artifact,
+        "choose_students",
+        lambda *_args, **_kwargs: students,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_multi_subject_role",
+        lambda: "observed_participant",
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_add_status",
+        lambda **_kwargs: "proposed",
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "prompt_text",
+        lambda *_args, **_kwargs: "criterion-1",
+    )
+
+    def _confirm(
+        _title: str,
+        expected: str,
+        lines: object,
+    ) -> bool:
+        confirmations.append((expected, tuple(lines)))
+        return True
+
+    monkeypatch.setattr(menu_artifact, "confirm_write", _confirm)
+    monkeypatch.setattr(menu_artifact, "show_result", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        menu_artifact,
+        "add_artifact_subjects",
+        lambda request: requests.append(request)
+        or SimpleNamespace(
+            artifact_subject_ids=("generated-1", "generated-2"),
+            commit=SimpleNamespace(snapshot_revision=24),
+        ),
+    )
+
+    menu_artifact._add_multiple_subjects(_activity(), _state())
+
+    assert len(confirmations) == 1
+    expected, lines = confirmations[0]
+    assert expected == "ADD"
+    assert "Artifact: artifact-selected" in lines
+    assert "Students selected: 2" in lines
+    assert "Shared Subject role: observed participant" in lines
+    assert "Shared Criterion context: criterion-1" in lines
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.student_ids == ("student-2", "student-3")
+    assert request.subject_role == "observed_participant"
+    assert request.confirmation_status == "proposed"
+    assert request.assignment_source == "teacher"
+    assert request.criterion_id == "criterion-1"
+    assert request.expected_snapshot_revision == 23
+    assert request.actor.actor_id == "teacher-1"
+
+
+def test_issue106_multi_add_cancel_stops_before_service_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = SimpleNamespace(
+        artifact_instance_id="artifact-selected",
+        snapshot_revision=17,
+    )
+    students = (SimpleNamespace(student_id="student-1"),)
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(menu_artifact, "_require_workspace", lambda: object())
+    monkeypatch.setattr(
+        menu_artifact,
+        "choose_students",
+        lambda *_args, **_kwargs: students,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_multi_author_mode",
+        lambda: "individual_author",
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "_routine_add_status",
+        lambda **_kwargs: "proposed",
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "confirm_write",
+        lambda *_args, **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "add_artifact_authors",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("canceled multi-add must not call the service")
+        ),
+    )
+
+    menu_artifact._add_multiple_authors(_activity(), _state())
