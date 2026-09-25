@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TypeAlias
+from uuid import uuid4
 
 from pds_core.standards import StandardsLibrary
 
@@ -88,6 +89,48 @@ class AddArtifactAuthorRequest:
     role_assignment_id: str | None = None
     representation_status: str | None = None
     privacy_policy: PrivacyPolicy | None = None
+
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AddArtifactAuthorsRequest:
+    class_id: str
+    activity_id: str
+    artifact_instance_id: str
+    student_ids: tuple[str, ...]
+    authorship_mode: str
+    attribution_status: str
+    attribution_source: str
+    expected_snapshot_revision: int
+    actor: WorkflowActor
+    privacy_policy: PrivacyPolicy | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AddArtifactSubjectsRequest:
+    class_id: str
+    activity_id: str
+    artifact_instance_id: str
+    student_ids: tuple[str, ...]
+    subject_role: str
+    confirmation_status: str
+    assignment_source: str
+    expected_snapshot_revision: int
+    actor: WorkflowActor
+    criterion_id: str | None = None
+    privacy_policy: PrivacyPolicy | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ArtifactAuthorBatchMutationResult:
+    commit: WorkflowCommitResult
+    artifact_author_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ArtifactSubjectBatchMutationResult:
+    commit: WorkflowCommitResult
+    artifact_subject_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -798,6 +841,227 @@ def batch_confirm_artifact_attribution(
     )
 
 
+
+_ROUTINE_MULTI_AUTHOR_MODES = frozenset(
+    {
+        "individual_author",
+        "co_author",
+        "observer",
+        "recorder",
+    }
+)
+
+
+def _validate_multi_add_request(
+    student_ids: tuple[str, ...],
+    expected_snapshot_revision: int,
+    *,
+    label: str,
+) -> None:
+    if (
+        type(expected_snapshot_revision) is not int
+        or expected_snapshot_revision < 1
+    ):
+        raise ConcordWorkflowValidationError(
+            "expected_snapshot_revision must be a positive integer."
+        )
+    if not student_ids:
+        raise ConcordWorkflowValidationError(
+            f"At least one student is required for multi-{label} creation."
+        )
+    if len(student_ids) != len(set(student_ids)):
+        raise ConcordWorkflowValidationError(
+            f"Multi-{label} creation contains duplicate student IDs."
+        )
+
+
+def _generated_association_id(prefix: str) -> str:
+    return f"{prefix}_{uuid4().hex}"
+
+
+def add_artifact_authors(
+    request: AddArtifactAuthorsRequest,
+    *,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+    clock: Clock | None = None,
+) -> ArtifactAuthorBatchMutationResult:
+    """Create homogeneous Core-student Authors in one atomic commit."""
+    _validate_multi_add_request(
+        request.student_ids,
+        request.expected_snapshot_revision,
+        label="Author",
+    )
+    if request.authorship_mode not in _ROUTINE_MULTI_AUTHOR_MODES:
+        raise ConcordWorkflowValidationError(
+            "Routine multi-Author creation supports only individual_author, "
+            "co_author, observer, or recorder. Use advanced Author tools for "
+            "recorder-for-Group, teacher, adult, or collective Group semantics."
+        )
+
+    bootstrap = ensure_mutating_workspace_root(workspace_root)
+    root = bootstrap.root
+    require_core_class(root, request.class_id)
+    work = work_ref(request.class_id, request.activity_id)
+    graph, snapshot_revision, _ = load_graph(root, work, standards_library)
+    if snapshot_revision != request.expected_snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "Artifact Author multi-add is stale: expected snapshot "
+            f"{request.expected_snapshot_revision}, found {snapshot_revision}."
+        )
+    artifact = _require_artifact(
+        graph,
+        request.activity_id,
+        request.artifact_instance_id,
+    )
+
+    created = provenance(request.actor, clock=clock)
+    candidates: list[ArtifactAuthor] = []
+    generated_ids: set[str] = set()
+    for student_id in request.student_ids:
+        artifact_author_id = _generated_association_id("author")
+        if artifact_author_id in generated_ids:
+            raise ConcordWorkflowConflictError(
+                "Generated duplicate Artifact Author identity in one batch."
+            )
+        generated_ids.add(artifact_author_id)
+        require_new_identity(
+            graph.artifact_authors,
+            "artifact_author_id",
+            artifact_author_id,
+            "Artifact Author",
+        )
+        candidate = ArtifactAuthor(
+            artifact_author_id=artifact_author_id,
+            artifact_instance_id=artifact.artifact_instance_id,
+            author_reference=core_student_participant(
+                root,
+                request.class_id,
+                student_id,
+            ),
+            authorship_mode=request.authorship_mode,
+            attribution_status=request.attribution_status,
+            attribution_source=request.attribution_source,
+            created_provenance=created,
+            privacy_policy=request.privacy_policy,
+        )
+        _validate_author_semantics(
+            root,
+            request.class_id,
+            graph,
+            artifact,
+            candidate,
+        )
+        _ensure_author_not_duplicate(graph, candidate)
+        candidates.append(candidate)
+
+    result = commit_record_batch(
+        root,
+        work,
+        tuple(candidates),
+        expected_snapshot_revision=request.expected_snapshot_revision,
+        standards_library=standards_library,
+    )
+    return ArtifactAuthorBatchMutationResult(
+        commit=WorkflowCommitResult.from_storage(
+            result,
+            workspace_created=bootstrap.created,
+        ),
+        artifact_author_ids=tuple(
+            item.artifact_author_id for item in candidates
+        ),
+    )
+
+
+def add_artifact_subjects(
+    request: AddArtifactSubjectsRequest,
+    *,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+    clock: Clock | None = None,
+) -> ArtifactSubjectBatchMutationResult:
+    """Create homogeneous Core-student Subjects in one atomic commit."""
+    _validate_multi_add_request(
+        request.student_ids,
+        request.expected_snapshot_revision,
+        label="Subject",
+    )
+
+    bootstrap = ensure_mutating_workspace_root(workspace_root)
+    root = bootstrap.root
+    require_core_class(root, request.class_id)
+    work = work_ref(request.class_id, request.activity_id)
+    graph, snapshot_revision, _ = load_graph(root, work, standards_library)
+    if snapshot_revision != request.expected_snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "Artifact Subject multi-add is stale: expected snapshot "
+            f"{request.expected_snapshot_revision}, found {snapshot_revision}."
+        )
+    artifact = _require_artifact(
+        graph,
+        request.activity_id,
+        request.artifact_instance_id,
+    )
+
+    created = provenance(request.actor, clock=clock)
+    candidates: list[ArtifactSubject] = []
+    generated_ids: set[str] = set()
+    for student_id in request.student_ids:
+        artifact_subject_id = _generated_association_id("subject")
+        if artifact_subject_id in generated_ids:
+            raise ConcordWorkflowConflictError(
+                "Generated duplicate Artifact Subject identity in one batch."
+            )
+        generated_ids.add(artifact_subject_id)
+        require_new_identity(
+            graph.artifact_subjects,
+            "artifact_subject_id",
+            artifact_subject_id,
+            "Artifact Subject",
+        )
+        candidate = ArtifactSubject(
+            artifact_subject_id=artifact_subject_id,
+            artifact_instance_id=artifact.artifact_instance_id,
+            subject_reference=SubjectReference(
+                subject_kind="core_student",
+                subject_id=student_id,
+                owning_system="core",
+            ),
+            subject_role=request.subject_role,
+            confirmation_status=request.confirmation_status,
+            assignment_source=request.assignment_source,
+            created_provenance=created,
+            criterion_id=request.criterion_id,
+            privacy_policy=request.privacy_policy,
+        )
+        _validate_subject_semantics(
+            root,
+            request.class_id,
+            graph,
+            artifact,
+            candidate,
+        )
+        _ensure_subject_not_duplicate(graph, candidate)
+        candidates.append(candidate)
+
+    result = commit_record_batch(
+        root,
+        work,
+        tuple(candidates),
+        expected_snapshot_revision=request.expected_snapshot_revision,
+        standards_library=standards_library,
+    )
+    return ArtifactSubjectBatchMutationResult(
+        commit=WorkflowCommitResult.from_storage(
+            result,
+            workspace_created=bootstrap.created,
+        ),
+        artifact_subject_ids=tuple(
+            item.artifact_subject_id for item in candidates
+        ),
+    )
+
+
 def add_artifact_author(
     request: AddArtifactAuthorRequest,
     *,
@@ -1353,9 +1617,13 @@ def show_artifact_subject(
 
 __all__ = [
     "AddArtifactAuthorRequest",
+    "AddArtifactAuthorsRequest",
     "AddArtifactSubjectRequest",
+    "AddArtifactSubjectsRequest",
     "ArtifactAttributionMutationResult",
+    "ArtifactAuthorBatchMutationResult",
     "ArtifactAuthorSummary",
+    "ArtifactSubjectBatchMutationResult",
     "BatchArtifactAttributionResult",
     "BatchConfirmArtifactAttributionRequest",
     "ArtifactSubjectSummary",
@@ -1365,7 +1633,9 @@ __all__ = [
     "UpdateArtifactAuthorRequest",
     "UpdateArtifactSubjectRequest",
     "add_artifact_author",
+    "add_artifact_authors",
     "add_artifact_subject",
+    "add_artifact_subjects",
     "batch_confirm_artifact_attribution",
     "list_artifact_authors",
     "list_artifact_subjects",

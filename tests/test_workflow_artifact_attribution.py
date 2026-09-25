@@ -30,7 +30,9 @@ from concord.models import (
 from concord.storage import list_record_revisions, load_current_record_graph
 from concord.workflows import (
     AddArtifactAuthorRequest,
+    AddArtifactAuthorsRequest,
     AddArtifactSubjectRequest,
+    AddArtifactSubjectsRequest,
     ArtifactPagePlan,
     BatchConfirmArtifactAttributionRequest,
     ConcordWorkflowConflictError,
@@ -47,7 +49,9 @@ from concord.workflows import (
     UpdateArtifactSubjectRequest,
     WorkflowActor,
     add_artifact_author,
+    add_artifact_authors,
     add_artifact_subject,
+    add_artifact_subjects,
     batch_confirm_artifact_attribution,
     core_student_participant,
     create_activity_context,
@@ -1555,3 +1559,317 @@ def test_issue106_review_projection_excludes_historical_attribution(
         for item in group.authors
     }
     assert "author-historical" not in visible_ids
+
+def test_issue106_multi_add_authors_is_one_atomic_commit(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    result = add_artifact_authors(
+        AddArtifactAuthorsRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            student_ids=("student-1", "student-2", "student-3"),
+            authorship_mode="co_author",
+            attribution_status="confirmed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(20),
+    )
+
+    after = load_current_record_graph(root, _work())
+    assert result.commit.snapshot_revision == revision + 1
+    assert after.snapshot_revision == result.commit.snapshot_revision
+    assert len(result.commit.changed_records) == 3
+    assert len(result.artifact_author_ids) == 3
+    assert len(set(result.artifact_author_ids)) == 3
+    assert all(item.startswith("author_") for item in result.artifact_author_ids)
+
+    authors = {
+        item.author_reference.participant_id: item
+        for item in after.graph.artifact_authors
+        if isinstance(item.author_reference, ParticipantReference)
+    }
+    assert set(authors) == {"student-1", "student-2", "student-3"}
+    for student_id, author in authors.items():
+        assert author.artifact_author_id in result.artifact_author_ids
+        assert author.artifact_instance_id == "artifact-1"
+        assert author.author_reference == _student_author(student_id)
+        assert author.authorship_mode == "co_author"
+        assert author.attribution_status == "confirmed"
+        assert author.attribution_source == "teacher"
+        assert author.privacy_policy == _privacy()
+        assert author.created_provenance.timestamp == _clock(20).isoformat()
+        assert list_record_revisions(
+            root,
+            _work(),
+            "artifact_author",
+            author.artifact_author_id,
+        ) == (1,)
+
+    assert after.graph.artifact_subjects == ()
+    assert after.graph.correction_records == ()
+    assert after.graph.artifact_reviews == ()
+    assert after.graph.score_records == ()
+
+
+def test_issue106_multi_add_subjects_is_one_atomic_commit(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    result = add_artifact_subjects(
+        AddArtifactSubjectsRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            student_ids=("student-1", "student-2", "student-3"),
+            subject_role="observed_participant",
+            confirmation_status="confirmed",
+            assignment_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+        clock=lambda: _clock(21),
+    )
+
+    after = load_current_record_graph(root, _work())
+    assert result.commit.snapshot_revision == revision + 1
+    assert after.snapshot_revision == result.commit.snapshot_revision
+    assert len(result.commit.changed_records) == 3
+    assert len(result.artifact_subject_ids) == 3
+    assert len(set(result.artifact_subject_ids)) == 3
+    assert all(item.startswith("subject_") for item in result.artifact_subject_ids)
+
+    subjects = {
+        item.subject_reference.subject_id: item
+        for item in after.graph.artifact_subjects
+    }
+    assert set(subjects) == {"student-1", "student-2", "student-3"}
+    for student_id, subject in subjects.items():
+        assert subject.artifact_subject_id in result.artifact_subject_ids
+        assert subject.artifact_instance_id == "artifact-1"
+        assert subject.subject_reference == _student_subject(student_id)
+        assert subject.subject_role == "observed_participant"
+        assert subject.confirmation_status == "confirmed"
+        assert subject.assignment_source == "teacher"
+        assert subject.privacy_policy == _privacy()
+        assert subject.created_provenance.timestamp == _clock(21).isoformat()
+        assert list_record_revisions(
+            root,
+            _work(),
+            "artifact_subject",
+            subject.artifact_subject_id,
+        ) == (1,)
+
+    assert after.graph.artifact_authors == ()
+    assert after.graph.correction_records == ()
+    assert after.graph.artifact_reviews == ()
+    assert after.graph.score_records == ()
+
+
+def test_issue106_multi_add_rejects_duplicate_author_students(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    with pytest.raises(
+        ConcordWorkflowValidationError,
+        match="duplicate student IDs",
+    ):
+        add_artifact_authors(
+            AddArtifactAuthorsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-1"),
+                authorship_mode="co_author",
+                attribution_status="confirmed",
+                attribution_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == revision
+    assert after.graph.artifact_authors == ()
+
+
+def test_issue106_multi_add_rejects_duplicate_subject_students(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    with pytest.raises(
+        ConcordWorkflowValidationError,
+        match="duplicate student IDs",
+    ):
+        add_artifact_subjects(
+            AddArtifactSubjectsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-1"),
+                subject_role="observed_participant",
+                confirmation_status="confirmed",
+                assignment_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == revision
+    assert after.graph.artifact_subjects == ()
+
+
+def test_issue106_multi_add_author_conflict_is_atomic(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    existing = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-existing",
+            author_reference=_student_author("student-1"),
+            authorship_mode="co_author",
+            attribution_status="confirmed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    with pytest.raises(ConcordWorkflowConflictError, match="equivalent current"):
+        add_artifact_authors(
+            AddArtifactAuthorsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-2"),
+                authorship_mode="co_author",
+                attribution_status="confirmed",
+                attribution_source="teacher",
+                expected_snapshot_revision=existing.commit.snapshot_revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == existing.commit.snapshot_revision
+    assert tuple(
+        item.artifact_author_id for item in after.graph.artifact_authors
+    ) == ("author-existing",)
+
+
+def test_issue106_multi_add_subject_conflict_is_atomic(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    existing = add_artifact_subject(
+        AddArtifactSubjectRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_subject_id="subject-existing",
+            subject_reference=_student_subject("student-1"),
+            subject_role="observed_participant",
+            confirmation_status="confirmed",
+            assignment_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    with pytest.raises(ConcordWorkflowConflictError, match="equivalent current"):
+        add_artifact_subjects(
+            AddArtifactSubjectsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-2"),
+                subject_role="observed_participant",
+                confirmation_status="confirmed",
+                assignment_source="teacher",
+                expected_snapshot_revision=existing.commit.snapshot_revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == existing.commit.snapshot_revision
+    assert tuple(
+        item.artifact_subject_id for item in after.graph.artifact_subjects
+    ) == ("subject-existing",)
+
+
+def test_issue106_multi_add_rejects_complex_author_mode(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    with pytest.raises(
+        ConcordWorkflowValidationError,
+        match="Routine multi-Author",
+    ):
+        add_artifact_authors(
+            AddArtifactAuthorsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-2"),
+                authorship_mode="recorder_for_group",
+                attribution_status="confirmed",
+                attribution_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    assert load_current_record_graph(root, _work()).snapshot_revision == revision
+
+
+def test_issue106_multi_add_is_bound_to_exact_snapshot(tmp_path: Path) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    advanced = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-advanced",
+            author_reference=_student_author("student-3"),
+            authorship_mode="observer",
+            attribution_status="confirmed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    with pytest.raises(ConcordWorkflowConflictError, match="stale"):
+        add_artifact_subjects(
+            AddArtifactSubjectsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-2"),
+                subject_role="observed_participant",
+                confirmation_status="confirmed",
+                assignment_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == advanced.commit.snapshot_revision
+    assert after.graph.artifact_subjects == ()
