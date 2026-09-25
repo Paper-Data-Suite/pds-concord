@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +23,7 @@ from concord.menu_prompts import (
     handle_write_error,
     prompt_positive_int,
     prompt_text,
+    select_many,
     select_one,
     show_result,
 )
@@ -56,6 +58,7 @@ from concord.workflows import (
     ConcordWorkflowConflictError,
     ConcordWorkflowNotFoundError,
     ConcordWorkflowOpenError,
+    ConcordWorkflowValidationError,
     ReplaceArtifactAuthorRequest,
     ReplaceArtifactSubjectRequest,
     UpdateArtifactAuthorRequest,
@@ -2326,6 +2329,163 @@ def _launch_moderation_menu(
 
 
 
+
+@dataclass(frozen=True, slots=True)
+class _AttributionProposalChoice:
+    relationship_kind: str
+    association_id: str
+    display_label: str
+
+
+def _attribution_proposal_choices(
+    review: ArtifactAttributionReview,
+) -> tuple[_AttributionProposalChoice, ...]:
+    author_ids = set(review.candidate_author_ids)
+    subject_ids = set(review.candidate_subject_ids)
+    choices: list[_AttributionProposalChoice] = []
+    for group in review.artifacts:
+        for author in group.authors:
+            if (
+                author.disposition != "candidate"
+                or author.artifact_author_id not in author_ids
+            ):
+                continue
+            label = author.reference_display_label or "Unknown"
+            choices.append(
+                _AttributionProposalChoice(
+                    relationship_kind="author",
+                    association_id=author.artifact_author_id,
+                    display_label=(
+                        f"{group.artifact_instance_id} - Completed by {label} "
+                        f"({author.authorship_mode.replace('_', ' ')})"
+                    ),
+                )
+            )
+        for subject in group.subjects:
+            if (
+                subject.disposition != "candidate"
+                or subject.artifact_subject_id not in subject_ids
+            ):
+                continue
+            label = subject.reference_display_label or "Unlabeled subject"
+            choices.append(
+                _AttributionProposalChoice(
+                    relationship_kind="subject",
+                    association_id=subject.artifact_subject_id,
+                    display_label=(
+                        f"{group.artifact_instance_id} - Concerns {label} "
+                        f"({subject.subject_role.replace('_', ' ')})"
+                    ),
+                )
+            )
+    return tuple(choices)
+
+
+def _select_attribution_proposals(
+    review: ArtifactAttributionReview,
+) -> tuple[_AttributionProposalChoice, ...]:
+    choices = _attribution_proposal_choices(review)
+    if not choices:
+        raise ConcordWorkflowValidationError(
+            "No straightforward attribution proposals are available to select."
+        )
+    return select_many(
+        "Select Attribution Proposals",
+        choices,
+        [item.display_label for item in choices],
+        help_text=(
+            "Select one or more displayed Author or Subject proposals. "
+            "Only the selected relationships will be confirmed."
+        ),
+    )
+
+
+def _commit_attribution_confirmation(
+    activity: ActivitySummary,
+    review: ArtifactAttributionReview,
+    state: MenuSessionContext,
+    *,
+    artifact_author_ids: tuple[str, ...],
+    artifact_subject_ids: tuple[str, ...],
+    unselected_candidate_count: int,
+) -> None:
+    if not artifact_author_ids and not artifact_subject_ids:
+        show_result(
+            "Confirm Attribution",
+            ("No attribution proposals were selected.",),
+        )
+        return
+
+    if not confirm_write(
+        "Confirm Attribution",
+        "CONFIRM",
+        (
+            f"Authors to confirm: {len(artifact_author_ids)}",
+            f"Subjects to confirm: {len(artifact_subject_ids)}",
+            (
+                "Other straightforward proposals not selected: "
+                f"{unselected_candidate_count}"
+            ),
+            f"Excluded for individual attention: {review.exception_count}",
+            "No Author or Subject identity or relationship meaning will change.",
+            "Only confirmation status will change.",
+        ),
+    ):
+        return
+
+    result = batch_confirm_artifact_attribution(
+        BatchConfirmArtifactAttributionRequest(
+            class_id=activity.class_id,
+            activity_id=activity.activity_id,
+            artifact_author_ids=artifact_author_ids,
+            artifact_subject_ids=artifact_subject_ids,
+            expected_snapshot_revision=review.snapshot_revision,
+            actor=state.require_actor(),
+        )
+    )
+    show_result(
+        "Attribution Confirmed",
+        (
+            f"Authors confirmed: {result.confirmed_author_count}",
+            f"Subjects confirmed: {result.confirmed_subject_count}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+def _confirm_selected_straightforward_attribution(
+    activity: ActivitySummary,
+    review: ArtifactAttributionReview,
+    state: MenuSessionContext,
+) -> None:
+    if review.candidate_count == 0:
+        show_result(
+            "Select Attribution Proposals",
+            ("There are no straightforward proposals available to select.",),
+        )
+        return
+
+    selected = _select_attribution_proposals(review)
+    artifact_author_ids = tuple(
+        item.association_id
+        for item in selected
+        if item.relationship_kind == "author"
+    )
+    artifact_subject_ids = tuple(
+        item.association_id
+        for item in selected
+        if item.relationship_kind == "subject"
+    )
+    _commit_attribution_confirmation(
+        activity,
+        review,
+        state,
+        artifact_author_ids=artifact_author_ids,
+        artifact_subject_ids=artifact_subject_ids,
+        unselected_candidate_count=review.candidate_count - len(selected),
+    )
+
+
 def _print_attribution_review(
     activity: ActivitySummary,
     review: ArtifactAttributionReview,
@@ -2372,6 +2532,7 @@ def _print_attribution_review(
             )
     print()
     print("A. Confirm all straightforward proposals")
+    print("S. Select multiple proposals")
     print("E. Review / edit attribution in Advanced tools")
     print_navigation()
     print()
@@ -2395,36 +2556,13 @@ def _confirm_all_straightforward_attribution(
         )
         return
 
-    if not confirm_write(
-        "Confirm Attribution",
-        "CONFIRM",
-        (
-            f"Authors to confirm: {len(review.candidate_author_ids)}",
-            f"Subjects to confirm: {len(review.candidate_subject_ids)}",
-            f"Excluded for individual attention: {review.exception_count}",
-            "No Author or Subject identity or relationship meaning will change.",
-            "Only confirmation status will change.",
-        ),
-    ):
-        return
-
-    result = batch_confirm_artifact_attribution(
-        BatchConfirmArtifactAttributionRequest(
-            class_id=activity.class_id,
-            activity_id=activity.activity_id,
-            artifact_author_ids=review.candidate_author_ids,
-            artifact_subject_ids=review.candidate_subject_ids,
-            expected_snapshot_revision=review.snapshot_revision,
-            actor=state.require_actor(),
-        )
-    )
-    show_result(
-        "Attribution Confirmed",
-        (
-            f"Authors confirmed: {result.confirmed_author_count}",
-            f"Subjects confirmed: {result.confirmed_subject_count}",
-            f"Snapshot: {result.commit.snapshot_revision}",
-        ),
+    _commit_attribution_confirmation(
+        activity,
+        review,
+        state,
+        artifact_author_ids=review.candidate_author_ids,
+        artifact_subject_ids=review.candidate_subject_ids,
+        unselected_candidate_count=0,
     )
 
 
@@ -2489,6 +2627,12 @@ def _launch_attribution_review_menu(
                 return
             elif choice.casefold() == "a":
                 _confirm_all_straightforward_attribution(
+                    activity,
+                    review,
+                    state,
+                )
+            elif choice.casefold() == "s":
+                _confirm_selected_straightforward_attribution(
                     activity,
                     review,
                     state,

@@ -258,3 +258,153 @@ def test_issue106_confirm_all_with_no_candidates_is_read_only(
     )
 
     assert shown == ["Confirm Attribution"]
+
+def test_issue106_subset_choices_hide_ids_and_exclude_exceptions() -> None:
+    choices = menu_artifact._attribution_proposal_choices(_review())
+
+    assert tuple(item.relationship_kind for item in choices) == (
+        "author",
+        "subject",
+    )
+    assert tuple(item.association_id for item in choices) == (
+        "author-1",
+        "subject-1",
+    )
+    assert "artifact-1 - Completed by Alex One" in choices[0].display_label
+    assert "artifact-1 - Concerns Alex One" in choices[1].display_label
+    assert "author-1" not in choices[0].display_label
+    assert "subject-1" not in choices[1].display_label
+    assert all("Blair Two" not in item.display_label for item in choices)
+    assert all("Casey Three" not in item.display_label for item in choices)
+
+
+def test_issue106_explicit_subset_confirms_only_selected_relationship(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    review = _review()
+    requests: list[object] = []
+    confirmations: list[tuple[str, tuple[str, ...]]] = []
+
+    def _select(
+        _title: str,
+        items: object,
+        _labels: object,
+        **_kwargs: object,
+    ) -> tuple[object, ...]:
+        available = tuple(items)
+        return (available[1],)
+
+    def _confirm(
+        _title: str,
+        expected: str,
+        lines: object,
+    ) -> bool:
+        confirmations.append((expected, tuple(lines)))
+        return True
+
+    monkeypatch.setattr(menu_artifact, "select_many", _select)
+    monkeypatch.setattr(menu_artifact, "confirm_write", _confirm)
+    monkeypatch.setattr(menu_artifact, "show_result", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        menu_artifact,
+        "batch_confirm_artifact_attribution",
+        lambda request: requests.append(request)
+        or SimpleNamespace(
+            confirmed_author_count=0,
+            confirmed_subject_count=1,
+            commit=SimpleNamespace(snapshot_revision=10),
+        ),
+    )
+
+    menu_artifact._confirm_selected_straightforward_attribution(
+        _activity(),
+        review,
+        _state(),
+    )
+
+    assert len(confirmations) == 1
+    expected, lines = confirmations[0]
+    assert expected == "CONFIRM"
+    assert "Authors to confirm: 0" in lines
+    assert "Subjects to confirm: 1" in lines
+    assert "Other straightforward proposals not selected: 1" in lines
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.artifact_author_ids == ()
+    assert request.artifact_subject_ids == ("subject-1",)
+    assert request.expected_snapshot_revision == 9
+
+
+def test_issue106_subset_selection_pages_without_losing_prior_choices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    author_ids = tuple(f"author-{index}" for index in range(1, 13))
+    review = SimpleNamespace(
+        candidate_author_ids=author_ids,
+        candidate_subject_ids=(),
+        candidate_count=12,
+        exception_count=0,
+        confirmed_relationship_count=0,
+        snapshot_revision=9,
+        artifacts=(
+            SimpleNamespace(
+                artifact_instance_id="artifact-many",
+                authors=tuple(
+                    SimpleNamespace(
+                        artifact_author_id=artifact_author_id,
+                        reference_display_label=f"Student {index}",
+                        authorship_mode="co_author",
+                        attribution_status="proposed",
+                        represented_group_id=None,
+                        role_assignment_id=None,
+                        representation_status=None,
+                        disposition="candidate",
+                        exception_code=None,
+                    )
+                    for index, artifact_author_id in enumerate(
+                        author_ids,
+                        start=1,
+                    )
+                ),
+                subjects=(),
+            ),
+        ),
+    )
+    answers = iter(("1", "n", "1", "d"))
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    selected = menu_artifact._select_attribution_proposals(review)
+
+    assert tuple(item.association_id for item in selected) == (
+        "author-1",
+        "author-11",
+    )
+
+
+def test_issue106_subset_cancel_before_confirm_produces_no_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    choices = menu_artifact._attribution_proposal_choices(_review())
+    monkeypatch.setattr(
+        menu_artifact,
+        "select_many",
+        lambda *_args, **_kwargs: (choices[0],),
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "confirm_write",
+        lambda *_args, **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "batch_confirm_artifact_attribution",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("canceled subset confirmation must not mutate")
+        ),
+    )
+
+    menu_artifact._confirm_selected_straightforward_attribution(
+        _activity(),
+        _review(),
+        _state(),
+    )
