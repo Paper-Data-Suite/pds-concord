@@ -286,6 +286,16 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_artifact_attribution_batch_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: issue #106 Artifact attribution batching",
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,

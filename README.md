@@ -226,6 +226,28 @@ complete #66 contract.
 
 [task-activity-menu-doc]: docs/v0.3.0-task-oriented-activity-menus.md
 
+## Reviewing Artifact attribution
+
+Issue #106 changes Collect's routine attribution path from separate low-level
+Author/Subject management into **Review attribution**. The screen groups current
+Author and Subject attention by Artifact, confirms all straightforward proposals
+with one `CONFIRM`, supports paginated subset selection, and leaves disputed,
+unresolved, invalid, or correction-requiring relationships for individual review.
+
+`C. Create several relationships` provides one reviewed atomic add for several
+Core-roster students sharing the same straightforward Author or Subject semantics.
+Opaque association IDs are generated internally. Complex recorder-for-Group,
+teacher/adult, collective Group, and non-student Subject cases remain available
+through **Advanced attribution tools**. The underlying Author/Subject distinction,
+privacy, provenance, correction history, and issue #67 attention contracts remain
+unchanged.
+
+See [Artifact attribution batching documentation][attribution-batching-doc] for
+the complete #106 semantic, atomicity, performance, compatibility, and
+installed-wheel qualification contract.
+
+[attribution-batching-doc]: docs/v0.3.1-artifact-attribution-batching.md
+
 ## Opening returned Artifact evidence
 
 Issue #105 adds `O. Open returned work` to Collect, Review, and Score while
