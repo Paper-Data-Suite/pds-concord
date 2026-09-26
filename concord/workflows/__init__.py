@@ -108,6 +108,9 @@ from concord.workflows.artifact_routine_review import (
     ArtifactRoutineReviewEligibility,
     inspect_artifact_routine_review,
 )
+from concord.workflows.artifact_routine_review_commit import (
+    record_routine_artifact_review,
+)
 from concord.workflows.artifact_routine_review_profiles import (
     ArtifactRoutineReviewValues,
     routine_qualified_review_values,
@@ -788,6 +791,7 @@ __all__ = [
     "ArtifactRoutineReviewValues",
     "routine_qualified_review_values",
     "routine_ready_review_values",
+    "record_routine_artifact_review",
     "inspect_artifact_routine_review",
     "ModerationDetail",
     "ModerationMutationResult",
