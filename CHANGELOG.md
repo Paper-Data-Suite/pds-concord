@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #106 adds exception-focused **Review attribution** in Collect, allowing
+  current straightforward Artifact Authors and Subjects to be confirmed together
+  with one reviewed `CONFIRM`, or as an explicit paginated subset, while keeping
+  disputed/unresolved/correction cases in individual review.
+- Homogeneous Core-student multi-Author and multi-Subject creation now generates
+  association IDs internally, validates every selected student and shared semantic
+  context first, and publishes the reviewed batch in one atomic canonical commit;
+  Advanced attribution tools retain the complete heterogeneous workflows.
+- Issue #106 qualification proves the 20-Artifact / 40-relationship case uses one
+  full-state load and one commit, preserves recorder-for-Group and roster authority,
+  and adds isolated installed-wheel teacher-flow acceptance against Core 0.6.3.
+
 - Issue #105 adds read-only opening of exact existing returned-Artifact evidence
   from Collect, Review, and Score through the operating system's default PDF
   application, without implicit assembly, Review, Moderation, Score, or view state.
@@ -391,4 +403,3 @@ All notable changes to this project will be documented in this file.
   Publication Records, including historical reload for supersession, so mixed
   `criterion_scores`, `standards_ratings`, and `moderated_scores` manifests
   agree with Core's canonical capability tuple.
-

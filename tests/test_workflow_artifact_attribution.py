@@ -1873,3 +1873,100 @@ def test_issue106_multi_add_is_bound_to_exact_snapshot(tmp_path: Path) -> None:
     after = load_current_record_graph(root, _work())
     assert after.snapshot_revision == advanced.commit.snapshot_revision
     assert after.graph.artifact_subjects == ()
+
+
+def test_issue106_batch_preserves_recorder_for_group_semantics(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+    added = add_artifact_author(
+        AddArtifactAuthorRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            artifact_author_id="author-recorder-group-issue106",
+            author_reference=_student_author("student-1"),
+            authorship_mode="recorder_for_group",
+            attribution_status="proposed",
+            attribution_source="teacher",
+            expected_snapshot_revision=revision,
+            actor=_actor(),
+            represented_group_id="group-a",
+            role_assignment_id="role-recorder",
+            representation_status="recorder_summary",
+            privacy_policy=_privacy(),
+        ),
+        workspace_root=root,
+    )
+    before_graph = load_current_record_graph(root, _work()).graph
+    before = next(
+        item
+        for item in before_graph.artifact_authors
+        if item.artifact_author_id == "author-recorder-group-issue106"
+    )
+
+    result = batch_confirm_artifact_attribution(
+        BatchConfirmArtifactAttributionRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_author_ids=("author-recorder-group-issue106",),
+            expected_snapshot_revision=added.commit.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    after_graph = load_current_record_graph(root, _work()).graph
+    after = next(
+        item
+        for item in after_graph.artifact_authors
+        if item.artifact_author_id == "author-recorder-group-issue106"
+    )
+    assert after == replace(before, attribution_status="confirmed")
+    assert after.represented_group_id == "group-a"
+    assert after.role_assignment_id == "role-recorder"
+    assert after.representation_status == "recorder_summary"
+    assert result.confirmed_author_count == 1
+
+
+def test_issue106_multi_add_keeps_core_roster_authoritative(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace_with_artifact(tmp_path)
+
+    with pytest.raises(ConcordWorkflowNotFoundError, match="Core roster"):
+        add_artifact_authors(
+            AddArtifactAuthorsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-1", "student-missing"),
+                authorship_mode="co_author",
+                attribution_status="confirmed",
+                attribution_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    with pytest.raises(ConcordWorkflowNotFoundError, match="Core roster"):
+        add_artifact_subjects(
+            AddArtifactSubjectsRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                artifact_instance_id="artifact-1",
+                student_ids=("student-2", "student-missing"),
+                subject_role="observed_participant",
+                confirmation_status="confirmed",
+                assignment_source="teacher",
+                expected_snapshot_revision=revision,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    after = load_current_record_graph(root, _work())
+    assert after.snapshot_revision == revision
+    assert after.graph.artifact_authors == ()
+    assert after.graph.artifact_subjects == ()

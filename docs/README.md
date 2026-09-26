@@ -367,6 +367,17 @@ integrity and link/path safety, selection-to-open currentness, privacy-minimal
 teacher UX across Collect/Review/Score, Core local-open delegation, and isolated
 installed-wheel qualification against released Core 0.6.3.
 
+### v0.3.1 Artifact attribution batching
+
+[`v0.3.1-artifact-attribution-batching.md`](v0.3.1-artifact-attribution-batching.md)
+
+Documents issue #106's exception-focused Review attribution workflow, mixed
+Author/Subject atomic confirmation, explicit paginated subset selection,
+homogeneous Core-student multi-add, internal association-ID generation, exact
+snapshot binding, structural one-load/one-commit qualification, ADR 0005 semantic
+preservation, attention compatibility, no-migration boundary, and isolated
+installed-wheel teacher-flow acceptance against released Core 0.6.3.
+
 ### v0.3.1 starter Subject relationships
 
 [`v0.3.1-starter-subject-relationships.md`](v0.3.1-starter-subject-relationships.md)
