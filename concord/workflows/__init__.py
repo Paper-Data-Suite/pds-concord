@@ -103,6 +103,10 @@ from concord.workflows.artifact_review import (
     replace_artifact_review,
     show_artifact_review,
 )
+from concord.workflows.artifact_review_next import (
+    ArtifactReviewNext,
+    inspect_next_artifact_review,
+)
 from concord.workflows.artifact_routine_review import (
     ArtifactRoutineReviewContext,
     ArtifactRoutineReviewEligibility,
@@ -786,6 +790,8 @@ __all__ = [
     "AddModerationRecordRequest",
     "ArtifactReviewMutationResult",
     "ArtifactReviewSummary",
+    "ArtifactReviewNext",
+    "inspect_next_artifact_review",
     "ArtifactRoutineReviewContext",
     "ArtifactRoutineReviewEligibility",
     "ArtifactRoutineReviewValues",
