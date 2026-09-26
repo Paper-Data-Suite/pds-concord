@@ -111,7 +111,12 @@ def test_quick_ready_review_uses_selected_artifact_and_review_confirmation(
         "inspect_artifact_routine_review",
         lambda class_id, activity_id, artifact_id: context,
     )
-    monkeypatch.setattr(menu_artifact, "select_one", lambda *args, **kwargs: "ready")
+    choices = iter(("continue", "ready"))
+    monkeypatch.setattr(
+        menu_artifact,
+        "select_one",
+        lambda *args, **kwargs: next(choices),
+    )
 
     def fake_confirm(
         title: str,
@@ -183,10 +188,11 @@ def test_quick_qualified_review_requires_note_and_previews_it(
         "inspect_artifact_routine_review",
         lambda *args: context,
     )
+    choices = iter(("continue", "ready_with_qualification"))
     monkeypatch.setattr(
         menu_artifact,
         "select_one",
-        lambda *args, **kwargs: "ready_with_qualification",
+        lambda *args, **kwargs: next(choices),
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -247,7 +253,7 @@ def test_ineligible_quick_review_surfaces_reasons_without_write(
     monkeypatch.setattr(
         menu_artifact,
         "select_one",
-        lambda *args, **kwargs: pytest.fail("profile prompt must not occur"),
+        lambda *args, **kwargs: "continue",
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -296,7 +302,12 @@ def test_cancelled_quick_review_does_not_write(
         "inspect_artifact_routine_review",
         lambda *args: context,
     )
-    monkeypatch.setattr(menu_artifact, "select_one", lambda *args, **kwargs: "ready")
+    choices = iter(("continue", "ready"))
+    monkeypatch.setattr(
+        menu_artifact,
+        "select_one",
+        lambda *args, **kwargs: next(choices),
+    )
     monkeypatch.setattr(menu_artifact, "confirm_write", lambda *args, **kwargs: False)
     monkeypatch.setattr(
         menu_artifact,
@@ -305,3 +316,130 @@ def test_cancelled_quick_review_does_not_write(
     )
 
     menu_artifact._quick_review(_activity(), _state())
+
+
+def test_selected_returned_work_opens_exact_artifact_without_reselection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    activity = _activity()
+    artifact = _artifact()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        menu_artifact,
+        "_assembly_selections",
+        lambda supplied_activity, supplied_artifact: (
+            SimpleNamespace(
+                artifact_page_id="page-1",
+                scan_reference_id="scan-1",
+            ),
+        ),
+    )
+
+    def fake_open(
+        class_id: str,
+        activity_id: str,
+        artifact_instance_id: str,
+        **kwargs: object,
+    ) -> None:
+        captured["class_id"] = class_id
+        captured["activity_id"] = activity_id
+        captured["artifact_instance_id"] = artifact_instance_id
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(menu_artifact, "open_returned_artifact_evidence", fake_open)
+    monkeypatch.setattr(menu_artifact, "show_result", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda *args, **kwargs: pytest.fail("Artifact must not be reselected"),
+    )
+
+    assert menu_artifact._open_selected_returned_work(activity, artifact)
+
+    assert captured["class_id"] == "class-1"
+    assert captured["activity_id"] == "activity-1"
+    assert captured["artifact_instance_id"] == "artifact-1"
+    kwargs = cast(dict[str, object], captured["kwargs"])
+    assert kwargs["expected_snapshot_revision"] == 12
+    assert len(cast(tuple[object, ...], kwargs["selections"])) == 1
+
+
+def test_quick_review_open_failure_fails_closed_before_projection_or_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda activity, *, title: _artifact(),
+    )
+    monkeypatch.setattr(menu_artifact, "select_one", lambda *args, **kwargs: "open")
+    monkeypatch.setattr(
+        menu_artifact,
+        "_open_selected_returned_work",
+        lambda activity, artifact: False,
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "inspect_artifact_routine_review",
+        lambda *args, **kwargs: pytest.fail("projection must not occur"),
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "record_routine_artifact_review",
+        lambda *args, **kwargs: pytest.fail("write must not occur"),
+    )
+
+    menu_artifact._quick_review(_activity(), _state())
+
+
+def test_quick_review_open_success_keeps_same_artifact_for_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = _context()
+    artifact = _artifact()
+    seen: dict[str, object] = {}
+    choices = iter(("open", "ready"))
+
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+    monkeypatch.setattr(
+        menu_artifact,
+        "_choose_artifact",
+        lambda activity, *, title: artifact,
+    )
+    monkeypatch.setattr(
+    menu_artifact,
+    "select_one",
+    lambda *args, **kwargs: next(choices),
+    )
+
+    def fake_selected_open(activity: object, supplied_artifact: object) -> bool:
+        seen["opened_artifact"] = supplied_artifact
+        return True
+
+    monkeypatch.setattr(
+        menu_artifact,
+        "_open_selected_returned_work",
+        fake_selected_open,
+    )
+
+    def fake_inspect(
+        class_id: str,
+        activity_id: str,
+        artifact_instance_id: str,
+    ) -> ArtifactRoutineReviewContext:
+        seen["projected_artifact_id"] = artifact_instance_id
+        return context
+
+    monkeypatch.setattr(
+        menu_artifact,
+        "inspect_artifact_routine_review",
+        fake_inspect,
+    )
+    monkeypatch.setattr(menu_artifact, "confirm_write", lambda *args, **kwargs: False)
+
+    menu_artifact._quick_review(_activity(), _state())
+
+    assert seen["opened_artifact"] is artifact
+    assert seen["projected_artifact_id"] == "artifact-1"

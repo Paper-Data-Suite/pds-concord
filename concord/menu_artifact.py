@@ -1514,6 +1514,40 @@ def _view_review_history(activity: ActivitySummary) -> None:
     )
 
 
+def _open_selected_returned_work(
+    activity: ActivitySummary,
+    artifact: ArtifactSummary,
+) -> bool:
+    """Open the already-selected Artifact evidence without changing selection."""
+    try:
+        selections = _assembly_selections(activity, artifact)
+        open_returned_artifact_evidence(
+            activity.class_id,
+            activity.activity_id,
+            artifact.artifact_instance_id,
+            selections=selections,
+            expected_snapshot_revision=activity.snapshot_revision,
+        )
+    except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+        raise
+    except Exception as error:
+        show_result(
+            "Open Returned Work",
+            _open_returned_work_failure_lines(error),
+        )
+        return False
+
+    show_result(
+        "Returned Work Opened",
+        (
+            "Returned work opened in your default PDF viewer.",
+            "Opening this evidence did not Review, Moderate, or Score the work.",
+            "Return here after inspecting the work to continue this Review.",
+        ),
+    )
+    return True
+
+
 def _routine_review_value_lines(
     values: ArtifactRoutineReviewValues,
 ) -> tuple[str, ...]:
@@ -1536,6 +1570,21 @@ def _routine_review_value_lines(
 def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     artifact = _choose_artifact(current, title="Quick Artifact Review")
+    evidence_action = select_one(
+        "Quick Artifact Review - Evidence",
+        ("open", "continue"),
+        ("Open returned work", "Continue without opening"),
+        help_text=(
+            "Open the exact returned evidence for this selected Artifact, or "
+            "continue if you have already inspected it."
+        ),
+    )
+    if evidence_action == "open" and not _open_selected_returned_work(
+        current,
+        artifact,
+    ):
+        return
+
     context = inspect_artifact_routine_review(
         current.class_id,
         current.activity_id,
