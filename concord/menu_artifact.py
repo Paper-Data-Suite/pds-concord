@@ -55,6 +55,7 @@ from concord.workflows import (
     AddArtifactSubjectsRequest,
     ArtifactAttributionReview,
     ArtifactAuthorSummary,
+    ArtifactRoutineReviewValues,
     ArtifactSubjectSummary,
     BatchConfirmArtifactAttributionRequest,
     ConcordWorkflowConflictError,
@@ -71,15 +72,19 @@ from concord.workflows import (
     add_artifact_subjects,
     batch_confirm_artifact_attribution,
     inspect_artifact_attribution_review,
+    inspect_artifact_routine_review,
     list_artifact_authors,
     list_artifact_subjects,
     list_artifacts,
     list_groups,
     list_sessions,
     open_returned_artifact_evidence,
+    record_routine_artifact_review,
     replace_artifact_author,
     replace_artifact_subject,
     resolve_read_workspace_root,
+    routine_qualified_review_values,
+    routine_ready_review_values,
     show_activity,
     show_artifact,
     show_artifact_author,
@@ -1509,6 +1514,97 @@ def _view_review_history(activity: ActivitySummary) -> None:
     )
 
 
+def _routine_review_value_lines(
+    values: ArtifactRoutineReviewValues,
+) -> tuple[str, ...]:
+    return (
+        f"Readability: {values.readability_judgment}",
+        f"Page completeness: {values.page_completeness_judgment}",
+        f"Filing: {values.filing_judgment}",
+        f"Author judgment: {values.author_judgment}",
+        f"Subject judgment: {values.subject_judgment}",
+        f"Evidence privacy: {values.privacy_judgment}",
+        f"Relevance: {values.relevance_judgment}",
+        f"Moderation requirement: {values.moderation_requirement}",
+        f"Scoring readiness: {values.scoring_readiness}",
+        f"Outcome: {values.review_outcome}",
+        f"Notes: {values.notes or '-'}",
+        f"Review privacy: {values.privacy_policy.classification}",
+    )
+
+
+def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Quick Artifact Review")
+    context = inspect_artifact_routine_review(
+        current.class_id,
+        current.activity_id,
+        artifact.artifact_instance_id,
+    )
+
+    if not context.eligibility.quick_review_eligible:
+        reasons = context.eligibility.exception_reasons or (
+            "This Artifact requires Detailed Review.",
+        )
+        show_result(
+            "Quick Artifact Review",
+            (
+                f"Artifact: {artifact.artifact_instance_id}",
+                "Quick Review is not available for this Artifact.",
+                *reasons,
+                "Use Detailed Review to record the explicit exception judgment.",
+            ),
+        )
+        return
+
+    mode = select_one(
+        "Quick Artifact Review",
+        ("ready", "ready_with_qualification"),
+        ("Ready for scoring", "Ready with qualification"),
+        help_text=(
+            "Choose the explicit routine Review profile. "
+            "Detailed Review remains available for any exception."
+        ),
+    )
+    if mode == "ready":
+        values = routine_ready_review_values()
+    else:
+        notes = prompt_text(
+            "Quick Artifact Review",
+            "Qualification note",
+            help_text=(
+                "State the qualification that should travel with this otherwise "
+                "routine ready Review."
+            ),
+        )
+        assert notes is not None
+        values = routine_qualified_review_values(notes)
+
+    preview = (
+        f"Artifact: {artifact.artifact_instance_id}",
+        f"Inspected snapshot: {context.snapshot_revision}",
+        f"Snapshot SHA-256: {context.snapshot_sha256}",
+        *_routine_review_value_lines(values),
+    )
+    if not confirm_write("Quick Artifact Review", "REVIEW", preview):
+        return
+
+    result = record_routine_artifact_review(
+        context,
+        values,
+        actor=state.require_actor(),
+    )
+    show_result(
+        "Artifact Review Recorded",
+        (
+            f"Artifact: {artifact.artifact_instance_id}",
+            f"Review: {result.artifact_review_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+
+
+
 def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     artifact = _choose_artifact(current, title="Record Artifact Review")
@@ -1700,8 +1796,9 @@ def _launch_review_menu(
         print_menu_header("Artifact Review")
         print("1. View current Review")
         print("2. View Review history")
-        print("3. Record Review")
-        print("4. Record successor / corrected Review")
+        print("3. Quick Review")
+        print("4. Detailed Review")
+        print("5. Record successor / corrected Review")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1729,8 +1826,10 @@ def _launch_review_menu(
             elif choice == "2":
                 _view_review_history(activity)
             elif choice == "3":
-                _record_review(activity, state)
+                _quick_review(activity, state)
             elif choice == "4":
+                _record_review(activity, state)
+            elif choice == "5":
                 _replace_review(activity, state)
             else:
                 print(navigation_hint_with_help())
