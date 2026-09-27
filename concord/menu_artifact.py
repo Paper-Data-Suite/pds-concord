@@ -73,6 +73,7 @@ from concord.workflows import (
     batch_confirm_artifact_attribution,
     inspect_artifact_attribution_review,
     inspect_artifact_routine_review,
+    inspect_next_artifact_review,
     list_artifact_authors,
     list_artifact_subjects,
     list_artifacts,
@@ -1567,9 +1568,11 @@ def _routine_review_value_lines(
     )
 
 
-def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
-    current = _latest(activity)
-    artifact = _choose_artifact(current, title="Quick Artifact Review")
+def _quick_review_selected(
+    current: ActivitySummary,
+    artifact: ArtifactSummary,
+    state: MenuSessionContext,
+) -> bool:
     evidence_action = select_one(
         "Quick Artifact Review - Evidence",
         ("open", "continue"),
@@ -1583,7 +1586,7 @@ def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
         current,
         artifact,
     ):
-        return
+        return False
 
     context = inspect_artifact_routine_review(
         current.class_id,
@@ -1604,7 +1607,7 @@ def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 "Use Detailed Review to record the explicit exception judgment.",
             ),
         )
-        return
+        return False
 
     mode = select_one(
         "Quick Artifact Review",
@@ -1636,7 +1639,7 @@ def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
         *_routine_review_value_lines(values),
     )
     if not confirm_write("Quick Artifact Review", "REVIEW", preview):
-        return
+        return False
 
     result = record_routine_artifact_review(
         context,
@@ -1651,12 +1654,21 @@ def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
             f"Snapshot: {result.commit.snapshot_revision}",
         ),
     )
+    return True
 
 
-
-def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
+def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
-    artifact = _choose_artifact(current, title="Record Artifact Review")
+    artifact = _choose_artifact(current, title="Quick Artifact Review")
+    _quick_review_selected(current, artifact, state)
+
+
+
+def _record_review_selected(
+    current: ActivitySummary,
+    artifact: ArtifactSummary,
+    state: MenuSessionContext,
+) -> bool:
     detail = show_artifact(
         current.class_id,
         current.activity_id,
@@ -1709,7 +1721,7 @@ def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None
             f"Moderation requirement: {moderation}",
         ),
     ):
-        return
+        return False
     result = add_artifact_review(
         AddArtifactReviewRequest(
             class_id=current.class_id,
@@ -1739,6 +1751,92 @@ def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None
             f"Snapshot: {result.commit.snapshot_revision}",
         ),
     )
+    return True
+
+
+def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Record Artifact Review")
+    _record_review_selected(current, artifact, state)
+
+
+def _review_next_artifact_summary(
+    activity: ActivitySummary,
+    artifact_instance_id: str,
+) -> ArtifactSummary:
+    matches = tuple(
+        item
+        for item in list_artifacts(activity.class_id, activity.activity_id)
+        if item.artifact_instance_id == artifact_instance_id
+    )
+    if not matches:
+        raise ConcordWorkflowNotFoundError(
+            "The next Artifact awaiting Review is no longer available."
+        )
+    if len(matches) != 1:
+        raise ConcordWorkflowConflictError(
+            "The next Artifact awaiting Review is not unique."
+        )
+    return matches[0]
+
+
+def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
+    while True:
+        current = _latest(activity)
+        next_item = inspect_next_artifact_review(
+            current.class_id,
+            current.activity_id,
+        )
+        if next_item is None:
+            show_result(
+                "Review Next",
+                ("No assembled Artifact is currently awaiting its first Review.",),
+            )
+            return
+
+        artifact = _review_next_artifact_summary(
+            current,
+            next_item.artifact.artifact_instance_id,
+        )
+        context = inspect_artifact_routine_review(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+        )
+
+        if context.eligibility.quick_review_eligible:
+            committed = _quick_review_selected(current, artifact, state)
+        else:
+            reasons = context.eligibility.exception_reasons or (
+                "This Artifact requires Detailed Review.",
+            )
+            show_result(
+                "Review Next",
+                (
+                    f"Artifact: {artifact.artifact_instance_id}",
+                    "This next first-Review Artifact requires Detailed Review.",
+                    *reasons,
+                    "It will not be skipped.",
+                ),
+            )
+            evidence_action = select_one(
+                "Detailed Review - Evidence",
+                ("open", "continue"),
+                ("Open returned work", "Continue without opening"),
+                help_text=(
+                    "Open the exact returned evidence for this selected Artifact, "
+                    "or continue if you have already inspected it."
+                ),
+            )
+            if evidence_action == "open" and not _open_selected_returned_work(
+                current,
+                artifact,
+            ):
+                return
+            committed = _record_review_selected(current, artifact, state)
+
+        if not committed:
+            return
 
 
 def _replace_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
@@ -1846,8 +1944,9 @@ def _launch_review_menu(
         print("1. View current Review")
         print("2. View Review history")
         print("3. Quick Review")
-        print("4. Detailed Review")
-        print("5. Record successor / corrected Review")
+        print("4. Review next")
+        print("5. Detailed Review")
+        print("6. Record successor / corrected Review")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1877,8 +1976,10 @@ def _launch_review_menu(
             elif choice == "3":
                 _quick_review(activity, state)
             elif choice == "4":
-                _record_review(activity, state)
+                _review_next(activity, state)
             elif choice == "5":
+                _record_review(activity, state)
+            elif choice == "6":
                 _replace_review(activity, state)
             else:
                 print(navigation_hint_with_help())
