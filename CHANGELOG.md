@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #107 streamlines routine first Artifact Review with explicit
+  ready/qualified Quick Review bundles, same-selection returned-evidence opening,
+  internally generated Review IDs, and deterministic Review next while preserving
+  Detailed Review, correction history, attribution, Moderation, and Score
+  boundaries.
+
 - Issue #106 adds exception-focused **Review attribution** in Collect, allowing
   current straightforward Artifact Authors and Subjects to be confirmed together
   with one reviewed `CONFIRM`, or as an explicit paginated subset, while keeping

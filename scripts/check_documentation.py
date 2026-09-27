@@ -83,6 +83,9 @@ TASK_ORIENTED_ACTIVITY_MENU_DOC = (
 RETURNED_ARTIFACT_OPENING_DOC = (
     ROOT / "docs" / "v0.3.1-returned-artifact-evidence-opening.md"
 )
+ROUTINE_ARTIFACT_REVIEW_DOC = (
+    ROOT / "docs" / "v0.3.1-routine-artifact-review.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -171,6 +174,27 @@ REQUIRED_RETURNED_ARTIFACT_OPENING_PHRASES = (
     "needs_recovery",
     "scripts/smoke_test_returned_artifact_evidence_opening_wheel.py",
     "python -I",
+)
+REQUIRED_ROUTINE_ARTIFACT_REVIEW_PHRASES = (
+    "Quick Review eligibility != automatic Review",
+    "Review-next eligibility != Quick Review eligibility",
+    "Confirmed attribution may permit the shortcut but does not create Review",
+    "ArtifactRoutineReviewContext",
+    "load_activity_read_context",
+    "record_routine_artifact_review",
+    "inspect_next_artifact_review",
+    "concord_review_first",
+    "Open returned work",
+    "Detailed Review",
+    "Ready for scoring",
+    "Ready with qualification",
+    "REVIEW",
+    "OPEN != REVIEW",
+    "CorrectionRecord",
+    "scripts/smoke_test_routine_artifact_review_wheel.py",
+    "python -I",
+    "Core 0.6.3",
+    "pds-core>=0.6.3,<0.7",
 )
 REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "ActivityAttentionItem",
@@ -939,6 +963,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the returned Artifact "
                 "evidence opening document."
+            )
+
+    if not ROUTINE_ARTIFACT_REVIEW_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 routine Artifact Review document is missing."
+        )
+    else:
+        routine_review_doc = ROUTINE_ARTIFACT_REVIEW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_ROUTINE_ARTIFACT_REVIEW_PHRASES:
+            if phrase not in routine_review_doc:
+                failures.append(
+                    "Routine Artifact Review document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if ROUTINE_ARTIFACT_REVIEW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the routine Artifact "
+                "Review document."
             )
 
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():
