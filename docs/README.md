@@ -169,6 +169,15 @@ issue #33 full installed Activity-to-publication-to-consumer acceptance path and
 issue #34 release closeout are complete. The current v0.3.0 work adds reusable
 planning/setup layers without rewriting the accepted v0.2.0 operational history.
 
+### v0.3.1 routine Artifact Review
+
+[`v0.3.1-routine-artifact-review.md`](v0.3.1-routine-artifact-review.md)
+
+Documents Issue #107's explicit Quick Review bundles, Detailed Review parity,
+same-selection returned-evidence opening, exact snapshot binding, #106
+attribution gating, deterministic Review next semantics, and the boundary
+between first-Review attention and Quick Review eligibility.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)
