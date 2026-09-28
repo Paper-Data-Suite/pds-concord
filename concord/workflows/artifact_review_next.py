@@ -4,19 +4,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from concord.models import ArtifactInstance
 from concord.workflows._collaboration import work_ref
-from concord.workflows.activity_attention import (
-    _build_attention_index,
-    _collection_state_from_context,
-    _review_state_from_context,
-)
 from concord.workflows.activity_read import (
     ActivityReadContext,
     load_activity_read_context,
 )
 from concord.workflows.context import require_core_class, resolve_read_workspace_root
+
+if TYPE_CHECKING:
+    from concord.workflows.activity_attention import _ActivityAttentionIndex
+    from concord.workflows.artifact_collection import ArtifactCollectionState
+    from concord.workflows.artifact_review_attention import (
+        ArtifactReviewAttentionState,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +31,43 @@ class ArtifactReviewNext:
     artifact: ArtifactInstance
     snapshot_revision: int
     snapshot_sha256: str
+
+
+def _build_attention_index(
+    context: ActivityReadContext,
+) -> _ActivityAttentionIndex:
+    from concord.workflows.activity_attention import (
+        _build_attention_index as build_attention_index,
+    )
+    return build_attention_index(context)
+
+
+def _collection_state_from_context(
+    context: ActivityReadContext,
+    index: _ActivityAttentionIndex,
+    artifact_instance_id: str,
+) -> ArtifactCollectionState:
+    from concord.workflows.activity_attention import (
+        _collection_state_from_context as collection_state_from_context,
+    )
+    return collection_state_from_context(context, index, artifact_instance_id)
+
+
+def _review_state_from_context(
+    context: ActivityReadContext,
+    index: _ActivityAttentionIndex,
+    artifact_instance_id: str,
+    collection: ArtifactCollectionState,
+) -> ArtifactReviewAttentionState:
+    from concord.workflows.activity_attention import (
+        _review_state_from_context as review_state_from_context,
+    )
+    return review_state_from_context(
+        context,
+        index,
+        artifact_instance_id,
+        collection,
+    )
 
 
 def _next_artifact_review_from_context(
