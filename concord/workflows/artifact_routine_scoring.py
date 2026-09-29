@@ -64,6 +64,8 @@ class ArtifactRoutineScoringContext:
 
     class_id: str
     activity_id: str
+    scoring_orientation: str
+    focus_standard_ids: tuple[str, ...]
     artifact: ArtifactInstance
     current_review: ArtifactReview | None
     current_authors: tuple[ArtifactAuthor, ...]
@@ -288,6 +290,8 @@ def _project_artifact_routine_scoring_from_context(
     return ArtifactRoutineScoringContext(
         class_id=context.work.class_id,
         activity_id=context.work.work_id,
+        scoring_orientation=context.activity.scoring_orientation,
+        focus_standard_ids=context.activity.focus_standard_ids,
         artifact=artifact,
         current_review=current_review,
         current_authors=current_authors,

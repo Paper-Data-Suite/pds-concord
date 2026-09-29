@@ -108,6 +108,7 @@ def _score(
 def _context(
     *,
     orientation: str = "mixed",
+    focus_standard_ids: tuple[str, ...] = ("standard-1",),
     criterion_set_ids: tuple[str, ...] = ("set-1",),
     reviews: tuple[object, ...] = (_review(),),
     authors: tuple[object, ...] = (_author(),),
@@ -124,6 +125,7 @@ def _context(
     activity = SimpleNamespace(
         activity_id="activity-1",
         scoring_orientation=orientation,
+        focus_standard_ids=focus_standard_ids,
         criterion_set_ids=criterion_set_ids,
     )
     return SimpleNamespace(
@@ -200,6 +202,8 @@ def test_ready_projection_preserves_exact_snapshot_and_scoring_context() -> None
     )
 
     assert projected.artifact.artifact_instance_id == "artifact-1"
+    assert projected.scoring_orientation == "mixed"
+    assert projected.focus_standard_ids == ("standard-1",)
     assert projected.current_review is not None
     assert projected.evidence_reference.record_id == "artifact-1"
     assert len(projected.current_authors) == 1
