@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #108 streamlines explicit routine Artifact scoring from one exact
+  reviewed Artifact, preserving native evidence identity while replacing
+  manual machine-ID reconstruction with explicit target, Criterion, Scale,
+  value, Subject-context, Session, and final `SCORE` decisions.
+- Routine scoring now supports canonical reload between sequential Scores,
+  deterministic navigation to another current `concord_score_ready`
+  Artifact, and Advanced Score escape without creating a completion matrix,
+  persistent queue/cursor, implicit Moderation, or parallel current Score
+  heads for the same target + Criterion.
+- Issue #108 qualification adds stable public workflow exports, package
+  content enforcement, import-cycle regression coverage, and isolated
+  installed-wheel acceptance against released Core 0.6.3 using `pip check`
+  and `python -I`.
+
 - Issue #107 streamlines routine first Artifact Review with explicit
   ready/qualified Quick Review bundles, same-selection returned-evidence opening,
   internally generated Review IDs, and deterministic Review next while preserving

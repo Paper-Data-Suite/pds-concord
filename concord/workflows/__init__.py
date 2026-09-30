@@ -120,6 +120,44 @@ from concord.workflows.artifact_routine_review_profiles import (
     routine_qualified_review_values,
     routine_ready_review_values,
 )
+from concord.workflows.artifact_routine_scoring import (
+    ArtifactRoutineScoringContext,
+    ArtifactRoutineScoringEligibility,
+    inspect_artifact_routine_scoring,
+    native_artifact_evidence_reference,
+)
+from concord.workflows.artifact_routine_scoring_continuation import (
+    ContinuedRoutineScorePreparationRequest,
+    RoutineScoringContinuation,
+    prepare_next_routine_score_preview,
+    reload_routine_scoring_after_score,
+)
+from concord.workflows.artifact_routine_scoring_execution import (
+    record_prepared_routine_score,
+)
+from concord.workflows.artifact_routine_scoring_next import (
+    ArtifactScoringNext,
+    inspect_next_score_ready_artifact,
+)
+from concord.workflows.artifact_routine_scoring_preparation import (
+    ROUTINE_ARTIFACT_RELEVANCE_DESCRIPTION,
+    ROUTINE_SCORE_BASIS,
+    ROUTINE_SCORE_DISPOSITION,
+    ROUTINE_SCORE_PRIVACY,
+    RoutineScoreEvidencePreview,
+    RoutineScorePreparationRequest,
+    RoutineScorePreview,
+    prepare_routine_score_preview,
+    routine_subject_context_options,
+)
+from concord.workflows.artifact_routine_scoring_selection import (
+    RoutineScoreTargetCandidate,
+    RoutineScoreTargetOptions,
+    RoutineScoringScaleOptions,
+    routine_criteria_for_target,
+    routine_scale_options,
+    routine_target_options,
+)
 from concord.workflows.context import (
     ensure_mutating_workspace_root,
     list_available_classes,
@@ -799,6 +837,32 @@ __all__ = [
     "routine_ready_review_values",
     "record_routine_artifact_review",
     "inspect_artifact_routine_review",
+    "ArtifactRoutineScoringContext",
+    "ArtifactRoutineScoringEligibility",
+    "ArtifactScoringNext",
+    "ContinuedRoutineScorePreparationRequest",
+    "ROUTINE_ARTIFACT_RELEVANCE_DESCRIPTION",
+    "ROUTINE_SCORE_BASIS",
+    "ROUTINE_SCORE_DISPOSITION",
+    "ROUTINE_SCORE_PRIVACY",
+    "RoutineScoreEvidencePreview",
+    "RoutineScorePreparationRequest",
+    "RoutineScorePreview",
+    "RoutineScoreTargetCandidate",
+    "RoutineScoreTargetOptions",
+    "RoutineScoringContinuation",
+    "RoutineScoringScaleOptions",
+    "inspect_artifact_routine_scoring",
+    "inspect_next_score_ready_artifact",
+    "native_artifact_evidence_reference",
+    "prepare_next_routine_score_preview",
+    "prepare_routine_score_preview",
+    "record_prepared_routine_score",
+    "reload_routine_scoring_after_score",
+    "routine_criteria_for_target",
+    "routine_scale_options",
+    "routine_subject_context_options",
+    "routine_target_options",
     "ModerationDetail",
     "ModerationMutationResult",
     "ModerationRequirementAssessment",

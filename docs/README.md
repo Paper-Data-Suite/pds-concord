@@ -178,6 +178,16 @@ same-selection returned-evidence opening, exact snapshot binding, #106
 attribution gating, deterministic Review next semantics, and the boundary
 between first-Review attention and Quick Review eligibility.
 
+### v0.3.1 routine Artifact scoring
+
+[`v0.3.1-routine-artifact-scoring.md`](v0.3.1-routine-artifact-scoring.md)
+
+Documents Issue #108's exact reviewed-Artifact scoring projection, explicit
+target/Criterion/Scale/value decisions, native Artifact Evidence Link,
+snapshot-bound `SCORE` confirmation, post-Score reload, Score-another-Criterion
+behavior, deterministic `concord_score_ready` navigation, and the boundary
+between score-ready evidence and any assessment-completion policy.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)
