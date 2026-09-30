@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -344,3 +344,355 @@ def test_review_score_entry_selects_artifact_once_then_preserves_selection(
     menu_artifact._score_selected_artifact(activity, cast(object, _state()))
 
     assert calls == ["artifact-7"]
+
+
+def _menu_result(
+    *,
+    preview: RoutineScorePreview | None = None,
+    revision: int = 21,
+    score_id: str = "score-1",
+) -> Any:
+    supplied_preview = _preview() if preview is None else preview
+    mutation = SimpleNamespace(
+        score_record_id=score_id,
+        score_evidence_link_ids=("score-link-1",),
+        commit=SimpleNamespace(
+            snapshot_revision=revision,
+            no_op=False,
+        ),
+    )
+    return scoring_menu._RoutineScoreMenuResult(
+        preview=supplied_preview,
+        mutation=mutation,
+    )
+
+
+def _continuation() -> Any:
+    context = _context()
+    criterion_1 = SimpleNamespace(
+        criterion_id="criterion-1",
+        label="Uses textual evidence",
+        criterion_kind="local",
+    )
+    criterion_2 = SimpleNamespace(
+        criterion_id="criterion-2",
+        label="Explains reasoning",
+        criterion_kind="local",
+    )
+    return SimpleNamespace(
+        context=context,
+        completed_score_record_id="score-1",
+        completed_criterion_id="criterion-1",
+        retained_target_reference=_target(),
+        retained_session_id=None,
+        target_context_retained=True,
+        session_context_retained=True,
+        available_criteria=(criterion_1, criterion_2),
+        dropped_context_reasons=(),
+    )
+
+
+def test_score_another_criterion_requires_fresh_criterion_and_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    continuation = _continuation()
+    criterion_2 = continuation.available_criteria[1]
+    scale = SimpleNamespace(scoring_scale_id="scale-2")
+    level = SimpleNamespace(value=4, label="Sophisticated")
+    preview_values = dict(vars(_preview()))
+    preview_values.update(
+        criterion_id="criterion-2",
+        criterion_label="Explains reasoning",
+        scoring_scale_id="scale-2",
+        value=4,
+        selected_level=level,
+    )
+    preview = cast(
+        RoutineScorePreview,
+        SimpleNamespace(**preview_values),
+    )
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "select_one",
+        lambda *args, **kwargs: criterion_2,
+    )
+    monkeypatch.setattr(scoring_menu, "_choose_scale", lambda *args: scale)
+    monkeypatch.setattr(scoring_menu, "_choose_level", lambda *args: level)
+    monkeypatch.setattr(
+        scoring_menu,
+        "_choose_subject_context",
+        lambda *args: (),
+    )
+    monkeypatch.setattr(
+        scoring_menu,
+        "_choose_relevance",
+        lambda: "Returned Artifact evidence for this Score.",
+    )
+
+    def fake_prepare(continuation_arg: object, request: object) -> object:
+        captured["continuation"] = continuation_arg
+        captured["request"] = request
+        return preview
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "prepare_next_routine_score_preview",
+        fake_prepare,
+    )
+    monkeypatch.setattr(scoring_menu, "confirm_write", lambda *args: True)
+    mutation = SimpleNamespace(commit=SimpleNamespace(snapshot_revision=22))
+    monkeypatch.setattr(
+        scoring_menu,
+        "record_prepared_routine_score",
+        lambda supplied_preview, *, actor: mutation,
+    )
+    monkeypatch.setattr(scoring_menu, "show_result", lambda *args: None)
+
+    outcome = scoring_menu._record_another_criterion(
+        _activity(),
+        cast(object, continuation),
+        cast(object, _state()),
+    )
+
+    assert outcome is not None
+    request = captured["request"]
+    assert request.criterion_id == "criterion-2"
+    assert request.scoring_scale_id == "scale-2"
+    assert request.value == 4
+    assert request.criterion_id != continuation.completed_criterion_id
+    assert outcome.preview is preview
+    assert outcome.mutation is mutation
+
+
+def test_post_score_next_uses_latest_commit_revision_and_current_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outcome = cast(object, _menu_result(revision=23))
+    continuation = cast(object, _continuation())
+    captured: dict[str, object] = {}
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "N")
+    monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
+    monkeypatch.setattr(scoring_menu, "print_menu_header", lambda *args: None)
+    monkeypatch.setattr(scoring_menu, "print_navigation", lambda: None)
+
+    def fake_next(class_id: str, activity_id: str, **kwargs: object) -> object:
+        captured["class_id"] = class_id
+        captured["activity_id"] = activity_id
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            artifact=SimpleNamespace(artifact_instance_id="artifact-2")
+        )
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "inspect_next_score_ready_artifact",
+        fake_next,
+    )
+
+    action, payload = scoring_menu._post_score_action(
+        _activity(),
+        "artifact-1",
+        continuation,
+        outcome,
+        cast(object, _state()),
+    )
+
+    assert action == "next"
+    assert payload == "artifact-2"
+    assert captured["class_id"] == "class-1"
+    assert captured["activity_id"] == "activity-1"
+    kwargs = cast(dict[str, object], captured["kwargs"])
+    assert kwargs["after_artifact_instance_id"] == "artifact-1"
+    assert kwargs["minimum_snapshot_revision"] == 23
+
+
+def test_post_score_next_absence_reports_truthfully_and_returns_cleanly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results: list[tuple[str, tuple[str, ...]]] = []
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "N")
+    monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
+    monkeypatch.setattr(scoring_menu, "print_menu_header", lambda *args: None)
+    monkeypatch.setattr(scoring_menu, "print_navigation", lambda: None)
+    monkeypatch.setattr(
+        scoring_menu,
+        "inspect_next_score_ready_artifact",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        scoring_menu,
+        "show_result",
+        lambda title, lines: results.append((title, tuple(lines))),
+    )
+
+    action, payload = scoring_menu._post_score_action(
+        _activity(),
+        "artifact-1",
+        cast(object, _continuation()),
+        cast(object, _menu_result()),
+        cast(object, _state()),
+    )
+
+    assert (action, payload) == ("back", None)
+    assert results[-1] == (
+        "Next score-ready work",
+        (
+            "No other Artifact is currently score-ready.",
+            "This does not mean another Score is missing or due.",
+        ),
+    )
+
+
+def test_score_loop_reloads_after_every_successful_score(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = cast(object, _menu_result(revision=21, score_id="score-1"))
+    second = cast(
+        object,
+        _menu_result(
+            preview=cast(
+                RoutineScorePreview,
+                SimpleNamespace(
+                    **{
+                        **vars(_preview()),
+                        "criterion_id": "criterion-2",
+                    }
+                ),
+            ),
+            revision=22,
+            score_id="score-2",
+        ),
+    )
+    reloads: list[str] = []
+    actions = iter(("scored", "back"))
+    inputs = iter(("1",))
+
+    monkeypatch.setattr(scoring_menu, "_current_activity", lambda item: item)
+    monkeypatch.setattr(
+        scoring_menu,
+        "inspect_artifact_routine_scoring",
+        lambda *args, **kwargs: _context(),
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+    monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
+    monkeypatch.setattr(scoring_menu, "print_menu_header", lambda *args: None)
+    monkeypatch.setattr(scoring_menu, "print_navigation", lambda: None)
+    monkeypatch.setattr(
+        scoring_menu,
+        "_record_selected_artifact_score",
+        lambda *args, **kwargs: first,
+    )
+
+    def fake_reload(preview: object, mutation: Any) -> object:
+        reloads.append(mutation.score_record_id)
+        return _continuation()
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "reload_routine_scoring_after_score",
+        fake_reload,
+    )
+
+    def fake_post(*args: object, **kwargs: object) -> tuple[str, object | None]:
+        action = next(actions)
+        if action == "scored":
+            return action, second
+        return action, None
+
+    monkeypatch.setattr(scoring_menu, "_post_score_action", fake_post)
+
+    scoring_menu.launch_selected_artifact_scoring(
+        _activity(),
+        "artifact-1",
+        cast(object, _state()),
+        open_selected_work=lambda *args: True,
+    )
+
+    assert reloads == ["score-1", "score-2"]
+
+
+def test_next_score_ready_work_reenters_with_exact_new_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = cast(object, _menu_result())
+    inspected: list[str] = []
+    inputs = iter(("1", "B"))
+
+    monkeypatch.setattr(scoring_menu, "_current_activity", lambda item: item)
+
+    def fake_inspect(
+        class_id: str,
+        activity_id: str,
+        artifact_id: str,
+    ) -> object:
+        inspected.append(artifact_id)
+        return _context()
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "inspect_artifact_routine_scoring",
+        fake_inspect,
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+    monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
+    monkeypatch.setattr(scoring_menu, "print_menu_header", lambda *args: None)
+    monkeypatch.setattr(scoring_menu, "print_navigation", lambda: None)
+    monkeypatch.setattr(
+        scoring_menu,
+        "_record_selected_artifact_score",
+        lambda *args, **kwargs: first,
+    )
+    monkeypatch.setattr(
+        scoring_menu,
+        "reload_routine_scoring_after_score",
+        lambda *args, **kwargs: _continuation(),
+    )
+    monkeypatch.setattr(
+        scoring_menu,
+        "_post_score_action",
+        lambda *args, **kwargs: ("next", "artifact-2"),
+    )
+
+    scoring_menu.launch_selected_artifact_scoring(
+        _activity(),
+        "artifact-1",
+        cast(object, _state()),
+        open_selected_work=lambda *args: True,
+    )
+
+    assert inspected == ["artifact-1", "artifact-2"]
+
+
+def test_back_from_another_criterion_returns_to_post_score_menu_without_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = iter(("C", "B"))
+    attempts = 0
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+    monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
+    monkeypatch.setattr(scoring_menu, "print_menu_header", lambda *args: None)
+    monkeypatch.setattr(scoring_menu, "print_navigation", lambda: None)
+
+    def cancelled_another(*args: object, **kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        raise scoring_menu.CancelMenuAction
+
+    monkeypatch.setattr(
+        scoring_menu,
+        "_record_another_criterion",
+        cancelled_another,
+    )
+
+    action, payload = scoring_menu._post_score_action(
+        _activity(),
+        "artifact-1",
+        cast(object, _continuation()),
+        cast(object, _menu_result()),
+        cast(object, _state()),
+    )
+
+    assert attempts == 1
+    assert (action, payload) == ("back", None)

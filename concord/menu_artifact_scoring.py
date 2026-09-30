@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
@@ -41,8 +42,17 @@ from concord.workflows.artifact_routine_scoring import (
     ArtifactRoutineScoringContext,
     inspect_artifact_routine_scoring,
 )
+from concord.workflows.artifact_routine_scoring_continuation import (
+    ContinuedRoutineScorePreparationRequest,
+    RoutineScoringContinuation,
+    prepare_next_routine_score_preview,
+    reload_routine_scoring_after_score,
+)
 from concord.workflows.artifact_routine_scoring_execution import (
     record_prepared_routine_score,
+)
+from concord.workflows.artifact_routine_scoring_next import (
+    inspect_next_score_ready_artifact,
 )
 from concord.workflows.artifact_routine_scoring_preparation import (
     ROUTINE_ARTIFACT_RELEVANCE_DESCRIPTION,
@@ -60,8 +70,15 @@ from concord.workflows.artifact_routine_scoring_selection import (
 from concord.workflows.context import resolve_read_workspace_root
 from concord.workflows.models import ActivitySummary
 from concord.workflows.participants import participant_display_label
+from concord.workflows.score_recording import ScoreMutationResult
 
 SelectedWorkOpener = Callable[[ActivitySummary, str], bool]
+
+
+@dataclass(frozen=True, slots=True)
+class _RoutineScoreMenuResult:
+    preview: RoutineScorePreview
+    mutation: ScoreMutationResult
 
 
 def _current_activity(activity: ActivitySummary) -> ActivitySummary:
@@ -399,7 +416,7 @@ def _record_selected_artifact_score(
     activity: ActivitySummary,
     artifact_instance_id: str,
     state: MenuSessionContext,
-) -> bool:
+) -> _RoutineScoreMenuResult | None:
     current = _current_activity(activity)
     context = inspect_artifact_routine_scoring(
         current.class_id,
@@ -418,12 +435,12 @@ def _record_selected_artifact_score(
                 "Use Review, Moderation, or Advanced Score recording as needed.",
             ),
         )
-        return False
+        return None
 
     target = _choose_target(current, context)
     if target is None:
         _launch_advanced_score(current, state)
-        return False
+        return None
     criterion = _choose_criterion(context, target)
     scale = _choose_scale(context, target, criterion.criterion_id)
     level = _choose_level(scale)
@@ -456,13 +473,13 @@ def _record_selected_artifact_score(
                 "Use Advanced Score recording to inspect or revise current Scores.",
             ),
         )
-        return False
+        return None
     if not confirm_write(
         "Score this work",
         "SCORE",
         _preview_lines(current, context, preview),
     ):
-        return False
+        return None
 
     result = record_prepared_routine_score(
         preview,
@@ -475,7 +492,185 @@ def _record_selected_artifact_score(
             f"Snapshot: {result.commit.snapshot_revision}",
         ),
     )
-    return True
+    return _RoutineScoreMenuResult(preview=preview, mutation=result)
+
+
+def _continuation_criteria(
+    continuation: RoutineScoringContinuation,
+) -> tuple[Criterion, ...]:
+    return tuple(
+        item
+        for item in continuation.available_criteria
+        if item.criterion_id != continuation.completed_criterion_id
+    )
+
+
+def _record_another_criterion(
+    activity: ActivitySummary,
+    continuation: RoutineScoringContinuation,
+    state: MenuSessionContext,
+) -> _RoutineScoreMenuResult | None:
+    context = continuation.context
+    target = continuation.retained_target_reference
+    if (
+        not context.eligibility.routine_scoring_eligible
+        or target is None
+        or not continuation.session_context_retained
+    ):
+        reasons = continuation.dropped_context_reasons or (
+            "Current routine scoring context can no longer be retained.",
+        )
+        show_result(
+            "Score another Criterion",
+            (
+                "Score-another-Criterion is not available from current state.",
+                *reasons,
+                "Return to Score this work or use Advanced Score recording.",
+            ),
+        )
+        return None
+
+    criteria = _continuation_criteria(continuation)
+    if not criteria:
+        show_result(
+            "Score another Criterion",
+            (
+                "No other current compatible Criterion is available for this "
+                "retained target.",
+                "Existing Scores do not imply that this Artifact is complete.",
+            ),
+        )
+        return None
+
+    criterion = select_one(
+        "Choose Another Criterion",
+        criteria,
+        tuple(f"{item.label} [{item.criterion_kind}]" for item in criteria),
+        help_text=(
+            "Choose a fresh explicit Criterion. The just-completed Criterion "
+            "is not reused by this shortcut."
+        ),
+    )
+    scale = _choose_scale(context, target, criterion.criterion_id)
+    level = _choose_level(scale)
+    subjects = _choose_subject_context(
+        activity,
+        context,
+        target,
+        criterion.criterion_id,
+    )
+    relevance = _choose_relevance()
+    preview = prepare_next_routine_score_preview(
+        continuation,
+        ContinuedRoutineScorePreparationRequest(
+            criterion_id=criterion.criterion_id,
+            scoring_scale_id=scale.scoring_scale_id,
+            value=level.value,
+            subject_context=subjects,
+            relevance_description=relevance,
+        ),
+    )
+    if preview.existing_current_score_ids:
+        show_result(
+            "Score another Criterion",
+            (
+                "A current Score already exists for this target and Criterion.",
+                "Routine scoring will not create a parallel current Score.",
+                "Use Advanced Score recording to inspect or revise it.",
+            ),
+        )
+        return None
+    if not confirm_write(
+        "Score another Criterion",
+        "SCORE",
+        _preview_lines(activity, context, preview),
+    ):
+        return None
+
+    result = record_prepared_routine_score(
+        preview,
+        actor=state.require_actor(),
+    )
+    show_result(
+        "Score Recorded",
+        (
+            "Another explicit Score and native Artifact Evidence Link were recorded.",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ),
+    )
+    return _RoutineScoreMenuResult(preview=preview, mutation=result)
+
+
+def _post_score_action(
+    activity: ActivitySummary,
+    artifact_instance_id: str,
+    continuation: RoutineScoringContinuation,
+    result: _RoutineScoreMenuResult,
+    state: MenuSessionContext,
+) -> tuple[str, _RoutineScoreMenuResult | str | None]:
+    while True:
+        clear_screen()
+        print_menu_header("Score Recorded")
+        print(f"Activity: {activity.title}")
+        print("Artifact: selected reviewed work")
+        print()
+        print("C. Score another Criterion")
+        print("N. Next score-ready work")
+        print("A. Advanced Score recording")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        try:
+            if navigation is ConcordMenuChoice.HELP:
+                show_result(
+                    "Score Recorded Help",
+                    (
+                        "Score another Criterion reloads current state and keeps "
+                        "only still-valid Artifact, target, and Session context.",
+                        "Next score-ready work uses current Review readiness, not a "
+                        "missing-Score rule.",
+                        "Advanced Score recording preserves revision and unusual "
+                        "evidence workflows.",
+                    ),
+                )
+            elif navigation is NavigationChoice.BACK:
+                return "back", None
+            elif raw.casefold() == "c":
+                additional = _record_another_criterion(
+                    activity,
+                    continuation,
+                    state,
+                )
+                if additional is not None:
+                    return "scored", additional
+            elif raw.casefold() == "n":
+                next_item = inspect_next_score_ready_artifact(
+                    activity.class_id,
+                    activity.activity_id,
+                    after_artifact_instance_id=artifact_instance_id,
+                    minimum_snapshot_revision=(
+                        result.mutation.commit.snapshot_revision
+                    ),
+                )
+                if next_item is None:
+                    show_result(
+                        "Next score-ready work",
+                        (
+                            "No other Artifact is currently score-ready.",
+                            "This does not mean another Score is missing or due.",
+                        ),
+                    )
+                    return "back", None
+                return "next", next_item.artifact.artifact_instance_id
+            elif raw.casefold() == "a":
+                _launch_advanced_score(activity, state)
+                return "back", None
+            else:
+                print(navigation_hint_with_help())
+                pause_for_user()
+        except CancelMenuAction:
+            continue
 
 
 def launch_selected_artifact_scoring(
@@ -485,13 +680,14 @@ def launch_selected_artifact_scoring(
     *,
     open_selected_work: SelectedWorkOpener,
 ) -> None:
-    """Score one already-selected reviewed Artifact without selecting it again."""
+    """Score selected reviewed work with fresh post-Score continuation state."""
+    current_artifact_id = artifact_instance_id
     while True:
         current = _current_activity(activity)
         context = inspect_artifact_routine_scoring(
             current.class_id,
             current.activity_id,
-            artifact_instance_id,
+            current_artifact_id,
         )
         clear_screen()
         print_menu_header("Score this work")
@@ -524,15 +720,38 @@ def launch_selected_artifact_scoring(
             elif navigation is NavigationChoice.BACK:
                 return
             elif raw == "1":
-                if _record_selected_artifact_score(
+                scored = _record_selected_artifact_score(
                     current,
-                    artifact_instance_id,
+                    current_artifact_id,
                     state,
-                ):
+                )
+                if scored is None:
+                    continue
+
+                while True:
+                    continuation = reload_routine_scoring_after_score(
+                        scored.preview,
+                        scored.mutation,
+                    )
+                    action, payload = _post_score_action(
+                        current,
+                        current_artifact_id,
+                        continuation,
+                        scored,
+                        state,
+                    )
+                    if action == "scored":
+                        assert isinstance(payload, _RoutineScoreMenuResult)
+                        scored = payload
+                        continue
+                    if action == "next":
+                        assert isinstance(payload, str)
+                        current_artifact_id = payload
+                        break
                     return
             elif raw.casefold() == "o":
                 refreshed = _current_activity(current)
-                open_selected_work(refreshed, artifact_instance_id)
+                open_selected_work(refreshed, current_artifact_id)
             elif raw.casefold() == "a":
                 _launch_advanced_score(current, state)
             else:
