@@ -1549,6 +1549,42 @@ def _open_selected_returned_work(
     return True
 
 
+def _open_selected_returned_work_by_id(
+    activity: ActivitySummary,
+    artifact_instance_id: str,
+) -> bool:
+    matches = tuple(
+        item
+        for item in list_artifacts(activity.class_id, activity.activity_id)
+        if item.artifact_instance_id == artifact_instance_id
+    )
+    if not matches:
+        raise ConcordWorkflowNotFoundError(
+            "The selected Artifact is no longer available."
+        )
+    if len(matches) != 1:
+        raise ConcordWorkflowConflictError(
+            "The selected Artifact is not unique in the current Activity."
+        )
+    return _open_selected_returned_work(activity, matches[0])
+
+
+def _score_selected_artifact(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    from concord.menu_artifact_scoring import launch_selected_artifact_scoring
+
+    current = _latest(activity)
+    artifact = _choose_artifact(current, title="Score this work")
+    launch_selected_artifact_scoring(
+        current,
+        artifact.artifact_instance_id,
+        state,
+        open_selected_work=_open_selected_returned_work_by_id,
+    )
+
+
 def _routine_review_value_lines(
     values: ArtifactRoutineReviewValues,
 ) -> tuple[str, ...]:
@@ -3179,6 +3215,7 @@ def launch_review_work_menu(
         print()
         print("1. Review collected work")
         print("2. Moderation")
+        print("3. Score this work")
         print("O. Open returned work")
         print_navigation()
         print()
@@ -3195,6 +3232,10 @@ def launch_review_work_menu(
                 )
                 print("Neither Review nor Moderation creates a Score.")
                 print(
+                    "Score this work starts from one explicitly selected reviewed "
+                    "Artifact and keeps the Score judgment explicit."
+                )
+                print(
                     "Open returned work uses your normal PDF viewer and "
                     "records no Review."
                 )
@@ -3206,6 +3247,8 @@ def launch_review_work_menu(
                 _launch_review_menu(activity, state)
             elif choice == "2":
                 _launch_moderation_menu(activity, state)
+            elif choice == "3":
+                _score_selected_artifact(activity, state)
             elif choice.upper() == "O":
                 open_returned_work(activity)
             else:
