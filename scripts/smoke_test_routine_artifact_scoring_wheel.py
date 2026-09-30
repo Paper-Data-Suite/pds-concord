@@ -65,11 +65,6 @@ def _smoke_code() -> str:
         from pds_core.route_registrations import resolve_route_registration
         from pds_core.routing_models import ModuleWorkRef
         from pds_core.scan_retention import RetainedSourceScan
-        from pds_core.standards import (
-            StandardDefinition,
-            StandardsLibrary,
-            StandardsProfile,
-        )
         from pds_core.workspace import ensure_workspace_root
 
         from concord.models import (
@@ -121,7 +116,7 @@ def _smoke_code() -> str:
         SESSION_ID = "session-issue108-installed"
         SCALE_ID = "scale-issue108-installed"
         SET_ID = "criterion-set-issue108-installed"
-        STANDARD_CRITERION_ID = "criterion-standard"
+        PRIMARY_CRITERION_ID = "criterion-standard"
         LOCAL_CRITERION_ID = "criterion-local"
 
 
@@ -166,30 +161,6 @@ def _smoke_code() -> str:
             )
 
 
-        def standards() -> StandardsLibrary:
-            return StandardsLibrary(
-                standards=(
-                    StandardDefinition(
-                        standard_id="standard-issue108",
-                        code="SYN.108",
-                        source="synthetic",
-                        short_name="Synthetic Issue 108 standard",
-                        description=(
-                            "Synthetic installed-wheel qualification standard."
-                        ),
-                        available_modules=("concord",),
-                    ),
-                ),
-                profiles=(
-                    StandardsProfile(
-                        profile_id="profile-issue108",
-                        standards=("standard-issue108",),
-                        title="Synthetic Issue 108 profile",
-                    ),
-                ),
-            )
-
-
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
         assert metadata.version("pds-core") == "0.6.3"
@@ -228,7 +199,7 @@ def _smoke_code() -> str:
                     ),
                 ),
             )
-            library = standards()
+            library = None
             teacher = actor()
 
             created = create_activity_context(
@@ -237,9 +208,7 @@ def _smoke_code() -> str:
                     activity_id=ACTIVITY_ID,
                     title="Issue 108 Installed Routine Scoring",
                     activity_type="project",
-                    scoring_orientation="mixed",
-                    standards_profile_id="profile-issue108",
-                    focus_standard_ids=("standard-issue108",),
+                    scoring_orientation="local_criteria_only",
                     session_id=SESSION_ID,
                     actor=teacher,
                     activity_status="active",
@@ -304,15 +273,14 @@ def _smoke_code() -> str:
                     purpose="Installed routine scoring qualification.",
                     revision=1,
                     scope="activity_specific",
-                    criterion_set_kind="mixed",
+                    criterion_set_kind="local",
                     criteria=(
                         CriterionSpec(
-                            criterion_id=STANDARD_CRITERION_ID,
+                            criterion_id=PRIMARY_CRITERION_ID,
                             key="evidence",
                             label="Uses evidence",
                             definition="Uses evidence effectively.",
-                            criterion_kind="standard_backed",
-                            standard_id="standard-issue108",
+                            criterion_kind="local",
                             supported_target_kinds=("core_student",),
                             default_scoring_scale_id=SCALE_ID,
                         ),
@@ -327,7 +295,6 @@ def _smoke_code() -> str:
                         ),
                     ),
                     status="active",
-                    standards_profile_id="profile-issue108",
                     expected_snapshot_revision=(
                         scale.commit.snapshot_revision
                     ),
@@ -352,7 +319,8 @@ def _smoke_code() -> str:
                 clock=clock,
             )
             revision = selected.commit.snapshot_revision
-            stage("Activity scoring setup with valid default Scale")
+            assert library is None
+            stage("Activity local scoring setup with valid default Scale")
 
             for index in (1, 2):
                 artifact_id = f"artifact-{index}"
@@ -428,7 +396,6 @@ def _smoke_code() -> str:
                         actor=teacher,
                     ),
                     workspace_root=root,
-                    standards_library=library,
                     clock=clock,
                 )
                 assert assembled.output_path.is_file()
@@ -537,13 +504,13 @@ def _smoke_code() -> str:
             )
             criteria = routine_criteria_for_target(context, target)
             assert {item.criterion_id for item in criteria} == {
-                STANDARD_CRITERION_ID,
+                PRIMARY_CRITERION_ID,
                 LOCAL_CRITERION_ID,
             }
             scale_options = routine_scale_options(
                 context,
                 target,
-                STANDARD_CRITERION_ID,
+                PRIMARY_CRITERION_ID,
             )
             assert scale_options.default_scale_status == "valid"
             assert scale_options.default_scale is not None
@@ -551,7 +518,7 @@ def _smoke_code() -> str:
             subjects = routine_subject_context_options(
                 context,
                 target,
-                STANDARD_CRITERION_ID,
+                PRIMARY_CRITERION_ID,
             )
             assert subjects == (student_subject("student-1"),)
             stage(
@@ -562,7 +529,7 @@ def _smoke_code() -> str:
                 context,
                 RoutineScorePreparationRequest(
                     target_reference=target,
-                    criterion_id=STANDARD_CRITERION_ID,
+                    criterion_id=PRIMARY_CRITERION_ID,
                     scoring_scale_id=SCALE_ID,
                     value=3,
                     session_id=SESSION_ID,
@@ -673,7 +640,7 @@ def _smoke_code() -> str:
 
             scores = tuple(after.graph.score_records)
             assert {item.criterion_id for item in scores} == {
-                STANDARD_CRITERION_ID,
+                PRIMARY_CRITERION_ID,
                 LOCAL_CRITERION_ID,
             }
             assert {

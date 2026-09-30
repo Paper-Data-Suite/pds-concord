@@ -19,6 +19,9 @@ def test_issue108_installed_smoke_is_present_and_isolated() -> None:
     assert '"-m", "pip", "check"' in text
     assert '"-I"' in text
     assert "site-packages" in text
+    assert "Activity local scoring setup with valid default Scale" in text
+    assert 'scoring_orientation="local_criteria_only"' in text
+    assert "StandardDefinition" not in text
     assert "two sequential explicit Scores with canonical reload" in text
     assert "deterministic navigation to another score-ready Artifact" in text
     assert "Advanced Score recording remains reachable" in text
@@ -72,3 +75,12 @@ def test_issue108_stable_workflow_surface_is_exported() -> None:
         "inspect_next_score_ready_artifact",
     ):
         assert name in text
+
+def test_issue108_assembly_uses_public_api_shape() -> None:
+    text = SMOKE.read_text(encoding="utf-8")
+    start = text.index("assembled = assemble_returned_artifact(")
+    end = text.index("assert assembled.output_path.is_file()", start)
+    assembly_call = text[start:end]
+    assert "standards_library=library" not in assembly_call
+    assert "workspace_root=root" in assembly_call
+    assert "clock=clock" in assembly_call
