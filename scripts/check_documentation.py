@@ -86,6 +86,9 @@ RETURNED_ARTIFACT_OPENING_DOC = (
 ROUTINE_ARTIFACT_REVIEW_DOC = (
     ROOT / "docs" / "v0.3.1-routine-artifact-review.md"
 )
+ROUTINE_ARTIFACT_SCORING_DOC = (
+    ROOT / "docs" / "v0.3.1-routine-artifact-scoring.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -192,6 +195,33 @@ REQUIRED_ROUTINE_ARTIFACT_REVIEW_PHRASES = (
     "OPEN != REVIEW",
     "CorrectionRecord",
     "scripts/smoke_test_routine_artifact_review_wheel.py",
+    "python -I",
+    "Core 0.6.3",
+    "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_ROUTINE_ARTIFACT_SCORING_PHRASES = (
+    "Routine scoring eligibility != automatic Score",
+    "ArtifactRoutineScoringContext",
+    "load_activity_read_context",
+    "native_artifact_evidence_reference",
+    "routine_target_options",
+    "routine_criteria_for_target",
+    "routine_scale_options",
+    "routine_subject_context_options",
+    "prepare_routine_score_preview",
+    "record_prepared_routine_score",
+    "add_score(...) remains the mutation authority",
+    "reload_routine_scoring_after_score",
+    "prepare_next_routine_score_preview",
+    "inspect_next_score_ready_artifact",
+    "concord_score_ready",
+    "Score-ready Artifact != missing Score",
+    "Existing Scores do not create an assessment completion matrix",
+    "No Subject context is inferred from Author",
+    "OPEN != SCORE",
+    "SCORE",
+    "CorrectionRecord",
+    "scripts/smoke_test_routine_artifact_scoring_wheel.py",
     "python -I",
     "Core 0.6.3",
     "pds-core>=0.6.3,<0.7",
@@ -983,6 +1013,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the routine Artifact "
                 "Review document."
+            )
+
+    if not ROUTINE_ARTIFACT_SCORING_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 routine Artifact scoring document is missing."
+        )
+    else:
+        routine_scoring_doc = ROUTINE_ARTIFACT_SCORING_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_ROUTINE_ARTIFACT_SCORING_PHRASES:
+            if phrase not in routine_scoring_doc:
+                failures.append(
+                    "Routine Artifact scoring document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if ROUTINE_ARTIFACT_SCORING_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the routine Artifact "
+                "scoring document."
             )
 
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():
