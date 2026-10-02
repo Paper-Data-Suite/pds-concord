@@ -188,6 +188,15 @@ snapshot-bound `SCORE` confirmation, post-Score reload, Score-another-Criterion
 behavior, deterministic `concord_score_ready` navigation, and the boundary
 between score-ready evidence and any assessment-completion policy.
 
+### v0.3.1 generated path safety foundation
+
+[`v0.3.1-generated-path-safety.md`](v0.3.1-generated-path-safety.md)
+
+Documents issue #124's Core-versus-Concord path ownership boundary, initial
+generated-output audit, fixed-length opaque naming contract, Packet-rendering
+follow-up boundary, no-migration rule, and released Core 0.6.4 qualification
+baseline.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)
