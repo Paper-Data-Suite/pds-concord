@@ -15,6 +15,8 @@ from pds_core.routing_models import ModuleWorkRef
 from pds_core.workspace import ensure_workspace_root
 from PIL import Image, ImageDraw
 
+import concord.workflows.packet_rendering as packet_rendering_module
+from concord.generated_paths import validate_generated_output_filename
 from concord.models import (
     EffectiveContext,
     PacketAudienceIntent,
@@ -347,7 +349,14 @@ def test_packet_rendering_preserves_component_copy_page_order_and_lifecycle(
         if item.packet_instance_id == packet_id
     )
     assert packet.generation_status == "generated"
-    assert packet.output_relative_path == f"rendered/packets/{packet_id}.pdf"
+    expected_relative = packet_rendering_module._new_packet_output_relative_path(
+        work,
+        packet_id,
+    )
+    assert packet.output_relative_path == expected_relative
+    leaf = Path(expected_relative).name
+    assert validate_generated_output_filename(leaf) == leaf
+    assert leaf != f"{packet_id}.pdf"
     assert packet.output_sha256 == rendered.output_sha256
 
     bound_ids = [
@@ -429,7 +438,12 @@ def test_packet_output_conflict_does_not_overwrite_existing_bytes(
         / "work"
         / "activity-1"
     )
-    target = work_root / "rendered" / "packets" / f"{packet_id}.pdf"
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    relative = packet_rendering_module._new_packet_output_relative_path(
+        work,
+        packet_id,
+    )
+    target = work_root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"contradictory existing output")
 
@@ -444,6 +458,72 @@ def test_packet_output_conflict_does_not_overwrite_existing_bytes(
             workspace_root=root,
         )
     assert target.read_bytes() == b"contradictory existing output"
+
+def test_completed_legacy_packet_reprint_uses_stored_output_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    _, committed = _installed_packet(root)
+    packet_id = committed.packet_instance_ids[0]
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    legacy_relative = f"rendered/packets/{packet_id}.pdf"
+
+    with monkeypatch.context() as legacy:
+        legacy.setattr(
+            packet_rendering_module,
+            "_new_packet_output_relative_path",
+            lambda _work, _packet_id: legacy_relative,
+        )
+        first = render_packet_instance(
+            RenderPacketInstanceRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                packet_instance_id=packet_id,
+                actor=_actor(),
+            ),
+            workspace_root=root,
+        )
+
+    assert first.output_path.name == f"{packet_id}.pdf"
+    assert first.output_path.is_file()
+
+    expected_new_relative = (
+        packet_rendering_module._new_packet_output_relative_path(
+            work,
+            packet_id,
+        )
+    )
+    expected_new_path = (
+        root
+        / "classes"
+        / "class-1"
+        / "modules"
+        / "concord"
+        / "work"
+        / "activity-1"
+        / expected_new_relative
+    )
+    assert expected_new_path != first.output_path
+    assert not expected_new_path.exists()
+
+    replay = render_packet_instance(
+        RenderPacketInstanceRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            packet_instance_id=packet_id,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    assert replay.replayed
+    assert replay.output_path == first.output_path
+    assert replay.output_sha256 == first.output_sha256
+    assert not replay.output_installed
+    assert replay.commit.no_op
+    assert not expected_new_path.exists()
+
 
 def test_packet_generated_surfaces_remain_planning_signal_free(
     tmp_path: Path,

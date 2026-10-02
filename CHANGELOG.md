@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #124 establishes bounded, domain-separated Concord-generated output names and applies them prospectively to new Packet-rendered PDFs while preserving stored historical Packet output paths exactly for reprint/open compatibility.
+- Packet rendering now constrains output specifically beneath `rendered/packets/`; existing Packet identities, routes, output metadata, and workspace files are not renamed or migrated.
+
 - Issue #108 streamlines explicit routine Artifact scoring from one exact
   reviewed Artifact, preserving native evidence identity while replacing
   manual machine-ID reconstruction with explicit target, Criterion, Scale,

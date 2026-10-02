@@ -16,6 +16,7 @@ from pds_core.routing_models import ModuleWorkRef
 from pds_core.standards import StandardsLibrary, load_workspace_standards_library
 from PIL import Image
 
+from concord.generated_paths import build_generated_output_filename
 from concord.model_conversion import Record
 from concord.model_validation import ConcordRecordGraph
 from concord.models import (
@@ -57,6 +58,9 @@ from concord.workflows.errors import (
     ConcordWorkflowValidationError,
 )
 from concord.workflows.models import WorkflowActor, WorkflowCommitResult
+
+_PACKET_RENDER_OUTPUT_DIRECTORY = "rendered/packets"
+_PACKET_RENDER_OUTPUT_DOMAIN = "packet-render"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -216,16 +220,22 @@ def render_packet_instance(
         created_at=packet.created_provenance.timestamp,
     )
     digest = hashlib.sha256(data).hexdigest()
-    relative = f"rendered/packets/{packet.packet_instance_id}.pdf"
 
     if packet.generation_status == "generated":
-        if (
-            packet.output_relative_path != relative
-            or packet.output_sha256 != digest
-        ):
+        if packet.output_relative_path is None or packet.output_sha256 is None:
+            raise ConcordWorkflowConflictError(
+                "generated Packet output metadata is incomplete."
+            )
+        relative = packet.output_relative_path
+        if packet.output_sha256 != digest:
             raise ConcordWorkflowConflictError(
                 "generated Packet output metadata contradicts deterministic re-render."
             )
+    else:
+        relative = _new_packet_output_relative_path(
+            work,
+            packet.packet_instance_id,
+        )
 
     target = _packet_output_target(root, work, relative)
     installed = _safe_install(target, data)
@@ -622,20 +632,41 @@ def _replace_packet_generated(
     )
 
 
+def _new_packet_output_relative_path(
+    work: ModuleWorkRef,
+    packet_instance_id: str,
+) -> str:
+    filename = build_generated_output_filename(
+        domain=_PACKET_RENDER_OUTPUT_DOMAIN,
+        identity_parts=(
+            work.module_id,
+            work.class_id,
+            work.work_id,
+            packet_instance_id,
+        ),
+        extension=".pdf",
+    )
+    return f"{_PACKET_RENDER_OUTPUT_DIRECTORY}/{filename}"
+
+
 def _packet_output_target(
     root: Path,
     work: ModuleWorkRef,
     relative: str,
 ) -> Path:
     target = safe_module_work_descendant(root, work, relative)
-    rendered_root = safe_module_work_descendant(root, work, "rendered")
+    rendered_root = safe_module_work_descendant(
+        root,
+        work,
+        _PACKET_RENDER_OUTPUT_DIRECTORY,
+    )
     try:
         target.resolve(strict=False).relative_to(
             rendered_root.resolve(strict=False)
         )
     except (OSError, RuntimeError, ValueError) as error:
         raise ConcordWorkflowValidationError(
-            "Packet output must remain beneath rendered/."
+            "Packet output must remain beneath rendered/packets/."
         ) from error
     if target.suffix.lower() != ".pdf":
         raise ConcordWorkflowValidationError("Packet output must be a PDF.")
