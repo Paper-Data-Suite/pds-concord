@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
@@ -14,6 +15,8 @@ from concord.workflows._score_lineage import current_score_lineage_heads
 from concord.workflows.activity_read import ActivityReadContext
 
 SCORE_ANALYSIS_BASIS: Final[str] = "current_score_lineage_heads"
+TARGET_DETAIL_SCOPE: Final[str] = "teacher_local"
+TargetDisplayLabelResolver = Callable[[ScoreTargetReference], str | None]
 _TARGET_KIND_ORDER: Final[tuple[str, ...]] = (
     "core_student",
     "concord_group",
@@ -134,6 +137,44 @@ class StandardScoreAnalysis:
     standard_code: str | None
     standard_short_name: str | None
     criteria: tuple[StandardCriterionAnalysis, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TargetScoreResult:
+    """One exact current Score row in a teacher-local target detail view."""
+
+    score_record_id: str
+    criterion_id: str
+    criterion_label: str
+    criterion_kind: str
+    standard_id: str | None
+    scoring_scale_id: str
+    scoring_scale_name: str
+    scoring_scale_revision: int
+    scoring_scale_type: str
+    disposition: str
+    value: JsonScalar | None
+    value_label: str | None
+    basis: str
+    session_id: str | None
+    scored_at: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TargetScoreDetail:
+    """Current Score observations for one exact target, teacher-local by default."""
+
+    class_id: str
+    activity_id: str
+    activity_title: str
+    snapshot_revision: int
+    snapshot_sha256: str
+    score_basis: str
+    sharing_scope: str
+    target_reference: ScoreTargetReference
+    target_label: str
+    current_score_count: int
+    results: tuple[TargetScoreResult, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -390,6 +431,144 @@ def _standard_analyses(
     return tuple(result)
 
 
+def _native_target_label(
+    context: ActivityReadContext,
+    target: ScoreTargetReference,
+) -> str | None:
+    if target.target_kind == "concord_group":
+        group = next(
+            (
+                item
+                for item in context.graph.groups
+                if item.group_id == target.target_id
+            ),
+            None,
+        )
+        return None if group is None else group.label
+    if target.target_kind == "concord_session":
+        session = next(
+            (
+                item
+                for item in context.graph.sessions
+                if item.session_id == target.target_id
+            ),
+            None,
+        )
+        if session is None:
+            return None
+        return session.label or f"Session {session.sequence}"
+    if target.target_kind == "concord_activity":
+        if target.target_id == context.activity.activity_id:
+            return context.activity.title
+        return None
+    return None
+
+
+def _target_label(
+    context: ActivityReadContext,
+    target: ScoreTargetReference,
+    resolver: TargetDisplayLabelResolver | None,
+) -> str:
+    if resolver is not None:
+        resolved = resolver(target)
+        if resolved is not None and resolved.strip():
+            return resolved.strip()
+    native = _native_target_label(context, target)
+    return native if native is not None else target.target_id
+
+
+def target_score_detail_from_context(
+    context: ActivityReadContext,
+    target_reference: ScoreTargetReference,
+    *,
+    target_label_resolver: TargetDisplayLabelResolver | None = None,
+) -> TargetScoreDetail:
+    """Project one target's current Score heads without inferring requirements."""
+    criterion_by_id = {
+        item.criterion_id: item for item in context.graph.criteria
+    }
+    scale_by_id = {
+        item.scoring_scale_id: item for item in context.graph.scoring_scales
+    }
+    activity_records = tuple(
+        item
+        for item in context.graph.score_records
+        if item.activity_id == context.activity.activity_id
+    )
+    current = tuple(
+        item
+        for item in current_score_lineage_heads(activity_records)
+        if item.target_reference == target_reference
+    )
+
+    results: list[TargetScoreResult] = []
+    for score in current:
+        criterion = _require_criterion(criterion_by_id, score.criterion_id)
+        scale = _require_scale(scale_by_id, score.scoring_scale_id)
+        value_label: str | None = None
+        if score.disposition == "scored":
+            if score.value is None:
+                raise ValueError(
+                    "scored target-detail observation requires a value"
+                )
+            level = scale.level_for_value(score.value)
+            if level is None:
+                raise ValueError(
+                    "Target detail encountered a scored value absent from its "
+                    "exact Scale revision"
+                )
+            value_label = level.label
+        results.append(
+            TargetScoreResult(
+                score_record_id=score.score_record_id,
+                criterion_id=criterion.criterion_id,
+                criterion_label=criterion.label,
+                criterion_kind=criterion.criterion_kind,
+                standard_id=criterion.standard_id,
+                scoring_scale_id=scale.scoring_scale_id,
+                scoring_scale_name=scale.name,
+                scoring_scale_revision=scale.revision,
+                scoring_scale_type=scale.scale_type,
+                disposition=score.disposition,
+                value=score.value,
+                value_label=value_label,
+                basis=score.basis,
+                session_id=score.session_id,
+                scored_at=score.scored_at,
+            )
+        )
+
+    ordered = tuple(
+        sorted(
+            results,
+            key=lambda item: (
+                item.criterion_label.casefold(),
+                item.criterion_id,
+                item.scoring_scale_revision,
+                item.scoring_scale_id,
+                item.score_record_id,
+            ),
+        )
+    )
+    return TargetScoreDetail(
+        class_id=context.work.class_id,
+        activity_id=context.activity.activity_id,
+        activity_title=context.activity.title,
+        snapshot_revision=context.snapshot_revision,
+        snapshot_sha256=context.snapshot_sha256,
+        score_basis=SCORE_ANALYSIS_BASIS,
+        sharing_scope=TARGET_DETAIL_SCOPE,
+        target_reference=target_reference,
+        target_label=_target_label(
+            context,
+            target_reference,
+            target_label_resolver,
+        ),
+        current_score_count=len(ordered),
+        results=ordered,
+    )
+
+
 def activity_score_analysis_from_context(
     context: ActivityReadContext,
     *,
@@ -458,6 +637,7 @@ def activity_score_analysis_from_context(
 
 __all__ = [
     "SCORE_ANALYSIS_BASIS",
+    "TARGET_DETAIL_SCOPE",
     "ActivityScoreAnalysis",
     "ActivityScoreObservation",
     "CriterionScaleTargetAnalysis",
@@ -466,6 +646,10 @@ __all__ = [
     "ScaleValueDistribution",
     "StandardCriterionAnalysis",
     "StandardScoreAnalysis",
+    "TargetDisplayLabelResolver",
     "TargetKindScoreCount",
+    "TargetScoreDetail",
+    "TargetScoreResult",
     "activity_score_analysis_from_context",
+    "target_score_detail_from_context",
 ]

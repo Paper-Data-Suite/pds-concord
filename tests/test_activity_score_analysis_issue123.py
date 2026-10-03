@@ -11,20 +11,26 @@ from concord.model_validation import ConcordRecordGraph
 from concord.models import (
     Activity,
     ActorReference,
+    ArtifactInstance,
     Criterion,
+    Group,
     PrivacyPolicy,
     Provenance,
     ScoreRecord,
     ScoreTargetReference,
     ScoringScale,
     ScoringScaleLevel,
+    Session,
 )
 from concord.workflows import (
     SCORE_ANALYSIS_BASIS,
+    TARGET_DETAIL_SCOPE,
     ActivityScoreAnalysis,
     StandardCriterionAnalysis,
     StandardScoreAnalysis,
+    TargetScoreDetail,
     activity_score_analysis_from_context,
+    target_score_detail_from_context,
 )
 from concord.workflows._score_lineage import current_score_lineage_heads
 from concord.workflows.activity_read import ActivityReadContext
@@ -224,6 +230,9 @@ def _context_with(
     criteria: tuple[Criterion, ...],
     scales: tuple[ScoringScale, ...],
     scores: tuple[ScoreRecord, ...],
+    groups: tuple[Group, ...] = (),
+    sessions: tuple[Session, ...] = (),
+    artifacts: tuple[ArtifactInstance, ...] = (),
 ) -> ActivityReadContext:
     activity = _activity()
     return ActivityReadContext(
@@ -233,6 +242,9 @@ def _context_with(
         snapshot_sha256="b" * 64,
         graph=ConcordRecordGraph(
             activities=(activity,),
+            sessions=sessions,
+            groups=groups,
+            artifact_instances=artifacts,
             criteria=criteria,
             scoring_scales=scales,
             score_records=scores,
@@ -725,3 +737,180 @@ def test_standards_analysis_contract_has_no_proficiency_or_mastery_rollup() -> N
     }
     assert not standard_fields.intersection(forbidden)
     assert not criterion_fields.intersection(forbidden)
+
+def test_target_detail_is_current_head_only_and_preserves_exact_scale_context() -> None:
+    first = _criterion("criterion-a", "Uses Evidence")
+    second = _criterion("criterion-b", "Explains Reasoning")
+    scale = _scale()
+    target = _target("core_student", "student-1")
+    predecessor = _score(
+        "score-old", target=target, criterion_id=first.criterion_id, value=2
+    )
+    current = _score(
+        "score-current",
+        target=target,
+        criterion_id=first.criterion_id,
+        value=3,
+        supersedes=predecessor.score_record_id,
+    )
+    deferred = _score(
+        "score-deferred",
+        target=target,
+        criterion_id=second.criterion_id,
+        disposition="deferred",
+        value=None,
+    )
+    other = _score(
+        "score-other",
+        target=_target("core_student", "student-2"),
+        criterion_id=first.criterion_id,
+        value=4,
+    )
+    context = _context_with(
+        criteria=(first, second),
+        scales=(scale,),
+        scores=(predecessor, current, deferred, other),
+    )
+
+    detail = target_score_detail_from_context(
+        context,
+        target,
+        target_label_resolver=lambda item: "Jane Doe" if item == target else None,
+    )
+
+    assert isinstance(detail, TargetScoreDetail)
+    assert detail.sharing_scope == TARGET_DETAIL_SCOPE == "teacher_local"
+    assert detail.target_reference == target
+    assert detail.target_label == "Jane Doe"
+    assert detail.current_score_count == 2
+    assert tuple(item.score_record_id for item in detail.results) == (
+        "score-deferred",
+        "score-current",
+    )
+    by_id = {item.score_record_id: item for item in detail.results}
+    assert by_id["score-current"].criterion_label == "Uses Evidence"
+    assert by_id["score-current"].scoring_scale_id == "scale-1"
+    assert by_id["score-current"].scoring_scale_revision == 1
+    assert by_id["score-current"].value == 3
+    assert by_id["score-current"].value_label == "Secure"
+    assert by_id["score-deferred"].disposition == "deferred"
+    assert by_id["score-deferred"].value is None
+    assert by_id["score-deferred"].value_label is None
+    assert "score-old" not in by_id
+    assert "score-other" not in by_id
+
+
+def test_target_detail_does_not_infer_scores_for_unrecorded_target() -> None:
+    target = _target("core_student", "student-without-score")
+    detail = target_score_detail_from_context(_context(), target)
+
+    assert detail.target_reference == target
+    assert detail.target_label == "student-without-score"
+    assert detail.current_score_count == 0
+    assert detail.results == ()
+
+
+def test_target_detail_uses_concord_native_labels_without_identity_rewrite() -> None:
+    criterion = _criterion("criterion-1", "Reasoning")
+    scale = _scale()
+    group = Group(
+        group_id="group-1",
+        activity_id="activity-1",
+        label="Blue Team",
+        status="active",
+        created_provenance=_provenance(),
+    )
+    session = Session(
+        session_id="session-1",
+        activity_id="activity-1",
+        sequence=2,
+        label="Round Two",
+        status="active",
+        created_provenance=_provenance(),
+    )
+    artifact = ArtifactInstance(
+        artifact_instance_id="artifact-1",
+        template_version_id="template-version-1",
+        activity_id="activity-1",
+        artifact_category="student_work",
+        generation_status="completed",
+        expected_return_status="returned_optional",
+        artifact_status="completed",
+        privacy_policy=PrivacyPolicy(classification="teacher_restricted"),
+        page_ids=("page-1",),
+        created_provenance=_provenance(),
+    )
+    targets = (
+        _target("concord_group", group.group_id),
+        _target("concord_session", session.session_id),
+        _target("concord_activity", "activity-1"),
+        _target("concord_artifact_instance", artifact.artifact_instance_id),
+    )
+    scores = tuple(
+        _score(
+            f"score-{index}",
+            target=target,
+            criterion_id=criterion.criterion_id,
+            value=3,
+        )
+        for index, target in enumerate(targets, start=1)
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(scale,),
+        scores=scores,
+        groups=(group,),
+        sessions=(session,),
+        artifacts=(artifact,),
+    )
+
+    details = tuple(
+        target_score_detail_from_context(context, target) for target in targets
+    )
+
+    assert tuple(item.target_label for item in details) == (
+        "Blue Team",
+        "Round Two",
+        "Synthetic Analysis Activity",
+        "artifact-1",
+    )
+    assert tuple(item.target_reference for item in details) == targets
+
+
+def test_target_detail_resolver_is_display_only() -> None:
+    target = _target("core_student", "student-1")
+    fallback = target_score_detail_from_context(_context(), target)
+    resolved = target_score_detail_from_context(
+        _context(),
+        target,
+        target_label_resolver=lambda _: "Readable Student",
+    )
+
+    assert fallback.target_label == "student-1"
+    assert resolved.target_label == "Readable Student"
+    assert resolved.target_reference == fallback.target_reference
+    assert resolved.results == fallback.results
+    assert resolved.current_score_count == fallback.current_score_count
+
+
+def test_target_detail_contract_has_no_grade_or_proficiency_fields() -> None:
+    result_type = type(
+        target_score_detail_from_context(
+            _context(),
+            _target("core_student", "student-1"),
+        ).results[0]
+    )
+    names = {
+        item.name
+        for model in (TargetScoreDetail, result_type)
+        for item in fields(model)
+    }
+    forbidden = {
+        "average",
+        "grade",
+        "mastery",
+        "proficiency",
+        "missing",
+        "required",
+    }
+    assert not names.intersection(forbidden)
