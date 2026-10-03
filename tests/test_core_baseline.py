@@ -60,6 +60,23 @@ def test_installed_wheel_smoke_uses_current_core_baseline() -> None:
     assert "0.6.1" not in smoke
 
 
+def test_ci_uses_current_core_qualification_wheel() -> None:
+    workflow = (
+        Path(__file__).resolve().parents[1]
+        / ".github"
+        / "workflows"
+        / "ci.yml"
+    ).read_text(encoding="utf-8")
+
+    assert '"pds_core-0.6.4-py3-none-any.whl"' in workflow
+    assert (
+        "releases/download/v0.6.4/pds_core-0.6.4-py3-none-any.whl"
+        in workflow
+    )
+    assert "pds_core-0.6.3-py3-none-any.whl" not in workflow
+    assert "releases/download/v0.6.3/" not in workflow
+
+
 def test_concord_core_identity_and_paths(
     baseline_context: dict[str, object], tmp_path: Path
 ) -> None:
