@@ -24,7 +24,7 @@ def test_issue70_slice1_seminar_smoke_covers_required_installed_boundaries() -> 
     compile(source, "starter_workflows_smoke.py", "exec")
 
     required_fragments = (
-        'metadata.version("pds-core") == "0.6.3"',
+        'metadata.version("pds-core") == "0.6.4"',
         'metadata.version("pds-concord") == "0.3.0"',
         "launch_guided_activity_menu(state)",
         'get_starter_template("socratic_seminar")',

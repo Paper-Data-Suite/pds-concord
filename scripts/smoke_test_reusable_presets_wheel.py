@@ -84,7 +84,7 @@ def _smoke_code() -> str:
             revise_scoring_scale_preset,
         )
 
-        assert metadata.version("pds-core") == "0.6.3"
+        assert metadata.version("pds-core") == "0.6.4"
         assert metadata.version("pds-concord") == "0.3.0"
 
         with tempfile.TemporaryDirectory(prefix="concord-presets-installed-") as raw:

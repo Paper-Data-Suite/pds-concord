@@ -66,7 +66,7 @@ def _smoke_code() -> str:
             create_group_plan,
         )
 
-        assert metadata.version("pds-core") == "0.6.3"
+        assert metadata.version("pds-core") == "0.6.4"
         assert metadata.version("pds-concord") == "0.3.0"
 
         module_path = Path(concord.__file__).resolve().as_posix().lower()

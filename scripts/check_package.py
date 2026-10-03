@@ -211,6 +211,7 @@ def validate_wheel(path: str | Path) -> None:
         "concord/workflows/artifact_routine_scoring_continuation.py",
         "concord/workflows/artifact_routine_scoring_next.py",
         "concord/artifact_rendering.py",
+        "concord/generated_paths.py",
         "concord/cli.py",
         "concord/cli_app/handlers/reusable_presets.py",
         "concord/menu_guided_activity.py",

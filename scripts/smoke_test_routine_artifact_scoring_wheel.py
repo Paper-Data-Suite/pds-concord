@@ -12,7 +12,7 @@ import venv
 from pathlib import Path
 
 EXPECTED_CORE_SHA256 = (
-    "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
 )
 
 
@@ -163,7 +163,7 @@ def _smoke_code() -> str:
 
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
-        assert metadata.version("pds-core") == "0.6.3"
+        assert metadata.version("pds-core") == "0.6.4"
         assert metadata.version("pds-concord") == "0.3.0"
         stage("isolated installed provenance")
 
@@ -677,7 +677,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
     core_sha = _sha256(core_wheel)
     if core_sha != EXPECTED_CORE_SHA256:
         raise RuntimeError(
-            "Issue #108 requires the exact released Core 0.6.3 qualification wheel."
+            "Issue #108 requires the exact released Core 0.6.4 qualification wheel."
         )
 
     print(

@@ -336,7 +336,7 @@ def _smoke_code() -> str:
 
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
-        assert metadata.version("pds-core") == "0.6.3"
+        assert metadata.version("pds-core") == "0.6.4"
         assert metadata.version("pds-concord") == "0.3.0"
         stage("isolated installed provenance")
 
