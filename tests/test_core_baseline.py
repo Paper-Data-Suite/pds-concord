@@ -54,9 +54,9 @@ def test_installed_wheel_smoke_uses_current_core_baseline() -> None:
     smoke = (
         Path(__file__).resolve().parents[1] / "scripts" / "smoke_test_wheel.py"
     ).read_text(encoding="utf-8")
-    assert "m.version(\'pds-core\') == \'0.6.3\'" in smoke
+    assert "m.version(\'pds-core\') == \'0.6.4\'" in smoke
     assert '"--expected-core-version",' in smoke
-    assert '"0.6.3",' in smoke
+    assert '"0.6.4",' in smoke
     assert "0.6.1" not in smoke
 
 
