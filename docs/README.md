@@ -192,10 +192,10 @@ between score-ready evidence and any assessment-completion policy.
 
 [`v0.3.1-generated-path-safety.md`](v0.3.1-generated-path-safety.md)
 
-Documents issue #124's Core-versus-Concord path ownership boundary, initial
-generated-output audit, fixed-length opaque naming contract, Packet-rendering
-follow-up boundary, no-migration rule, and released Core 0.6.4 qualification
-baseline.
+Documents issue #124's Core-versus-Concord path ownership boundary,
+generated-output audit, fixed-length opaque naming contract, bounded
+human-readable filename contract, Packet-rendering compatibility,
+no-migration rule, and released Core 0.6.4 qualification baseline.
 
 ### 21. v0.2.0 release audit
 

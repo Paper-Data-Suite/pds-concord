@@ -9,11 +9,16 @@ from concord.generated_paths import (
     GENERATED_OUTPUT_EXTENSION_MAX_LENGTH,
     GENERATED_OUTPUT_FILENAME_MAX_LENGTH,
     GENERATED_OUTPUT_TOKEN_LENGTH,
+    HUMAN_READABLE_DISAMBIGUATOR_HEX_LENGTH,
+    HUMAN_READABLE_FILENAME_MAX_BYTES,
+    HUMAN_READABLE_VISIBLE_STEM_MAX_BYTES,
     ConcordGeneratedPathError,
     build_generated_output_filename,
     build_generated_output_token,
+    build_human_readable_output_filename,
     validate_generated_output_filename,
     validate_generated_output_token,
+    validate_human_readable_output_filename,
 )
 
 
@@ -174,3 +179,156 @@ def test_filename_maximum_tracks_the_extension_budget() -> None:
     )
 
     assert len(filename) == GENERATED_OUTPUT_FILENAME_MAX_LENGTH
+
+
+def test_human_readable_filename_is_deterministic_bounded_and_valid() -> None:
+    filename = build_human_readable_output_filename(
+        display_label="Jane O'Connor — Feedback",
+        domain="student-feedback",
+        identity_parts=("class-1", "student-17", "activity-3"),
+        extension=".pdf",
+    )
+
+    assert filename.startswith("Jane-O-Connor-Feedback--")
+    assert filename.endswith(".pdf")
+    assert len(filename.encode("utf-8")) <= HUMAN_READABLE_FILENAME_MAX_BYTES
+    assert re.search(
+        rf"--[0-9a-f]{{{HUMAN_READABLE_DISAMBIGUATOR_HEX_LENGTH}}}\.pdf$",
+        filename,
+    )
+    assert validate_human_readable_output_filename(filename) == filename
+    assert (
+        filename
+        == build_human_readable_output_filename(
+            display_label="Jane O'Connor — Feedback",
+            domain="student-feedback",
+            identity_parts=("class-1", "student-17", "activity-3"),
+            extension=".pdf",
+        )
+    )
+
+
+def test_duplicate_display_names_are_collision_safe_without_raw_ids() -> None:
+    first = build_human_readable_output_filename(
+        display_label="Alex Smith",
+        domain="student-feedback",
+        identity_parts=("class-1", "student-private-001"),
+        extension=".pdf",
+    )
+    second = build_human_readable_output_filename(
+        display_label="Alex Smith",
+        domain="student-feedback",
+        identity_parts=("class-1", "student-private-002"),
+        extension=".pdf",
+    )
+
+    assert first != second
+    assert first.startswith("Alex-Smith--")
+    assert second.startswith("Alex-Smith--")
+    assert "student-private-001" not in first
+    assert "student-private-002" not in second
+
+
+def test_human_readable_domain_separation_changes_disambiguator() -> None:
+    identity = ("class-1", "student-1")
+
+    first = build_human_readable_output_filename(
+        display_label="Alex Smith",
+        domain="student-feedback",
+        identity_parts=identity,
+        extension=".pdf",
+    )
+    second = build_human_readable_output_filename(
+        display_label="Alex Smith",
+        domain="target-detail-report",
+        identity_parts=identity,
+        extension=".pdf",
+    )
+
+    assert first != second
+
+
+def test_long_human_label_is_bounded_by_utf8_bytes() -> None:
+    filename = build_human_readable_output_filename(
+        display_label=("Álgebra " * 500) + "Reflection",
+        domain="target-detail-report",
+        identity_parts=("class-1", "target-1"),
+        extension=".pdf",
+    )
+    visible = filename.rsplit("--", 1)[0]
+
+    assert len(visible.encode("utf-8")) <= HUMAN_READABLE_VISIBLE_STEM_MAX_BYTES
+    assert len(filename.encode("utf-8")) <= HUMAN_READABLE_FILENAME_MAX_BYTES
+    assert filename.endswith(".pdf")
+
+
+def test_unicode_normalization_is_deterministic() -> None:
+    composed = build_human_readable_output_filename(
+        display_label="Café Reflection",
+        domain="target-detail-report",
+        identity_parts=("class-1", "target-1"),
+        extension=".pdf",
+    )
+    decomposed = build_human_readable_output_filename(
+        display_label="Cafe\u0301 Reflection",
+        domain="target-detail-report",
+        identity_parts=("class-1", "target-1"),
+        extension=".pdf",
+    )
+
+    assert composed == decomposed
+
+
+@pytest.mark.parametrize(
+    "display_label",
+    (
+        "",
+        "   ",
+        ".",
+        "..",
+        "../Alex",
+        r"..\Alex",
+        r"C:\Users\Alex",
+        "C:Alex",
+        "Alex\x00Smith",
+        "\nAlex",
+        "!!!",
+    ),
+)
+def test_unsafe_or_unreadable_human_labels_are_rejected(
+    display_label: str,
+) -> None:
+    with pytest.raises(ConcordGeneratedPathError, match="display_label"):
+        build_human_readable_output_filename(
+            display_label=display_label,
+            domain="student-feedback",
+            identity_parts=("class-1", "student-1"),
+            extension=".pdf",
+        )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    (
+        "Alex Smith--0123456789.pdf",
+        "Alex-Smith.pdf",
+        "Alex-Smith--ABCDEF0123.pdf",
+        "../Alex-Smith--0123456789.pdf",
+        "Alex-Smith--0123456789.PDF",
+    ),
+)
+def test_noncontract_human_readable_filenames_are_rejected(
+    filename: str,
+) -> None:
+    with pytest.raises(ConcordGeneratedPathError):
+        validate_human_readable_output_filename(filename)
+
+
+def test_human_filename_extension_still_uses_shared_extension_contract() -> None:
+    with pytest.raises(ConcordGeneratedPathError, match="extension"):
+        build_human_readable_output_filename(
+            display_label="Alex Smith",
+            domain="student-feedback",
+            identity_parts=("class-1", "student-1"),
+            extension=".tar.gz",
+        )
