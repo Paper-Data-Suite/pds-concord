@@ -17,6 +17,8 @@ from concord.workflows.activity_copy import (
 )
 from concord.workflows.activity_score_analysis import (
     SCORE_ANALYSIS_BASIS,
+    SCORE_HISTORY_BASIS,
+    SCORE_HISTORY_SCOPE,
     TARGET_DETAIL_SCOPE,
     ActivityScoreAnalysis,
     ActivityScoreObservation,
@@ -24,6 +26,9 @@ from concord.workflows.activity_score_analysis import (
     CriterionScoreAnalysis,
     DispositionDistribution,
     ScaleValueDistribution,
+    ScoreHistoryAnalysis,
+    ScoreHistoryLineage,
+    ScoreHistoryRevision,
     StandardCriterionAnalysis,
     StandardScoreAnalysis,
     TargetDisplayLabelResolver,
@@ -31,6 +36,7 @@ from concord.workflows.activity_score_analysis import (
     TargetScoreDetail,
     TargetScoreResult,
     activity_score_analysis_from_context,
+    score_history_analysis_from_context,
     target_score_detail_from_context,
 )
 from concord.workflows.artifact import (
@@ -587,6 +593,8 @@ from concord.workflows.template import (
 
 __all__ = [
     "SCORE_ANALYSIS_BASIS",
+    "SCORE_HISTORY_BASIS",
+    "SCORE_HISTORY_SCOPE",
     "TARGET_DETAIL_SCOPE",
     "ActivityScoreAnalysis",
     "ActivityScoreObservation",
@@ -594,6 +602,9 @@ __all__ = [
     "CriterionScoreAnalysis",
     "DispositionDistribution",
     "ScaleValueDistribution",
+    "ScoreHistoryAnalysis",
+    "ScoreHistoryLineage",
+    "ScoreHistoryRevision",
     "StandardCriterionAnalysis",
     "StandardScoreAnalysis",
     "TargetDisplayLabelResolver",
@@ -601,6 +612,7 @@ __all__ = [
     "TargetScoreDetail",
     "TargetScoreResult",
     "activity_score_analysis_from_context",
+    "score_history_analysis_from_context",
     "target_score_detail_from_context",
     "GuidedActivitySetup",
     "GuidedSetupArea",

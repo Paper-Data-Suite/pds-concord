@@ -9,12 +9,23 @@ from typing import Final
 
 from pds_core.standards import StandardsLibrary
 
-from concord.models import Criterion, ScoreRecord, ScoreTargetReference, ScoringScale
+from concord.models import (
+    CorrectionRecord,
+    Criterion,
+    ScoreRecord,
+    ScoreTargetReference,
+    ScoringScale,
+)
 from concord.models.common import JsonScalar, scalar_key
-from concord.workflows._score_lineage import current_score_lineage_heads
+from concord.workflows._score_lineage import (
+    current_score_lineage_heads,
+    score_lineage_chains,
+)
 from concord.workflows.activity_read import ActivityReadContext
 
 SCORE_ANALYSIS_BASIS: Final[str] = "current_score_lineage_heads"
+SCORE_HISTORY_BASIS: Final[str] = "all_explicit_score_revisions"
+SCORE_HISTORY_SCOPE: Final[str] = "teacher_local"
 TARGET_DETAIL_SCOPE: Final[str] = "teacher_local"
 TargetDisplayLabelResolver = Callable[[ScoreTargetReference], str | None]
 _TARGET_KIND_ORDER: Final[tuple[str, ...]] = (
@@ -175,6 +186,62 @@ class TargetScoreDetail:
     target_label: str
     current_score_count: int
     results: tuple[TargetScoreResult, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScoreHistoryRevision:
+    """One exact Score revision within an explicit historical lineage."""
+
+    score_record_id: str
+    revision_number: int
+    is_current: bool
+    target_reference: ScoreTargetReference
+    target_label: str
+    criterion_id: str
+    criterion_label: str
+    criterion_kind: str
+    standard_id: str | None
+    scoring_scale_id: str
+    scoring_scale_name: str
+    scoring_scale_revision: int
+    scoring_scale_type: str
+    disposition: str
+    value: JsonScalar | None
+    value_label: str | None
+    basis: str
+    session_id: str | None
+    scored_at: str
+    supersedes_score_record_id: str | None
+    superseded_by_score_record_id: str | None
+    correction_id: str | None
+    correction_reason: str | None
+    corrected_at: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScoreHistoryLineage:
+    """One root-to-head Score revision chain."""
+
+    root_score_record_id: str
+    current_score_record_id: str
+    revision_count: int
+    revisions: tuple[ScoreHistoryRevision, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScoreHistoryAnalysis:
+    """Explicit teacher-local Score history separate from current analysis."""
+
+    class_id: str
+    activity_id: str
+    activity_title: str
+    snapshot_revision: int
+    snapshot_sha256: str
+    score_basis: str
+    sharing_scope: str
+    lineage_count: int
+    revision_count: int
+    lineages: tuple[ScoreHistoryLineage, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -569,6 +636,150 @@ def target_score_detail_from_context(
     )
 
 
+def _score_revision_correction(
+    corrections: tuple[CorrectionRecord, ...],
+    predecessor_id: str,
+    successor_id: str,
+) -> CorrectionRecord | None:
+    matches = tuple(
+        item
+        for item in corrections
+        if item.correction_type == "score_revision"
+        and item.target_reference.record_kind == "score_record"
+        and item.target_reference.record_id == predecessor_id
+        and item.replacement_reference is not None
+        and item.replacement_reference.record_kind == "score_record"
+        and item.replacement_reference.record_id == successor_id
+    )
+    if len(matches) > 1:
+        raise ValueError(
+            "Score history encountered duplicate correction audits for "
+            f"{predecessor_id} -> {successor_id}"
+        )
+    return None if not matches else matches[0]
+
+
+def score_history_analysis_from_context(
+    context: ActivityReadContext,
+    *,
+    target_label_resolver: TargetDisplayLabelResolver | None = None,
+) -> ScoreHistoryAnalysis:
+    """Project all explicit Score revisions without mixing them into current counts."""
+    records = tuple(
+        item
+        for item in context.graph.score_records
+        if item.activity_id == context.activity.activity_id
+    )
+    chains = score_lineage_chains(records)
+    current_ids = {
+        item.score_record_id
+        for item in current_score_lineage_heads(records)
+    }
+    criterion_by_id = {
+        item.criterion_id: item for item in context.graph.criteria
+    }
+    scale_by_id = {
+        item.scoring_scale_id: item for item in context.graph.scoring_scales
+    }
+
+    lineages: list[ScoreHistoryLineage] = []
+    for chain in chains:
+        revisions: list[ScoreHistoryRevision] = []
+        for index, score in enumerate(chain):
+            criterion = _require_criterion(criterion_by_id, score.criterion_id)
+            scale = _require_scale(scale_by_id, score.scoring_scale_id)
+            successor_id = (
+                chain[index + 1].score_record_id
+                if index + 1 < len(chain)
+                else None
+            )
+            correction: CorrectionRecord | None = None
+            if score.supersedes_score_record_id is not None:
+                correction = _score_revision_correction(
+                    context.graph.correction_records,
+                    score.supersedes_score_record_id,
+                    score.score_record_id,
+                )
+            value_label: str | None = None
+            if score.disposition == "scored":
+                if score.value is None:
+                    raise ValueError(
+                        "scored Score history observation requires a value"
+                    )
+                level = scale.level_for_value(score.value)
+                if level is None:
+                    raise ValueError(
+                        "Score history encountered a scored value absent from "
+                        "its exact Scale revision"
+                    )
+                value_label = level.label
+            revisions.append(
+                ScoreHistoryRevision(
+                    score_record_id=score.score_record_id,
+                    revision_number=index + 1,
+                    is_current=score.score_record_id in current_ids,
+                    target_reference=score.target_reference,
+                    target_label=_target_label(
+                        context,
+                        score.target_reference,
+                        target_label_resolver,
+                    ),
+                    criterion_id=criterion.criterion_id,
+                    criterion_label=criterion.label,
+                    criterion_kind=criterion.criterion_kind,
+                    standard_id=criterion.standard_id,
+                    scoring_scale_id=scale.scoring_scale_id,
+                    scoring_scale_name=scale.name,
+                    scoring_scale_revision=scale.revision,
+                    scoring_scale_type=scale.scale_type,
+                    disposition=score.disposition,
+                    value=score.value,
+                    value_label=value_label,
+                    basis=score.basis,
+                    session_id=score.session_id,
+                    scored_at=score.scored_at,
+                    supersedes_score_record_id=score.supersedes_score_record_id,
+                    superseded_by_score_record_id=successor_id,
+                    correction_id=(
+                        None if correction is None else correction.correction_id
+                    ),
+                    correction_reason=(
+                        None if correction is None else correction.reason
+                    ),
+                    corrected_at=(
+                        None if correction is None else correction.corrected_at
+                    ),
+                )
+            )
+        lineages.append(
+            ScoreHistoryLineage(
+                root_score_record_id=chain[0].score_record_id,
+                current_score_record_id=chain[-1].score_record_id,
+                revision_count=len(revisions),
+                revisions=tuple(revisions),
+            )
+        )
+
+    ordered = tuple(
+        sorted(
+            lineages,
+            key=lambda item: item.root_score_record_id,
+        )
+    )
+    return ScoreHistoryAnalysis(
+        class_id=context.work.class_id,
+        activity_id=context.activity.activity_id,
+        activity_title=context.activity.title,
+        snapshot_revision=context.snapshot_revision,
+        snapshot_sha256=context.snapshot_sha256,
+        score_basis=SCORE_HISTORY_BASIS,
+        sharing_scope=SCORE_HISTORY_SCOPE,
+        lineage_count=len(ordered),
+        revision_count=sum(item.revision_count for item in ordered),
+        lineages=ordered,
+    )
+
+
 def activity_score_analysis_from_context(
     context: ActivityReadContext,
     *,
@@ -637,6 +848,8 @@ def activity_score_analysis_from_context(
 
 __all__ = [
     "SCORE_ANALYSIS_BASIS",
+    "SCORE_HISTORY_BASIS",
+    "SCORE_HISTORY_SCOPE",
     "TARGET_DETAIL_SCOPE",
     "ActivityScoreAnalysis",
     "ActivityScoreObservation",
@@ -644,6 +857,9 @@ __all__ = [
     "CriterionScoreAnalysis",
     "DispositionDistribution",
     "ScaleValueDistribution",
+    "ScoreHistoryAnalysis",
+    "ScoreHistoryLineage",
+    "ScoreHistoryRevision",
     "StandardCriterionAnalysis",
     "StandardScoreAnalysis",
     "TargetDisplayLabelResolver",
@@ -651,5 +867,6 @@ __all__ = [
     "TargetScoreDetail",
     "TargetScoreResult",
     "activity_score_analysis_from_context",
+    "score_history_analysis_from_context",
     "target_score_detail_from_context",
 ]

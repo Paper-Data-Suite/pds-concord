@@ -12,6 +12,8 @@ from concord.models import (
     Activity,
     ActorReference,
     ArtifactInstance,
+    ConcordRecordReference,
+    CorrectionRecord,
     Criterion,
     Group,
     PrivacyPolicy,
@@ -24,12 +26,16 @@ from concord.models import (
 )
 from concord.workflows import (
     SCORE_ANALYSIS_BASIS,
+    SCORE_HISTORY_BASIS,
+    SCORE_HISTORY_SCOPE,
     TARGET_DETAIL_SCOPE,
     ActivityScoreAnalysis,
+    ScoreHistoryAnalysis,
     StandardCriterionAnalysis,
     StandardScoreAnalysis,
     TargetScoreDetail,
     activity_score_analysis_from_context,
+    score_history_analysis_from_context,
     target_score_detail_from_context,
 )
 from concord.workflows._score_lineage import current_score_lineage_heads
@@ -233,6 +239,7 @@ def _context_with(
     groups: tuple[Group, ...] = (),
     sessions: tuple[Session, ...] = (),
     artifacts: tuple[ArtifactInstance, ...] = (),
+    corrections: tuple[CorrectionRecord, ...] = (),
 ) -> ActivityReadContext:
     activity = _activity()
     return ActivityReadContext(
@@ -248,6 +255,7 @@ def _context_with(
             criteria=criteria,
             scoring_scales=scales,
             score_records=scores,
+            correction_records=corrections,
         ),
         activity=activity,
     )
@@ -903,6 +911,274 @@ def test_target_detail_contract_has_no_grade_or_proficiency_fields() -> None:
     names = {
         item.name
         for model in (TargetScoreDetail, result_type)
+        for item in fields(model)
+    }
+    forbidden = {
+        "average",
+        "grade",
+        "mastery",
+        "proficiency",
+        "missing",
+        "required",
+    }
+    assert not names.intersection(forbidden)
+
+def _score_correction(
+    correction_id: str,
+    *,
+    predecessor_id: str,
+    successor_id: str,
+    reason: str,
+    corrected_at: str,
+) -> CorrectionRecord:
+    return CorrectionRecord(
+        correction_id=correction_id,
+        target_reference=ConcordRecordReference(
+            record_kind="score_record",
+            record_id=predecessor_id,
+        ),
+        correction_type="score_revision",
+        reason=reason,
+        correcting_actor=_actor(),
+        corrected_at=corrected_at,
+        privacy_policy=PrivacyPolicy(classification="teacher_restricted"),
+        replacement_reference=ConcordRecordReference(
+            record_kind="score_record",
+            record_id=successor_id,
+        ),
+    )
+
+
+def test_score_history_preserves_revision_chain_and_correction_audits() -> None:
+    criterion = _criterion("criterion-history", "Historical Reasoning")
+    scale_v1 = _scale(
+        "scale-history-v1",
+        lineage_id="scale-history",
+        revision=1,
+        name="History Scale v1",
+    )
+    scale_v2 = _scale(
+        "scale-history-v2",
+        lineage_id="scale-history",
+        revision=2,
+        name="History Scale v2",
+        supersedes="scale-history-v1",
+    )
+    target = _target("core_student", "student-1")
+    first = _score(
+        "score-history-1",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        scoring_scale_id=scale_v1.scoring_scale_id,
+        value=2,
+    )
+    second = _score(
+        "score-history-2",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        scoring_scale_id=scale_v1.scoring_scale_id,
+        value=3,
+        supersedes=first.score_record_id,
+    )
+    third = _score(
+        "score-history-3",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        scoring_scale_id=scale_v2.scoring_scale_id,
+        value=4,
+        supersedes=second.score_record_id,
+    )
+    corrections = (
+        _score_correction(
+            "correction-1",
+            predecessor_id=first.score_record_id,
+            successor_id=second.score_record_id,
+            reason="Corrected initial judgment.",
+            corrected_at="2026-10-03T14:00:00+00:00",
+        ),
+        _score_correction(
+            "correction-2",
+            predecessor_id=second.score_record_id,
+            successor_id=third.score_record_id,
+            reason="Applied revised rubric judgment.",
+            corrected_at="2026-10-03T14:30:00+00:00",
+        ),
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(scale_v1, scale_v2),
+        scores=(first, second, third),
+        corrections=corrections,
+    )
+
+    history = score_history_analysis_from_context(
+        context,
+        target_label_resolver=lambda _: "Jane Doe",
+    )
+
+    assert isinstance(history, ScoreHistoryAnalysis)
+    assert history.score_basis == SCORE_HISTORY_BASIS
+    assert history.sharing_scope == SCORE_HISTORY_SCOPE == "teacher_local"
+    assert history.lineage_count == 1
+    assert history.revision_count == 3
+    lineage = history.lineages[0]
+    assert lineage.root_score_record_id == "score-history-1"
+    assert lineage.current_score_record_id == "score-history-3"
+    assert lineage.revision_count == 3
+    assert tuple(item.revision_number for item in lineage.revisions) == (1, 2, 3)
+    assert tuple(item.is_current for item in lineage.revisions) == (
+        False,
+        False,
+        True,
+    )
+    assert tuple(item.target_label for item in lineage.revisions) == (
+        "Jane Doe",
+        "Jane Doe",
+        "Jane Doe",
+    )
+    assert tuple(item.value_label for item in lineage.revisions) == (
+        "Developing",
+        "Secure",
+        "Extending",
+    )
+    assert tuple(item.scoring_scale_revision for item in lineage.revisions) == (
+        1,
+        1,
+        2,
+    )
+    assert lineage.revisions[0].correction_id is None
+    assert lineage.revisions[1].correction_id == "correction-1"
+    assert (
+        lineage.revisions[1].correction_reason
+        == "Corrected initial judgment."
+    )
+    assert lineage.revisions[2].correction_id == "correction-2"
+    assert lineage.revisions[0].superseded_by_score_record_id == "score-history-2"
+    assert lineage.revisions[2].superseded_by_score_record_id is None
+
+
+def test_score_history_is_explicit_and_does_not_change_current_analysis() -> None:
+    criterion = _criterion("criterion-history", "Historical Reasoning")
+    target = _target("core_student", "student-1")
+    first = _score(
+        "score-history-1",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        value=2,
+    )
+    second = _score(
+        "score-history-2",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        value=3,
+        supersedes=first.score_record_id,
+    )
+    correction = _score_correction(
+        "correction-1",
+        predecessor_id=first.score_record_id,
+        successor_id=second.score_record_id,
+        reason="Revised judgment.",
+        corrected_at="2026-10-03T14:00:00+00:00",
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(_scale(),),
+        scores=(first, second),
+        corrections=(correction,),
+    )
+
+    current = activity_score_analysis_from_context(context)
+    history = score_history_analysis_from_context(context)
+
+    assert current.current_score_count == 1
+    assert tuple(item.score_record_id for item in current.current_scores) == (
+        "score-history-2",
+    )
+    assert history.revision_count == 2
+    assert tuple(
+        item.score_record_id
+        for lineage in history.lineages
+        for item in lineage.revisions
+    ) == ("score-history-1", "score-history-2")
+
+
+def test_score_history_preserves_non_score_disposition_without_coercion() -> None:
+    criterion = _criterion("criterion-history", "Historical Reasoning")
+    target = _target("concord_group", "group-1")
+    record = _score(
+        "score-deferred-history",
+        target=target,
+        criterion_id=criterion.criterion_id,
+        disposition="deferred",
+        value=None,
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(_scale(),),
+        scores=(record,),
+    )
+
+    history = score_history_analysis_from_context(context)
+
+    revision = history.lineages[0].revisions[0]
+    assert revision.disposition == "deferred"
+    assert revision.value is None
+    assert revision.value_label is None
+    assert revision.is_current is True
+
+
+def test_score_history_separates_independent_lineages_deterministically() -> None:
+    criterion = _criterion("criterion-history", "Historical Reasoning")
+    first_target = _target("core_student", "student-1")
+    second_target = _target("core_student", "student-2")
+    records = (
+        _score(
+            "score-z-root",
+            target=second_target,
+            criterion_id=criterion.criterion_id,
+            value=4,
+        ),
+        _score(
+            "score-a-root",
+            target=first_target,
+            criterion_id=criterion.criterion_id,
+            value=3,
+        ),
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(_scale(),),
+        scores=records,
+    )
+
+    history = score_history_analysis_from_context(context)
+
+    assert tuple(item.root_score_record_id for item in history.lineages) == (
+        "score-a-root",
+        "score-z-root",
+    )
+    assert all(item.revision_count == 1 for item in history.lineages)
+
+
+def test_score_history_contract_has_no_grade_or_proficiency_fields() -> None:
+    criterion = _criterion("criterion-history", "Historical Reasoning")
+    record = _score(
+        "score-history",
+        target=_target("core_student", "student-1"),
+        criterion_id=criterion.criterion_id,
+        value=3,
+    )
+    history = score_history_analysis_from_context(
+        _context_with(
+            criteria=(criterion,),
+            scales=(_scale(),),
+            scores=(record,),
+        )
+    )
+    revision_type = type(history.lineages[0].revisions[0])
+    names = {
+        item.name
+        for model in (ScoreHistoryAnalysis, revision_type)
         for item in fields(model)
     }
     forbidden = {
