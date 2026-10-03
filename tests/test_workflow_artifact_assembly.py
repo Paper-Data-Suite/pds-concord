@@ -730,3 +730,64 @@ def test_conflicting_existing_assembly_bytes_are_not_overwritten(
             clock=_clock,
         )
     assert result.output_path.read_bytes() == b"conflicting existing bytes"
+
+
+def _issue124_deep_parent(tmp_path: Path) -> Path:
+    candidate = tmp_path
+    while len(str(candidate / "workspace")) < 120:
+        candidate = candidate / "issue124-depth"
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
+
+
+def test_artifact_assembly_operates_under_deep_workspace_path(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(_issue124_deep_parent(tmp_path))
+    assert len(str(root)) >= 120
+
+    prepared = _prepare(root)
+    retained = _retained_image(
+        root,
+        scan_id="scan-issue124-depth",
+        filename="returned.png",
+        color=(12, 34, 56),
+    )
+    _file(root, prepared, 0, retained)
+    loaded = load_current_record_graph(root, _work())
+
+    result = assemble_returned_artifact(
+        AssembleArtifactRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            expected_snapshot_revision=loaded.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+        clock=_clock,
+    )
+
+    assert result.output_path.is_file()
+    assert result.manifest_path.is_file()
+    assert result.output_path.name == "artifact.pdf"
+    assert result.manifest_path.name == "manifest.json"
+    assert result.output_path.parent == result.manifest_path.parent
+    assert result.output_path.parent.name == result.assembly_id
+    assert result.assembly_id.startswith("assembly_")
+    assert len(result.assembly_id) == len("assembly_") + 32
+
+    replay = assemble_returned_artifact(
+        AssembleArtifactRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            artifact_instance_id="artifact-1",
+            expected_snapshot_revision=loaded.snapshot_revision,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+        clock=_clock,
+    )
+    assert replay.reused
+    assert replay.output_path == result.output_path
+    assert replay.output_sha256 == result.output_sha256

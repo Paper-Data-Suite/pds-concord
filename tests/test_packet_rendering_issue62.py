@@ -597,3 +597,50 @@ def test_packet_generated_surfaces_remain_planning_signal_free(
     for value in forbidden:
         assert value not in cli_text
 
+
+def _issue124_deep_parent(tmp_path: Path) -> Path:
+    candidate = tmp_path
+    while len(str(candidate / "workspace")) < 120:
+        candidate = candidate / "issue124-depth"
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
+
+
+def test_packet_rendering_operates_under_deep_workspace_path(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(_issue124_deep_parent(tmp_path))
+    assert len(str(root)) >= 120
+
+    _, committed = _installed_packet(root)
+    packet_id = committed.packet_instance_ids[0]
+    rendered = render_packet_instance(
+        RenderPacketInstanceRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            packet_instance_id=packet_id,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+
+    assert rendered.output_path.is_file()
+    assert rendered.output_path.read_bytes().startswith(b"%PDF")
+    assert rendered.output_path.parent.name == "packets"
+    assert len(rendered.output_path.name) == 32
+    assert validate_generated_output_filename(
+        rendered.output_path.name
+    ) == rendered.output_path.name
+
+    replay = render_packet_instance(
+        RenderPacketInstanceRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            packet_instance_id=packet_id,
+            actor=_actor(),
+        ),
+        workspace_root=root,
+    )
+    assert replay.replayed
+    assert replay.output_path == rendered.output_path
+    assert replay.output_sha256 == rendered.output_sha256

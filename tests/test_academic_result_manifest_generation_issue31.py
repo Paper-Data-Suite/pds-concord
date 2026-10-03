@@ -646,3 +646,42 @@ def test_group_plan_native_change_is_excluded_from_manifest_projection(
     assert b"private-planned-group-marker" not in second.content
     assert b"private-signal-set" not in second.content
     assert b"private-dimension" not in second.content
+
+
+def _issue124_deep_parent(tmp_path: Path) -> Path:
+    candidate = tmp_path
+    while len(str(candidate / "workspace")) < 120:
+        candidate = candidate / "issue124-depth"
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
+
+
+def test_manifest_generation_operates_under_deep_workspace_path(
+    tmp_path: Path,
+) -> None:
+    root, revision = _workspace(_issue124_deep_parent(tmp_path))
+    assert len(str(root)) >= 120
+
+    result = generate_academic_result_manifest(
+        _request(revision),
+        workspace_root=root,
+        clock=lambda: _clock(16),
+    )
+
+    assert result.disposition == "created"
+    assert result.revision == 1
+    assert result.path.is_file()
+    assert result.path.name == "1.json"
+    assert result.path.read_bytes() == result.content
+    assert result.relative_path.endswith(
+        "/exports/manifests/academic_results/1.json"
+    )
+
+    replay = generate_academic_result_manifest(
+        _request(revision),
+        workspace_root=root,
+        clock=lambda: _clock(17),
+    )
+    assert replay.disposition == "existing"
+    assert replay.path == result.path
+    assert replay.content == result.content
