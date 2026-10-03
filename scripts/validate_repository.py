@@ -316,6 +316,16 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_generated_path_safety_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: issue #124 generated path safety",
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,

@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #124 establishes bounded, domain-separated Concord-generated output names and applies them prospectively to new Packet-rendered PDFs while preserving stored historical Packet output paths exactly for reprint/open compatibility.
+- Packet rendering now constrains output specifically beneath `rendered/packets/`; existing Packet identities, routes, output metadata, and workspace files are not renamed or migrated.
+- Issue #124 path-pressure qualification now exercises real Packet PDF rendering, returned-Artifact assembly, and immutable Academic Result Manifest writes from a deliberately deep workspace root, including each surface's existing staging/replay behavior.
+- Issue #124 installed qualification now authenticates the exact released Core 0.6.4 wheel, proves fresh bounded retained-source provenance plus historical Core 0.6 retained-path compatibility, and requires the generated-path helper in candidate packages without raising Concord's declared Core dependency floor.
+- Issue #124 now also defines a bounded human-readable output filename contract: a 56-byte sanitized visible stem plus an opaque 10-hex canonical-identity disambiguator, with a 79-byte total filename budget for future teacher-facing report and feedback exports without exposing routine raw IDs.
+
 - Issue #108 streamlines explicit routine Artifact scoring from one exact
   reviewed Artifact, preserving native evidence identity while replacing
   manual machine-ID reconstruction with explicit target, Criterion, Scale,
