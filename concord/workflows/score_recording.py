@@ -30,6 +30,7 @@ from concord.workflows._collaboration import (
     require_new_identity,
     work_ref,
 )
+from concord.workflows._score_lineage import current_score_lineage_heads
 from concord.workflows.context import (
     Clock,
     actor_reference,
@@ -145,16 +146,7 @@ class ScoreDetail:
 
 
 def _score_heads(graph: ConcordRecordGraph) -> tuple[ScoreRecord, ...]:
-    superseded = {
-        item.supersedes_score_record_id
-        for item in graph.score_records
-        if item.supersedes_score_record_id is not None
-    }
-    return tuple(
-        item
-        for item in graph.score_records
-        if item.score_record_id not in superseded
-    )
+    return current_score_lineage_heads(graph.score_records)
 
 
 def _require_score(

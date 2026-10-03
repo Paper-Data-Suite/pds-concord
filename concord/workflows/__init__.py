@@ -15,6 +15,13 @@ from concord.workflows.activity_copy import (
     copy_activity,
     prepare_activity_copy,
 )
+from concord.workflows.activity_score_analysis import (
+    SCORE_ANALYSIS_BASIS,
+    ActivityScoreAnalysis,
+    ActivityScoreObservation,
+    TargetKindScoreCount,
+    activity_score_analysis_from_context,
+)
 from concord.workflows.artifact import (
     ArtifactDetail,
     ArtifactScanOccurrenceSummary,
@@ -568,6 +575,11 @@ from concord.workflows.template import (
 )
 
 __all__ = [
+    "SCORE_ANALYSIS_BASIS",
+    "ActivityScoreAnalysis",
+    "ActivityScoreObservation",
+    "TargetKindScoreCount",
+    "activity_score_analysis_from_context",
     "GuidedActivitySetup",
     "GuidedSetupArea",
     "SetupStatus",
