@@ -23,6 +23,8 @@ from concord.workflows.activity_score_analysis import (
     CriterionScoreAnalysis,
     DispositionDistribution,
     ScaleValueDistribution,
+    StandardCriterionAnalysis,
+    StandardScoreAnalysis,
     TargetKindScoreCount,
     activity_score_analysis_from_context,
 )
@@ -586,6 +588,8 @@ __all__ = [
     "CriterionScoreAnalysis",
     "DispositionDistribution",
     "ScaleValueDistribution",
+    "StandardCriterionAnalysis",
+    "StandardScoreAnalysis",
     "TargetKindScoreCount",
     "activity_score_analysis_from_context",
     "GuidedActivitySetup",

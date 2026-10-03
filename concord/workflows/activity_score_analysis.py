@@ -6,6 +6,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Final
 
+from pds_core.standards import StandardsLibrary
+
 from concord.models import Criterion, ScoreRecord, ScoreTargetReference, ScoringScale
 from concord.models.common import JsonScalar, scalar_key
 from concord.workflows._score_lineage import current_score_lineage_heads
@@ -114,6 +116,27 @@ class CriterionScoreAnalysis:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class StandardCriterionAnalysis:
+    """One represented standard-backed Criterion without proficiency inference."""
+
+    criterion_id: str
+    criterion_label: str
+    current_judgment_count: int
+    slices: tuple[CriterionScaleTargetAnalysis, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StandardScoreAnalysis:
+    """Descriptive grouping of represented Criteria for one durable Standard ID."""
+
+    standard_id: str
+    standard_label: str
+    standard_code: str | None
+    standard_short_name: str | None
+    criteria: tuple[StandardCriterionAnalysis, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ActivityScoreAnalysis:
     """One immutable descriptive view of current Scores at one Activity state."""
 
@@ -128,6 +151,7 @@ class ActivityScoreAnalysis:
     represented_criterion_count: int
     represented_scoring_scale_count: int
     criterion_analyses: tuple[CriterionScoreAnalysis, ...]
+    standard_analyses: tuple[StandardScoreAnalysis, ...]
     current_scores: tuple[ActivityScoreObservation, ...]
 
 
@@ -303,8 +327,73 @@ def _criterion_analyses(
     return tuple(analyses)
 
 
+def _standard_display(
+    standard_id: str,
+    standards_library: StandardsLibrary | None,
+) -> tuple[str, str | None, str | None]:
+    if standards_library is None:
+        return standard_id, None, None
+    definition = next(
+        (
+            item
+            for item in standards_library.standards
+            if item.standard_id == standard_id
+        ),
+        None,
+    )
+    if definition is None:
+        return standard_id, None, None
+    return definition.code, definition.code, definition.short_name
+
+
+def _standard_analyses(
+    criterion_analyses: tuple[CriterionScoreAnalysis, ...],
+    standards_library: StandardsLibrary | None,
+) -> tuple[StandardScoreAnalysis, ...]:
+    grouped: dict[str, list[CriterionScoreAnalysis]] = defaultdict(list)
+    for criterion in criterion_analyses:
+        if criterion.criterion_kind != "standard_backed":
+            continue
+        if criterion.standard_id is None:
+            raise ValueError(
+                "standard-backed Criterion analysis requires durable standard_id"
+            )
+        grouped[criterion.standard_id].append(criterion)
+
+    result: list[StandardScoreAnalysis] = []
+    for standard_id in sorted(grouped):
+        standard_label, standard_code, standard_short_name = _standard_display(
+            standard_id,
+            standards_library,
+        )
+        criteria = tuple(
+            StandardCriterionAnalysis(
+                criterion_id=item.criterion_id,
+                criterion_label=item.criterion_label,
+                current_judgment_count=item.current_judgment_count,
+                slices=item.slices,
+            )
+            for item in sorted(
+                grouped[standard_id],
+                key=lambda value: value.criterion_id,
+            )
+        )
+        result.append(
+            StandardScoreAnalysis(
+                standard_id=standard_id,
+                standard_label=standard_label,
+                standard_code=standard_code,
+                standard_short_name=standard_short_name,
+                criteria=criteria,
+            )
+        )
+    return tuple(result)
+
+
 def activity_score_analysis_from_context(
     context: ActivityReadContext,
+    *,
+    standards_library: StandardsLibrary | None = None,
 ) -> ActivityScoreAnalysis:
     """Project current explicit Score heads from one exact verified context."""
     activity_id = context.activity.activity_id
@@ -344,6 +433,10 @@ def activity_score_analysis_from_context(
         for item in current_heads
     )
     criterion_analyses = _criterion_analyses(context, current_heads)
+    standard_analyses = _standard_analyses(
+        criterion_analyses,
+        standards_library,
+    )
     return ActivityScoreAnalysis(
         class_id=context.work.class_id,
         activity_id=activity_id,
@@ -358,6 +451,7 @@ def activity_score_analysis_from_context(
             {item.scoring_scale_id for item in current_heads}
         ),
         criterion_analyses=criterion_analyses,
+        standard_analyses=standard_analyses,
         current_scores=observations,
     )
 
@@ -370,6 +464,8 @@ __all__ = [
     "CriterionScoreAnalysis",
     "DispositionDistribution",
     "ScaleValueDistribution",
+    "StandardCriterionAnalysis",
+    "StandardScoreAnalysis",
     "TargetKindScoreCount",
     "activity_score_analysis_from_context",
 ]

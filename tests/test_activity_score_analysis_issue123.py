@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from pds_core.routing_models import ModuleRecordRef, ModuleWorkRef
+from pds_core.standards import StandardDefinition, StandardsLibrary
 
 from concord.model_validation import ConcordRecordGraph
 from concord.models import (
@@ -21,6 +22,8 @@ from concord.models import (
 from concord.workflows import (
     SCORE_ANALYSIS_BASIS,
     ActivityScoreAnalysis,
+    StandardCriterionAnalysis,
+    StandardScoreAnalysis,
     activity_score_analysis_from_context,
 )
 from concord.workflows._score_lineage import current_score_lineage_heads
@@ -64,6 +67,7 @@ def _criterion(
         "concord_session",
         "concord_activity",
     ),
+    standard_id: str | None = None,
 ) -> Criterion:
     return Criterion(
         criterion_id=criterion_id,
@@ -71,10 +75,11 @@ def _criterion(
         key=criterion_id,
         label=label,
         definition=f"Synthetic definition for {label}.",
-        criterion_kind="local",
+        criterion_kind="standard_backed" if standard_id is not None else "local",
         supported_target_kinds=supported_target_kinds,
         status="active",
         created_provenance=_provenance(),
+        standard_id=standard_id,
         default_scoring_scale_id="scale-1",
     )
 
@@ -136,13 +141,15 @@ def _score(
     disposition: str = "scored",
     value: str | int | float | bool | None = 3,
     supersedes: str | None = None,
+    standard_id: str | None = None,
 ) -> ScoreRecord:
     return ScoreRecord(
         score_record_id=score_record_id,
         activity_id="activity-1",
         target_reference=target,
         criterion_id=criterion_id,
-        score_kind="local",
+        score_kind="standard_backed" if standard_id is not None else "local",
+        standard_id=standard_id,
         scoring_scale_id=scoring_scale_id,
         disposition=disposition,
         value=value,
@@ -533,3 +540,188 @@ def test_analysis_contract_exposes_no_grade_or_completion_inference_fields() -> 
         for name in names
         for fragment in forbidden_fragments
     )
+
+def test_standards_view_groups_criteria_without_collapsing_scale_slices() -> None:
+    standard_id = "standard-1"
+    first = _criterion(
+        "criterion-a",
+        "Uses Evidence",
+        standard_id=standard_id,
+    )
+    second = _criterion(
+        "criterion-b",
+        "Explains Reasoning",
+        standard_id=standard_id,
+    )
+    local = _criterion("criterion-local", "Local Process")
+    scale_a = _scale(
+        "scale-a",
+        lineage_id="scale-a-lineage",
+        name="Evidence rubric",
+    )
+    scale_b = _scale(
+        "scale-b",
+        lineage_id="scale-b-lineage",
+        name="Reasoning rubric",
+    )
+    scores = (
+        _score(
+            "score-a",
+            target=_target("core_student", "student-a"),
+            criterion_id=first.criterion_id,
+            scoring_scale_id=scale_a.scoring_scale_id,
+            value=3,
+            standard_id=standard_id,
+        ),
+        _score(
+            "score-b",
+            target=_target("core_student", "student-b"),
+            criterion_id=second.criterion_id,
+            scoring_scale_id=scale_b.scoring_scale_id,
+            value=4,
+            standard_id=standard_id,
+        ),
+        _score(
+            "score-local",
+            target=_target("core_student", "student-c"),
+            criterion_id=local.criterion_id,
+            scoring_scale_id=scale_a.scoring_scale_id,
+            value=2,
+        ),
+    )
+    analysis = activity_score_analysis_from_context(
+        _context_with(
+            criteria=(first, second, local),
+            scales=(scale_a, scale_b),
+            scores=scores,
+        )
+    )
+
+    assert len(analysis.standard_analyses) == 1
+    standard = analysis.standard_analyses[0]
+    assert isinstance(standard, StandardScoreAnalysis)
+    assert standard.standard_id == standard_id
+    assert standard.standard_label == standard_id
+    assert standard.standard_code is None
+    assert standard.standard_short_name is None
+    assert tuple(item.criterion_id for item in standard.criteria) == (
+        "criterion-a",
+        "criterion-b",
+    )
+    assert all(
+        isinstance(item, StandardCriterionAnalysis)
+        for item in standard.criteria
+    )
+    assert tuple(
+        item.slices[0].scoring_scale_id for item in standard.criteria
+    ) == ("scale-a", "scale-b")
+    assert "criterion-local" not in {
+        item.criterion_id
+        for group in analysis.standard_analyses
+        for item in group.criteria
+    }
+
+
+def test_core_standard_label_resolution_is_presentation_only() -> None:
+    standard_id = "standard-1"
+    criterion = _criterion(
+        "criterion-standard",
+        "Uses Evidence",
+        standard_id=standard_id,
+    )
+    score = _score(
+        "score-standard",
+        target=_target("core_student", "student-1"),
+        criterion_id=criterion.criterion_id,
+        value=3,
+        standard_id=standard_id,
+    )
+    context = _context_with(
+        criteria=(criterion,),
+        scales=(_scale(),),
+        scores=(score,),
+    )
+    library = StandardsLibrary(
+        standards=(
+            StandardDefinition(
+                standard_id=standard_id,
+                code="SYN.1",
+                source="synthetic",
+                short_name="Synthetic Standard",
+                description="Synthetic standard used only by tests.",
+            ),
+        )
+    )
+
+    fallback = activity_score_analysis_from_context(context)
+    resolved = activity_score_analysis_from_context(
+        context,
+        standards_library=library,
+    )
+
+    assert fallback.standard_analyses[0].standard_label == standard_id
+    assert fallback.standard_analyses[0].standard_code is None
+    assert fallback.standard_analyses[0].standard_short_name is None
+    assert resolved.standard_analyses[0].standard_label == "SYN.1"
+    assert resolved.standard_analyses[0].standard_code == "SYN.1"
+    assert resolved.standard_analyses[0].standard_short_name == "Synthetic Standard"
+    assert resolved.criterion_analyses == fallback.criterion_analyses
+    assert resolved.current_scores == fallback.current_scores
+    assert resolved.current_score_count == fallback.current_score_count
+
+
+def test_missing_core_standard_definition_falls_back_to_durable_id() -> None:
+    standard_id = "standard-unavailable"
+    criterion = _criterion(
+        "criterion-standard",
+        "Uses Evidence",
+        standard_id=standard_id,
+    )
+    score = _score(
+        "score-standard",
+        target=_target("core_student", "student-1"),
+        criterion_id=criterion.criterion_id,
+        value=3,
+        standard_id=standard_id,
+    )
+    unrelated_library = StandardsLibrary(
+        standards=(
+            StandardDefinition(
+                standard_id="other-standard",
+                code="OTHER.1",
+                source="synthetic",
+                short_name="Other Standard",
+                description="Unrelated synthetic standard.",
+            ),
+        )
+    )
+
+    analysis = activity_score_analysis_from_context(
+        _context_with(
+            criteria=(criterion,),
+            scales=(_scale(),),
+            scores=(score,),
+        ),
+        standards_library=unrelated_library,
+    )
+
+    standard = analysis.standard_analyses[0]
+    assert standard.standard_id == standard_id
+    assert standard.standard_label == standard_id
+    assert standard.standard_code is None
+    assert standard.standard_short_name is None
+
+
+def test_standards_analysis_contract_has_no_proficiency_or_mastery_rollup() -> None:
+    standard_fields = {item.name for item in fields(StandardScoreAnalysis)}
+    criterion_fields = {item.name for item in fields(StandardCriterionAnalysis)}
+    forbidden = {
+        "average",
+        "grade",
+        "mastery",
+        "proficiency",
+        "level",
+        "rate",
+    }
+    assert not standard_fields.intersection(forbidden)
+    assert not criterion_fields.intersection(forbidden)
