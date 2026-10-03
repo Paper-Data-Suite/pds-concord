@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Final
 
-from concord.models import ScoreTargetReference
+from concord.models import Criterion, ScoreRecord, ScoreTargetReference, ScoringScale
+from concord.models.common import JsonScalar, scalar_key
 from concord.workflows._score_lineage import current_score_lineage_heads
 from concord.workflows.activity_read import ActivityReadContext
 
@@ -17,6 +18,18 @@ _TARGET_KIND_ORDER: Final[tuple[str, ...]] = (
     "concord_artifact_instance",
     "concord_session",
     "concord_activity",
+)
+_TARGET_KIND_RANK: Final[dict[str, int]] = {
+    value: index for index, value in enumerate(_TARGET_KIND_ORDER)
+}
+_DISPOSITION_ORDER: Final[tuple[str, ...]] = (
+    "scored",
+    "insufficient_evidence",
+    "absent",
+    "excused",
+    "not_observed",
+    "not_applicable",
+    "deferred",
 )
 
 
@@ -47,6 +60,60 @@ class ActivityScoreObservation:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ScaleValueDistribution:
+    """One exact native Scale value count within one analysis slice."""
+
+    value: JsonScalar
+    label: str
+    count: int
+    denominator: int
+    percentage: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DispositionDistribution:
+    """One Score disposition count within one analysis slice."""
+
+    disposition: str
+    count: int
+    denominator: int
+    percentage: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CriterionScaleTargetAnalysis:
+    """Descriptive counts for one exact Criterion/Scale/target-kind slice."""
+
+    criterion_id: str
+    criterion_label: str
+    criterion_kind: str
+    standard_id: str | None
+    scoring_scale_id: str
+    scoring_scale_lineage_id: str
+    scoring_scale_name: str
+    scoring_scale_revision: int
+    scoring_scale_type: str
+    target_kind: str
+    current_judgment_count: int
+    scored_count: int
+    non_score_count: int
+    value_distributions: tuple[ScaleValueDistribution, ...]
+    disposition_distributions: tuple[DispositionDistribution, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CriterionScoreAnalysis:
+    """All represented current Score slices for one exact Criterion."""
+
+    criterion_id: str
+    criterion_label: str
+    criterion_kind: str
+    standard_id: str | None
+    current_judgment_count: int
+    slices: tuple[CriterionScaleTargetAnalysis, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ActivityScoreAnalysis:
     """One immutable descriptive view of current Scores at one Activity state."""
 
@@ -58,7 +125,182 @@ class ActivityScoreAnalysis:
     score_basis: str
     current_score_count: int
     target_kind_counts: tuple[TargetKindScoreCount, ...]
+    represented_criterion_count: int
+    represented_scoring_scale_count: int
+    criterion_analyses: tuple[CriterionScoreAnalysis, ...]
     current_scores: tuple[ActivityScoreObservation, ...]
+
+
+def _percentage(count: int, denominator: int) -> str:
+    """Return a deterministic one-decimal percentage using integer half-up rounding."""
+    if denominator <= 0:
+        raise ValueError("percentage denominator must be positive")
+    scaled, remainder = divmod(count * 1000, denominator)
+    if remainder * 2 >= denominator:
+        scaled += 1
+    return f"{scaled // 10}.{scaled % 10}"
+
+
+def _require_criterion(
+    criterion_by_id: dict[str, Criterion],
+    criterion_id: str,
+) -> Criterion:
+    try:
+        return criterion_by_id[criterion_id]
+    except KeyError as error:
+        raise ValueError(
+            f"Score analysis references unavailable Criterion: {criterion_id}"
+        ) from error
+
+
+def _require_scale(
+    scale_by_id: dict[str, ScoringScale],
+    scoring_scale_id: str,
+) -> ScoringScale:
+    try:
+        return scale_by_id[scoring_scale_id]
+    except KeyError as error:
+        raise ValueError(
+            f"Score analysis references unavailable Scoring Scale: {scoring_scale_id}"
+        ) from error
+
+
+def _value_distributions(
+    records: tuple[ScoreRecord, ...],
+    scale: ScoringScale,
+) -> tuple[ScaleValueDistribution, ...]:
+    scored = tuple(item for item in records if item.disposition == "scored")
+    denominator = len(scored)
+    if denominator == 0:
+        return ()
+
+    counts: Counter[tuple[type[object], JsonScalar]] = Counter()
+    for score in scored:
+        if score.value is None:
+            raise ValueError("scored Score analysis observation requires a value")
+        counts[scalar_key(score.value)] += 1
+
+    distributions: list[ScaleValueDistribution] = []
+    represented_count = 0
+    for level in scale.levels:
+        count = counts.get(scalar_key(level.value), 0)
+        if count == 0:
+            continue
+        represented_count += count
+        distributions.append(
+            ScaleValueDistribution(
+                value=level.value,
+                label=level.label,
+                count=count,
+                denominator=denominator,
+                percentage=_percentage(count, denominator),
+            )
+        )
+    if represented_count != denominator:
+        raise ValueError(
+            "Score analysis encountered a scored value absent from its "
+            "exact Scale revision"
+        )
+    return tuple(distributions)
+
+
+def _disposition_distributions(
+    records: tuple[ScoreRecord, ...],
+) -> tuple[DispositionDistribution, ...]:
+    denominator = len(records)
+    if denominator == 0:
+        return ()
+    counts = Counter(item.disposition for item in records)
+    return tuple(
+        DispositionDistribution(
+            disposition=disposition,
+            count=counts[disposition],
+            denominator=denominator,
+            percentage=_percentage(counts[disposition], denominator),
+        )
+        for disposition in _DISPOSITION_ORDER
+        if counts[disposition]
+    )
+
+
+def _criterion_analyses(
+    context: ActivityReadContext,
+    current_heads: tuple[ScoreRecord, ...],
+) -> tuple[CriterionScoreAnalysis, ...]:
+    criterion_by_id = {
+        item.criterion_id: item for item in context.graph.criteria
+    }
+    scale_by_id = {
+        item.scoring_scale_id: item for item in context.graph.scoring_scales
+    }
+    grouped: dict[tuple[str, str, str], list[ScoreRecord]] = defaultdict(list)
+    for score in current_heads:
+        grouped[
+            (
+                score.criterion_id,
+                score.scoring_scale_id,
+                score.target_reference.target_kind,
+            )
+        ].append(score)
+
+    slices_by_criterion: dict[
+        str, list[CriterionScaleTargetAnalysis]
+    ] = defaultdict(list)
+    for criterion_id, scoring_scale_id, target_kind in sorted(
+        grouped,
+        key=lambda item: (
+            item[0],
+            item[1],
+            _TARGET_KIND_RANK[item[2]],
+            item[2],
+        ),
+    ):
+        criterion = _require_criterion(criterion_by_id, criterion_id)
+        scale = _require_scale(scale_by_id, scoring_scale_id)
+        records = tuple(
+            sorted(
+                grouped[(criterion_id, scoring_scale_id, target_kind)],
+                key=lambda item: item.score_record_id,
+            )
+        )
+        scored_count = sum(item.disposition == "scored" for item in records)
+        slices_by_criterion[criterion_id].append(
+            CriterionScaleTargetAnalysis(
+                criterion_id=criterion.criterion_id,
+                criterion_label=criterion.label,
+                criterion_kind=criterion.criterion_kind,
+                standard_id=criterion.standard_id,
+                scoring_scale_id=scale.scoring_scale_id,
+                scoring_scale_lineage_id=scale.lineage_id,
+                scoring_scale_name=scale.name,
+                scoring_scale_revision=scale.revision,
+                scoring_scale_type=scale.scale_type,
+                target_kind=target_kind,
+                current_judgment_count=len(records),
+                scored_count=scored_count,
+                non_score_count=len(records) - scored_count,
+                value_distributions=_value_distributions(records, scale),
+                disposition_distributions=_disposition_distributions(records),
+            )
+        )
+
+    analyses: list[CriterionScoreAnalysis] = []
+    for criterion_id in sorted(slices_by_criterion):
+        criterion = _require_criterion(criterion_by_id, criterion_id)
+        slices = tuple(slices_by_criterion[criterion_id])
+        analyses.append(
+            CriterionScoreAnalysis(
+                criterion_id=criterion.criterion_id,
+                criterion_label=criterion.label,
+                criterion_kind=criterion.criterion_kind,
+                standard_id=criterion.standard_id,
+                current_judgment_count=sum(
+                    item.current_judgment_count for item in slices
+                ),
+                slices=slices,
+            )
+        )
+    return tuple(analyses)
 
 
 def activity_score_analysis_from_context(
@@ -101,6 +343,7 @@ def activity_score_analysis_from_context(
         )
         for item in current_heads
     )
+    criterion_analyses = _criterion_analyses(context, current_heads)
     return ActivityScoreAnalysis(
         class_id=context.work.class_id,
         activity_id=activity_id,
@@ -110,6 +353,11 @@ def activity_score_analysis_from_context(
         score_basis=SCORE_ANALYSIS_BASIS,
         current_score_count=len(observations),
         target_kind_counts=target_kind_counts,
+        represented_criterion_count=len(criterion_analyses),
+        represented_scoring_scale_count=len(
+            {item.scoring_scale_id for item in current_heads}
+        ),
+        criterion_analyses=criterion_analyses,
         current_scores=observations,
     )
 
@@ -118,6 +366,10 @@ __all__ = [
     "SCORE_ANALYSIS_BASIS",
     "ActivityScoreAnalysis",
     "ActivityScoreObservation",
+    "CriterionScaleTargetAnalysis",
+    "CriterionScoreAnalysis",
+    "DispositionDistribution",
+    "ScaleValueDistribution",
     "TargetKindScoreCount",
     "activity_score_analysis_from_context",
 ]

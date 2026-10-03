@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields
 from pathlib import Path
 
 import pytest
@@ -10,10 +10,13 @@ from concord.model_validation import ConcordRecordGraph
 from concord.models import (
     Activity,
     ActorReference,
+    Criterion,
     PrivacyPolicy,
     Provenance,
     ScoreRecord,
     ScoreTargetReference,
+    ScoringScale,
+    ScoringScaleLevel,
 )
 from concord.workflows import (
     SCORE_ANALYSIS_BASIS,
@@ -50,11 +53,86 @@ def _target(kind: str, target_id: str) -> ScoreTargetReference:
     )
 
 
+def _criterion(
+    criterion_id: str,
+    label: str,
+    *,
+    supported_target_kinds: tuple[str, ...] = (
+        "core_student",
+        "concord_group",
+        "concord_artifact_instance",
+        "concord_session",
+        "concord_activity",
+    ),
+) -> Criterion:
+    return Criterion(
+        criterion_id=criterion_id,
+        criterion_set_id="set-1",
+        key=criterion_id,
+        label=label,
+        definition=f"Synthetic definition for {label}.",
+        criterion_kind="local",
+        supported_target_kinds=supported_target_kinds,
+        status="active",
+        created_provenance=_provenance(),
+        default_scoring_scale_id="scale-1",
+    )
+
+
+def _scale(
+    scoring_scale_id: str = "scale-1",
+    *,
+    lineage_id: str = "scale-lineage",
+    revision: int = 1,
+    name: str = "Four levels",
+    levels: tuple[ScoringScaleLevel, ...] | None = None,
+    supersedes: str | None = None,
+) -> ScoringScale:
+    return ScoringScale(
+        scoring_scale_id=scoring_scale_id,
+        lineage_id=lineage_id,
+        name=name,
+        revision=revision,
+        scale_type="ordinal" if levels is None else "teacher_defined",
+        levels=levels
+        or (
+            ScoringScaleLevel(
+                value=1,
+                label="Beginning",
+                meaning="Beginning evidence",
+                position=1,
+            ),
+            ScoringScaleLevel(
+                value=2,
+                label="Developing",
+                meaning="Developing evidence",
+                position=2,
+            ),
+            ScoringScaleLevel(
+                value=3,
+                label="Secure",
+                meaning="Secure evidence",
+                position=3,
+            ),
+            ScoringScaleLevel(
+                value=4,
+                label="Extending",
+                meaning="Extending evidence",
+                position=4,
+            ),
+        ),
+        status="active",
+        created_provenance=_provenance(),
+        supersedes_scoring_scale_id=supersedes,
+    )
+
+
 def _score(
     score_record_id: str,
     *,
     target: ScoreTargetReference,
     criterion_id: str,
+    scoring_scale_id: str = "scale-1",
     disposition: str = "scored",
     value: str | int | float | bool | None = 3,
     supersedes: str | None = None,
@@ -65,7 +143,7 @@ def _score(
         target_reference=target,
         criterion_id=criterion_id,
         score_kind="local",
-        scoring_scale_id="scale-1",
+        scoring_scale_id=scoring_scale_id,
         disposition=disposition,
         value=value,
         basis="professional_judgment",
@@ -78,8 +156,8 @@ def _score(
     )
 
 
-def _context() -> ActivityReadContext:
-    activity = Activity(
+def _activity() -> Activity:
+    return Activity(
         activity_id="activity-1",
         class_reference=ModuleRecordRef(
             module_id="core",
@@ -92,6 +170,10 @@ def _context() -> ActivityReadContext:
         status="active",
         created_provenance=_provenance(),
     )
+
+
+def _context() -> ActivityReadContext:
+    activity = _activity()
     predecessor = _score(
         "score-student-old",
         target=_target("core_student", "student-1"),
@@ -119,7 +201,34 @@ def _context() -> ActivityReadContext:
         snapshot_sha256="a" * 64,
         graph=ConcordRecordGraph(
             activities=(activity,),
+            criteria=(
+                _criterion("criterion-1", "Reasoning"),
+                _criterion("criterion-2", "Process"),
+            ),
+            scoring_scales=(_scale(),),
             score_records=(predecessor, successor, group),
+        ),
+        activity=activity,
+    )
+
+
+def _context_with(
+    *,
+    criteria: tuple[Criterion, ...],
+    scales: tuple[ScoringScale, ...],
+    scores: tuple[ScoreRecord, ...],
+) -> ActivityReadContext:
+    activity = _activity()
+    return ActivityReadContext(
+        root=Path("/synthetic/read-only"),
+        work=ModuleWorkRef("concord", "class-1", "activity-1"),
+        snapshot_revision=11,
+        snapshot_sha256="b" * 64,
+        graph=ConcordRecordGraph(
+            activities=(activity,),
+            criteria=criteria,
+            scoring_scales=scales,
+            score_records=scores,
         ),
         activity=activity,
     )
@@ -161,6 +270,8 @@ def test_activity_analysis_uses_one_context_and_current_heads_only() -> None:
         ("core_student", 1),
         ("concord_group", 1),
     )
+    assert analysis.represented_criterion_count == 2
+    assert analysis.represented_scoring_scale_count == 1
     assert tuple(item.score_record_id for item in analysis.current_scores) == (
         "score-group-current",
         "score-student-current",
@@ -190,3 +301,235 @@ def test_activity_analysis_models_are_frozen() -> None:
 
     with pytest.raises(FrozenInstanceError):
         analysis.current_score_count = 99  # type: ignore[misc]
+
+
+def test_criterion_distributions_use_exact_denominators_and_rounding() -> None:
+    criterion = _criterion("criterion-1", "Reasoning")
+    scores = (
+        _score(
+            "score-01",
+            target=_target("core_student", "student-01"),
+            criterion_id=criterion.criterion_id,
+            value=3,
+        ),
+        _score(
+            "score-02",
+            target=_target("core_student", "student-02"),
+            criterion_id=criterion.criterion_id,
+            value=3,
+        ),
+        _score(
+            "score-03",
+            target=_target("core_student", "student-03"),
+            criterion_id=criterion.criterion_id,
+            value=4,
+        ),
+        *tuple(
+            _score(
+                f"score-non-{index}",
+                target=_target("core_student", f"student-non-{index}"),
+                criterion_id=criterion.criterion_id,
+                disposition=disposition,
+                value=None,
+            )
+            for index, disposition in enumerate(
+                (
+                    "insufficient_evidence",
+                    "absent",
+                    "excused",
+                    "not_observed",
+                    "not_applicable",
+                    "deferred",
+                ),
+                start=1,
+            )
+        ),
+    )
+    analysis = activity_score_analysis_from_context(
+        _context_with(criteria=(criterion,), scales=(_scale(),), scores=scores)
+    )
+
+    criterion_analysis = analysis.criterion_analyses[0]
+    score_slice = criterion_analysis.slices[0]
+    assert criterion_analysis.current_judgment_count == 9
+    assert score_slice.current_judgment_count == 9
+    assert score_slice.scored_count == 3
+    assert score_slice.non_score_count == 6
+    assert tuple(
+        (item.value, item.label, item.count, item.denominator, item.percentage)
+        for item in score_slice.value_distributions
+    ) == (
+        (3, "Secure", 2, 3, "66.7"),
+        (4, "Extending", 1, 3, "33.3"),
+    )
+    assert tuple(
+        (item.disposition, item.count, item.denominator, item.percentage)
+        for item in score_slice.disposition_distributions
+    ) == (
+        ("scored", 3, 9, "33.3"),
+        ("insufficient_evidence", 1, 9, "11.1"),
+        ("absent", 1, 9, "11.1"),
+        ("excused", 1, 9, "11.1"),
+        ("not_observed", 1, 9, "11.1"),
+        ("not_applicable", 1, 9, "11.1"),
+        ("deferred", 1, 9, "11.1"),
+    )
+
+
+def test_criterion_distributions_separate_scale_revisions_and_target_kinds() -> None:
+    criterion = _criterion("criterion-1", "Reasoning")
+    scale_v1 = _scale(
+        "scale-v1",
+        lineage_id="shared-scale-lineage",
+        revision=1,
+        name="Scale revision 1",
+    )
+    scale_v2 = _scale(
+        "scale-v2",
+        lineage_id="shared-scale-lineage",
+        revision=2,
+        name="Scale revision 2",
+        supersedes="scale-v1",
+    )
+    scores = (
+        _score(
+            "score-old-scale",
+            target=_target("core_student", "student-1"),
+            criterion_id=criterion.criterion_id,
+            scoring_scale_id="scale-v1",
+            value=4,
+        ),
+        _score(
+            "score-new-scale",
+            target=_target("core_student", "student-2"),
+            criterion_id=criterion.criterion_id,
+            scoring_scale_id="scale-v2",
+            value=4,
+        ),
+        _score(
+            "score-group",
+            target=_target("concord_group", "group-1"),
+            criterion_id=criterion.criterion_id,
+            scoring_scale_id="scale-v2",
+            value=4,
+        ),
+    )
+    analysis = activity_score_analysis_from_context(
+        _context_with(
+            criteria=(criterion,),
+            scales=(scale_v1, scale_v2),
+            scores=scores,
+        )
+    )
+
+    criterion_analysis = analysis.criterion_analyses[0]
+    assert analysis.represented_scoring_scale_count == 2
+    assert tuple(
+        (
+            item.scoring_scale_id,
+            item.scoring_scale_revision,
+            item.target_kind,
+            item.current_judgment_count,
+        )
+        for item in criterion_analysis.slices
+    ) == (
+        ("scale-v1", 1, "core_student", 1),
+        ("scale-v2", 2, "core_student", 1),
+        ("scale-v2", 2, "concord_group", 1),
+    )
+    assert all(item.current_judgment_count == 1 for item in criterion_analysis.slices)
+
+
+def test_scale_value_distribution_preserves_type_sensitive_native_values() -> None:
+    criterion = _criterion("criterion-types", "Typed values")
+    levels = (
+        ScoringScaleLevel(value=1, label="Integer", meaning="Integer one."),
+        ScoringScaleLevel(value=1.0, label="Float", meaning="Float one."),
+        ScoringScaleLevel(value="1", label="String", meaning="String one."),
+        ScoringScaleLevel(value=True, label="Boolean", meaning="Boolean true."),
+    )
+    scale = _scale(
+        "scale-types",
+        lineage_id="scale-types-lineage",
+        name="Type-sensitive values",
+        levels=levels,
+    )
+    typed_values: tuple[tuple[str, int | float | str | bool, type[object]], ...] = (
+        ("int", 1, int),
+        ("float", 1.0, float),
+        ("string", "1", str),
+        ("bool", True, bool),
+    )
+    scores = tuple(
+        _score(
+            f"score-{suffix}",
+            target=_target("core_student", f"student-{suffix}"),
+            criterion_id=criterion.criterion_id,
+            scoring_scale_id=scale.scoring_scale_id,
+            value=value,
+        )
+        for suffix, value, _ in typed_values
+    )
+    analysis = activity_score_analysis_from_context(
+        _context_with(criteria=(criterion,), scales=(scale,), scores=scores)
+    )
+
+    values = analysis.criterion_analyses[0].slices[0].value_distributions
+    assert tuple(item.label for item in values) == (
+        "Integer",
+        "Float",
+        "String",
+        "Boolean",
+    )
+    assert tuple(type(item.value) for item in values) == tuple(
+        expected_type for _, _, expected_type in typed_values
+    )
+    assert all(item.count == 1 for item in values)
+    assert all(item.denominator == 4 for item in values)
+    assert all(item.percentage == "25.0" for item in values)
+
+
+def test_superseded_score_is_not_counted_in_criterion_distribution() -> None:
+    analysis = activity_score_analysis_from_context(_context())
+
+    criterion_analysis = next(
+        item
+        for item in analysis.criterion_analyses
+        if item.criterion_id == "criterion-1"
+    )
+    score_slice = criterion_analysis.slices[0]
+    assert criterion_analysis.current_judgment_count == 1
+    assert tuple(
+        (item.value, item.count) for item in score_slice.value_distributions
+    ) == ((3, 1),)
+
+
+def test_analysis_contract_exposes_no_grade_or_completion_inference_fields() -> None:
+    names = {
+        field.name
+        for model in (
+            ActivityScoreAnalysis,
+            type(
+                activity_score_analysis_from_context(_context()).criterion_analyses[0]
+            ),
+            type(
+                activity_score_analysis_from_context(_context())
+                .criterion_analyses[0]
+                .slices[0]
+            ),
+        )
+        for field in fields(model)
+    }
+    forbidden_fragments = (
+        "average",
+        "grade",
+        "mastery",
+        "proficiency",
+        "missing",
+        "required",
+    )
+    assert not any(
+        fragment in name
+        for name in names
+        for fragment in forbidden_fragments
+    )
