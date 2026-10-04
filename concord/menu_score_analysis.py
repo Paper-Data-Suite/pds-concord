@@ -16,6 +16,7 @@ from concord.menu_navigation import (
     parse_menu_navigation,
 )
 from concord.menu_prompts import load_menu_standards_library, select_one, show_result
+from concord.menu_score_analysis_export import launch_score_report_export
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -414,9 +415,10 @@ def launch_score_analysis_menu(activity: ActivitySummary) -> None:
             activity.activity_id,
         )
         resolver = _student_label_resolver(context)
+        standards_library = load_menu_standards_library()
         analysis = activity_score_analysis_from_context(
             context,
-            standards_library=load_menu_standards_library(),
+            standards_library=standards_library,
         )
     except Exception as error:
         show_result("Score Analysis Error", (str(error),))
@@ -431,6 +433,7 @@ def launch_score_analysis_menu(activity: ActivitySummary) -> None:
         print("2. Target Detail")
         print("3. Standards / Criterion View")
         print("4. Score History")
+        print("5. Export Report")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -465,6 +468,21 @@ def launch_score_analysis_menu(activity: ActivitySummary) -> None:
         elif choice == "4":
             try:
                 _history_view(context, resolver)
+            except CancelMenuAction:
+                continue
+        elif choice == "5":
+            try:
+                launch_score_report_export(
+                    context,
+                    analysis,
+                    target_labeler=lambda target: _target_label(
+                        context,
+                        target,
+                        resolver,
+                    ),
+                    target_label_resolver=resolver,
+                    standards_library=standards_library,
+                )
             except CancelMenuAction:
                 continue
         else:
