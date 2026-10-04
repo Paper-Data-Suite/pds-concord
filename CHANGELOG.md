@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #123 adds immutable teacher-facing Activity Score Analysis over one exact verified Activity snapshot, with current Score lineage heads as the default population, explicit Score History, distinct target kinds, exact Criterion/Scale-revision distributions, non-score disposition counts, and Standards / Criterion grouping without Grade or proficiency inference.
+- Issue #123 local reporting adds privacy-minimized Activity Analysis and teacher-local Target Detail exports in deterministic JSON, CSV, and paginated PDF formats, all consuming the same derived numerator/denominator/percentage semantics.
+- Score Analysis export now follows a deliberate prepare/preview/literal `GENERATE` workflow with bounded #124 `cgo_<24hex>` report-package identity, fixed leaves, create-or-verify/reuse behavior, and no silent overwrite or automatic publication.
+- Issue #123 source acceptance documents the report/privacy/publication boundaries and locks long-label-independent canonical identity, fixed leaves, shared generated-path policy, link-like output rejection, and the absence of a second filename sanitizer.
+
 - Issue #124 establishes bounded, domain-separated Concord-generated output names and applies them prospectively to new Packet-rendered PDFs while preserving stored historical Packet output paths exactly for reprint/open compatibility.
 - Packet rendering now constrains output specifically beneath `rendered/packets/`; existing Packet identities, routes, output metadata, and workspace files are not renamed or migrated.
 - Issue #124 path-pressure qualification now exercises real Packet PDF rendering, returned-Artifact assembly, and immutable Academic Result Manifest writes from a deliberately deep workspace root, including each surface's existing staging/replay behavior.

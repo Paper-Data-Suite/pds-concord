@@ -197,6 +197,17 @@ generated-output audit, fixed-length opaque naming contract, bounded
 human-readable filename contract, Packet-rendering compatibility,
 no-migration rule, and released Core 0.6.4 qualification baseline.
 
+### v0.3.1 Activity Score Analysis and local reports
+
+[`v0.3.1-activity-score-analysis-local-reports.md`](v0.3.1-activity-score-analysis-local-reports.md)
+
+Documents issue #123's immutable descriptive Activity Score analysis,
+current-head/history boundary, exact Criterion/Scale/disposition semantics,
+Target Detail and Standards / Criterion views, JSON/CSV/PDF local reports,
+literal `GENERATE` export confirmation, teacher-local/privacy boundaries,
+#124 bounded package identity and fixed leaves, no-migration/no-publication
+contract, and the Core 0.6.4 final qualification target.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)
