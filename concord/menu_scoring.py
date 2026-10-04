@@ -31,6 +31,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_score_analysis import launch_score_analysis_menu
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -2098,6 +2099,7 @@ def launch_score_menu(
         print("1. Record a Score")
         print("2. View Scores")
         print("3. Revise a Score")
+        print("4. Review Score Analysis")
         print("O. Open returned work")
         print_navigation()
         print()
@@ -2124,6 +2126,8 @@ def launch_score_menu(
             _browse_scores(activity)
         elif choice == "3":
             _revise_score(activity, session_state)
+        elif choice == "4":
+            launch_score_analysis_menu(activity)
         elif choice.upper() == "O":
             open_returned_work(activity)
         else:
@@ -2153,6 +2157,7 @@ def launch_scoring_menu(
         print("4. Record a Score")
         print("5. Browse current Scores")
         print("6. Revise a Score")
+        print("7. Review Score Analysis")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2182,6 +2187,8 @@ def launch_scoring_menu(
             _browse_scores(activity)
         elif choice == "6":
             _revise_score(activity, session_state)
+        elif choice == "7":
+            launch_score_analysis_menu(activity)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
