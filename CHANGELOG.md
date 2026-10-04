@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #123 final qualification adds isolated candidate-wheel acceptance against the authenticated released Core 0.6.4 wheel, covering all five Score target kinds, correction history, Standards lookup, JSON/CSV/PDF output, long-label path safety, provider health, and canonical/publication nonmutation under `python -I`.
 - Issue #123 adds immutable teacher-facing Activity Score Analysis over one exact verified Activity snapshot, with current Score lineage heads as the default population, explicit Score History, distinct target kinds, exact Criterion/Scale-revision distributions, non-score disposition counts, and Standards / Criterion grouping without Grade or proficiency inference.
 - Issue #123 local reporting adds privacy-minimized Activity Analysis and teacher-local Target Detail exports in deterministic JSON, CSV, and paginated PDF formats, all consuming the same derived numerator/denominator/percentage semantics.
 - Score Analysis export now follows a deliberate prepare/preview/literal `GENERATE` workflow with bounded #124 `cgo_<24hex>` report-package identity, fixed leaves, create-or-verify/reuse behavior, and no silent overwrite or automatic publication.

@@ -326,6 +326,18 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_activity_score_analysis_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase=(
+                    "installed-wheel smoke: issue #123 Activity Score Analysis"
+                ),
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,
