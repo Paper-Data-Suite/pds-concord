@@ -6,6 +6,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pypdfium2 as pdfium
 import pytest
 
 from concord.generated_paths import build_generated_output_token
@@ -32,6 +33,10 @@ from concord.workflows.activity_score_report_output import (
     execute_prepared_score_analysis_report,
     render_score_analysis_report_csv,
     render_score_analysis_report_json,
+)
+from concord.workflows.activity_score_report_pdf import (
+    PDF_MEDIA_TYPE,
+    render_score_analysis_report_pdf,
 )
 
 
@@ -396,13 +401,93 @@ def test_unexpected_existing_package_entry_blocks_generation(
     assert tuple(path for path in prepared.output_paths if path.exists()) == ()
 
 
-def test_pdf_execution_remains_separate_in_slice_8(tmp_path: Path) -> None:
-    json_report = _activity_prepared(tmp_path, report_format="json")
-    pdf_report = replace(
-        json_report,
+def _pdf_activity_prepared(
+    tmp_path: Path,
+    *,
+    payload: ActivityAnalysisReport | None = None,
+) -> PreparedScoreAnalysisReport:
+    base = _activity_prepared(tmp_path, report_format="json")
+    return replace(
+        base,
         report_format="pdf",
-        output_paths=(json_report.package_path / "activity_analysis.pdf",),
+        output_paths=(base.package_path / "activity_analysis.pdf",),
+        payload=base.payload if payload is None else payload,
     )
 
-    with pytest.raises(ScoreAnalysisReportOutputError, match="PDF"):
-        execute_prepared_score_analysis_report(pdf_report)
+
+def _pdf_target_prepared(tmp_path: Path) -> PreparedScoreAnalysisReport:
+    base = _target_prepared(tmp_path, report_format="json")
+    return replace(
+        base,
+        report_format="pdf",
+        output_paths=(base.package_path / "target_detail.pdf",),
+    )
+
+
+def _pdf_page_count(data: bytes) -> int:
+    document = pdfium.PdfDocument(data)
+    try:
+        return len(document)
+    finally:
+        document.close()
+
+
+def test_activity_pdf_is_deterministic_readable_and_fixed_leaf(
+    tmp_path: Path,
+) -> None:
+    prepared = _pdf_activity_prepared(tmp_path)
+
+    first = render_score_analysis_report_pdf(prepared)
+    second = render_score_analysis_report_pdf(prepared)
+
+    assert first == second
+    assert first.report_format == "pdf"
+    assert first.artifacts[0].filename == "activity_analysis.pdf"
+    assert first.artifacts[0].media_type == PDF_MEDIA_TYPE
+    assert first.artifacts[0].content.startswith(b"%PDF")
+    assert _pdf_page_count(first.artifacts[0].content) >= 1
+
+
+def test_activity_pdf_paginates_large_analysis_without_shrinking(
+    tmp_path: Path,
+) -> None:
+    base = _activity_payload()
+    large = replace(
+        base,
+        criterion_analyses=base.criterion_analyses * 30,
+        standard_analyses=base.standard_analyses * 8,
+    )
+    prepared = _pdf_activity_prepared(tmp_path, payload=large)
+
+    rendered = render_score_analysis_report_pdf(prepared)
+
+    assert _pdf_page_count(rendered.artifacts[0].content) > 1
+
+
+def test_target_pdf_uses_teacher_local_fixed_leaf_without_raw_target_id(
+    tmp_path: Path,
+) -> None:
+    prepared = _pdf_target_prepared(tmp_path)
+
+    rendered = render_score_analysis_report_pdf(prepared)
+
+    artifact = rendered.artifacts[0]
+    assert artifact.filename == "target_detail.pdf"
+    assert artifact.content.startswith(b"%PDF")
+    assert b"student-private-001" not in artifact.content
+    assert _pdf_page_count(artifact.content) >= 1
+
+
+def test_pdf_execution_uses_shared_bounded_installer_and_reuse(
+    tmp_path: Path,
+) -> None:
+    prepared = _pdf_activity_prepared(tmp_path)
+
+    first = execute_prepared_score_analysis_report(prepared)
+    before = prepared.output_paths[0].read_bytes()
+    second = execute_prepared_score_analysis_report(prepared)
+
+    assert first.created_output_paths == prepared.output_paths
+    assert second.reused is True
+    assert second.reused_output_paths == prepared.output_paths
+    assert prepared.output_paths[0].read_bytes() == before

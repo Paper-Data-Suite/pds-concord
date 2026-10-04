@@ -1,4 +1,4 @@
-"""Deterministic JSON/CSV rendering and bounded local report installation."""
+"""Deterministic JSON/CSV/PDF rendering and bounded local report installation."""
 
 from __future__ import annotations
 
@@ -548,13 +548,19 @@ def render_score_analysis_report_csv(
 def render_prepared_score_analysis_report(
     prepared: PreparedScoreAnalysisReport,
 ) -> RenderedScoreAnalysisReport:
-    """Render the supported machine-readable format for one prepared report."""
+    """Render one supported local report format from the prepared projection."""
     if prepared.report_format == "json":
         return render_score_analysis_report_json(prepared)
     if prepared.report_format == "csv":
         return render_score_analysis_report_csv(prepared)
+    if prepared.report_format == "pdf":
+        from concord.workflows.activity_score_report_pdf import (
+            render_score_analysis_report_pdf,
+        )
+
+        return render_score_analysis_report_pdf(prepared)
     raise ScoreAnalysisReportOutputError(
-        "This execution slice supports JSON and CSV; PDF rendering is separate."
+        f"Unsupported prepared report format: {prepared.report_format}"
     )
 
 
@@ -821,7 +827,7 @@ def install_rendered_score_analysis_report(
 def execute_prepared_score_analysis_report(
     prepared: PreparedScoreAnalysisReport,
 ) -> InstalledScoreAnalysisReport:
-    """Render and install one already-confirmed prepared JSON/CSV report."""
+    """Render and install one already-confirmed prepared local report."""
     rendered = render_prepared_score_analysis_report(prepared)
     return install_rendered_score_analysis_report(prepared, rendered)
 

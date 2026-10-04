@@ -53,6 +53,10 @@ from concord.workflows.activity_score_report_output import (
     render_score_analysis_report_csv,
     render_score_analysis_report_json,
 )
+from concord.workflows.activity_score_report_pdf import (
+    PDF_MEDIA_TYPE,
+    render_score_analysis_report_pdf,
+)
 from concord.workflows.activity_score_reports import (
     CURRENT_HEAD_BOUNDARY_STATEMENT,
     REPORT_BOUNDARY_STATEMENT,
@@ -672,6 +676,8 @@ __all__ = [
     "render_prepared_score_analysis_report",
     "render_score_analysis_report_csv",
     "render_score_analysis_report_json",
+    "PDF_MEDIA_TYPE",
+    "render_score_analysis_report_pdf",
     "GuidedActivitySetup",
     "GuidedSetupArea",
     "SetupStatus",
