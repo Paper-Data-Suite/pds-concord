@@ -41,7 +41,16 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
+from concord.routing.destinations import (
+    list_routing_destination_activities,
+    list_routing_destination_classes,
+    project_routing_destination_candidates,
+    routing_destination_activity_label,
+    routing_destination_candidate_label,
+    routing_destination_class_label,
+)
 from concord.routing.review import (
+    RoutingFailureReview,
     RoutingResolutionPartialSuccessError,
     defer_routing_failure,
     list_routing_failures,
@@ -258,6 +267,69 @@ def _route() -> None:
         return
     result = route_scan_sources(sources)
     _show_scan_batch_result(result)
+
+
+def _select_routing_destination(review: RoutingFailureReview) -> RouteLocator:
+    """Browse teacher-readable routing destinations without writing state."""
+    if review.bound_work is not None:
+        work = review.bound_work
+        projection = project_routing_destination_candidates(review, work)
+        activity_title = review.activity_title or work.work_id
+    else:
+        classes = list_routing_destination_classes(review)
+        selected_class = select_one(
+            "Select Class",
+            classes,
+            [routing_destination_class_label(item) for item in classes],
+            help_text=(
+                "Choose the class that owns the intended Concord Activity. "
+                "This browsing step does not change routing state."
+            ),
+        )
+        activities = list_routing_destination_activities(
+            review, selected_class.class_id
+        )
+        selected_activity = select_one(
+            "Select Activity",
+            activities,
+            [routing_destination_activity_label(item) for item in activities],
+            help_text=(
+                "Choose the Activity that owns the intended physical page. "
+                "Only current Concord Activities are listed."
+            ),
+        )
+        work = ModuleWorkRef(
+            "concord", selected_class.class_id, selected_activity.activity_id
+        )
+        projection = project_routing_destination_candidates(review, work)
+        activity_title = selected_activity.title
+
+    if not projection.candidates:
+        diagnostic_note = (
+            f" {len(projection.diagnostics)} page candidate(s) were withheld by "
+            "route integrity checks; use Technical details for diagnostics."
+            if projection.diagnostics
+            else ""
+        )
+        raise ConcordWorkflowError(
+            "No current routable Concord pages are available for this Activity."
+            + diagnostic_note
+        )
+
+    selected = select_one(
+        f"Select Destination — {activity_title}",
+        projection.candidates,
+        [
+            routing_destination_candidate_label(candidate)
+            for candidate in projection.candidates
+        ],
+        help_text=(
+            "Choose the exact current Artifact Page for this physical scan page. "
+            "Routine labels hide route IDs; no routing change occurs until the "
+            "later explicit RESOLVE confirmation."
+        ),
+    )
+    return selected.locator
 
 
 def _review(state: MenuSessionContext) -> None:
