@@ -97,17 +97,21 @@ def routing_destination_activity_label(summary: ActivitySummary) -> str:
 
 
 def routing_destination_candidate_label(candidate: ConcordRouteCandidate) -> str:
-    """Return a teacher-readable page label; fallback text remains display-only."""
+    """Return a teacher-readable page label without inferring relationship identity."""
     parts: list[str] = []
     if candidate.group_label:
         parts.append(candidate.group_label)
     elif candidate.session_label:
         parts.append(candidate.session_label)
+    if candidate.packet_target_label:
+        parts.append(f"Packet target: {candidate.packet_target_label}")
+    parts.extend(f"Author: {label}" for label in candidate.author_labels)
+    parts.extend(f"Subject: {label}" for label in candidate.subject_labels)
     parts.extend(
         (
             candidate.artifact_category.replace("_", " "),
             f"page {candidate.page_number}",
-            candidate.human_fallback,
+            f"Physical: {candidate.human_fallback}",
         )
     )
     if candidate.replayed_occurrence:

@@ -115,7 +115,8 @@ def test_known_activity_does_not_offer_class_or_activity_browsing(
     def choose(title: str, items: Any, labels: Any, *, help_text: str) -> Any:
         selected_titles.append(title)
         assert tuple(labels) == (
-            "Group Blue — student work — page 3 — Group Blue response page 3",
+            "Group Blue — student work — page 3 — "
+            "Physical: Group Blue response page 3",
         )
         return tuple(items)[0]
 
@@ -267,7 +268,8 @@ def test_candidate_label_keeps_exact_ids_out_of_routine_display() -> None:
     label = routing_destination_candidate_label(candidate)
 
     assert label == (
-        "Group Blue — student work — page 3 — Group Blue response page 3"
+        "Group Blue — student work — page 3 — "
+        "Physical: Group Blue response page 3"
     )
     assert candidate.artifact_page_id not in label
     assert candidate.artifact_instance_id not in label
