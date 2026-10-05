@@ -208,6 +208,17 @@ literal `GENERATE` export confirmation, teacher-local/privacy boundaries,
 #124 bounded package identity and fixed leaves, no-migration/no-publication
 contract, and the Core 0.6.4 final qualification target.
 
+### v0.3.1 teacher-friendly Routing Review
+
+[`v0.3.1-teacher-friendly-routing-review.md`](v0.3.1-teacher-friendly-routing-review.md)
+
+Documents Issue #109's teacher-readable retained-page recovery flow, exact
+Activity/Page candidate projection, immutable Core route authentication,
+typed Packet-target/Author/Subject distinction, display-only physical fallback,
+literal `DEFER` / `RESOLVE` confirmations, stale-state and retained-source
+fail-closed boundaries, exact replay, no-route-creation rule, no-migration
+compatibility, and isolated Core 0.6.4 installed-wheel qualification.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)

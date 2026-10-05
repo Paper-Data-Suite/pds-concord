@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #109 replaces machine-ID transcription in teacher-friendly Routing Review with teacher-readable failure selection and exact existing Concord destination picking, using known-Activity binding or Class -> Activity -> page browsing and explicit `DEFER` / `RESOLVE` confirmation.
+- Issue #109 candidate discovery now projects from one exact current Activity graph, authenticates every selectable page through its existing immutable Core route registration and shared Concord target validation, preserves Packet target / Artifact Author / Artifact Subject distinctions, and keeps `human_fallback` display-only.
+- Issue #109 recovery qualification locks zero-write browsing, stale-resolution protection, retained-source fail-closed checks, exact ScanReference replay, destination-currentness validation, and byte-for-byte route-registration immutability with no route creation or repair.
+- Issue #109 final installed qualification authenticates released Core 0.6.4, installs the candidate Concord wheel in isolation, runs `pip check` and `python -I`, and proves unbound/bound teacher routing, exact RESOLVE dispatch, replay, stale-state protection, package content, and installed menu reachability without raising the declared Core dependency floor.
+
 - Issue #123 final qualification adds isolated candidate-wheel acceptance against the authenticated released Core 0.6.4 wheel, covering all five Score target kinds, correction history, Standards lookup, JSON/CSV/PDF output, long-label path safety, provider health, and canonical/publication nonmutation under `python -I`.
 - Issue #123 adds immutable teacher-facing Activity Score Analysis over one exact verified Activity snapshot, with current Score lineage heads as the default population, explicit Score History, distinct target kinds, exact Criterion/Scale-revision distributions, non-score disposition counts, and Standards / Criterion grouping without Grade or proficiency inference.
 - Issue #123 local reporting adds privacy-minimized Activity Analysis and teacher-local Target Detail exports in deterministic JSON, CSV, and paginated PDF formats, all consuming the same derived numerator/denominator/percentage semantics.

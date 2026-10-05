@@ -89,6 +89,9 @@ ROUTINE_ARTIFACT_REVIEW_DOC = (
 ROUTINE_ARTIFACT_SCORING_DOC = (
     ROOT / "docs" / "v0.3.1-routine-artifact-scoring.md"
 )
+TEACHER_ROUTING_REVIEW_DOC = (
+    ROOT / "docs" / "v0.3.1-teacher-friendly-routing-review.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -225,6 +228,26 @@ REQUIRED_ROUTINE_ARTIFACT_SCORING_PHRASES = (
     "python -I",
     "Core 0.6.3",
     "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_TEACHER_ROUTING_REVIEW_PHRASES = (
+    "Route scans != Routing Review",
+    "load_activity_read_context(...)",
+    "load_route_registration(...)",
+    "validate_concord_route_target(...)",
+    "Candidate discovery is read-only",
+    "does not create or repair route registrations",
+    "Packet target != Artifact Author != Artifact Subject",
+    "human_fallback",
+    "DEFER",
+    "RESOLVE",
+    "resolve_routing_failure_with_route(...)",
+    "RoutingFailureAlreadyResolvedError",
+    "no workspace migration",
+    "pds-core>=0.6.3,<0.7",
+    "scripts/smoke_test_routing_review_wheel.py",
+    "python -I",
+    "Core 0.6.4",
+    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
 )
 REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "ActivityAttentionItem",
@@ -1033,6 +1056,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the routine Artifact "
                 "scoring document."
+            )
+
+    if not TEACHER_ROUTING_REVIEW_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 teacher-friendly Routing Review document is missing."
+        )
+    else:
+        routing_review_doc = TEACHER_ROUTING_REVIEW_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_TEACHER_ROUTING_REVIEW_PHRASES:
+            if phrase not in routing_review_doc:
+                failures.append(
+                    "Teacher-friendly Routing Review document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if TEACHER_ROUTING_REVIEW_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the teacher-friendly "
+                "Routing Review document."
             )
 
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():
