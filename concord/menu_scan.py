@@ -51,6 +51,7 @@ from concord.routing.destinations import (
     routing_destination_class_label,
 )
 from concord.routing.review import (
+    RoutingFailureAlreadyResolvedError,
     RoutingFailureReview,
     RoutingResolutionPartialSuccessError,
     defer_routing_failure,
@@ -540,11 +541,18 @@ def _review(state: MenuSessionContext) -> None:
                     ),
                 ):
                     continue
-                result = defer_routing_failure(
-                    summary.failure_id,
-                    message=message,
-                    reviewer=state.require_actor(),
-                )
+                try:
+                    result = defer_routing_failure(
+                        summary.failure_id,
+                        message=message,
+                        reviewer=state.require_actor(),
+                    )
+                except RoutingFailureAlreadyResolvedError as error:
+                    show_result(
+                        "Routing Review Changed",
+                        (str(error), "No additional routing action was performed."),
+                    )
+                    return
                 show_result(
                     "Routing Failure Deferred",
                     (
@@ -590,6 +598,12 @@ def _review(state: MenuSessionContext) -> None:
                         message=message,
                         reviewer=state.require_actor(),
                     )
+                except RoutingFailureAlreadyResolvedError as error:
+                    show_result(
+                        "Routing Review Changed",
+                        (str(error), "No additional routing action was performed."),
+                    )
+                    return
                 except RoutingResolutionPartialSuccessError as error:
                     _show_routing_partial(error)
                     return

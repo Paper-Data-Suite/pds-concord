@@ -126,6 +126,17 @@ class RoutingResolutionPartialSuccessError(RuntimeError):
         self.__cause__ = cause
 
 
+class RoutingFailureAlreadyResolvedError(ValueError):
+    """Raised when stale review state reaches a terminal failure mutation."""
+
+    def __init__(self, failure_id: str) -> None:
+        self.failure_id = failure_id
+        super().__init__(
+            "This routing failure is already resolved. Reload Routing Review "
+            "before taking another action."
+        )
+
+
 _RETAINED_TIMESTAMP = re.compile(
     r"^(?P<timestamp>\d{8}T\d{12}Z)__.*__"
     r"(?P<digest>[0-9a-f]{12})\.[^.]+$"
@@ -262,6 +273,12 @@ def _latest_resolution_status(root: Path, failure_id: str) -> str | None:
     return max(linked, key=lambda item: item.resolved_at).resolution_status
 
 
+def _require_failure_not_resolved(root: Path, failure_id: str) -> None:
+    """Fail closed when current append-only resolution state is terminal."""
+    if _latest_resolution_status(root, failure_id) == "resolved":
+        raise RoutingFailureAlreadyResolvedError(failure_id)
+
+
 def _retained_provenance_complete(failure: RoutingFailureMetadata) -> bool:
     return (
         failure.source_scan_id is not None
@@ -333,6 +350,7 @@ def defer_routing_failure(
 ) -> ScanResolutionMetadata:
     root = resolve_workspace_root(workspace_root)
     failure = load_routing_failure_metadata(root, failure_id)
+    _require_failure_not_resolved(root, failure.failure_id)
     resolution = create_scan_resolution_metadata(
         failure,
         resolution_id=f"resolution_{uuid4().hex}",
@@ -399,6 +417,10 @@ def resolve_routing_failure_with_route(
         intake_timestamp=timestamp,
         intake_date=intake_date,
     )
+    # Re-read append-only resolution state at the last safe boundary before
+    # dispatch. Candidate/menu state may have gone stale while the teacher
+    # reviewed the destination and confirmation screen.
+    _require_failure_not_resolved(root, failure.failure_id)
     dispatched = dispatch_route(
         root,
         registry or build_module_registry(),
@@ -437,6 +459,7 @@ def resolve_routing_failure_with_route(
 
 
 __all__ = [
+    "RoutingFailureAlreadyResolvedError",
     "RoutingFailureReview",
     "RoutingFailureSummary",
     "RoutingResolutionPartialSuccess",
