@@ -155,6 +155,16 @@ class ConcordRouteDispatchResult:
     replayed: bool
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ConcordRouteTarget:
+    """Current canonical target state for one validated Concord route."""
+
+    artifact: ArtifactInstance
+    page: ArtifactPage
+    route_id: str
+    replay_scan_reference: ScanReference | None
+
+
 def _work(class_id: str, activity_id: str) -> ModuleWorkRef:
     return ModuleWorkRef(CONCORD_MODULE_ID, class_id, activity_id)
 
@@ -285,6 +295,109 @@ def validate_concord_route_registration(registration: RouteRegistration, /) -> N
         or details["page_number"] < 1
     ):
         raise ConcordWorkflowValidationError("inconsistent Concord module_details.")
+
+
+def validate_concord_route_target(
+    graph: ConcordRecordGraph,
+    work: ModuleWorkRef,
+    registration: RouteRegistration,
+    /,
+    *,
+    source_scan_id: str | None = None,
+    source_page_number: int | None = None,
+) -> ConcordRouteTarget:
+    """Validate one registration against current canonical Concord target state."""
+    validate_concord_route_registration(registration)
+    if registration.locator.work != work:
+        raise ConcordWorkflowValidationError(
+            "Concord route belongs to another Class or Activity."
+        )
+    if (source_scan_id is None) != (source_page_number is None):
+        raise ConcordWorkflowValidationError(
+            "source scan identity and physical page must be supplied together."
+        )
+    if source_page_number is not None and source_page_number < 1:
+        raise ConcordWorkflowValidationError(
+            "source physical page number must be positive."
+        )
+
+    page = next(
+        (
+            item
+            for item in graph.artifact_pages
+            if item.artifact_page_id == registration.target.record_id
+        ),
+        None,
+    )
+    if page is None:
+        raise ConcordWorkflowNotFoundError("routed Artifact Page is unavailable.")
+    artifact = next(
+        (
+            item
+            for item in graph.artifact_instances
+            if item.artifact_instance_id == page.artifact_instance_id
+        ),
+        None,
+    )
+    if artifact is None or artifact.activity_id != work.work_id:
+        raise ConcordWorkflowValidationError(
+            "routed Artifact Page belongs to another Activity."
+        )
+    if not page.route_required or page.route_id != registration.locator.route_id:
+        raise ConcordWorkflowValidationError(
+            "route and canonical Artifact Page disagree."
+        )
+
+    details = registration.module_details
+    if details["artifact_instance_id"] != artifact.artifact_instance_id:
+        raise ConcordWorkflowValidationError(
+            "route ArtifactInstance identity disagrees with current state."
+        )
+    if details["artifact_page_id"] != page.artifact_page_id:
+        raise ConcordWorkflowValidationError(
+            "route Artifact Page identity disagrees with current state."
+        )
+    if details["page_number"] != page.page_number:
+        raise ConcordWorkflowValidationError(
+            "route page number disagrees with current Artifact Page."
+        )
+    if (
+        page.human_fallback is not None
+        and registration.human_fallback != page.human_fallback
+    ):
+        raise ConcordWorkflowValidationError(
+            "route physical fallback disagrees with current Artifact Page."
+        )
+    if page.page_status not in _ROUTABLE_PAGE_STATUSES:
+        raise ConcordWorkflowValidationError(
+            "Artifact Page lifecycle does not allow return filing."
+        )
+
+    occurrence = None
+    if source_scan_id is not None and source_page_number is not None:
+        occurrence = next(
+            (
+                item
+                for item in graph.scan_references
+                if item.source_scan_id == source_scan_id
+                and item.source_page_number == source_page_number
+                and item.route_id == registration.locator.route_id
+            ),
+            None,
+        )
+    if (
+        occurrence is None
+        and artifact.artifact_status in _TERMINAL_ARTIFACT_STATUSES
+    ):
+        raise ConcordWorkflowValidationError(
+            "Artifact lifecycle does not allow new return filing."
+        )
+    return ConcordRouteTarget(
+        artifact=artifact,
+        page=page,
+        route_id=registration.locator.route_id,
+        replay_scan_reference=occurrence,
+    )
 
 
 def _reconcile_route(root: Path, expected: RouteRegistration) -> None:
@@ -532,52 +645,23 @@ def handle_concord_route(
     library = _standards(root)
     loaded = load_current_record_graph(root, work, standards_library=library)
     graph = cast(ConcordRecordGraph, loaded.graph)
-    page = next(
-        (
-            item
-            for item in graph.artifact_pages
-            if item.artifact_page_id == resolution.registration.target.record_id
-        ),
-        None,
+    target = validate_concord_route_target(
+        graph,
+        work,
+        resolution.registration,
+        source_scan_id=retained_source.source_scan_id,
+        source_page_number=source_page_number,
     )
-    if page is None:
-        raise ConcordWorkflowNotFoundError("routed Artifact Page is unavailable.")
-    artifact = next(
-        (
-            item
-            for item in graph.artifact_instances
-            if item.artifact_instance_id == page.artifact_instance_id
-        ),
-        None,
-    )
-    if artifact is None or artifact.activity_id != work.work_id:
-        raise ConcordWorkflowValidationError(
-            "routed Artifact Page belongs to another Activity."
-        )
-    if page.route_id != resolution.locator.route_id:
-        raise ConcordWorkflowValidationError(
-            "route and canonical Artifact Page disagree."
-        )
-    if page.page_status not in _ROUTABLE_PAGE_STATUSES:
-        raise ConcordWorkflowValidationError(
-            "Artifact Page lifecycle does not allow return filing."
-        )
-    occurrence = next(
-        (
-            item
-            for item in graph.scan_references
-            if item.source_scan_id == retained_source.source_scan_id
-            and item.source_page_number == source_page_number
-            and item.route_id == resolution.locator.route_id
-        ),
-        None,
-    )
+    artifact = target.artifact
+    page = target.page
+    route_id = target.route_id
+    occurrence = target.replay_scan_reference
     if occurrence is not None:
         return ConcordRouteDispatchResult(
             work=work,
             artifact_instance_id=artifact.artifact_instance_id,
             artifact_page_id=page.artifact_page_id,
-            route_id=page.route_id,
+            route_id=route_id,
             scan_reference_id=occurrence.scan_reference_id,
             source_scan_id=occurrence.source_scan_id,
             source_page_number=occurrence.source_page_number,
@@ -585,12 +669,8 @@ def handle_concord_route(
             snapshot_sha256=loaded.snapshot_sha256,
             replayed=True,
         )
-    if artifact.artifact_status in _TERMINAL_ARTIFACT_STATUSES:
-        raise ConcordWorkflowValidationError(
-            "Artifact lifecycle does not allow new return filing."
-        )
     occurrence_key = (
-        f"{retained_source.source_scan_id}|{source_page_number}|{page.route_id}"
+        f"{retained_source.source_scan_id}|{source_page_number}|{route_id}"
     ).encode("utf-8")
     scan_id = f"scanref_{hashlib.sha256(occurrence_key).hexdigest()[:32]}"
     created = Provenance(
@@ -606,7 +686,7 @@ def handle_concord_route(
         scan_reference_id=scan_id,
         activity_id=work.work_id,
         artifact_page_id=page.artifact_page_id,
-        route_id=page.route_id,
+        route_id=route_id,
         source_scan_id=retained_source.source_scan_id,
         source_page_number=source_page_number,
         retained_source_relative_path=retained_source.retained_source_relative_path,
@@ -637,7 +717,7 @@ def handle_concord_route(
         work=work,
         artifact_instance_id=artifact.artifact_instance_id,
         artifact_page_id=page.artifact_page_id,
-        route_id=page.route_id,
+        route_id=route_id,
         scan_reference_id=scan.scan_reference_id,
         source_scan_id=scan.source_scan_id,
         source_page_number=source_page_number,
@@ -652,6 +732,7 @@ __all__ = [
     "ArtifactPageSummary",
     "ArtifactRoutePreparationPartialSuccessError",
     "ConcordRouteDispatchResult",
+    "ConcordRouteTarget",
     "PrepareArtifactPagesRequest",
     "PrepareArtifactPagesResult",
     "PreparedPage",
@@ -659,4 +740,5 @@ __all__ = [
     "list_artifact_pages",
     "prepare_artifact_pages",
     "validate_concord_route_registration",
+    "validate_concord_route_target",
 ]

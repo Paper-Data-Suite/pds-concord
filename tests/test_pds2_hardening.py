@@ -1584,14 +1584,43 @@ def test_routing_review_menu_can_select_twelfth_failure(
     )
     monkeypatch.setattr("concord.menu_scan.list_routing_failures", lambda: failures)
     selected = []
+    reviewed = []
+
+    def project_failure(failure_id: str) -> SimpleNamespace:
+        reviewed.append(failure_id)
+        return SimpleNamespace(
+            failure=SimpleNamespace(
+                source_filename=f"{failure_id.replace('failure-', 'scan-')}.png",
+                source_page_number=1,
+                failure_category="payload_missing",
+            ),
+            problem_label="QR/PDS2 route missing",
+            activity_label="Not determined",
+            status_label="unresolved",
+            available_actions=("defer", "technical_details"),
+            route_action_unavailable_reason="retained_provenance_incomplete",
+            route_action_unavailable_detail=(
+                "The failure lacks retained-page provenance required for re-dispatch."
+            ),
+        )
+
+    monkeypatch.setattr(
+        "concord.menu_scan.review_routing_failure",
+        project_failure,
+    )
     monkeypatch.setattr(
         "concord.menu_scan.defer_routing_failure",
         lambda failure_id, **_: selected.append(failure_id)
-        or SimpleNamespace(resolution_id="resolution-1", resolution_action="deferred"),
+        or SimpleNamespace(
+            resolution_id="resolution-1",
+            resolution_status="deferred",
+            resolution_action="deferred",
+        ),
     )
-    answers = iter(("N", "2", "defer", "Review later.", "RESOLVE", ""))
+    answers = iter(("N", "2", "1", "Review later.", "DEFER", ""))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
     state = MenuSessionContext(actor=WorkflowActor(actor_id="teacher-1"))
     review_menu(state)
+    assert reviewed == ["failure-12"]
     assert selected == ["failure-12"]
     assert "Page 2 of 2" in capsys.readouterr().out

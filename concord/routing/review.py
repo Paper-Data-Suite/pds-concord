@@ -11,7 +11,7 @@ from uuid import uuid4
 from pds_core.module_dispatch import RouteDispatchRequest, dispatch_route
 from pds_core.module_profiles import ModuleRegistry, build_module_registry
 from pds_core.route_registrations import load_route_registration
-from pds_core.routing_models import RouteLocator
+from pds_core.routing_models import ModuleWorkRef, RouteLocator
 from pds_core.scan_failure_metadata import (
     RoutingFailureMetadata,
     load_routing_failure_metadata,
@@ -26,6 +26,8 @@ from pds_core.scan_retention import RetainedSourceScan
 from pds_core.scan_routes import build_retained_source_filename, routing_review_dir
 from pds_core.workspace import resolve_workspace_root
 
+from concord.storage_errors import ConcordStorageError
+from concord.workflows.activity_read import load_activity_read_context
 from concord.workflows.artifact_page import validate_concord_route_registration
 from concord.workflows.models import WorkflowActor
 
@@ -39,6 +41,68 @@ class RoutingFailureSummary:
     source_page_number: int | None
     activity_id: str | None
     latest_status: str | None
+
+
+_FAILURE_PROBLEM_LABELS = {
+    "source_missing": "source file missing",
+    "source_unreadable": "source file unreadable",
+    "source_type_unsupported": "source type unsupported",
+    "source_retention_failed": "source retention failed",
+    "payload_missing": "QR/PDS2 route missing",
+    "payload_unreadable": "QR/PDS2 route unreadable",
+    "payload_invalid": "QR/PDS2 route invalid",
+    "payload_schema_unsupported": "QR/PDS2 schema unsupported",
+    "payload_too_large": "QR/PDS2 payload too large",
+    "identifier_invalid": "route identity invalid",
+    "module_unsupported": "owning module unavailable",
+    "module_profile_incompatible": "owning module incompatible",
+    "class_unknown": "class unavailable",
+    "work_unknown": "Activity/work unavailable",
+    "route_unknown": "registered route unavailable",
+    "route_inactive": "registered route inactive",
+    "route_ambiguous": "route ambiguous",
+    "route_mismatch": "route identity mismatch",
+    "route_registration_invalid": "route registration invalid",
+    "target_unknown": "route target unavailable",
+    "target_incompatible": "route target incompatible",
+    "page_conflict": "physical page conflict",
+    "processing_error": "dispatch failed",
+    "evidence_write_failed": "evidence filing failed",
+}
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RoutingFailureReview:
+    """Read-only teacher-facing projection of one exact routing failure."""
+
+    failure: RoutingFailureMetadata
+    latest_status: str | None
+    activity_title: str | None
+    bound_work: ModuleWorkRef | None
+    retained_provenance_complete: bool
+    route_action_available: bool
+    route_action_unavailable_reason: str | None
+    route_action_unavailable_detail: str | None
+
+    @property
+    def status_label(self) -> str:
+        return self.latest_status or "unresolved"
+
+    @property
+    def activity_label(self) -> str:
+        return self.activity_title or "Not determined"
+
+    @property
+    def problem_label(self) -> str:
+        return routing_failure_problem_label(self.failure.failure_category)
+
+    @property
+    def available_actions(self) -> tuple[str, ...]:
+        if self.latest_status == "resolved":
+            return ("technical_details",)
+        if self.route_action_available:
+            return ("route", "defer", "technical_details")
+        return ("defer", "technical_details")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -60,6 +124,17 @@ class RoutingResolutionPartialSuccessError(RuntimeError):
         )
         self.result = result
         self.__cause__ = cause
+
+
+class RoutingFailureAlreadyResolvedError(ValueError):
+    """Raised when stale review state reaches a terminal failure mutation."""
+
+    def __init__(self, failure_id: str) -> None:
+        self.failure_id = failure_id
+        super().__init__(
+            "This routing failure is already resolved. Reload Routing Review "
+            "before taking another action."
+        )
 
 
 _RETAINED_TIMESTAMP = re.compile(
@@ -170,6 +245,102 @@ def show_routing_failure(
     )
 
 
+def routing_failure_problem_label(category: str) -> str:
+    """Return one bounded teacher-readable label for a Core failure category."""
+    return _FAILURE_PROBLEM_LABELS.get(category, category.replace("_", " "))
+
+
+def routing_failure_summary_label(summary: RoutingFailureSummary) -> str:
+    """Format a routine list row without leading with machine failure identity."""
+    page = (
+        f"page {summary.source_page_number}"
+        if summary.source_page_number is not None
+        else "scan"
+    )
+    status = summary.latest_status or "unresolved"
+    problem = routing_failure_problem_label(summary.category)
+    return f"{summary.source_filename} — {page} — {problem} — {status}"
+
+
+def _latest_resolution_status(root: Path, failure_id: str) -> str | None:
+    linked = []
+    for resolution_id in _resolution_ids(root):
+        value = load_scan_resolution_metadata(root, resolution_id)
+        if value.failure_id == failure_id:
+            linked.append(value)
+    if not linked:
+        return None
+    return max(linked, key=lambda item: item.resolved_at).resolution_status
+
+
+def _require_failure_not_resolved(root: Path, failure_id: str) -> None:
+    """Fail closed when current append-only resolution state is terminal."""
+    if _latest_resolution_status(root, failure_id) == "resolved":
+        raise RoutingFailureAlreadyResolvedError(failure_id)
+
+
+def _retained_provenance_complete(failure: RoutingFailureMetadata) -> bool:
+    return (
+        failure.source_scan_id is not None
+        and failure.source_sha256 is not None
+        and failure.retained_source_path is not None
+        and failure.source_page_number is not None
+    )
+
+
+def review_routing_failure(
+    failure_id: str, *, workspace_root: str | Path | None = None
+) -> RoutingFailureReview:
+    """Project one exact failure into teacher-visible context and safe actions."""
+    root = resolve_workspace_root(workspace_root)
+    failure = load_routing_failure_metadata(root, failure_id)
+    latest_status = _latest_resolution_status(root, failure.failure_id)
+    locator = failure.route_locator
+    bound_work: ModuleWorkRef | None = None
+    activity_title: str | None = None
+    activity_error: str | None = None
+
+    if locator is not None and locator.module_id == "concord":
+        bound_work = locator.work
+        try:
+            context = load_activity_read_context(root, bound_work)
+            activity_title = context.activity.title
+        except (ConcordStorageError, OSError, ValueError) as error:
+            activity_error = str(error)
+
+    provenance_complete = _retained_provenance_complete(failure)
+    unavailable_reason: str | None = None
+    unavailable_detail: str | None = None
+
+    if latest_status == "resolved":
+        unavailable_reason = "already_resolved"
+        unavailable_detail = "This routing failure has already been resolved."
+    elif locator is not None and locator.module_id != "concord":
+        unavailable_reason = "known_other_module"
+        unavailable_detail = (
+            "The failed route is owned by another Paper Data Suite module."
+        )
+    elif bound_work is not None and activity_error is not None:
+        unavailable_reason = "known_concord_activity_unavailable"
+        unavailable_detail = activity_error
+    elif not provenance_complete:
+        unavailable_reason = "retained_provenance_incomplete"
+        unavailable_detail = (
+            "The failure lacks retained-page provenance required for re-dispatch."
+        )
+
+    return RoutingFailureReview(
+        failure=failure,
+        latest_status=latest_status,
+        activity_title=activity_title,
+        bound_work=bound_work,
+        retained_provenance_complete=provenance_complete,
+        route_action_available=unavailable_reason is None,
+        route_action_unavailable_reason=unavailable_reason,
+        route_action_unavailable_detail=unavailable_detail,
+    )
+
+
 def defer_routing_failure(
     failure_id: str,
     *,
@@ -179,6 +350,7 @@ def defer_routing_failure(
 ) -> ScanResolutionMetadata:
     root = resolve_workspace_root(workspace_root)
     failure = load_routing_failure_metadata(root, failure_id)
+    _require_failure_not_resolved(root, failure.failure_id)
     resolution = create_scan_resolution_metadata(
         failure,
         resolution_id=f"resolution_{uuid4().hex}",
@@ -245,6 +417,10 @@ def resolve_routing_failure_with_route(
         intake_timestamp=timestamp,
         intake_date=intake_date,
     )
+    # Re-read append-only resolution state at the last safe boundary before
+    # dispatch. Candidate/menu state may have gone stale while the teacher
+    # reviewed the destination and confirmation screen.
+    _require_failure_not_resolved(root, failure.failure_id)
     dispatched = dispatch_route(
         root,
         registry or build_module_registry(),
@@ -283,11 +459,16 @@ def resolve_routing_failure_with_route(
 
 
 __all__ = [
+    "RoutingFailureAlreadyResolvedError",
+    "RoutingFailureReview",
     "RoutingFailureSummary",
     "RoutingResolutionPartialSuccess",
     "RoutingResolutionPartialSuccessError",
     "defer_routing_failure",
     "list_routing_failures",
     "resolve_routing_failure_with_route",
+    "review_routing_failure",
+    "routing_failure_problem_label",
+    "routing_failure_summary_label",
     "show_routing_failure",
 ]

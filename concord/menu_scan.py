@@ -11,7 +11,7 @@ from pds_core.module_profiles import (
     UnsupportedModuleError,
 )
 from pds_core.route_registrations import RouteRegistrationPersistenceError
-from pds_core.routing_models import PDS2_SCHEMA, ModuleWorkRef, RouteLocator
+from pds_core.routing_models import ModuleWorkRef, RouteLocator
 from pds_core.scan_failure_metadata import (
     RoutingFailureMetadataReadError,
     RoutingFailureMetadataWriteError,
@@ -41,11 +41,24 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
+from concord.routing.candidates import ConcordRouteCandidate
+from concord.routing.destinations import (
+    list_routing_destination_activities,
+    list_routing_destination_classes,
+    project_routing_destination_candidates,
+    routing_destination_activity_label,
+    routing_destination_candidate_label,
+    routing_destination_class_label,
+)
 from concord.routing.review import (
+    RoutingFailureAlreadyResolvedError,
+    RoutingFailureReview,
     RoutingResolutionPartialSuccessError,
     defer_routing_failure,
     list_routing_failures,
     resolve_routing_failure_with_route,
+    review_routing_failure,
+    routing_failure_summary_label,
 )
 from concord.routing.scan_intake import (
     SUPPORTED_SCAN_EXTENSIONS,
@@ -260,93 +273,351 @@ def _route() -> None:
     _show_scan_batch_result(result)
 
 
-def _review(state: MenuSessionContext) -> None:
-    failures = list_routing_failures()
-    if not failures:
-        clear_screen()
-        print_menu_header("Routing Review")
-        print("No routing failures found.")
-        print()
-        pause_for_user()
-        return
-    failure = select_one(
-        "Routing Review",
-        failures,
-        [
-            f"{item.failure_id}  {item.category}  "
-            f"{item.latest_status or 'unresolved'}"
-            for item in failures
-        ],
-        help_text="Navigate all failures and choose one exact listed identity.",
-    )
-    failure_id = failure.failure_id
-    action = prompt_text(
-        "Routing Review",
-        "Action (defer or route)",
-        help_text=(
-            "Defer preserves the failure for later; route requires an exact route."
-        ),
-    )
-    message = prompt_text(
-        "Routing Review",
-        "Resolution note",
-        help_text="Record a concise teacher rationale.",
-    )
-    assert failure_id is not None and action is not None and message is not None
-    locator: RouteLocator | None = None
-    if action.casefold() == "route":
-        class_id = prompt_text(
-            "Select Exact Route",
-            "Class ID",
-            help_text="Enter the exact Core class identity.",
-        )
-        work_id = prompt_text(
-            "Select Exact Route",
-            "Work ID",
-            help_text="For Concord this is the exact Activity ID.",
-        )
-        route_id = prompt_text(
-            "Select Exact Route",
-            "Route ID",
-            help_text="The route must already exist and be active.",
-        )
-        assert all(item is not None for item in (class_id, work_id, route_id))
-        locator = RouteLocator(
-            PDS2_SCHEMA,
-            ModuleWorkRef("concord", str(class_id), str(work_id)),
-            str(route_id),
-        )
-    elif action.casefold() != "defer":
-        show_result("Routing Review", ("Action must be defer or route.",))
-        return
-    if not confirm_write(
-        "Resolve Routing Failure",
-        "RESOLVE",
-        (f"Failure: {failure_id}", f"Action: {action.casefold()}"),
-    ):
-        return
-    actor = state.require_actor()
-    if locator is None:
-        result = defer_routing_failure(failure_id, message=message, reviewer=actor)
+def _select_routing_destination_candidate(
+    review: RoutingFailureReview,
+) -> ConcordRouteCandidate:
+    """Browse teacher-readable routing destinations without writing state."""
+    if review.bound_work is not None:
+        work = review.bound_work
+        projection = project_routing_destination_candidates(review, work)
+        activity_title = review.activity_title or work.work_id
     else:
-        try:
-            result = resolve_routing_failure_with_route(
-                failure_id,
-                locator,
-                message=message,
-                reviewer=actor,
-            )
-        except RoutingResolutionPartialSuccessError as error:
-            _show_routing_partial(error)
-            return
-    show_result(
-        "Routing Resolution Saved",
-        (
-            f"Resolution: {result.resolution_id}",
-            f"Action: {result.resolution_action}",
+        classes = list_routing_destination_classes(review)
+        selected_class = select_one(
+            "Select Class",
+            classes,
+            [routing_destination_class_label(item) for item in classes],
+            help_text=(
+                "Choose the class that owns the intended Concord Activity. "
+                "This browsing step does not change routing state."
+            ),
+        )
+        activities = list_routing_destination_activities(
+            review, selected_class.class_id
+        )
+        selected_activity = select_one(
+            "Select Activity",
+            activities,
+            [routing_destination_activity_label(item) for item in activities],
+            help_text=(
+                "Choose the Activity that owns the intended physical page. "
+                "Only current Concord Activities are listed."
+            ),
+        )
+        work = ModuleWorkRef(
+            "concord", selected_class.class_id, selected_activity.activity_id
+        )
+        projection = project_routing_destination_candidates(review, work)
+        activity_title = selected_activity.title
+
+    if not projection.candidates:
+        diagnostic_note = (
+            f" {len(projection.diagnostics)} page candidate(s) were withheld by "
+            "route integrity checks; use Technical details for diagnostics."
+            if projection.diagnostics
+            else ""
+        )
+        raise ConcordWorkflowError(
+            "No current routable Concord pages are available for this Activity."
+            + diagnostic_note
+        )
+
+    selected = select_one(
+        f"Select Destination — {activity_title}",
+        projection.candidates,
+        [
+            routing_destination_candidate_label(candidate)
+            for candidate in projection.candidates
+        ],
+        help_text=(
+            "Choose the exact current Artifact Page for this physical scan page. "
+            "Routine labels hide route IDs; no routing change occurs until the "
+            "later explicit RESOLVE confirmation."
         ),
+    )
+    return selected
+
+
+def _select_routing_destination(review: RoutingFailureReview) -> RouteLocator:
+    """Return the exact locator carried by the selected candidate."""
+    return _select_routing_destination_candidate(review).locator
+
+
+def _routing_review_context_lines(
+    review: RoutingFailureReview,
+) -> tuple[str, ...]:
+    failure = review.failure
+    page = (
+        str(failure.source_page_number)
+        if failure.source_page_number is not None
+        else "Not available"
+    )
+    return (
+        f"Source: {failure.source_filename}",
+        f"Physical page: {page}",
+        f"Problem: {review.problem_label}",
+        f"Activity: {review.activity_label}",
+        f"Status: {review.status_label}",
     )
 
+
+def _routing_route_unavailable_message(review: RoutingFailureReview) -> str | None:
+    reason = review.route_action_unavailable_reason
+    if reason is None:
+        return None
+    messages = {
+        "already_resolved": "This routing failure has already been resolved.",
+        "known_other_module": (
+            "This failed route belongs to another Paper Data Suite module, so "
+            "Concord route correction is not available."
+        ),
+        "known_concord_activity_unavailable": (
+            "The exact Concord Activity recorded by this failure is not currently "
+            "available, so Concord will not substitute another Activity."
+        ),
+        "retained_provenance_incomplete": (
+            "Retained physical-page provenance is incomplete, so Concord cannot "
+            "safely re-dispatch this page."
+        ),
+    }
+    return messages.get(
+        reason,
+        "Concord route correction is not available for this routing failure.",
+    )
+
+
+def _routing_technical_detail_lines(
+    review: RoutingFailureReview,
+) -> tuple[str, ...]:
+    failure = review.failure
+    lines = [
+        f"Failure ID: {failure.failure_id}",
+        f"Category: {failure.failure_category}",
+        f"Stage: {failure.stage}",
+        f"Status: {review.status_label}",
+        f"Failure message: {failure.failure_message}",
+        f"Source scan ID: {failure.source_scan_id or 'Not available'}",
+        f"Source SHA-256: {failure.source_sha256 or 'Not available'}",
+        f"Retained source path: {failure.retained_source_path or 'Not available'}",
+    ]
+    locator = failure.route_locator
+    if locator is None:
+        lines.append("Recorded route: none")
+    else:
+        lines.extend(
+            (
+                f"Route module: {locator.module_id}",
+                f"Route class: {locator.class_id}",
+                f"Route work: {locator.work_id}",
+                f"Route ID: {locator.route_id}",
+            )
+        )
+    if failure.target is not None:
+        lines.extend(
+            (
+                f"Target kind: {failure.target.record_kind}",
+                f"Target ID: {failure.target.record_id}",
+            )
+        )
+    if review.route_action_unavailable_reason is not None:
+        lines.append(
+            "Route action status: " + review.route_action_unavailable_reason
+        )
+        if review.route_action_unavailable_detail:
+            lines.append(
+                "Route action detail: " + review.route_action_unavailable_detail
+            )
+    return tuple(lines)
+
+
+def _show_routing_technical_details(review: RoutingFailureReview) -> None:
+    show_result(
+        "Routing Review — Technical Details",
+        _routing_technical_detail_lines(review),
+    )
+
+
+def _choose_routing_review_action(review: RoutingFailureReview) -> str:
+    while True:
+        clear_screen()
+        print_menu_header("Routing Review")
+        for line in _routing_review_context_lines(review):
+            print(line)
+        unavailable = _routing_route_unavailable_message(review)
+        if unavailable is not None:
+            print()
+            print(unavailable)
+
+        actions: list[tuple[str, str]] = []
+        if "route" in review.available_actions:
+            actions.append(("route", "Route to an existing Concord page"))
+        if "defer" in review.available_actions:
+            actions.append(("defer", "Defer for later"))
+        if "technical_details" in review.available_actions:
+            actions.append(("technical_details", "Technical details"))
+
+        print()
+        for index, (_action, label) in enumerate(actions, start=1):
+            print(f"{index}. {label}")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            show_result(
+                "Routing Review Help",
+                (
+                    "Route selects one existing exact Concord Artifact Page.",
+                    "Defer keeps this failure available for later review.",
+                    "Technical details shows machine identities and diagnostics.",
+                    "No routing change occurs until DEFER or RESOLVE is confirmed.",
+                ),
+            )
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw.isdigit():
+            selected = int(raw) - 1
+            if 0 <= selected < len(actions):
+                action = actions[selected][0]
+                if action == "technical_details":
+                    _show_routing_technical_details(review)
+                    continue
+                return action
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
+def _review(state: MenuSessionContext) -> None:
+    while True:
+        failures = list_routing_failures()
+        if not failures:
+            clear_screen()
+            print_menu_header("Routing Review")
+            print("No routing failures found.")
+            print()
+            pause_for_user()
+            return
+        try:
+            summary = select_one(
+                "Routing Review",
+                failures,
+                [routing_failure_summary_label(item) for item in failures],
+                help_text=(
+                    "Choose the retained physical page that needs teacher review. "
+                    "Routine rows use source/page context rather than failure IDs."
+                ),
+            )
+        except CancelMenuAction:
+            return
+
+        while True:
+            review = review_routing_failure(summary.failure_id)
+            try:
+                action = _choose_routing_review_action(review)
+            except CancelMenuAction:
+                break
+
+            if action == "defer":
+                try:
+                    message = prompt_text(
+                        "Defer Routing Failure",
+                        "Resolution note",
+                        help_text=(
+                            "Edit the note if useful. Deferring preserves the "
+                            "failure for later Routing Review."
+                        ),
+                        default="Deferred for later teacher review.",
+                    )
+                except CancelMenuAction:
+                    continue
+                assert message is not None
+                if not confirm_write(
+                    "Defer Routing Failure",
+                    "DEFER",
+                    (
+                        *_routing_review_context_lines(review),
+                        f"Resolution note: {message}",
+                    ),
+                ):
+                    continue
+                try:
+                    result = defer_routing_failure(
+                        summary.failure_id,
+                        message=message,
+                        reviewer=state.require_actor(),
+                    )
+                except RoutingFailureAlreadyResolvedError as error:
+                    show_result(
+                        "Routing Review Changed",
+                        (str(error), "No additional routing action was performed."),
+                    )
+                    return
+                show_result(
+                    "Routing Failure Deferred",
+                    (
+                        "This failure remains available for later review.",
+                        f"Status: {result.resolution_status}",
+                    ),
+                )
+                return
+
+            if action == "route":
+                try:
+                    candidate = _select_routing_destination_candidate(review)
+                    destination_label = routing_destination_candidate_label(candidate)
+                    message = prompt_text(
+                        "Resolve Routing Failure",
+                        "Resolution note",
+                        help_text=(
+                            "Edit the note if useful. RESOLVE will re-dispatch the "
+                            "retained physical page through this exact existing route."
+                        ),
+                        default=(
+                            "Teacher confirmed this retained page belongs to the "
+                            "selected existing Concord page."
+                        ),
+                    )
+                except CancelMenuAction:
+                    continue
+                assert message is not None
+                if not confirm_write(
+                    "Resolve Routing Failure",
+                    "RESOLVE",
+                    (
+                        *_routing_review_context_lines(review),
+                        f"Destination: {destination_label}",
+                        f"Resolution note: {message}",
+                    ),
+                ):
+                    continue
+                try:
+                    result = resolve_routing_failure_with_route(
+                        summary.failure_id,
+                        candidate.locator,
+                        message=message,
+                        reviewer=state.require_actor(),
+                    )
+                except RoutingFailureAlreadyResolvedError as error:
+                    show_result(
+                        "Routing Review Changed",
+                        (str(error), "No additional routing action was performed."),
+                    )
+                    return
+                except RoutingResolutionPartialSuccessError as error:
+                    _show_routing_partial(error)
+                    return
+                show_result(
+                    "Routing Resolution Saved",
+                    (
+                        "The retained page was routed to the selected Concord page.",
+                        f"Destination: {destination_label}",
+                        f"Action: {result.resolution_action}",
+                    ),
+                )
+                return
+
+            raise AssertionError(f"unsupported routing review action: {action}")
 
 def launch_scan_routing_menu(state: MenuSessionContext | None = None) -> None:
     session_state = MenuSessionContext() if state is None else state

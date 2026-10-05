@@ -167,8 +167,27 @@ After selection, Concord shows the exact source and still requires explicit
 `ROUTE` confirmation before calling the existing routing service. That service
 retains the source first and lets Core PDS2 determine physical-page ownership,
 including mixed installed-module routing. Browsing or successful routing does
-not delete, move, rename, or archive the original inbox file; Routing Review
-remains the separate authority for pages that require teacher intervention.
+not delete, move, rename, or archive the original inbox file.
+
+Routing Review is the explicit recovery path for a retained physical page whose
+normal routing could not safely establish the intended destination. The teacher
+selects the failed physical page, reviews useful source/problem context, and may
+**Route to an existing Concord page**, defer with `DEFER`, or inspect Technical
+Details. A known Concord Activity goes directly to its eligible destination
+pages; an unknown Activity uses Class -> Activity -> exact page selection.
+Teacher-facing rows remain bound to exact existing immutable route locators.
+
+Routing Review does not create, repair, or guess routes. Typed Packet target,
+Artifact Author, and Artifact Subject context remain distinct, and immutable
+physical fallback text is display-only. Final correction requires `RESOLVE` and
+still passes through exact retained-source validation, Core dispatch, Concord's
+current route-target validation, and append-only resolution metadata.
+
+See [teacher-friendly Routing Review documentation][routing-review-doc] for the
+complete #109 discovery, confirmation, stale-state, replay, compatibility, and
+installed-wheel contract.
+
+[routing-review-doc]: docs/v0.3.1-teacher-friendly-routing-review.md
 
 ## Guided classroom Activity setup
 
