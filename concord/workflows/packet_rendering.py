@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import cast
 
 from pds_core.pds2 import serialize_pds2_payload
@@ -44,8 +46,8 @@ from concord.storage import (
 from concord.storage_errors import ConcordStorageConflictError
 from concord.template_storage import (
     TemplateStorageError,
+    _load_template_rendering_specification_for_version,
     load_current_template,
-    load_template_rendering_specification,
 )
 from concord.workflows.artifact_page import (
     concord_route_registration,
@@ -180,7 +182,7 @@ class _RenderableArtifact:
 
 @dataclass(frozen=True, slots=True)
 class _PacketRenderContext:
-    """One exact verified Activity snapshot for one render operation."""
+    """Immutable exact Activity source state for one render operation."""
 
     root: Path
     work: ModuleWorkRef
@@ -188,8 +190,14 @@ class _PacketRenderContext:
     snapshot_revision: int
     snapshot_sha256: str
     graph: ConcordRecordGraph
-    artifact_index: dict[str, ArtifactInstance]
-    page_index: dict[str, ArtifactPage]
+    artifact_index: Mapping[str, ArtifactInstance]
+    page_index: Mapping[str, ArtifactPage]
+
+
+@dataclass(slots=True)
+class _PacketRenderDependencies:
+    """Mutable operation-local cache separated from immutable source state."""
+
     template_layout_cache: dict[
         tuple[str, str],
         tuple[TemplateVersion, StarterLayoutDocument],
@@ -221,6 +229,7 @@ def render_packet_instance(
     require_core_class(root, request.class_id)
     work = ModuleWorkRef("concord", request.class_id, request.activity_id)
     context = _load_packet_render_context(root, work)
+    dependencies = _PacketRenderDependencies(template_layout_cache={})
     if (
         request.expected_snapshot_revision is not None
         and context.snapshot_revision != request.expected_snapshot_revision
@@ -234,15 +243,20 @@ def render_packet_instance(
         request.packet_instance_id,
         request.activity_id,
     )
-    return _render_packet_from_context(context, packet)
+    return _render_packet_from_context(context, dependencies, packet)
 
 
 def _render_packet_from_context(
     context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
     packet: PacketInstance,
 ) -> RenderPacketInstanceResult:
     """Render one Packet and commit its lifecycle for the standalone API."""
-    prepared = _prepare_packet_render_from_context(context, packet)
+    prepared = _prepare_packet_render_from_context(
+        context,
+        dependencies,
+        packet,
+    )
     if not prepared.updates:
         return prepared.result
     try:
@@ -266,6 +280,7 @@ def _render_packet_from_context(
 
 def _prepare_packet_render_from_context(
     context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
     packet: PacketInstance,
 ) -> _PreparedPacketRender:
     """Render/install one Packet while deferring canonical lifecycle mutation."""
@@ -273,6 +288,7 @@ def _prepare_packet_render_from_context(
 
     renderables = _resolve_renderables(
         context,
+        dependencies,
         packet,
     )
     images: list[Image.Image] = []
@@ -392,6 +408,7 @@ def render_packet_generation(
     require_core_class(root, request.class_id)
     work = ModuleWorkRef("concord", request.class_id, request.activity_id)
     context = _load_packet_render_context(root, work)
+    dependencies = _PacketRenderDependencies(template_layout_cache={})
     if (
         request.expected_snapshot_revision is not None
         and context.snapshot_revision != request.expected_snapshot_revision
@@ -428,6 +445,7 @@ def render_packet_generation(
             prepared.append(
                 _prepare_packet_render_from_context(
                     context,
+                    dependencies,
                     packet,
                 )
             )
@@ -515,15 +533,18 @@ def _load_packet_render_context(
         snapshot_revision=loaded.snapshot_revision,
         snapshot_sha256=loaded.snapshot_sha256,
         graph=graph,
-        artifact_index={
-            item.artifact_instance_id: item
-            for item in graph.artifact_instances
-        },
-        page_index={
-            item.artifact_page_id: item
-            for item in graph.artifact_pages
-        },
-        template_layout_cache={},
+        artifact_index=MappingProxyType(
+            {
+                item.artifact_instance_id: item
+                for item in graph.artifact_instances
+            }
+        ),
+        page_index=MappingProxyType(
+            {
+                item.artifact_page_id: item
+                for item in graph.artifact_pages
+            }
+        ),
     )
 
 
@@ -562,6 +583,7 @@ def _require_packet(
 
 def _resolve_renderables(
     context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
     packet: PacketInstance,
 ) -> tuple[_RenderableArtifact, ...]:
     result: list[_RenderableArtifact] = []
@@ -592,6 +614,7 @@ def _resolve_renderables(
             )
         version, layout = _load_exact_layout_from_context(
             context,
+            dependencies,
             binding.template_id,
             binding.template_version_id,
         )
@@ -627,19 +650,20 @@ def _resolve_renderables(
 
 def _load_exact_layout_from_context(
     context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
     template_id: str,
     template_version_id: str,
 ) -> tuple[TemplateVersion, StarterLayoutDocument]:
     """Resolve one exact immutable Template/layout dependency once per operation."""
     key = (template_id, template_version_id)
-    cached = context.template_layout_cache.get(key)
+    cached = dependencies.template_layout_cache.get(key)
     if cached is None:
         cached = _load_exact_layout(
             context.root,
             template_id,
             template_version_id,
         )
-        context.template_layout_cache[key] = cached
+        dependencies.template_layout_cache[key] = cached
     return cached
 
 
@@ -662,10 +686,10 @@ def _load_exact_layout(
             raise ConcordWorkflowNotFoundError(
                 f"Template Version is unavailable: {template_version_id}"
             )
-        data = load_template_rendering_specification(
+        data = _load_template_rendering_specification_for_version(
             root,
             template_id,
-            template_version_id,
+            version,
         )
     except TemplateStorageError as error:
         raise ConcordWorkflowNotFoundError(

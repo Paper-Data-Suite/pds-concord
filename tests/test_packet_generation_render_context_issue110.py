@@ -114,7 +114,11 @@ def test_generated_generation_reprint_uses_one_context_not_public_instance_loop(
         lambda _packet: None,
     )
 
-    def prepare(_context: object, packet: object) -> object:
+    def prepare(
+        _context: object,
+        _dependencies: object,
+        packet: object,
+    ) -> object:
         packet_id = cast(SimpleNamespace, packet).packet_instance_id
         prepared.append(packet_id)
         result = _issue110_result(tmp_path, work, packet_id)
@@ -265,7 +269,11 @@ def test_first_render_generation_uses_one_context_and_one_lifecycle_commit(
         lambda _packet: None,
     )
 
-    def prepare(_context: object, packet: object) -> object:
+    def prepare(
+        _context: object,
+        _dependencies: object,
+        packet: object,
+    ) -> object:
         packet_id = cast(SimpleNamespace, packet).packet_instance_id
         prepared_ids.append(packet_id)
         update = update_a if packet_id == "packet-a" else update_b
@@ -389,13 +397,15 @@ def test_generation_lifecycle_commit_failure_reports_all_durable_outputs(
     monkeypatch.setattr(
         packet_rendering,
         "_prepare_packet_render_from_context",
-        lambda _context, packet: packet_rendering._PreparedPacketRender(
+        lambda _context, _dependencies, packet: (
+            packet_rendering._PreparedPacketRender(
             result=_issue110_result(
                 tmp_path,
                 work,
                 cast(SimpleNamespace, packet).packet_instance_id,
             ),
-            updates=(object(),),  # type: ignore[arg-type]
+                updates=(object(),),  # type: ignore[arg-type]
+            )
         ),
     )
     monkeypatch.setattr(
@@ -477,7 +487,7 @@ def test_generation_rejects_nonrenderable_member_before_output_preparation(
     monkeypatch.setattr(
         packet_rendering,
         "_prepare_packet_render_from_context",
-        lambda _context, packet: prepared.append(
+        lambda _context, _dependencies, packet: prepared.append(
             cast(SimpleNamespace, packet).packet_instance_id
         ),
     )
@@ -536,7 +546,11 @@ def test_render_context_builds_shared_indexes_once(
         "page-a": page_a,
         "page-b": page_b,
     }
-    assert context.template_layout_cache == {}
+    assert not hasattr(context, "template_layout_cache")
+    with pytest.raises(TypeError):
+        cast(dict[str, object], context.artifact_index)["artifact-c"] = object()
+    with pytest.raises(TypeError):
+        cast(dict[str, object], context.page_index)["page-c"] = object()
 
 
 def test_exact_template_layout_cache_scales_with_distinct_versions(
@@ -551,10 +565,10 @@ def test_exact_template_layout_cache_scales_with_distinct_versions(
 
     context = cast(
         packet_rendering._PacketRenderContext,
-        SimpleNamespace(
-            root=tmp_path,
-            template_layout_cache={},
-        ),
+        SimpleNamespace(root=tmp_path),
+    )
+    dependencies = packet_rendering._PacketRenderDependencies(
+        template_layout_cache={}
     )
 
     def load_exact(
@@ -575,6 +589,7 @@ def test_exact_template_layout_cache_scales_with_distinct_versions(
     for _ in range(30):
         assert packet_rendering._load_exact_layout_from_context(
             context,
+            dependencies,
             "template-1",
             "version-1",
         ) == (version_one, layout_one)
@@ -582,6 +597,7 @@ def test_exact_template_layout_cache_scales_with_distinct_versions(
     for _ in range(30):
         assert packet_rendering._load_exact_layout_from_context(
             context,
+            dependencies,
             "template-1",
             "version-2",
         ) == (version_two, layout_two)
@@ -645,8 +661,10 @@ def test_renderable_resolution_reuses_indexes_and_template_cache_across_targets(
             root=tmp_path,
             artifact_index=artifact_index,
             page_index=page_index,
-            template_layout_cache={},
         ),
+    )
+    dependencies = packet_rendering._PacketRenderDependencies(
+        template_layout_cache={}
     )
 
     def load_exact(
@@ -665,6 +683,7 @@ def test_renderable_resolution_reuses_indexes_and_template_cache_across_targets(
     for packet in packets:
         renderables = packet_rendering._resolve_renderables(
             context,
+            dependencies,
             cast(packet_rendering.PacketInstance, packet),
         )
         assert len(renderables) == 1

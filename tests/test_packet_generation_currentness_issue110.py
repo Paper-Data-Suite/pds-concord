@@ -59,7 +59,7 @@ def _install_generation_service_fakes(
     monkeypatch.setattr(
         packet_rendering,
         "_prepare_packet_render_from_context",
-        lambda _context, packet: prepared.append(
+        lambda _context, _dependencies, packet: prepared.append(
             cast(SimpleNamespace, packet).packet_instance_id
         ),
     )
@@ -169,7 +169,11 @@ def test_generation_last_safe_point_accepts_same_revision_and_sha(
     )
 
     # Stop after the currentness gate without needing a synthetic render result.
-    def stop_after_gate(_context: object, packet: object) -> object:
+    def stop_after_gate(
+        _context: object,
+        _dependencies: object,
+        packet: object,
+    ) -> object:
         prepared.append(cast(SimpleNamespace, packet).packet_instance_id)
         raise RuntimeError("after-currentness-gate")
 

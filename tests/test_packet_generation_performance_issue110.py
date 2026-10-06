@@ -121,7 +121,11 @@ def test_generation_graph_materialization_and_commit_count_are_constant(
         lambda packet: (0, packet.packet_instance_id),
     )
 
-    def prepare(_context: object, packet: object) -> object:
+    def prepare(
+        _context: object,
+        _dependencies: object,
+        packet: object,
+    ) -> object:
         packet_id = cast(SimpleNamespace, packet).packet_instance_id
         prepared.append(packet_id)
         return packet_rendering._PreparedPacketRender(
@@ -209,10 +213,10 @@ def test_template_layout_resolution_scales_with_distinct_versions(
     }
     context = cast(
         packet_rendering._PacketRenderContext,
-        SimpleNamespace(
-            root=tmp_path,
-            template_layout_cache={},
-        ),
+        SimpleNamespace(root=tmp_path),
+    )
+    dependencies = packet_rendering._PacketRenderDependencies(
+        template_layout_cache={}
     )
 
     def load_exact(
@@ -232,6 +236,7 @@ def test_template_layout_resolution_scales_with_distinct_versions(
         version_id = f"version-{target_index % distinct_versions}"
         packet_rendering._load_exact_layout_from_context(
             context,
+            dependencies,
             "template-1",
             version_id,
         )
