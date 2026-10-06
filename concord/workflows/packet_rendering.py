@@ -36,7 +36,11 @@ from concord.starter_templates.layout import (
     StarterLayoutDocument,
     starter_layout_from_json_bytes,
 )
-from concord.storage import commit_record_batch, load_current_record_graph
+from concord.storage import (
+    commit_record_batch,
+    load_current_record_graph,
+    load_current_snapshot_pointer,
+)
 from concord.storage_errors import ConcordStorageConflictError
 from concord.template_storage import (
     TemplateStorageError,
@@ -93,6 +97,7 @@ class RenderPacketGenerationRequest:
     activity_id: str
     generation_id: str
     actor: WorkflowActor
+    expected_snapshot_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -387,6 +392,14 @@ def render_packet_generation(
     require_core_class(root, request.class_id)
     work = ModuleWorkRef("concord", request.class_id, request.activity_id)
     context = _load_packet_render_context(root, work)
+    if (
+        request.expected_snapshot_revision is not None
+        and context.snapshot_revision != request.expected_snapshot_revision
+    ):
+        raise ConcordStorageConflictError(
+            f"expected snapshot {request.expected_snapshot_revision}, "
+            f"found {context.snapshot_revision}."
+        )
     packets = tuple(
         sorted(
             (
@@ -405,6 +418,9 @@ def render_packet_generation(
     # Reject a non-renderable generation before the first durable output write.
     for packet in packets:
         _require_renderable_packet(packet)
+
+    if request.expected_snapshot_revision is not None:
+        _require_render_context_current(context)
 
     prepared: list[_PreparedPacketRender] = []
     try:
@@ -460,6 +476,24 @@ def render_packet_generation(
             for item in prepared
         ),
     )
+
+
+def _require_render_context_current(
+    context: _PacketRenderContext,
+) -> None:
+    """Verify reviewed source state is still current before output mutation."""
+    current = load_current_snapshot_pointer(
+        context.root,
+        context.work,
+    )
+    if (
+        current.snapshot_revision != context.snapshot_revision
+        or current.snapshot_sha256 != context.snapshot_sha256
+    ):
+        raise ConcordStorageConflictError(
+            f"reviewed snapshot {context.snapshot_revision} is no longer current; "
+            f"found snapshot {current.snapshot_revision}."
+        )
 
 
 def _load_packet_render_context(

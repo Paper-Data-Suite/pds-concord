@@ -15,6 +15,7 @@ from concord.workflows.errors import (
     ConcordWorkflowValidationError,
 )
 from concord.workflows.group import show_group
+from concord.workflows.packet_generation import show_packet_generation
 from concord.workflows.packet_instance import (
     PacketInstanceDetail,
     list_packet_instances,
@@ -173,14 +174,22 @@ def handle_instance_open_folder(args: argparse.Namespace) -> int:
 
 
 def handle_generation_render(args: argparse.Namespace) -> int:
+    workspace_root = workspace_arg(args)
+    reviewed = show_packet_generation(
+        args.class_id,
+        args.activity_id,
+        args.generation_id,
+        workspace_root=workspace_root,
+    )
     result = render_packet_generation(
         RenderPacketGenerationRequest(
             class_id=args.class_id,
             activity_id=args.activity_id,
             generation_id=args.generation_id,
             actor=workflow_actor(args),
+            expected_snapshot_revision=reviewed.snapshot_revision,
         ),
-        workspace_root=workspace_arg(args),
+        workspace_root=workspace_root,
     )
     print(f"Generation: {result.generation_id}")
     print(f"Packet Instances: {len(result.packets)}")

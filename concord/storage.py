@@ -465,15 +465,7 @@ def _load_current_snapshot_state(
     ConcordRecordGraph,
 ]:
     """Load and verify the current pointer, snapshot chain, and selected graph once."""
-    current, _ = _parse(
-        current_snapshot_path(workspace_root, work),
-        current_from_dict,
-        missing=True,
-    )
-    if current.work != work:
-        raise ConcordStorageIntegrityError(
-            "current pointer work disagrees with canonical path."
-        )
+    current = load_current_snapshot_pointer(workspace_root, work)
     snapshot, snapshot_bytes = _load_snapshot_chain(
         workspace_root,
         work,
@@ -486,6 +478,23 @@ def _load_current_snapshot_state(
         )
     graph = _validated_snapshot_graph(workspace_root, work, snapshot)
     return current, snapshot, snapshot_sha256, graph
+
+
+def load_current_snapshot_pointer(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+) -> ConcordCurrentSnapshot:
+    """Read only the canonical current pointer for bounded currentness checks."""
+    current, _ = _parse(
+        current_snapshot_path(workspace_root, work),
+        current_from_dict,
+        missing=True,
+    )
+    if current.work != work:
+        raise ConcordStorageIntegrityError(
+            "current pointer work disagrees with canonical path."
+        )
+    return current
 
 
 def load_current_snapshot(
