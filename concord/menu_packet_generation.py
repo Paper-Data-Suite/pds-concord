@@ -43,6 +43,10 @@ from concord.workflows import (
 from concord.workflows.errors import ConcordWorkflowError
 from concord.workflows.group import list_groups
 from concord.workflows.packet import PacketSummary, get_packet, list_packets
+from concord.workflows.packet_generation import (
+    PacketGenerationSummary,
+    list_packet_generations,
+)
 from concord.workflows.packet_instance import (
     PacketInstanceSummary,
     list_packet_instances,
@@ -62,6 +66,7 @@ from concord.workflows.packet_instantiation_commit import (
     resume_packet_instantiation,
 )
 from concord.workflows.packet_rendering import (
+    PacketGenerationLifecyclePartialSuccessError,
     PacketGenerationRenderPartialSuccessError,
     PacketRenderPartialSuccessError,
     RenderPacketGenerationRequest,
@@ -85,10 +90,11 @@ def launch_packet_generation_menu(
         print("1. Preview and generate a Packet")
         print("2. List generated Packet Instances")
         print("3. Inspect a Packet Instance")
-        print("4. Render / reprint a Packet Instance")
-        print("5. Resume incomplete route preparation")
-        print("6. Open a rendered Packet")
-        print("7. Open rendered Packet folder")
+        print("4. Render / reprint a complete generation")
+        print("5. Render / reprint one Packet Instance")
+        print("6. Resume incomplete route preparation")
+        print("7. Open a rendered Packet")
+        print("8. Open rendered Packet folder")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -104,12 +110,14 @@ def launch_packet_generation_menu(
         elif choice == "3":
             _inspect_instance(activity)
         elif choice == "4":
-            _render_instance(activity, state)
+            _render_generation(activity, state)
         elif choice == "5":
-            _resume_generation(activity)
+            _render_instance(activity, state)
         elif choice == "6":
-            _open_ready_packet(activity)
+            _resume_generation(activity)
         elif choice == "7":
+            _open_ready_packet(activity)
+        elif choice == "8":
             _open_ready_folder(activity)
         else:
             print(navigation_hint_with_help())
@@ -128,6 +136,7 @@ def _help() -> None:
     print("The preview shows exact counts, diagnostics, and a review digest.")
     print("Type GENERATE only after reviewing the resolved generation.")
     print("A retry reuses durable Packet, Artifact, Page, and route identities.")
+    print("Use complete-generation render/reprint for the ordinary class-set workflow.")
     print("Reprint never allocates a replacement route for an existing Packet.")
     print()
     pause_for_user()
@@ -985,6 +994,182 @@ def _list_instances(activity: ActivitySummary) -> None:
         show_result("Packet Instances", lines)
     except Exception as error:
         show_result("Packet Instance Error", (str(error),))
+
+
+def _generation_state_label(
+    item: PacketGenerationSummary,
+) -> str:
+    if item.routes_pending_count:
+        return "Route recovery required"
+    if item.planned_count or item.failed_count or item.cancelled_count:
+        return "Needs attention"
+    if item.generated_count == item.instance_count:
+        return "Ready to reprint"
+    if (
+        item.rendering_count > 0
+        and item.generated_count + item.rendering_count == item.instance_count
+    ):
+        return "Ready to render"
+    return "Needs attention"
+
+
+def _choose_generation(
+    activity: ActivitySummary,
+    *,
+    title: str,
+) -> PacketGenerationSummary:
+    items = list_packet_generations(
+        activity.class_id,
+        activity.activity_id,
+    )
+    if not items:
+        raise ConcordWorkflowError("No Packet generations are available.")
+    return select_one(
+        title,
+        items,
+        tuple(
+            f"{item.packet_name} — {item.session_label} | "
+            f"{item.instance_count} Packets — {item.page_count} pages — "
+            f"{_generation_state_label(item)}"
+            for item in items
+        ),
+        help_text=(
+            "Choose the complete class-set generation by Packet, Session, "
+            "counts, and current status."
+        ),
+    )
+
+
+def _render_generation(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    try:
+        selected = _choose_generation(
+            activity,
+            title="Render / Reprint Complete Generation",
+        )
+        if selected.routes_pending_count:
+            show_result(
+                "Packet Generation Requires Route Recovery",
+                (
+                    f"Packet: {selected.packet_name}",
+                    f"Session: {selected.session_label}",
+                    f"Packets awaiting routes: {selected.routes_pending_count}",
+                    "Use Resume incomplete route preparation before rendering.",
+                ),
+            )
+            return
+
+        if (
+            selected.planned_count
+            or selected.failed_count
+            or selected.cancelled_count
+        ):
+            show_result(
+                "Packet Generation Requires Attention",
+                (
+                    f"Packet: {selected.packet_name}",
+                    f"Session: {selected.session_label}",
+                    f"Planned: {selected.planned_count}",
+                    f"Failed: {selected.failed_count}",
+                    f"Cancelled: {selected.cancelled_count}",
+                    "The complete generation will not be subset-rendered.",
+                ),
+            )
+            return
+
+        if selected.generated_count == selected.instance_count:
+            action = "REPRINT"
+            title = "Reprint Packet Generation"
+            identity_line = (
+                "Existing Packet, Artifact, Page, and PDS2 route identities "
+                "will be reused."
+            )
+        elif (
+            selected.rendering_count > 0
+            and selected.generated_count + selected.rendering_count
+            == selected.instance_count
+        ):
+            action = "RENDER"
+            title = "Render Packet Generation"
+            identity_line = (
+                "Prepared Packet, Artifact, Page, and PDS2 route identities "
+                "will be rendered without replacement allocation."
+            )
+        else:
+            show_result(
+                "Packet Generation Requires Attention",
+                (
+                    f"Packet: {selected.packet_name}",
+                    f"Session: {selected.session_label}",
+                    "Generation state is not eligible for complete rendering.",
+                ),
+            )
+            return
+
+        if not confirm_write(
+            title,
+            action,
+            (
+                f"Packet: {selected.packet_name}",
+                f"Version: {selected.packet_version_label}",
+                f"Session: {selected.session_label}",
+                f"Packet outputs: {selected.instance_count}",
+                f"Pages: {selected.page_count}",
+                f"Routes: {selected.route_count}",
+                identity_line,
+            ),
+        ):
+            return
+
+        result = render_packet_generation(
+            RenderPacketGenerationRequest(
+                class_id=activity.class_id,
+                activity_id=activity.activity_id,
+                generation_id=selected.generation_id,
+                actor=state.require_actor(),
+                expected_snapshot_revision=selected.snapshot_revision,
+            )
+        )
+        show_result(
+            "Packet Generation Render Result",
+            (
+                f"Packet: {selected.packet_name}",
+                f"Session: {selected.session_label}",
+                f"Packet outputs: {len(result.packets)}",
+                f"Pages: {result.page_count}",
+                f"Routes: {result.route_count}",
+                f"Operation: {'Reprint' if action == 'REPRINT' else 'Render'}",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except PacketGenerationRenderPartialSuccessError as error:
+        show_result(
+            "Packet Generation Rendering Incomplete",
+            (
+                str(error),
+                f"Completed outputs: {len(error.completed)}",
+                "Completed PDFs remain durable.",
+                "Retry the complete generation to verify and finish it.",
+            ),
+        )
+    except PacketGenerationLifecyclePartialSuccessError as error:
+        show_result(
+            "Packet Generation Lifecycle Incomplete",
+            (
+                str(error),
+                f"Durable outputs: {len(error.completed)}",
+                (
+                    "The PDFs are durable; canonical lifecycle reconciliation "
+                    "is incomplete."
+                ),
+                "Retry the complete generation to reconcile lifecycle state.",
+            ),
+        )
+    except Exception as error:
+        show_result("Packet Generation Rendering Error", (str(error),))
 
 
 def _choose_instance(
