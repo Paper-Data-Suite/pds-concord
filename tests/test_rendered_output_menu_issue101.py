@@ -150,7 +150,7 @@ def test_advanced_packet_menu_keeps_open_separate_from_render_reprint(
         lambda _activity: calls.append("folder"),
     )
     monkeypatch.setattr(menu_generation, "clear_screen", lambda: None)
-    answers = iter(("6", "7", "b"))
+    answers = iter(("7", "8", "b"))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
 
     menu_generation.launch_packet_generation_menu(
@@ -160,9 +160,10 @@ def test_advanced_packet_menu_keeps_open_separate_from_render_reprint(
 
     assert calls == ["pdf", "folder"]
     output = capsys.readouterr().out
-    assert "4. Render / reprint a Packet Instance" in output
-    assert "6. Open a rendered Packet" in output
-    assert "7. Open rendered Packet folder" in output
+    assert "4. Render / reprint a complete generation" in output
+    assert "5. Render / reprint one Packet Instance" in output
+    assert "7. Open a rendered Packet" in output
+    assert "8. Open rendered Packet folder" in output
 
 
 def test_open_folder_without_ready_output_guides_to_render_reprint(
