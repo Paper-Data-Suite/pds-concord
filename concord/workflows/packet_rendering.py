@@ -183,6 +183,12 @@ class _PacketRenderContext:
     snapshot_revision: int
     snapshot_sha256: str
     graph: ConcordRecordGraph
+    artifact_index: dict[str, ArtifactInstance]
+    page_index: dict[str, ArtifactPage]
+    template_layout_cache: dict[
+        tuple[str, str],
+        tuple[TemplateVersion, StarterLayoutDocument],
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,9 +267,7 @@ def _prepare_packet_render_from_context(
     _require_renderable_packet(packet)
 
     renderables = _resolve_renderables(
-        context.root,
-        context.work,
-        context.graph,
+        context,
         packet,
     )
     images: list[Image.Image] = []
@@ -469,13 +473,23 @@ def _load_packet_render_context(
         work,
         standards_library=library,
     )
+    graph = cast(ConcordRecordGraph, loaded.graph)
     return _PacketRenderContext(
         root=root,
         work=work,
         library=library,
         snapshot_revision=loaded.snapshot_revision,
         snapshot_sha256=loaded.snapshot_sha256,
-        graph=cast(ConcordRecordGraph, loaded.graph),
+        graph=graph,
+        artifact_index={
+            item.artifact_instance_id: item
+            for item in graph.artifact_instances
+        },
+        page_index={
+            item.artifact_page_id: item
+            for item in graph.artifact_pages
+        },
+        template_layout_cache={},
     )
 
 
@@ -513,18 +527,12 @@ def _require_packet(
 
 
 def _resolve_renderables(
-    root: Path,
-    work: ModuleWorkRef,
-    graph: ConcordRecordGraph,
+    context: _PacketRenderContext,
     packet: PacketInstance,
 ) -> tuple[_RenderableArtifact, ...]:
-    artifacts = {
-        item.artifact_instance_id: item for item in graph.artifact_instances
-    }
-    pages = {item.artifact_page_id: item for item in graph.artifact_pages}
     result: list[_RenderableArtifact] = []
     for binding in packet.artifact_bindings:
-        artifact = artifacts.get(binding.artifact_instance_id)
+        artifact = context.artifact_index.get(binding.artifact_instance_id)
         if (
             artifact is None
             or artifact.packet_instance_id != packet.packet_instance_id
@@ -534,9 +542,9 @@ def _resolve_renderables(
                 "Packet/Artifact provenance is contradictory."
             )
         artifact_pages = tuple(
-            pages[page_id]
+            context.page_index[page_id]
             for page_id in artifact.page_ids
-            if page_id in pages
+            if page_id in context.page_index
         )
         if len(artifact_pages) != len(artifact.page_ids):
             raise ConcordWorkflowConflictError(
@@ -548,8 +556,8 @@ def _resolve_renderables(
             raise ConcordWorkflowConflictError(
                 "Packet Artifact page order is not contiguous."
             )
-        version, layout = _load_exact_layout(
-            root,
+        version, layout = _load_exact_layout_from_context(
+            context,
             binding.template_id,
             binding.template_version_id,
         )
@@ -581,6 +589,24 @@ def _resolve_renderables(
             )
         )
     return tuple(result)
+
+
+def _load_exact_layout_from_context(
+    context: _PacketRenderContext,
+    template_id: str,
+    template_version_id: str,
+) -> tuple[TemplateVersion, StarterLayoutDocument]:
+    """Resolve one exact immutable Template/layout dependency once per operation."""
+    key = (template_id, template_version_id)
+    cached = context.template_layout_cache.get(key)
+    if cached is None:
+        cached = _load_exact_layout(
+            context.root,
+            template_id,
+            template_version_id,
+        )
+        context.template_layout_cache[key] = cached
+    return cached
 
 
 def _load_exact_layout(

@@ -19,7 +19,13 @@ def test_packet_render_context_carries_one_exact_loaded_snapshot(
 ) -> None:
     work = ModuleWorkRef("concord", "class-1", "activity-1")
     library = cast(StandardsLibrary, object())
-    graph = cast(ConcordRecordGraph, SimpleNamespace())
+    graph = cast(
+        ConcordRecordGraph,
+        SimpleNamespace(
+            artifact_instances=(),
+            artifact_pages=(),
+        ),
+    )
     loaded = SimpleNamespace(
         snapshot_revision=17,
         snapshot_sha256="a" * 64,
@@ -491,3 +497,178 @@ def test_generation_rejects_nonrenderable_member_before_output_preparation(
         )
 
     assert prepared == []
+def test_render_context_builds_shared_indexes_once(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    artifact_a = SimpleNamespace(artifact_instance_id="artifact-a")
+    artifact_b = SimpleNamespace(artifact_instance_id="artifact-b")
+    page_a = SimpleNamespace(artifact_page_id="page-a")
+    page_b = SimpleNamespace(artifact_page_id="page-b")
+    graph = cast(
+        ConcordRecordGraph,
+        SimpleNamespace(
+            artifact_instances=(artifact_a, artifact_b),
+            artifact_pages=(page_a, page_b),
+        ),
+    )
+    loaded = SimpleNamespace(
+        snapshot_revision=21,
+        snapshot_sha256="e" * 64,
+        graph=graph,
+    )
+
+    monkeypatch.setattr(packet_rendering, "_standards", lambda _root: None)
+    monkeypatch.setattr(
+        packet_rendering,
+        "load_current_record_graph",
+        lambda *_args, **_kwargs: loaded,
+    )
+
+    context = packet_rendering._load_packet_render_context(tmp_path, work)
+
+    assert context.artifact_index == {
+        "artifact-a": artifact_a,
+        "artifact-b": artifact_b,
+    }
+    assert context.page_index == {
+        "page-a": page_a,
+        "page-b": page_b,
+    }
+    assert context.template_layout_cache == {}
+
+
+def test_exact_template_layout_cache_scales_with_distinct_versions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    version_one = cast(packet_rendering.TemplateVersion, SimpleNamespace())
+    version_two = cast(packet_rendering.TemplateVersion, SimpleNamespace())
+    layout_one = cast(packet_rendering.StarterLayoutDocument, SimpleNamespace())
+    layout_two = cast(packet_rendering.StarterLayoutDocument, SimpleNamespace())
+    loads: list[tuple[str, str]] = []
+
+    context = cast(
+        packet_rendering._PacketRenderContext,
+        SimpleNamespace(
+            root=tmp_path,
+            template_layout_cache={},
+        ),
+    )
+
+    def load_exact(
+        _root: Path,
+        template_id: str,
+        template_version_id: str,
+    ) -> tuple[
+        packet_rendering.TemplateVersion,
+        packet_rendering.StarterLayoutDocument,
+    ]:
+        loads.append((template_id, template_version_id))
+        if template_version_id == "version-1":
+            return version_one, layout_one
+        return version_two, layout_two
+
+    monkeypatch.setattr(packet_rendering, "_load_exact_layout", load_exact)
+
+    for _ in range(30):
+        assert packet_rendering._load_exact_layout_from_context(
+            context,
+            "template-1",
+            "version-1",
+        ) == (version_one, layout_one)
+
+    for _ in range(30):
+        assert packet_rendering._load_exact_layout_from_context(
+            context,
+            "template-1",
+            "version-2",
+        ) == (version_two, layout_two)
+
+    assert loads == [
+        ("template-1", "version-1"),
+        ("template-1", "version-2"),
+    ]
+
+
+def test_renderable_resolution_reuses_indexes_and_template_cache_across_targets(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    template_page = SimpleNamespace(
+        sequence=1,
+        page_kind="response",
+        return_expected=True,
+        route_required=True,
+    )
+    version = cast(
+        packet_rendering.TemplateVersion,
+        SimpleNamespace(page_manifest=(template_page,)),
+    )
+    layout = cast(packet_rendering.StarterLayoutDocument, SimpleNamespace())
+    loads: list[tuple[str, str]] = []
+
+    artifact_index: dict[str, object] = {}
+    page_index: dict[str, object] = {}
+    packets: list[object] = []
+    for index in range(30):
+        packet_id = f"packet-{index}"
+        artifact_id = f"artifact-{index}"
+        page_id = f"page-{index}"
+        binding = SimpleNamespace(
+            artifact_instance_id=artifact_id,
+            template_id="template-1",
+            template_version_id="version-1",
+        )
+        artifact_index[artifact_id] = SimpleNamespace(
+            packet_instance_id=packet_id,
+            template_version_id="version-1",
+            page_ids=(page_id,),
+        )
+        page_index[page_id] = SimpleNamespace(
+            page_number=1,
+            page_kind="response",
+            return_expected=True,
+            route_required=True,
+        )
+        packets.append(
+            SimpleNamespace(
+                packet_instance_id=packet_id,
+                artifact_bindings=(binding,),
+            )
+        )
+
+    context = cast(
+        packet_rendering._PacketRenderContext,
+        SimpleNamespace(
+            root=tmp_path,
+            artifact_index=artifact_index,
+            page_index=page_index,
+            template_layout_cache={},
+        ),
+    )
+
+    def load_exact(
+        _root: Path,
+        template_id: str,
+        template_version_id: str,
+    ) -> tuple[
+        packet_rendering.TemplateVersion,
+        packet_rendering.StarterLayoutDocument,
+    ]:
+        loads.append((template_id, template_version_id))
+        return version, layout
+
+    monkeypatch.setattr(packet_rendering, "_load_exact_layout", load_exact)
+
+    for packet in packets:
+        renderables = packet_rendering._resolve_renderables(
+            context,
+            cast(packet_rendering.PacketInstance, packet),
+        )
+        assert len(renderables) == 1
+        assert renderables[0].template_version is version
+        assert renderables[0].layout is layout
+
+    assert loads == [("template-1", "version-1")]
