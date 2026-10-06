@@ -461,6 +461,7 @@ from concord.workflows.packet_instantiation_commit import (
     resume_packet_instantiation,
 )
 from concord.workflows.packet_rendering import (
+    PacketGenerationLifecyclePartialSuccessError,
     PacketGenerationRenderPartialSuccessError,
     PacketRenderPartialSuccessError,
     RenderPacketGenerationRequest,
@@ -714,6 +715,7 @@ __all__ = [
     "PacketInstantiationTargetPlan",
     "PacketRenderingBinding",
     "PacketSubjectBinding",
+    "PacketGenerationLifecyclePartialSuccessError",
     "PacketGenerationRenderPartialSuccessError",
     "PacketRenderPartialSuccessError",
     "RenderPacketGenerationRequest",

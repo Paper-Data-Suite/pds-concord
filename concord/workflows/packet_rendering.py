@@ -144,6 +144,26 @@ class PacketGenerationRenderPartialSuccessError(ConcordWorkflowError):
         self.__cause__ = cause
 
 
+class PacketGenerationLifecyclePartialSuccessError(ConcordWorkflowError):
+    """All target PDFs are durable but generation lifecycle commit failed."""
+
+    def __init__(
+        self,
+        *,
+        generation_id: str,
+        completed: tuple[RenderPacketInstanceResult, ...],
+        cause: Exception,
+    ) -> None:
+        super().__init__(
+            f"Packet generation {generation_id} rendered "
+            f"{len(completed)} target Packet(s), but generated lifecycle state "
+            "was not committed."
+        )
+        self.generation_id = generation_id
+        self.completed = completed
+        self.__cause__ = cause
+
+
 @dataclass(frozen=True, slots=True)
 class _RenderableArtifact:
     binding: PacketInstanceArtifactBinding
@@ -163,6 +183,14 @@ class _PacketRenderContext:
     snapshot_revision: int
     snapshot_sha256: str
     graph: ConcordRecordGraph
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedPacketRender:
+    """One durable Packet output plus its deferred canonical lifecycle updates."""
+
+    result: RenderPacketInstanceResult
+    updates: tuple[Record, ...]
 
 
 def render_packet_instance(
@@ -202,7 +230,34 @@ def _render_packet_from_context(
     context: _PacketRenderContext,
     packet: PacketInstance,
 ) -> RenderPacketInstanceResult:
-    """Render one Packet from an already verified exact Activity context."""
+    """Render one Packet and commit its lifecycle for the standalone API."""
+    prepared = _prepare_packet_render_from_context(context, packet)
+    if not prepared.updates:
+        return prepared.result
+    try:
+        committed = commit_record_batch(
+            context.root,
+            context.work,
+            prepared.updates,
+            expected_snapshot_revision=context.snapshot_revision,
+            standards_library=context.library,
+        )
+    except Exception as error:
+        raise PacketRenderPartialSuccessError(
+            result=prepared.result,
+            cause=error,
+        ) from error
+    return _render_result_with_commit(
+        prepared.result,
+        WorkflowCommitResult.from_storage(committed),
+    )
+
+
+def _prepare_packet_render_from_context(
+    context: _PacketRenderContext,
+    packet: PacketInstance,
+) -> _PreparedPacketRender:
+    """Render/install one Packet while deferring canonical lifecycle mutation."""
     _require_renderable_packet(packet)
 
     renderables = _resolve_renderables(
@@ -251,7 +306,7 @@ def _render_packet_from_context(
 
     target = _packet_output_target(context.root, context.work, relative)
     installed = _safe_install(target, data)
-    base_result = RenderPacketInstanceResult(
+    result = RenderPacketInstanceResult(
         work=context.work,
         packet_instance_id=packet.packet_instance_id,
         generation_id=packet.generation_id,
@@ -270,34 +325,28 @@ def _render_packet_from_context(
         output_installed=installed,
         replayed=packet.generation_status == "generated",
     )
+    return _PreparedPacketRender(
+        result=result,
+        updates=_lifecycle_updates(packet, renderables, relative, digest),
+    )
 
-    updates = _lifecycle_updates(packet, renderables, relative, digest)
-    if not updates:
-        return base_result
-    try:
-        committed = commit_record_batch(
-            context.root,
-            context.work,
-            updates,
-            expected_snapshot_revision=context.snapshot_revision,
-            standards_library=context.library,
-        )
-    except Exception as error:
-        raise PacketRenderPartialSuccessError(
-            result=base_result,
-            cause=error,
-        ) from error
+
+def _render_result_with_commit(
+    result: RenderPacketInstanceResult,
+    commit: WorkflowCommitResult,
+) -> RenderPacketInstanceResult:
+    """Attach a successful lifecycle commit to one already durable output."""
     return RenderPacketInstanceResult(
-        work=context.work,
-        packet_instance_id=packet.packet_instance_id,
-        generation_id=packet.generation_id,
-        output_path=target,
-        output_sha256=digest,
-        page_count=len(images),
-        route_count=len(payloads),
-        payloads=tuple(payloads),
-        commit=WorkflowCommitResult.from_storage(committed),
-        output_installed=installed,
+        work=result.work,
+        packet_instance_id=result.packet_instance_id,
+        generation_id=result.generation_id,
+        output_path=result.output_path,
+        output_sha256=result.output_sha256,
+        page_count=result.page_count,
+        route_count=result.route_count,
+        payloads=result.payloads,
+        commit=commit,
+        output_installed=result.output_installed,
         replayed=False,
     )
 
@@ -318,11 +367,10 @@ def render_packet_generation(
     *,
     workspace_root: str | Path | None = None,
 ) -> RenderPacketGenerationResult:
-    """Render every target Packet in stable target order.
+    """Render every target Packet from one exact Activity source snapshot.
 
-    Fully generated generations replay from one exact loaded Activity context.
-    First-render lifecycle batching is introduced separately because canonical
-    writes advance the Activity snapshot.
+    Packet PDFs are installed in stable target order. Compatible lifecycle
+    updates are committed once after all intended outputs are durable.
     """
     if not isinstance(request, RenderPacketGenerationRequest):
         raise ConcordWorkflowValidationError(
@@ -350,43 +398,63 @@ def render_packet_generation(
             f"Packet generation is unavailable: {request.generation_id}"
         )
 
-    replay_from_context = all(
-        item.generation_status == "generated"
-        and _packet_lifecycle_complete(context.graph, item)
-        for item in packets
-    )
+    # Reject a non-renderable generation before the first durable output write.
+    for packet in packets:
+        _require_renderable_packet(packet)
 
-    completed: list[RenderPacketInstanceResult] = []
+    prepared: list[_PreparedPacketRender] = []
     try:
         for packet in packets:
-            if replay_from_context:
-                completed.append(
-                    _render_packet_from_context(
-                        context,
-                        packet,
-                    )
+            prepared.append(
+                _prepare_packet_render_from_context(
+                    context,
+                    packet,
                 )
-            else:
-                completed.append(
-                    render_packet_instance(
-                        RenderPacketInstanceRequest(
-                            class_id=request.class_id,
-                            activity_id=request.activity_id,
-                            packet_instance_id=packet.packet_instance_id,
-                            actor=request.actor,
-                        ),
-                        workspace_root=root,
-                    )
-                )
+            )
     except Exception as error:
         raise PacketGenerationRenderPartialSuccessError(
             generation_id=request.generation_id,
-            completed=tuple(completed),
+            completed=tuple(item.result for item in prepared),
             cause=error,
         ) from error
+
+    updates = tuple(
+        record
+        for item in prepared
+        for record in item.updates
+    )
+    if not updates:
+        return RenderPacketGenerationResult(
+            generation_id=request.generation_id,
+            packets=tuple(item.result for item in prepared),
+        )
+
+    try:
+        committed = commit_record_batch(
+            context.root,
+            context.work,
+            updates,
+            expected_snapshot_revision=context.snapshot_revision,
+            standards_library=context.library,
+        )
+    except Exception as error:
+        raise PacketGenerationLifecyclePartialSuccessError(
+            generation_id=request.generation_id,
+            completed=tuple(item.result for item in prepared),
+            cause=error,
+        ) from error
+
+    commit = WorkflowCommitResult.from_storage(committed)
     return RenderPacketGenerationResult(
         generation_id=request.generation_id,
-        packets=tuple(completed),
+        packets=tuple(
+            (
+                _render_result_with_commit(item.result, commit)
+                if item.updates
+                else item.result
+            )
+            for item in prepared
+        ),
     )
 
 
@@ -443,30 +511,6 @@ def _require_packet(
 
 
 
-
-def _packet_lifecycle_complete(
-    graph: ConcordRecordGraph,
-    packet: PacketInstance,
-) -> bool:
-    """Return whether rendering this generated Packet requires no canonical writes."""
-    artifacts = {
-        item.artifact_instance_id: item for item in graph.artifact_instances
-    }
-    pages = {item.artifact_page_id: item for item in graph.artifact_pages}
-    for binding in packet.artifact_bindings:
-        artifact = artifacts.get(binding.artifact_instance_id)
-        if artifact is None:
-            return False
-        if (
-            artifact.generation_status == "planned"
-            or artifact.artifact_status == "planned"
-        ):
-            return False
-        for page_id in artifact.page_ids:
-            page = pages.get(page_id)
-            if page is None or page.page_status == "planned":
-                return False
-    return True
 
 def _resolve_renderables(
     root: Path,
