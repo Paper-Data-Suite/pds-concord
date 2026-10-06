@@ -433,6 +433,11 @@ from concord.workflows.packet import (
     prepare_packet_revision,
     prepare_packet_update,
 )
+from concord.workflows.packet_generation import (
+    PacketGenerationSummary,
+    list_packet_generations,
+    show_packet_generation,
+)
 from concord.workflows.packet_instance import (
     PacketInstanceDetail,
     PacketInstanceSummary,
@@ -696,6 +701,9 @@ __all__ = [
     "PacketDetail",
     "PacketMutationResult",
     "PacketSummary",
+    "PacketGenerationSummary",
+    "list_packet_generations",
+    "show_packet_generation",
     "PacketInstanceDetail",
     "PacketInstanceSummary",
     "list_packet_instances",
