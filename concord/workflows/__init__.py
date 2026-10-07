@@ -624,6 +624,17 @@ from concord.workflows.student_feedback_distribution import (
     preview_student_feedback_distribution,
     student_feedback_roster_preparation_from_context,
 )
+from concord.workflows.student_feedback_distribution_plan import (
+    FEEDBACK_INDEX_FILENAME,
+    FEEDBACK_MANIFEST_FILENAME,
+    FEEDBACK_PRINT_FILENAME,
+    STUDENT_FEEDBACK_FILENAME_DOMAIN,
+    STUDENT_FEEDBACK_PLAN_SCHEMA_VERSION,
+    PlannedStudentFeedback,
+    PreparedStudentFeedbackDistribution,
+    prepare_student_feedback_distribution_plan,
+    verify_student_feedback_distribution_plan_digest,
+)
 from concord.workflows.template import (
     PreparedTemplateActivation,
     PreparedTemplateCreate,
@@ -699,6 +710,15 @@ __all__ = [
     "load_student_feedback_roster_preparation",
     "preview_student_feedback_distribution",
     "student_feedback_roster_preparation_from_context",
+    "FEEDBACK_INDEX_FILENAME",
+    "FEEDBACK_MANIFEST_FILENAME",
+    "FEEDBACK_PRINT_FILENAME",
+    "STUDENT_FEEDBACK_FILENAME_DOMAIN",
+    "STUDENT_FEEDBACK_PLAN_SCHEMA_VERSION",
+    "PlannedStudentFeedback",
+    "PreparedStudentFeedbackDistribution",
+    "prepare_student_feedback_distribution_plan",
+    "verify_student_feedback_distribution_plan_digest",
     "CURRENT_HEAD_BOUNDARY_STATEMENT",
     "REPORT_BOUNDARY_STATEMENT",
     "REPORT_FORMATS",

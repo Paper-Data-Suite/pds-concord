@@ -103,6 +103,9 @@ class StudentFeedbackDistributionPreview:
     selected_for_output_count: int
     has_unavailable_requested_students: bool
     requires_available_only_decision: bool
+    roster_student_ids: tuple[str, ...]
+    no_feedback_student_ids: tuple[str, ...]
+    unresolved_student_ids: tuple[str, ...]
     requested_entries: tuple[StudentFeedbackRosterEntry, ...]
     selected_entries: tuple[StudentFeedbackRosterEntry, ...]
 
@@ -304,6 +307,17 @@ def preview_student_feedback_distribution(
         has_unavailable_requested_students=has_unavailable,
         requires_available_only_decision=(
             selection_mode == FEEDBACK_SELECTION_ALL and has_unavailable
+        ),
+        roster_student_ids=tuple(item.student_id for item in preparation.entries),
+        no_feedback_student_ids=tuple(
+            item.student_id
+            for item in preparation.entries
+            if item.availability == FEEDBACK_AVAILABILITY_NONE
+        ),
+        unresolved_student_ids=tuple(
+            item.student_id
+            for item in preparation.entries
+            if item.availability == FEEDBACK_AVAILABILITY_UNRESOLVED
         ),
         requested_entries=requested,
         selected_entries=selected,
