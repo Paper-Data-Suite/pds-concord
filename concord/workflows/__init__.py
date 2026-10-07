@@ -600,6 +600,14 @@ from concord.workflows.starter_template import (
     prepare_starter_template_install,
     prepare_starter_template_install_all,
 )
+from concord.workflows.student_feedback import (
+    STUDENT_FEEDBACK_BOUNDARY_STATEMENT,
+    STUDENT_FEEDBACK_SCOPE,
+    StudentFeedbackProjection,
+    StudentFeedbackResult,
+    student_feedback_projection_from_context,
+    student_feedback_projection_from_target_detail,
+)
 from concord.workflows.template import (
     PreparedTemplateActivation,
     PreparedTemplateCreate,
@@ -655,6 +663,12 @@ __all__ = [
     "activity_score_analysis_from_context",
     "score_history_analysis_from_context",
     "target_score_detail_from_context",
+    "STUDENT_FEEDBACK_BOUNDARY_STATEMENT",
+    "STUDENT_FEEDBACK_SCOPE",
+    "StudentFeedbackProjection",
+    "StudentFeedbackResult",
+    "student_feedback_projection_from_context",
+    "student_feedback_projection_from_target_detail",
     "CURRENT_HEAD_BOUNDARY_STATEMENT",
     "REPORT_BOUNDARY_STATEMENT",
     "REPORT_FORMATS",
