@@ -23,7 +23,12 @@ from concord.workflows.student_feedback import (
 FEEDBACK_AVAILABILITY_DISTRIBUTABLE: Final[str] = "distributable"
 FEEDBACK_AVAILABILITY_NONE: Final[str] = "no_distributable_feedback"
 FEEDBACK_AVAILABILITY_UNRESOLVED: Final[str] = "unresolved"
+FEEDBACK_SELECTION_ALL: Final[str] = "all_roster_students"
+FEEDBACK_SELECTION_SELECTED: Final[str] = "selected_roster_students"
 STUDENT_FEEDBACK_PREPARATION_SCOPE: Final[str] = "teacher_local"
+_FEEDBACK_SELECTION_MODES: Final[frozenset[str]] = frozenset(
+    {FEEDBACK_SELECTION_ALL, FEEDBACK_SELECTION_SELECTED}
+)
 _UNSAFE_SEMANTICS_REASON: Final[str] = "unsafe_student_feedback_semantics"
 
 
@@ -44,6 +49,7 @@ class StudentFeedbackRosterPreparation:
 
     class_id: str
     activity_id: str
+    activity_title: str
     snapshot_revision: int
     snapshot_sha256: str
     score_basis: str
@@ -74,6 +80,31 @@ class StudentFeedbackRosterPreparation:
             item.availability == FEEDBACK_AVAILABILITY_UNRESOLVED
             for item in self.entries
         )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StudentFeedbackDistributionPreview:
+    """Zero-write review of one whole-roster or selected-student request."""
+
+    class_id: str
+    activity_id: str
+    activity_title: str
+    snapshot_revision: int
+    snapshot_sha256: str
+    selection_mode: str
+    roster_count: int
+    distributable_count: int
+    no_feedback_count: int
+    unresolved_count: int
+    requested_count: int
+    requested_distributable_count: int
+    requested_no_feedback_count: int
+    requested_unresolved_count: int
+    selected_for_output_count: int
+    has_unavailable_requested_students: bool
+    requires_available_only_decision: bool
+    requested_entries: tuple[StudentFeedbackRosterEntry, ...]
+    selected_entries: tuple[StudentFeedbackRosterEntry, ...]
 
 
 def _student_target(student_id: str) -> ScoreTargetReference:
@@ -177,11 +208,105 @@ def student_feedback_roster_preparation_from_context(
     return StudentFeedbackRosterPreparation(
         class_id=context.work.class_id,
         activity_id=context.activity.activity_id,
+        activity_title=context.activity.title,
         snapshot_revision=context.snapshot_revision,
         snapshot_sha256=context.snapshot_sha256,
         score_basis=SCORE_ANALYSIS_BASIS,
         sharing_scope=STUDENT_FEEDBACK_PREPARATION_SCOPE,
         entries=tuple(entries),
+    )
+
+
+def _requested_feedback_entries(
+    preparation: StudentFeedbackRosterPreparation,
+    *,
+    selection_mode: str,
+    selected_student_ids: tuple[str, ...],
+) -> tuple[StudentFeedbackRosterEntry, ...]:
+    if selection_mode not in _FEEDBACK_SELECTION_MODES:
+        raise ConcordWorkflowValidationError(
+            "Student feedback selection mode is unsupported."
+        )
+
+    roster_id_set = frozenset(item.student_id for item in preparation.entries)
+
+    if selection_mode == FEEDBACK_SELECTION_ALL:
+        if selected_student_ids:
+            raise ConcordWorkflowValidationError(
+                "All-roster feedback selection does not accept selected student IDs."
+            )
+        return preparation.entries
+
+    if not selected_student_ids:
+        raise ConcordWorkflowValidationError(
+            "Selected-student feedback selection requires at least one student."
+        )
+    if len(set(selected_student_ids)) != len(selected_student_ids):
+        raise ConcordWorkflowValidationError(
+            "Selected-student feedback selection requires unique student IDs."
+        )
+
+    selected = frozenset(selected_student_ids)
+    if selected - roster_id_set:
+        raise ConcordWorkflowValidationError(
+            "Selected-student feedback selection must be an exact subset "
+            "of the current Core roster."
+        )
+    return tuple(
+        item for item in preparation.entries if item.student_id in selected
+    )
+
+
+def preview_student_feedback_distribution(
+    preparation: StudentFeedbackRosterPreparation,
+    *,
+    selection_mode: str,
+    selected_student_ids: tuple[str, ...] = (),
+) -> StudentFeedbackDistributionPreview:
+    """Build a deterministic zero-write distribution preview."""
+    requested = _requested_feedback_entries(
+        preparation,
+        selection_mode=selection_mode,
+        selected_student_ids=selected_student_ids,
+    )
+    selected = tuple(
+        item
+        for item in requested
+        if item.availability == FEEDBACK_AVAILABILITY_DISTRIBUTABLE
+    )
+    requested_no_feedback_count = sum(
+        item.availability == FEEDBACK_AVAILABILITY_NONE
+        for item in requested
+    )
+    requested_unresolved_count = sum(
+        item.availability == FEEDBACK_AVAILABILITY_UNRESOLVED
+        for item in requested
+    )
+    requested_distributable_count = len(selected)
+    has_unavailable = requested_distributable_count != len(requested)
+
+    return StudentFeedbackDistributionPreview(
+        class_id=preparation.class_id,
+        activity_id=preparation.activity_id,
+        activity_title=preparation.activity_title,
+        snapshot_revision=preparation.snapshot_revision,
+        snapshot_sha256=preparation.snapshot_sha256,
+        selection_mode=selection_mode,
+        roster_count=preparation.roster_count,
+        distributable_count=preparation.distributable_count,
+        no_feedback_count=preparation.no_feedback_count,
+        unresolved_count=preparation.unresolved_count,
+        requested_count=len(requested),
+        requested_distributable_count=requested_distributable_count,
+        requested_no_feedback_count=requested_no_feedback_count,
+        requested_unresolved_count=requested_unresolved_count,
+        selected_for_output_count=len(selected),
+        has_unavailable_requested_students=has_unavailable,
+        requires_available_only_decision=(
+            selection_mode == FEEDBACK_SELECTION_ALL and has_unavailable
+        ),
+        requested_entries=requested,
+        selected_entries=selected,
     )
 
 
@@ -203,9 +328,13 @@ __all__ = [
     "FEEDBACK_AVAILABILITY_DISTRIBUTABLE",
     "FEEDBACK_AVAILABILITY_NONE",
     "FEEDBACK_AVAILABILITY_UNRESOLVED",
+    "FEEDBACK_SELECTION_ALL",
+    "FEEDBACK_SELECTION_SELECTED",
     "STUDENT_FEEDBACK_PREPARATION_SCOPE",
+    "StudentFeedbackDistributionPreview",
     "StudentFeedbackRosterEntry",
     "StudentFeedbackRosterPreparation",
     "load_student_feedback_roster_preparation",
+    "preview_student_feedback_distribution",
     "student_feedback_roster_preparation_from_context",
 ]
