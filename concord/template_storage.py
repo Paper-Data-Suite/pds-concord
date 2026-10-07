@@ -254,6 +254,23 @@ def load_current_template_version(
     return load_current_template(workspace_root, template_id).current_version
 
 
+def _load_template_rendering_specification_for_version(
+    workspace_root: str | Path,
+    template_id: str,
+    version: TemplateVersion,
+) -> bytes:
+    """Verify rendering bytes for an already verified Template Version."""
+    root = _workspace_root(workspace_root, for_write=False)
+    template_id = _validate_identifier(template_id, "template_id")
+    if not isinstance(version, TemplateVersion):
+        raise TemplateStorageReadError("version must be TemplateVersion.")
+    if version.template_id != template_id:
+        raise TemplateStorageIntegrityError(
+            "Template Version belongs to another Template."
+        )
+    return _verify_rendering_asset(root, template_id, version)
+
+
 def load_template_rendering_specification(
     workspace_root: str | Path,
     template_id: str,
@@ -266,7 +283,11 @@ def load_template_rendering_specification(
         template_id,
         template_version_id,
     )
-    return _verify_rendering_asset(root, template_id, version)
+    return _load_template_rendering_specification_for_version(
+        root,
+        template_id,
+        version,
+    )
 
 
 def create_template_library(

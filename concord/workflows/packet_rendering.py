@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import cast
 
 from pds_core.pds2 import serialize_pds2_payload
@@ -36,12 +38,16 @@ from concord.starter_templates.layout import (
     StarterLayoutDocument,
     starter_layout_from_json_bytes,
 )
-from concord.storage import commit_record_batch, load_current_record_graph
+from concord.storage import (
+    commit_record_batch,
+    load_current_record_graph,
+    load_current_snapshot_pointer,
+)
 from concord.storage_errors import ConcordStorageConflictError
 from concord.template_storage import (
     TemplateStorageError,
+    _load_template_rendering_specification_for_version,
     load_current_template,
-    load_template_rendering_specification,
 )
 from concord.workflows.artifact_page import (
     concord_route_registration,
@@ -93,6 +99,7 @@ class RenderPacketGenerationRequest:
     activity_id: str
     generation_id: str
     actor: WorkflowActor
+    expected_snapshot_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -144,6 +151,26 @@ class PacketGenerationRenderPartialSuccessError(ConcordWorkflowError):
         self.__cause__ = cause
 
 
+class PacketGenerationLifecyclePartialSuccessError(ConcordWorkflowError):
+    """All target PDFs are durable but generation lifecycle commit failed."""
+
+    def __init__(
+        self,
+        *,
+        generation_id: str,
+        completed: tuple[RenderPacketInstanceResult, ...],
+        cause: Exception,
+    ) -> None:
+        super().__init__(
+            f"Packet generation {generation_id} rendered "
+            f"{len(completed)} target Packet(s), but generated lifecycle state "
+            "was not committed."
+        )
+        self.generation_id = generation_id
+        self.completed = completed
+        self.__cause__ = cause
+
+
 @dataclass(frozen=True, slots=True)
 class _RenderableArtifact:
     binding: PacketInstanceArtifactBinding
@@ -151,6 +178,38 @@ class _RenderableArtifact:
     pages: tuple[ArtifactPage, ...]
     template_version: TemplateVersion
     layout: StarterLayoutDocument
+
+
+@dataclass(frozen=True, slots=True)
+class _PacketRenderContext:
+    """Immutable exact Activity source state for one render operation."""
+
+    root: Path
+    work: ModuleWorkRef
+    library: StandardsLibrary | None
+    snapshot_revision: int
+    snapshot_sha256: str
+    graph: ConcordRecordGraph
+    artifact_index: Mapping[str, ArtifactInstance]
+    page_index: Mapping[str, ArtifactPage]
+
+
+@dataclass(slots=True)
+class _PacketRenderDependencies:
+    """Mutable operation-local cache separated from immutable source state."""
+
+    template_layout_cache: dict[
+        tuple[str, str],
+        tuple[TemplateVersion, StarterLayoutDocument],
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedPacketRender:
+    """One durable Packet output plus its deferred canonical lifecycle updates."""
+
+    result: RenderPacketInstanceResult
+    updates: tuple[Record, ...]
 
 
 def render_packet_instance(
@@ -169,42 +228,75 @@ def render_packet_instance(
     root = ensure_mutating_workspace_root(workspace_root).root
     require_core_class(root, request.class_id)
     work = ModuleWorkRef("concord", request.class_id, request.activity_id)
-    library = _standards(root)
-    loaded = load_current_record_graph(
-        root,
-        work,
-        standards_library=library,
-    )
+    context = _load_packet_render_context(root, work)
+    dependencies = _PacketRenderDependencies(template_layout_cache={})
     if (
         request.expected_snapshot_revision is not None
-        and loaded.snapshot_revision != request.expected_snapshot_revision
+        and context.snapshot_revision != request.expected_snapshot_revision
     ):
         raise ConcordStorageConflictError(
             f"expected snapshot {request.expected_snapshot_revision}, "
-            f"found {loaded.snapshot_revision}."
+            f"found {context.snapshot_revision}."
         )
-    graph = cast(ConcordRecordGraph, loaded.graph)
     packet = _require_packet(
-        graph,
+        context.graph,
         request.packet_instance_id,
         request.activity_id,
     )
-    if packet.generation_status == "routes_pending":
-        raise ConcordWorkflowValidationError(
-            "Packet routes are not ready; resume Packet instantiation first."
-        )
-    if packet.generation_status not in {"rendering", "generated"}:
-        raise ConcordWorkflowValidationError(
-            "Packet Instance is not in a renderable lifecycle state."
-        )
+    return _render_packet_from_context(context, dependencies, packet)
 
-    renderables = _resolve_renderables(root, work, graph, packet)
+
+def _render_packet_from_context(
+    context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
+    packet: PacketInstance,
+) -> RenderPacketInstanceResult:
+    """Render one Packet and commit its lifecycle for the standalone API."""
+    prepared = _prepare_packet_render_from_context(
+        context,
+        dependencies,
+        packet,
+    )
+    if not prepared.updates:
+        return prepared.result
+    try:
+        committed = commit_record_batch(
+            context.root,
+            context.work,
+            prepared.updates,
+            expected_snapshot_revision=context.snapshot_revision,
+            standards_library=context.library,
+        )
+    except Exception as error:
+        raise PacketRenderPartialSuccessError(
+            result=prepared.result,
+            cause=error,
+        ) from error
+    return _render_result_with_commit(
+        prepared.result,
+        WorkflowCommitResult.from_storage(committed),
+    )
+
+
+def _prepare_packet_render_from_context(
+    context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
+    packet: PacketInstance,
+) -> _PreparedPacketRender:
+    """Render/install one Packet while deferring canonical lifecycle mutation."""
+    _require_renderable_packet(packet)
+
+    renderables = _resolve_renderables(
+        context,
+        dependencies,
+        packet,
+    )
     images: list[Image.Image] = []
     payloads: list[str] = []
     for renderable in renderables:
         contexts, artifact_payloads = _render_contexts(
-            root,
-            work,
+            context.root,
+            context.work,
             renderable,
         )
         images.extend(
@@ -233,14 +325,14 @@ def render_packet_instance(
             )
     else:
         relative = _new_packet_output_relative_path(
-            work,
+            context.work,
             packet.packet_instance_id,
         )
 
-    target = _packet_output_target(root, work, relative)
+    target = _packet_output_target(context.root, context.work, relative)
     installed = _safe_install(target, data)
-    base_result = RenderPacketInstanceResult(
-        work=work,
+    result = RenderPacketInstanceResult(
+        work=context.work,
         packet_instance_id=packet.packet_instance_id,
         generation_id=packet.generation_id,
         output_path=target,
@@ -249,45 +341,50 @@ def render_packet_instance(
         route_count=len(payloads),
         payloads=tuple(payloads),
         commit=WorkflowCommitResult(
-            work=work,
-            snapshot_revision=loaded.snapshot_revision,
-            snapshot_sha256=loaded.snapshot_sha256,
+            work=context.work,
+            snapshot_revision=context.snapshot_revision,
+            snapshot_sha256=context.snapshot_sha256,
             changed_records=(),
             no_op=True,
         ),
         output_installed=installed,
         replayed=packet.generation_status == "generated",
     )
+    return _PreparedPacketRender(
+        result=result,
+        updates=_lifecycle_updates(packet, renderables, relative, digest),
+    )
 
-    updates = _lifecycle_updates(packet, renderables, relative, digest)
-    if not updates:
-        return base_result
-    try:
-        committed = commit_record_batch(
-            root,
-            work,
-            updates,
-            expected_snapshot_revision=loaded.snapshot_revision,
-            standards_library=library,
-        )
-    except Exception as error:
-        raise PacketRenderPartialSuccessError(
-            result=base_result,
-            cause=error,
-        ) from error
+
+def _render_result_with_commit(
+    result: RenderPacketInstanceResult,
+    commit: WorkflowCommitResult,
+) -> RenderPacketInstanceResult:
+    """Attach a successful lifecycle commit to one already durable output."""
     return RenderPacketInstanceResult(
-        work=work,
-        packet_instance_id=packet.packet_instance_id,
-        generation_id=packet.generation_id,
-        output_path=target,
-        output_sha256=digest,
-        page_count=len(images),
-        route_count=len(payloads),
-        payloads=tuple(payloads),
-        commit=WorkflowCommitResult.from_storage(committed),
-        output_installed=installed,
+        work=result.work,
+        packet_instance_id=result.packet_instance_id,
+        generation_id=result.generation_id,
+        output_path=result.output_path,
+        output_sha256=result.output_sha256,
+        page_count=result.page_count,
+        route_count=result.route_count,
+        payloads=result.payloads,
+        commit=commit,
+        output_installed=result.output_installed,
         replayed=False,
     )
+
+
+def _require_renderable_packet(packet: PacketInstance) -> None:
+    if packet.generation_status == "routes_pending":
+        raise ConcordWorkflowValidationError(
+            "Packet routes are not ready; resume Packet instantiation first."
+        )
+    if packet.generation_status not in {"rendering", "generated"}:
+        raise ConcordWorkflowValidationError(
+            "Packet Instance is not in a renderable lifecycle state."
+        )
 
 
 def render_packet_generation(
@@ -295,28 +392,36 @@ def render_packet_generation(
     *,
     workspace_root: str | Path | None = None,
 ) -> RenderPacketGenerationResult:
-    """Render every target Packet in stable target order.
+    """Render every target Packet from one exact Activity source snapshot.
 
-    Partial success is surfaced explicitly if a later target fails.
+    Packet PDFs are installed in stable target order. Compatible lifecycle
+    updates are committed once after all intended outputs are durable.
     """
     if not isinstance(request, RenderPacketGenerationRequest):
         raise ConcordWorkflowValidationError(
             "request must be RenderPacketGenerationRequest."
         )
+    if not isinstance(request.actor, WorkflowActor):
+        raise ConcordWorkflowValidationError("actor must be WorkflowActor.")
+
     root = ensure_mutating_workspace_root(workspace_root).root
     require_core_class(root, request.class_id)
     work = ModuleWorkRef("concord", request.class_id, request.activity_id)
-    loaded = load_current_record_graph(
-        root,
-        work,
-        standards_library=_standards(root),
-    )
-    graph = cast(ConcordRecordGraph, loaded.graph)
+    context = _load_packet_render_context(root, work)
+    dependencies = _PacketRenderDependencies(template_layout_cache={})
+    if (
+        request.expected_snapshot_revision is not None
+        and context.snapshot_revision != request.expected_snapshot_revision
+    ):
+        raise ConcordStorageConflictError(
+            f"expected snapshot {request.expected_snapshot_revision}, "
+            f"found {context.snapshot_revision}."
+        )
     packets = tuple(
         sorted(
             (
                 item
-                for item in graph.packet_instances
+                for item in context.graph.packet_instances
                 if item.generation_id == request.generation_id
             ),
             key=lambda item: _target_key(item),
@@ -327,31 +432,120 @@ def render_packet_generation(
             f"Packet generation is unavailable: {request.generation_id}"
         )
 
-    completed: list[RenderPacketInstanceResult] = []
+    # Reject a non-renderable generation before the first durable output write.
+    for packet in packets:
+        _require_renderable_packet(packet)
+
+    if request.expected_snapshot_revision is not None:
+        _require_render_context_current(context)
+
+    prepared: list[_PreparedPacketRender] = []
     try:
         for packet in packets:
-            completed.append(
-                render_packet_instance(
-                    RenderPacketInstanceRequest(
-                        class_id=request.class_id,
-                        activity_id=request.activity_id,
-                        packet_instance_id=packet.packet_instance_id,
-                        actor=request.actor,
-                    ),
-                    workspace_root=root,
+            prepared.append(
+                _prepare_packet_render_from_context(
+                    context,
+                    dependencies,
+                    packet,
                 )
             )
     except Exception as error:
         raise PacketGenerationRenderPartialSuccessError(
             generation_id=request.generation_id,
-            completed=tuple(completed),
+            completed=tuple(item.result for item in prepared),
             cause=error,
         ) from error
+
+    updates = tuple(
+        record
+        for item in prepared
+        for record in item.updates
+    )
+    if not updates:
+        return RenderPacketGenerationResult(
+            generation_id=request.generation_id,
+            packets=tuple(item.result for item in prepared),
+        )
+
+    try:
+        committed = commit_record_batch(
+            context.root,
+            context.work,
+            updates,
+            expected_snapshot_revision=context.snapshot_revision,
+            standards_library=context.library,
+        )
+    except Exception as error:
+        raise PacketGenerationLifecyclePartialSuccessError(
+            generation_id=request.generation_id,
+            completed=tuple(item.result for item in prepared),
+            cause=error,
+        ) from error
+
+    commit = WorkflowCommitResult.from_storage(committed)
     return RenderPacketGenerationResult(
         generation_id=request.generation_id,
-        packets=tuple(completed),
+        packets=tuple(
+            (
+                _render_result_with_commit(item.result, commit)
+                if item.updates
+                else item.result
+            )
+            for item in prepared
+        ),
     )
 
+
+def _require_render_context_current(
+    context: _PacketRenderContext,
+) -> None:
+    """Verify reviewed source state is still current before output mutation."""
+    current = load_current_snapshot_pointer(
+        context.root,
+        context.work,
+    )
+    if (
+        current.snapshot_revision != context.snapshot_revision
+        or current.snapshot_sha256 != context.snapshot_sha256
+    ):
+        raise ConcordStorageConflictError(
+            f"reviewed snapshot {context.snapshot_revision} is no longer current; "
+            f"found snapshot {current.snapshot_revision}."
+        )
+
+
+def _load_packet_render_context(
+    root: Path,
+    work: ModuleWorkRef,
+) -> _PacketRenderContext:
+    """Load one standards-aware exact Activity graph for a render operation."""
+    library = _standards(root)
+    loaded = load_current_record_graph(
+        root,
+        work,
+        standards_library=library,
+    )
+    graph = cast(ConcordRecordGraph, loaded.graph)
+    return _PacketRenderContext(
+        root=root,
+        work=work,
+        library=library,
+        snapshot_revision=loaded.snapshot_revision,
+        snapshot_sha256=loaded.snapshot_sha256,
+        graph=graph,
+        artifact_index=MappingProxyType(
+            {
+                item.artifact_instance_id: item
+                for item in graph.artifact_instances
+            }
+        ),
+        page_index=MappingProxyType(
+            {
+                item.artifact_page_id: item
+                for item in graph.artifact_pages
+            }
+        ),
+    )
 
 
 def _standards(root: Path) -> StandardsLibrary | None:
@@ -385,19 +579,16 @@ def _require_packet(
     return packet
 
 
+
+
 def _resolve_renderables(
-    root: Path,
-    work: ModuleWorkRef,
-    graph: ConcordRecordGraph,
+    context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
     packet: PacketInstance,
 ) -> tuple[_RenderableArtifact, ...]:
-    artifacts = {
-        item.artifact_instance_id: item for item in graph.artifact_instances
-    }
-    pages = {item.artifact_page_id: item for item in graph.artifact_pages}
     result: list[_RenderableArtifact] = []
     for binding in packet.artifact_bindings:
-        artifact = artifacts.get(binding.artifact_instance_id)
+        artifact = context.artifact_index.get(binding.artifact_instance_id)
         if (
             artifact is None
             or artifact.packet_instance_id != packet.packet_instance_id
@@ -407,9 +598,9 @@ def _resolve_renderables(
                 "Packet/Artifact provenance is contradictory."
             )
         artifact_pages = tuple(
-            pages[page_id]
+            context.page_index[page_id]
             for page_id in artifact.page_ids
-            if page_id in pages
+            if page_id in context.page_index
         )
         if len(artifact_pages) != len(artifact.page_ids):
             raise ConcordWorkflowConflictError(
@@ -421,8 +612,9 @@ def _resolve_renderables(
             raise ConcordWorkflowConflictError(
                 "Packet Artifact page order is not contiguous."
             )
-        version, layout = _load_exact_layout(
-            root,
+        version, layout = _load_exact_layout_from_context(
+            context,
+            dependencies,
             binding.template_id,
             binding.template_version_id,
         )
@@ -456,6 +648,25 @@ def _resolve_renderables(
     return tuple(result)
 
 
+def _load_exact_layout_from_context(
+    context: _PacketRenderContext,
+    dependencies: _PacketRenderDependencies,
+    template_id: str,
+    template_version_id: str,
+) -> tuple[TemplateVersion, StarterLayoutDocument]:
+    """Resolve one exact immutable Template/layout dependency once per operation."""
+    key = (template_id, template_version_id)
+    cached = dependencies.template_layout_cache.get(key)
+    if cached is None:
+        cached = _load_exact_layout(
+            context.root,
+            template_id,
+            template_version_id,
+        )
+        dependencies.template_layout_cache[key] = cached
+    return cached
+
+
 def _load_exact_layout(
     root: Path,
     template_id: str,
@@ -475,10 +686,10 @@ def _load_exact_layout(
             raise ConcordWorkflowNotFoundError(
                 f"Template Version is unavailable: {template_version_id}"
             )
-        data = load_template_rendering_specification(
+        data = _load_template_rendering_specification_for_version(
             root,
             template_id,
-            template_version_id,
+            version,
         )
     except TemplateStorageError as error:
         raise ConcordWorkflowNotFoundError(

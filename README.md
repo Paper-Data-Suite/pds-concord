@@ -57,6 +57,13 @@ PDS2 identities, deterministic starter-layout PDFs, explicit recovery/reprint,
 direct runtime Packet commands, and the opened-Activity `Prepare / Generate
 Packet` teacher workflow. The same typed service layer supports both fully
 noninteractive direct commands and the low-information-density menu.
+Issue #110 now makes that generation the first-class render/reprint runtime unit:
+one exact Activity snapshot, bounded shared Template/layout reuse, one bounded
+generation lifecycle reconciliation, reviewed-snapshot currentness, and a
+teacher-readable complete-generation workflow. Fully generated sets require
+literal `REPRINT`; eligible incomplete sets require literal `RENDER`; route
+recovery and non-renderable target states remain explicit rather than silently
+producing a subset. Standalone Packet rendering remains available.
 Issue #113 now separates Packet target, Artifact Author, and Artifact Subject for
 the five relationship-aware observer/peer-review starters. Their immutable v1
 Versions remain exact; package-owned v2 successors add Session or explicit

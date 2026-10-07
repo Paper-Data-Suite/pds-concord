@@ -348,6 +348,18 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_packet_generation_rendering_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase=(
+                    "installed-wheel smoke: issue #110 Packet generation rendering"
+                ),
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_attention_provider_wheel.py",
                     wheel,
                     core,

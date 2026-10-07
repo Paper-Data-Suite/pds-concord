@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import concord.template_storage as template_storage_module
 from concord.models import (
     ActorReference,
     PrivacyPolicy,
@@ -29,11 +30,13 @@ from concord.template_storage import (
     TemplateStorageIntegrityError,
     TemplateStorageNotFoundError,
     TemplateStorageWriteError,
+    _load_template_rendering_specification_for_version,
     create_template_library,
     list_template_ids,
     list_template_versions,
     load_current_template,
     load_current_template_version,
+    load_template_rendering_specification,
     load_template_snapshot,
     load_template_version,
 )
@@ -236,6 +239,71 @@ def test_initial_template_creation_and_exact_reload(
         version.rendering_specification_reference,
     )
     assert asset.read_bytes() == _rendering_bytes()
+
+
+def test_rendering_asset_reuses_already_loaded_template_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    loaded = create_template_library(
+        root,
+        definition=_definition(),
+        initial_version=_version(),
+        rendering_specification=_rendering_bytes(),
+    )
+    version = loaded.versions[0]
+
+    monkeypatch.setattr(
+        template_storage_module,
+        "load_template_version",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("already loaded Template Version must be reused")
+        ),
+    )
+    assert _load_template_rendering_specification_for_version(
+        root,
+        loaded.definition.template_id,
+        version,
+    ) == _rendering_bytes()
+
+
+def test_loaded_template_version_rendering_asset_rejects_wrong_template(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(tmp_path)
+    loaded = create_template_library(
+        root,
+        definition=_definition(),
+        initial_version=_version(),
+        rendering_specification=_rendering_bytes(),
+    )
+    with pytest.raises(
+        TemplateStorageIntegrityError,
+        match="belongs to another Template",
+    ):
+        _load_template_rendering_specification_for_version(
+            root,
+            "template-other",
+            loaded.versions[0],
+        )
+
+
+def test_public_rendering_specification_loader_remains_compatible(
+    tmp_path: Path,
+) -> None:
+    root = _workspace(tmp_path)
+    loaded = create_template_library(
+        root,
+        definition=_definition(),
+        initial_version=_version(),
+        rendering_specification=_rendering_bytes(),
+    )
+    assert load_template_rendering_specification(
+        root,
+        loaded.definition.template_id,
+        loaded.versions[0].template_version_id,
+    ) == _rendering_bytes()
 
 
 def test_creation_uses_workspace_level_shared_concord_namespace(

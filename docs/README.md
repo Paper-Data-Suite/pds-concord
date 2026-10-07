@@ -219,6 +219,17 @@ literal `DEFER` / `RESOLVE` confirmations, stale-state and retained-source
 fail-closed boundaries, exact replay, no-route-creation rule, no-migration
 compatibility, and isolated Core 0.6.4 installed-wheel qualification.
 
+### v0.3.1 generation-wide Packet rendering and reprinting
+
+[`v0.3.1-generation-wide-packet-rendering.md`](v0.3.1-generation-wide-packet-rendering.md)
+
+Documents Issue #110's exact-snapshot complete-generation render/reprint unit,
+review-to-execution currentness binding, teacher-readable `RENDER` / `REPRINT`
+workflow, O(1) Activity graph materialization, bounded lifecycle reconciliation,
+exact immutable Template/layout reuse, #113 target/Author/Subject isolation,
+route and #124 generated-path invariants, partial-success recovery, and Core
+0.6.4 installed-wheel qualification target.
+
 ### 21. v0.2.0 release audit
 
 [`v0.2.0-release-audit.md`](v0.2.0-release-audit.md)

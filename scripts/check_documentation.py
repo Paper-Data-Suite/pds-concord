@@ -92,6 +92,9 @@ ROUTINE_ARTIFACT_SCORING_DOC = (
 TEACHER_ROUTING_REVIEW_DOC = (
     ROOT / "docs" / "v0.3.1-teacher-friendly-routing-review.md"
 )
+GENERATION_PACKET_RENDERING_DOC = (
+    ROOT / "docs" / "v0.3.1-generation-wide-packet-rendering.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -248,6 +251,29 @@ REQUIRED_TEACHER_ROUTING_REVIEW_PHRASES = (
     "python -I",
     "Core 0.6.4",
     "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
+)
+REQUIRED_GENERATION_PACKET_RENDERING_PHRASES = (
+    "Generation is the runtime unit",
+    "PacketGenerationSummary",
+    "expected_snapshot_revision",
+    "last-safe-point currentness check",
+    "Render / reprint a complete generation",
+    "RENDER",
+    "REPRINT",
+    "routes_pending",
+    "Packet target != Artifact Author != Artifact Subject",
+    "(template_id, template_version_id)",
+    "Reprint allocates zero replacement routes",
+    "rendered/packets/cgo_<24hex>.pdf",
+    "PacketGenerationRenderPartialSuccessError",
+    "PacketGenerationLifecyclePartialSuccessError",
+    "full Activity graph materializations = 1",
+    "generation lifecycle commits = 1",
+    "scripts/smoke_test_packet_generation_rendering_wheel.py",
+    "python -I",
+    "Core 0.6.4",
+    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
+    "pds-core>=0.6.3,<0.7",
 )
 REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "ActivityAttentionItem",
@@ -1076,6 +1102,26 @@ def check_documentation() -> None:
             failures.append(
                 "Documentation index does not link the teacher-friendly "
                 "Routing Review document."
+            )
+
+    if not GENERATION_PACKET_RENDERING_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 generation-wide Packet rendering document is missing."
+        )
+    else:
+        generation_rendering_doc = GENERATION_PACKET_RENDERING_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_GENERATION_PACKET_RENDERING_PHRASES:
+            if phrase not in generation_rendering_doc:
+                failures.append(
+                    "Generation-wide Packet rendering document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if GENERATION_PACKET_RENDERING_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the generation-wide Packet "
+                "rendering document."
             )
 
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():

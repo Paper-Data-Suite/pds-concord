@@ -433,6 +433,11 @@ from concord.workflows.packet import (
     prepare_packet_revision,
     prepare_packet_update,
 )
+from concord.workflows.packet_generation import (
+    PacketGenerationSummary,
+    list_packet_generations,
+    show_packet_generation,
+)
 from concord.workflows.packet_instance import (
     PacketInstanceDetail,
     PacketInstanceSummary,
@@ -461,6 +466,7 @@ from concord.workflows.packet_instantiation_commit import (
     resume_packet_instantiation,
 )
 from concord.workflows.packet_rendering import (
+    PacketGenerationLifecyclePartialSuccessError,
     PacketGenerationRenderPartialSuccessError,
     PacketRenderPartialSuccessError,
     RenderPacketGenerationRequest,
@@ -695,6 +701,9 @@ __all__ = [
     "PacketDetail",
     "PacketMutationResult",
     "PacketSummary",
+    "PacketGenerationSummary",
+    "list_packet_generations",
+    "show_packet_generation",
     "PacketInstanceDetail",
     "PacketInstanceSummary",
     "list_packet_instances",
@@ -714,6 +723,7 @@ __all__ = [
     "PacketInstantiationTargetPlan",
     "PacketRenderingBinding",
     "PacketSubjectBinding",
+    "PacketGenerationLifecyclePartialSuccessError",
     "PacketGenerationRenderPartialSuccessError",
     "PacketRenderPartialSuccessError",
     "RenderPacketGenerationRequest",

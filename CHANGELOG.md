@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #110 makes one Packet generation the first-class render/reprint runtime unit, using one exact Activity snapshot, shared exact immutable Template/layout dependencies, stable target ordering, and one bounded canonical lifecycle reconciliation rather than reconstructing per-target render context.
+- Issue #110 adds teacher-readable complete-generation selection with reviewed-snapshot currentness, literal `RENDER` for eligible first/incomplete rendering and literal `REPRINT` for fully generated sets, while keeping route recovery and planned/failed/cancelled targets explicit.
+- Issue #110 structural qualification locks the 1, 10, and 30 target cases to one full Activity graph materialization, one current-pointer check, and one canonical lifecycle commit, with real standalone-versus-generation PDF/hash/route parity and no replacement route allocation.
+
 - Issue #109 replaces machine-ID transcription in teacher-friendly Routing Review with teacher-readable failure selection and exact existing Concord destination picking, using known-Activity binding or Class -> Activity -> page browsing and explicit `DEFER` / `RESOLVE` confirmation.
 - Issue #109 candidate discovery now projects from one exact current Activity graph, authenticates every selectable page through its existing immutable Core route registration and shared Concord target validation, preserves Packet target / Artifact Author / Artifact Subject distinctions, and keeps `human_fallback` display-only.
 - Issue #109 recovery qualification locks zero-write browsing, stale-resolution protection, retained-source fail-closed checks, exact ScanReference replay, destination-currentness validation, and byte-for-byte route-registration immutability with no route creation or repair.

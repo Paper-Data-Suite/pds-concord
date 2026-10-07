@@ -38,12 +38,14 @@ from concord.starter_templates.layout import (
     STARTER_SECTION_KINDS,
 )
 from concord.storage import load_current_record_graph
+from concord.storage_models import ConcordStorageCommitResult
 from concord.workflows import (
     CreateActivityContextRequest,
     CreateGroupWithMembersRequest,
     GroupMemberSpec,
     PreparePacketInstantiationRequest,
     PrepareStarterTemplateInstallRequest,
+    RenderPacketGenerationRequest,
     RenderPacketInstanceRequest,
     WorkflowActor,
     commit_packet_instantiation,
@@ -52,6 +54,7 @@ from concord.workflows import (
     create_group_with_members,
     prepare_packet_instantiation,
     prepare_starter_template_install,
+    render_packet_generation,
     render_packet_instance,
 )
 from concord.workflows.context import provenance
@@ -644,3 +647,75 @@ def test_packet_rendering_operates_under_deep_workspace_path(
     assert replay.replayed
     assert replay.output_path == rendered.output_path
     assert replay.output_sha256 == rendered.output_sha256
+
+def test_standalone_and_generation_render_are_byte_hash_route_equivalent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _workspace(tmp_path)
+    _, committed = _installed_packet(root)
+    packet_id = committed.packet_instance_ids[0]
+    work = ModuleWorkRef("concord", "class-1", "activity-1")
+    source = load_current_record_graph(root, work)
+
+    def fake_commit(
+        _root: Path,
+        selected_work: ModuleWorkRef,
+        _records: object,
+        *,
+        expected_snapshot_revision: int | None,
+        standards_library: object,
+    ) -> ConcordStorageCommitResult:
+        assert selected_work == work
+        assert expected_snapshot_revision == source.snapshot_revision
+        assert standards_library is not None
+        return ConcordStorageCommitResult(
+            work=work,
+            snapshot_revision=source.snapshot_revision,
+            snapshot_sha256=source.snapshot_sha256,
+            created_record_revisions=(),
+            no_op=False,
+        )
+
+    with monkeypatch.context() as standalone_context:
+        standalone_context.setattr(
+            packet_rendering_module,
+            "commit_record_batch",
+            fake_commit,
+        )
+        standalone = render_packet_instance(
+            RenderPacketInstanceRequest(
+                class_id="class-1",
+                activity_id="activity-1",
+                packet_instance_id=packet_id,
+                actor=_actor(),
+                expected_snapshot_revision=source.snapshot_revision,
+            ),
+            workspace_root=root,
+        )
+
+    standalone_bytes = standalone.output_path.read_bytes()
+    unchanged = load_current_record_graph(root, work)
+    assert unchanged.snapshot_revision == source.snapshot_revision
+    assert unchanged.snapshot_sha256 == source.snapshot_sha256
+
+    generation = render_packet_generation(
+        RenderPacketGenerationRequest(
+            class_id="class-1",
+            activity_id="activity-1",
+            generation_id=committed.generation_id,
+            actor=_actor(),
+            expected_snapshot_revision=source.snapshot_revision,
+        ),
+        workspace_root=root,
+    )
+
+    assert len(generation.packets) == 1
+    generation_packet = generation.packets[0]
+    assert generation_packet.packet_instance_id == packet_id
+    assert generation_packet.output_path == standalone.output_path
+    assert generation_packet.output_sha256 == standalone.output_sha256
+    assert generation_packet.output_path.read_bytes() == standalone_bytes
+    assert generation_packet.page_count == standalone.page_count
+    assert generation_packet.route_count == standalone.route_count
+    assert generation_packet.payloads == standalone.payloads
