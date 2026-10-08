@@ -624,6 +624,11 @@ from concord.workflows.student_feedback_distribution import (
     preview_student_feedback_distribution,
     student_feedback_roster_preparation_from_context,
 )
+from concord.workflows.student_feedback_distribution_pdf import (
+    STUDENT_FEEDBACK_PDF_MEDIA_TYPE,
+    RenderedStudentFeedbackPdf,
+    render_student_feedback_pdf,
+)
 from concord.workflows.student_feedback_distribution_plan import (
     FEEDBACK_INDEX_FILENAME,
     FEEDBACK_MANIFEST_FILENAME,
@@ -729,6 +734,9 @@ __all__ = [
     "StudentFeedbackRenderInput",
     "require_student_feedback_plan_current",
     "student_feedback_render_inputs_from_plan",
+    "STUDENT_FEEDBACK_PDF_MEDIA_TYPE",
+    "RenderedStudentFeedbackPdf",
+    "render_student_feedback_pdf",
     "CURRENT_HEAD_BOUNDARY_STATEMENT",
     "REPORT_BOUNDARY_STATEMENT",
     "REPORT_FORMATS",
