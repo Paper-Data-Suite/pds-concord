@@ -628,6 +628,10 @@ from concord.workflows.student_feedback_distribution_execution import (
     STUDENT_FEEDBACK_PREPARE_CONFIRMATION,
     execute_student_feedback_distribution,
 )
+from concord.workflows.student_feedback_distribution_opening import (
+    open_student_feedback_distribution_directory,
+    open_student_feedback_distribution_print_pdf,
+)
 from concord.workflows.student_feedback_distribution_package import (
     STUDENT_FEEDBACK_AUDIENCE_STAFF,
     STUDENT_FEEDBACK_AUDIENCE_STUDENT,
@@ -751,6 +755,8 @@ __all__ = [
     "student_feedback_roster_preparation_from_context",
     "STUDENT_FEEDBACK_PREPARE_CONFIRMATION",
     "execute_student_feedback_distribution",
+    "open_student_feedback_distribution_directory",
+    "open_student_feedback_distribution_print_pdf",
     "FEEDBACK_INDEX_FILENAME",
     "FEEDBACK_MANIFEST_FILENAME",
     "FEEDBACK_PRINT_FILENAME",
