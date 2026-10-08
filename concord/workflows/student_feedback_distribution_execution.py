@@ -17,6 +17,7 @@ from concord.workflows.student_feedback_distribution_plan import (
 from concord.workflows.student_feedback_distribution_storage import (
     InstalledStudentFeedbackDistribution,
     install_staged_student_feedback_distribution,
+    reuse_existing_student_feedback_distribution,
     stage_student_feedback_distribution,
 )
 
@@ -37,6 +38,13 @@ def execute_student_feedback_distribution(
         )
 
     verify_student_feedback_distribution_plan_digest(plan)
+    existing = reuse_existing_student_feedback_distribution(
+        plan,
+        workspace_root=workspace_root,
+    )
+    if existing is not None:
+        return existing
+
     package = render_student_feedback_distribution_package(
         plan,
         created_at=created_at,

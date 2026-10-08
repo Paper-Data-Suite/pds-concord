@@ -922,6 +922,44 @@ def _existing_destination_verification(
         ) from error
 
 
+def reuse_existing_student_feedback_distribution(
+    plan: PreparedStudentFeedbackDistribution,
+    *,
+    workspace_root: str | Path,
+) -> InstalledStudentFeedbackDistribution | None:
+    """Reuse one exact self-verified package without consulting current source state."""
+    verify_student_feedback_distribution_plan_digest(plan)
+    _require_distribution_destination_safe(
+        plan,
+        workspace_root=workspace_root,
+    )
+    destination = plan.destination
+    if not destination.exists():
+        return None
+
+    try:
+        verified = verify_student_feedback_distribution_directory(
+            destination,
+            expected_plan_digest=plan.plan_digest,
+        )
+        if verified.managed_filenames != plan.output_filenames:
+            raise ConcordWorkflowValidationError(
+                "Existing student feedback output set differs from the "
+                "reviewed plan."
+            )
+    except ConcordWorkflowValidationError as error:
+        raise ConcordWorkflowConflictError(
+            "Student feedback destination already exists with different "
+            "or unverifiable content."
+        ) from error
+
+    return InstalledStudentFeedbackDistribution(
+        directory=destination,
+        action=STUDENT_FEEDBACK_INSTALL_ACTION_REUSED,
+        verification=verified,
+    )
+
+
 def _promote_staging_directory(staging: Path, destination: Path) -> None:
     staging.rename(destination)
 
@@ -1042,6 +1080,7 @@ __all__ = [
     "StudentFeedbackDistributionStagingError",
     "VerifiedStudentFeedbackDistribution",
     "install_staged_student_feedback_distribution",
+    "reuse_existing_student_feedback_distribution",
     "stage_student_feedback_distribution",
     "verify_student_feedback_distribution_directory",
 ]

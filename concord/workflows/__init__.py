@@ -675,6 +675,7 @@ from concord.workflows.student_feedback_distribution_storage import (
     StudentFeedbackDistributionStagingError,
     VerifiedStudentFeedbackDistribution,
     install_staged_student_feedback_distribution,
+    reuse_existing_student_feedback_distribution,
     stage_student_feedback_distribution,
     verify_student_feedback_distribution_directory,
 )
@@ -778,6 +779,7 @@ __all__ = [
     "StudentFeedbackDistributionStagingError",
     "VerifiedStudentFeedbackDistribution",
     "install_staged_student_feedback_distribution",
+    "reuse_existing_student_feedback_distribution",
     "stage_student_feedback_distribution",
     "verify_student_feedback_distribution_directory",
     "STUDENT_FEEDBACK_PDF_MEDIA_TYPE",
