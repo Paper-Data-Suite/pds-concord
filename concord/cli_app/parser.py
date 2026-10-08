@@ -8,6 +8,7 @@ from concord import __version__
 from concord.cli_app.handlers import (
     activity,
     artifact,
+    feedback,
     group,
     group_plan,
     grouping_signal,
@@ -2543,6 +2544,81 @@ def _scan_commands(
     resolve.set_defaults(handler=scan.handle_review_resolve, command_parser=resolve)
 
 
+def _feedback_selection_options(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _workspace_option(parser)
+    _class_activity(parser)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument(
+        "--all-roster",
+        action="store_true",
+        help="Review all current Core roster students.",
+    )
+    selection.add_argument(
+        "--student-id",
+        action="append",
+        help="Exact selected Core roster student ID; repeat for several students.",
+    )
+    parser.add_argument(
+        "--available-only",
+        action="store_true",
+        help=(
+            "Explicitly authorize omission of unavailable students from an "
+            "incomplete all-roster distribution."
+        ),
+    )
+    parser.add_argument(
+        "--destination",
+        required=True,
+        help="Explicit absolute final distribution directory.",
+    )
+
+
+def _feedback_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parent = subparsers.add_parser(
+        "feedback",
+        help="Prepare and verify local student feedback distributions.",
+    )
+    actions = parent.add_subparsers(
+        dest="feedback_command",
+        required=True,
+    )
+
+    preview = actions.add_parser(
+        "distribution-preview",
+        help="Build one exact zero-write feedback distribution plan.",
+    )
+    _feedback_selection_options(preview)
+    preview.set_defaults(handler=feedback.handle_distribution_preview)
+
+    prepare = actions.add_parser(
+        "distribution-prepare",
+        help="Create or reuse the exact reviewed feedback distribution.",
+    )
+    _feedback_selection_options(prepare)
+    prepare.add_argument(
+        "--review-digest",
+        required=True,
+        help="Exact review digest printed by distribution-preview.",
+    )
+    prepare.add_argument(
+        "--confirmation",
+        required=True,
+        help="Must be exactly PREPARE to create derived output.",
+    )
+    prepare.set_defaults(handler=feedback.handle_distribution_prepare)
+
+    verify = actions.add_parser(
+        "distribution-verify",
+        help="Verify one existing bounded feedback distribution package.",
+    )
+    verify.add_argument("--directory", required=True)
+    verify.set_defaults(handler=feedback.handle_distribution_verify)
+
+
 def _publication_projection_options(parser: argparse.ArgumentParser) -> None:
     _workspace_option(parser)
     _standards_option(parser)
@@ -2743,6 +2819,7 @@ def build_parser() -> argparse.ArgumentParser:
     _criterion_set_commands(subparsers)
     _scale_commands(subparsers)
     _score_commands(subparsers)
+    _feedback_commands(subparsers)
     _publication_commands(subparsers)
     _artifact_commands(subparsers)
     _moderation_commands(subparsers)
