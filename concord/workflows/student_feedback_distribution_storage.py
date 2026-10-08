@@ -21,6 +21,7 @@ from concord.generated_paths import (
     validate_human_readable_output_filename,
 )
 from concord.workflows.errors import (
+    ConcordWorkflowConflictError,
     ConcordWorkflowError,
     ConcordWorkflowValidationError,
 )
@@ -722,10 +723,248 @@ def stage_student_feedback_distribution(
         ) from error
 
 
+
+STUDENT_FEEDBACK_INSTALL_ACTION_INSTALLED: Final[str] = "installed"
+STUDENT_FEEDBACK_INSTALL_ACTION_REUSED: Final[str] = "reused"
+
+
+class StudentFeedbackDistributionInstallError(ConcordWorkflowError):
+    """Final installation failed or completed only partially."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        destination: Path,
+        staging_directory: Path | None = None,
+        destination_durable: bool = False,
+        cleanup_failed: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.destination = destination
+        self.staging_directory = staging_directory
+        self.destination_durable = destination_durable
+        self.cleanup_failed = cleanup_failed
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InstalledStudentFeedbackDistribution:
+    """Verified final distribution, newly installed or safely reused."""
+
+    directory: Path
+    action: str
+    verification: VerifiedStudentFeedbackDistribution
+
+
+def _fsync_directory_if_supported(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _require_stage_matches_plan(
+    plan: PreparedStudentFeedbackDistribution,
+    staged: StagedStudentFeedbackDistribution,
+) -> VerifiedStudentFeedbackDistribution:
+    verify_student_feedback_distribution_plan_digest(plan)
+    if staged.directory == plan.destination:
+        raise ConcordWorkflowValidationError(
+            "Student feedback staging directory must differ from final destination."
+        )
+    if staged.directory.parent != plan.destination.parent:
+        raise ConcordWorkflowValidationError(
+            "Student feedback staging directory must be a destination sibling."
+        )
+    if not staged.directory.name.startswith(".concord-feedback-staging-"):
+        raise ConcordWorkflowValidationError(
+            "Student feedback staging directory is not a recognized private stage."
+        )
+
+    verified = verify_student_feedback_distribution_directory(
+        staged.directory,
+        expected_plan_digest=plan.plan_digest,
+        expected_package_digest=staged.verification.package_digest,
+    )
+    if verified != staged.verification:
+        raise ConcordWorkflowValidationError(
+            "Student feedback staging verification changed before installation."
+        )
+    if verified.managed_filenames != plan.output_filenames:
+        raise ConcordWorkflowValidationError(
+            "Student feedback staging output set differs from the reviewed plan."
+        )
+    return verified
+
+
+def _cleanup_stage_or_raise(
+    staging: Path,
+    *,
+    destination: Path,
+    message: str,
+    cause: Exception,
+    destination_durable: bool,
+) -> None:
+    if _cleanup_staging(staging):
+        return
+    raise StudentFeedbackDistributionInstallError(
+        message,
+        destination=destination,
+        staging_directory=staging,
+        destination_durable=destination_durable,
+        cleanup_failed=True,
+    ) from cause
+
+
+def _existing_destination_verification(
+    plan: PreparedStudentFeedbackDistribution,
+    staged: StagedStudentFeedbackDistribution,
+) -> VerifiedStudentFeedbackDistribution:
+    try:
+        return verify_student_feedback_distribution_directory(
+            plan.destination,
+            expected_plan_digest=plan.plan_digest,
+            expected_package_digest=staged.verification.package_digest,
+        )
+    except ConcordWorkflowValidationError as error:
+        _cleanup_stage_or_raise(
+            staged.directory,
+            destination=plan.destination,
+            message=(
+                "Student feedback destination conflicts and staging cleanup failed."
+            ),
+            cause=error,
+            destination_durable=True,
+        )
+        raise ConcordWorkflowConflictError(
+            "Student feedback destination already exists with different "
+            "or unverifiable content."
+        ) from error
+
+
+def _promote_staging_directory(staging: Path, destination: Path) -> None:
+    staging.rename(destination)
+
+
+def install_staged_student_feedback_distribution(
+    plan: PreparedStudentFeedbackDistribution,
+    staged: StagedStudentFeedbackDistribution,
+) -> InstalledStudentFeedbackDistribution:
+    """Install a verified stage once, or reuse an exact existing package."""
+    verified_stage = _require_stage_matches_plan(plan, staged)
+    destination = plan.destination
+    parent = _require_staging_parent(plan)
+
+    if destination.exists() or destination.is_symlink():
+        existing = _existing_destination_verification(plan, staged)
+        try:
+            cleaned = _cleanup_staging(staged.directory)
+        except Exception as error:
+            raise StudentFeedbackDistributionInstallError(
+                "Exact destination was reusable but staging cleanup failed.",
+                destination=destination,
+                staging_directory=staged.directory,
+                destination_durable=True,
+                cleanup_failed=True,
+            ) from error
+        if not cleaned:
+            raise StudentFeedbackDistributionInstallError(
+                "Exact destination was reusable but staging cleanup failed.",
+                destination=destination,
+                staging_directory=staged.directory,
+                destination_durable=True,
+                cleanup_failed=True,
+            )
+        return InstalledStudentFeedbackDistribution(
+            directory=destination,
+            action=STUDENT_FEEDBACK_INSTALL_ACTION_REUSED,
+            verification=existing,
+        )
+
+    try:
+        _fsync_directory_if_supported(staged.directory)
+        _promote_staging_directory(staged.directory, destination)
+        _fsync_directory_if_supported(parent)
+    except FileExistsError as error:
+        if destination.exists() or destination.is_symlink():
+            existing = _existing_destination_verification(plan, staged)
+            if not _cleanup_staging(staged.directory):
+                raise StudentFeedbackDistributionInstallError(
+                    "Exact destination was reusable but staging cleanup failed.",
+                    destination=destination,
+                    staging_directory=staged.directory,
+                    destination_durable=True,
+                    cleanup_failed=True,
+                ) from error
+            return InstalledStudentFeedbackDistribution(
+                directory=destination,
+                action=STUDENT_FEEDBACK_INSTALL_ACTION_REUSED,
+                verification=existing,
+            )
+        _cleanup_stage_or_raise(
+            staged.directory,
+            destination=destination,
+            message="Student feedback installation failed and cleanup failed.",
+            cause=error,
+            destination_durable=False,
+        )
+        raise StudentFeedbackDistributionInstallError(
+            "Student feedback staging directory could not be promoted.",
+            destination=destination,
+            staging_directory=None,
+            destination_durable=False,
+        ) from error
+    except OSError as error:
+        staging_still_exists = staged.directory.exists()
+        if staging_still_exists:
+            _cleanup_stage_or_raise(
+                staged.directory,
+                destination=destination,
+                message="Student feedback installation failed and cleanup failed.",
+                cause=error,
+                destination_durable=False,
+            )
+        raise StudentFeedbackDistributionInstallError(
+            "Student feedback staging directory could not be promoted.",
+            destination=destination,
+            staging_directory=None,
+            destination_durable=destination.exists(),
+        ) from error
+
+    try:
+        final_verification = verify_student_feedback_distribution_directory(
+            destination,
+            expected_plan_digest=plan.plan_digest,
+            expected_package_digest=verified_stage.package_digest,
+        )
+    except Exception as error:
+        raise StudentFeedbackDistributionInstallError(
+            "Student feedback destination became durable but final "
+            "verification failed.",
+            destination=destination,
+            staging_directory=None,
+            destination_durable=True,
+        ) from error
+
+    return InstalledStudentFeedbackDistribution(
+        directory=destination,
+        action=STUDENT_FEEDBACK_INSTALL_ACTION_INSTALLED,
+        verification=final_verification,
+    )
+
+
 __all__ = [
+    "STUDENT_FEEDBACK_INSTALL_ACTION_INSTALLED",
+    "STUDENT_FEEDBACK_INSTALL_ACTION_REUSED",
+    "InstalledStudentFeedbackDistribution",
     "StagedStudentFeedbackDistribution",
+    "StudentFeedbackDistributionInstallError",
     "StudentFeedbackDistributionStagingError",
     "VerifiedStudentFeedbackDistribution",
+    "install_staged_student_feedback_distribution",
     "stage_student_feedback_distribution",
     "verify_student_feedback_distribution_directory",
 ]
