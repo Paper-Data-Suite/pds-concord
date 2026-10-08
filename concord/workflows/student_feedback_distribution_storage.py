@@ -244,6 +244,46 @@ def _safe_component(value: object, label: str) -> str:
     return text
 
 
+def _path_is_redirecting(path: Path) -> bool:
+    try:
+        if path.is_symlink():
+            return True
+        is_junction = getattr(path, "is_junction", None)
+        return bool(is_junction is not None and is_junction())
+    except OSError as error:
+        raise ConcordWorkflowValidationError(
+            f"Could not inspect student feedback filesystem path: {path}"
+        ) from error
+
+
+def _require_no_redirecting_ancestors(path: Path) -> None:
+    for candidate in (path, *path.parents):
+        if _path_is_redirecting(candidate):
+            raise ConcordWorkflowValidationError(
+                "Student feedback path traverses a redirecting filesystem path: "
+                f"{candidate}"
+            )
+
+
+def _resolved_path(path: Path, *, label: str) -> Path:
+    try:
+        return path.resolve(strict=False)
+    except (OSError, RuntimeError) as error:
+        raise ConcordWorkflowValidationError(
+            f"Could not resolve student feedback {label} path."
+        ) from error
+
+
+def _paths_overlap(first: Path, second: Path) -> bool:
+    first_text = os.path.normcase(os.fspath(first))
+    second_text = os.path.normcase(os.fspath(second))
+    try:
+        common = os.path.commonpath((first_text, second_text))
+    except ValueError:
+        return False
+    return common in {first_text, second_text}
+
+
 def _read_regular_file(path: Path) -> bytes:
     if path.is_symlink():
         raise ConcordWorkflowValidationError(
@@ -434,7 +474,7 @@ def verify_student_feedback_distribution_directory(
         raise ConcordWorkflowValidationError(
             "Student feedback distribution directory must be absolute."
         )
-    if root.is_symlink() or not root.is_dir():
+    if _path_is_redirecting(root) or not root.is_dir():
         raise ConcordWorkflowValidationError(
             "Student feedback distribution directory is not a safe directory."
         )
@@ -643,9 +683,38 @@ def _require_staging_parent(plan: PreparedStudentFeedbackDistribution) -> Path:
         raise ConcordWorkflowValidationError(
             "Student feedback destination parent must be absolute."
         )
-    if parent.is_symlink() or not parent.is_dir():
+    _require_no_redirecting_ancestors(parent)
+    if not parent.is_dir():
         raise ConcordWorkflowValidationError(
             "Student feedback destination parent must be an existing safe directory."
+        )
+    return parent
+
+
+def _require_distribution_destination_safe(
+    plan: PreparedStudentFeedbackDistribution,
+    *,
+    workspace_root: str | Path,
+) -> Path:
+    parent = _require_staging_parent(plan)
+    if plan.destination.exists() and (
+        _path_is_redirecting(plan.destination) or not plan.destination.is_dir()
+    ):
+        raise ConcordWorkflowValidationError(
+            "Student feedback destination exists but is not a safe directory."
+        )
+    destination = _resolved_path(
+        plan.destination,
+        label="destination",
+    )
+    workspace = _resolved_path(
+        Path(workspace_root),
+        label="workspace",
+    )
+    if _paths_overlap(destination, workspace):
+        raise ConcordWorkflowValidationError(
+            "Student feedback destination must not overlap the "
+            "Paper Data Suite workspace."
         )
     return parent
 
@@ -678,7 +747,10 @@ def stage_student_feedback_distribution(
 ) -> StagedStudentFeedbackDistribution:
     """Write and verify a private sibling staging package, never the final path."""
     _validate_in_memory_package(plan, package)
-    parent = _require_staging_parent(plan)
+    parent = _require_distribution_destination_safe(
+        plan,
+        workspace_root=workspace_root,
+    )
 
     # This is deliberately the final source-state read before durable output mutation.
     require_student_feedback_plan_current(

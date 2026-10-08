@@ -82,7 +82,16 @@ def _normalize_destination(destination: str | Path) -> Path:
         raise ConcordWorkflowValidationError(
             "Student feedback distribution destination must be absolute."
         )
-    return Path(os.path.normpath(os.fspath(path)))
+    if ".." in path.parts:
+        raise ConcordWorkflowValidationError(
+            "Student feedback distribution destination must not use parent traversal."
+        )
+    normalized = Path(os.path.normpath(os.fspath(path)))
+    if normalized == Path(normalized.anchor):
+        raise ConcordWorkflowValidationError(
+            "Student feedback distribution destination cannot be a filesystem root."
+        )
+    return normalized
 
 
 
