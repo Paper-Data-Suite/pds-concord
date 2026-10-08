@@ -658,6 +658,13 @@ from concord.workflows.student_feedback_distribution_rendering import (
     require_student_feedback_plan_current,
     student_feedback_render_inputs_from_plan,
 )
+from concord.workflows.student_feedback_distribution_storage import (
+    StagedStudentFeedbackDistribution,
+    StudentFeedbackDistributionStagingError,
+    VerifiedStudentFeedbackDistribution,
+    stage_student_feedback_distribution,
+    verify_student_feedback_distribution_directory,
+)
 from concord.workflows.template import (
     PreparedTemplateActivation,
     PreparedTemplateCreate,
@@ -746,6 +753,11 @@ __all__ = [
     "StudentFeedbackRenderInput",
     "require_student_feedback_plan_current",
     "student_feedback_render_inputs_from_plan",
+    "StagedStudentFeedbackDistribution",
+    "StudentFeedbackDistributionStagingError",
+    "VerifiedStudentFeedbackDistribution",
+    "stage_student_feedback_distribution",
+    "verify_student_feedback_distribution_directory",
     "STUDENT_FEEDBACK_PDF_MEDIA_TYPE",
     "RenderedStudentFeedbackPdf",
     "render_student_feedback_pdf",
