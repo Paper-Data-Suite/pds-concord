@@ -635,6 +635,12 @@ from concord.workflows.student_feedback_distribution_plan import (
     prepare_student_feedback_distribution_plan,
     verify_student_feedback_distribution_plan_digest,
 )
+from concord.workflows.student_feedback_distribution_rendering import (
+    PreparedStudentFeedbackRendering,
+    StudentFeedbackRenderInput,
+    require_student_feedback_plan_current,
+    student_feedback_render_inputs_from_plan,
+)
 from concord.workflows.template import (
     PreparedTemplateActivation,
     PreparedTemplateCreate,
@@ -719,6 +725,10 @@ __all__ = [
     "PreparedStudentFeedbackDistribution",
     "prepare_student_feedback_distribution_plan",
     "verify_student_feedback_distribution_plan_digest",
+    "PreparedStudentFeedbackRendering",
+    "StudentFeedbackRenderInput",
+    "require_student_feedback_plan_current",
+    "student_feedback_render_inputs_from_plan",
     "CURRENT_HEAD_BOUNDARY_STATEMENT",
     "REPORT_BOUNDARY_STATEMENT",
     "REPORT_FORMATS",
