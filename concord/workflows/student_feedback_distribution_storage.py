@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import ctypes
+import errno
 import hashlib
 import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -960,8 +963,74 @@ def reuse_existing_student_feedback_distribution(
     )
 
 
+_AT_FDCWD: Final[int] = -100
+_RENAME_NOREPLACE: Final[int] = 1
+_RENAME_EXCL: Final[int] = 0x00000004
+
+
+def _raise_rename_error(error_number: int, destination: Path) -> None:
+    raise OSError(
+        error_number,
+        os.strerror(error_number),
+        os.fspath(destination),
+    )
+
+
+def _linux_rename_noreplace(staging: Path, destination: Path) -> None:
+    library = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(library, "renameat2", None)
+    if renameat2 is None:
+        raise OSError(
+            errno.ENOTSUP,
+            "atomic no-replace rename is unavailable on this Linux runtime",
+        )
+
+    ctypes.set_errno(0)
+    result = renameat2(
+        _AT_FDCWD,
+        os.fsencode(staging),
+        _AT_FDCWD,
+        os.fsencode(destination),
+        _RENAME_NOREPLACE,
+    )
+    if result != 0:
+        _raise_rename_error(ctypes.get_errno(), destination)
+
+
+def _darwin_rename_noreplace(staging: Path, destination: Path) -> None:
+    library = ctypes.CDLL(None, use_errno=True)
+    renamex_np = getattr(library, "renamex_np", None)
+    if renamex_np is None:
+        raise OSError(
+            errno.ENOTSUP,
+            "atomic no-replace rename is unavailable on this Darwin runtime",
+        )
+
+    ctypes.set_errno(0)
+    result = renamex_np(
+        os.fsencode(staging),
+        os.fsencode(destination),
+        _RENAME_EXCL,
+    )
+    if result != 0:
+        _raise_rename_error(ctypes.get_errno(), destination)
+
+
 def _promote_staging_directory(staging: Path, destination: Path) -> None:
-    staging.rename(destination)
+    """Atomically install one verified stage without replacing any destination."""
+    if os.name == "nt":
+        os.rename(staging, destination)
+        return
+    if sys.platform.startswith("linux"):
+        _linux_rename_noreplace(staging, destination)
+        return
+    if sys.platform == "darwin":
+        _darwin_rename_noreplace(staging, destination)
+        return
+    raise OSError(
+        errno.ENOTSUP,
+        "atomic no-replace rename is unavailable on this platform",
+    )
 
 
 def install_staged_student_feedback_distribution(
