@@ -163,6 +163,57 @@ def test_exact_existing_destination_is_reused_without_rewriting(
     assert before == after
 
 
+
+def test_same_plan_reuses_self_verified_package_with_different_container_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(tmp_path)
+    monkeypatch.setattr(
+        storage,
+        "require_student_feedback_plan_current",
+        lambda *args, **kwargs: plan,
+    )
+
+    first_package = render_student_feedback_distribution_package(
+        plan,
+        created_at="2026-10-08T05:15:00+00:00",
+    )
+    first_stage = stage_student_feedback_distribution(
+        plan,
+        first_package,
+        workspace_root=tmp_path / "workspace",
+    )
+    first = install_staged_student_feedback_distribution(plan, first_stage)
+    before = {
+        path.name: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in first.directory.iterdir()
+    }
+
+    second_package = render_student_feedback_distribution_package(
+        plan,
+        created_at="2026-10-08T05:16:00+00:00",
+    )
+    assert second_package.package_digest != first.verification.package_digest
+    second_stage = stage_student_feedback_distribution(
+        plan,
+        second_package,
+        workspace_root=tmp_path / "workspace",
+    )
+
+    result = install_staged_student_feedback_distribution(plan, second_stage)
+
+    after = {
+        path.name: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in result.directory.iterdir()
+    }
+    assert result.action == STUDENT_FEEDBACK_INSTALL_ACTION_REUSED
+    assert result.verification.plan_digest == plan.plan_digest
+    assert result.verification.package_digest == first.verification.package_digest
+    assert not second_stage.directory.exists()
+    assert before == after
+
+
 def test_conflicting_existing_directory_is_not_overwritten(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

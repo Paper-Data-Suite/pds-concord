@@ -56,6 +56,9 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_student_feedback import (
+    launch_student_feedback_distribution_menu,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -847,6 +850,7 @@ def launch_share_results_menu(
         print("3. Share results")
         print("4. View sharing history")
         print("5. Stop sharing current results")
+        print("6. Student feedback distribution (local package)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -857,6 +861,7 @@ def launch_share_results_menu(
                 (
                     "Share deliberate Activity results through Paper Data Suite.",
                     "Review the result set before sharing it.",
+                    "Academic result sharing and local feedback packages are distinct.",
                     "Sharing does not calculate Grades or reporting policy.",
                 ),
             )
@@ -879,6 +884,8 @@ def launch_share_results_menu(
                 _share_history(activity)
             elif choice == "5":
                 _withdraw(activity, teacher_facing=True)
+            elif choice == "6":
+                launch_student_feedback_distribution_menu(activity, state)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()

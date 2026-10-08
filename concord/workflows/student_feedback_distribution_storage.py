@@ -824,11 +824,16 @@ def _existing_destination_verification(
     staged: StagedStudentFeedbackDistribution,
 ) -> VerifiedStudentFeedbackDistribution:
     try:
-        return verify_student_feedback_distribution_directory(
+        existing = verify_student_feedback_distribution_directory(
             plan.destination,
             expected_plan_digest=plan.plan_digest,
-            expected_package_digest=staged.verification.package_digest,
         )
+        if existing.managed_filenames != plan.output_filenames:
+            raise ConcordWorkflowValidationError(
+                "Existing student feedback output set differs from the "
+                "reviewed plan."
+            )
+        return existing
     except ConcordWorkflowValidationError as error:
         _cleanup_stage_or_raise(
             staged.directory,
