@@ -95,6 +95,9 @@ TEACHER_ROUTING_REVIEW_DOC = (
 GENERATION_PACKET_RENDERING_DOC = (
     ROOT / "docs" / "v0.3.1-generation-wide-packet-rendering.md"
 )
+STUDENT_FEEDBACK_DISTRIBUTION_DOC = (
+    ROOT / "docs" / "v0.3.1-student-feedback-distribution.md"
+)
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
 )
@@ -274,6 +277,37 @@ REQUIRED_GENERATION_PACKET_RENDERING_PHRASES = (
     "Core 0.6.4",
     "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
     "pds-core>=0.6.3,<0.7",
+)
+REQUIRED_STUDENT_FEEDBACK_DISTRIBUTION_PHRASES = (
+    "one exact ActivityReadContext",
+    "current Score lineage heads",
+    'ScoreTargetReference.target_kind == "core_student"',
+    "Target Detail is teacher-local",
+    "StudentFeedbackProjection",
+    "StudentFeedbackResult",
+    "PREPARE AVAILABLE ONLY",
+    "PREPARE",
+    "last-safe-point currentness check",
+    "reviewed plan digest",
+    "Print All Feedback.pdf",
+    "Feedback Index.html",
+    "distribution-manifest.json",
+    "concord_feedback_distribution_v1",
+    "build_human_readable_output_filename",
+    "pds_core.local_open.open_local_path",
+    "individual PDFs are student-scoped",
+    "staff-scoped",
+    "no Grade or standards-proficiency",
+    "no email integration",
+    "no cloud permission management",
+    "no delivery state",
+    "historical package",
+    "scripts/smoke_test_student_feedback_distribution_wheel.py",
+    "python -I",
+    "Core 0.6.4",
+    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
+    "pds-core>=0.6.3,<0.7",
+    "Issue #111",
 )
 REQUIRED_ACTIVITY_ATTENTION_NEXT_ACTIONS_PHRASES = (
     "ActivityAttentionItem",
@@ -1124,6 +1158,26 @@ def check_documentation() -> None:
                 "rendering document."
             )
 
+    if not STUDENT_FEEDBACK_DISTRIBUTION_DOC.is_file():
+        failures.append(
+            "Current v0.3.1 student feedback distribution document is missing."
+        )
+    else:
+        feedback_doc = STUDENT_FEEDBACK_DISTRIBUTION_DOC.read_text(
+            encoding="utf-8"
+        )
+        for phrase in REQUIRED_STUDENT_FEEDBACK_DISTRIBUTION_PHRASES:
+            if phrase not in feedback_doc:
+                failures.append(
+                    "Student feedback distribution document is missing required "
+                    f"boundary wording {phrase!r}."
+                )
+        if STUDENT_FEEDBACK_DISTRIBUTION_DOC.name not in docs_index:
+            failures.append(
+                "Documentation index does not link the student feedback "
+                "distribution document."
+            )
+
     if not ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC.is_file():
         failures.append(
             "Current v0.3.0 Activity attention/next-actions document is missing."
@@ -1233,6 +1287,16 @@ def check_documentation() -> None:
                 f"{active_path.relative_to(ROOT)} does not expose the "
                 "starter Template CLI."
             )
+        for feedback_command in (
+            "concord feedback distribution-preview",
+            "concord feedback distribution-prepare",
+            "concord feedback distribution-verify",
+        ):
+            if feedback_command not in active_group_plan_text:
+                failures.append(
+                    f"{active_path.relative_to(ROOT)} does not expose "
+                    f"{feedback_command}."
+                )
     for stale_phrase in (
         "lifecycle application services remain staged within #50",
         "does not make GroupPlan lifecycle/application services",

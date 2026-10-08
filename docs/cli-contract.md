@@ -215,6 +215,10 @@ concord score list
 concord score show
 concord score replace
 
+concord feedback distribution-preview
+concord feedback distribution-prepare
+concord feedback distribution-verify
+
 concord artifact list
 concord artifact show
 concord artifact assemble
@@ -296,7 +300,21 @@ revalidates Core class/standards/privacy, and creates a fresh draft Activity
 plus one fresh planned Session. It never accepts `--expected-snapshot`,
 overwrite, merge, force, source Session identity, or source operational state.
 
-Every write after initial Activity creation requires:
+Student feedback distribution is a derived-output exception to canonical
+Activity mutation commands. `feedback distribution-preview` is zero-write and
+requires exact class/Activity identity, either `--all-roster` or repeated
+`--student-id`, and an explicit absolute `--destination`. An incomplete
+all-roster request additionally requires `--available-only`, corresponding to
+the teacher-menu `PREPARE AVAILABLE ONLY` decision.
+
+`feedback distribution-prepare` rebuilds that same current exact plan, requires
+its exact `--review-digest`, and passes the explicit `--confirmation PREPARE`
+through the shared execution service. `feedback distribution-verify` is
+read-only and may verify a valid historical package even after the source
+Activity advances. None of these commands publishes Academic Results or records
+delivery state.
+
+Every canonical Activity-state write after initial Activity creation requires:
 
 ```text
 --expected-snapshot <positive integer>

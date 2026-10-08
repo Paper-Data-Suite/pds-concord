@@ -208,6 +208,17 @@ literal `GENERATE` export confirmation, teacher-local/privacy boundaries,
 #124 bounded package identity and fixed leaves, no-migration/no-publication
 contract, and the Core 0.6.4 final qualification target.
 
+### v0.3.1 student feedback distribution
+
+[`v0.3.1-student-feedback-distribution.md`](v0.3.1-student-feedback-distribution.md)
+
+Documents Issue #114's share-safe `StudentFeedbackProjection`, current-head
+Core-student target boundary, zero-write completeness review, literal
+`PREPARE AVAILABLE ONLY` / `PREPARE` workflow, individual and aggregate PDF
+outputs, static index, versioned integrity manifest, #124 filename contract,
+external destination/staging/reuse semantics, Core local-open boundary, direct
+CLI/menu integration, and isolated Core 0.6.4 installed-wheel qualification.
+
 ### v0.3.1 teacher-friendly Routing Review
 
 [`v0.3.1-teacher-friendly-routing-review.md`](v0.3.1-teacher-friendly-routing-review.md)
