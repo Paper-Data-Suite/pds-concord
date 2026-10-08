@@ -189,6 +189,14 @@ class TargetScoreDetail:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class TargetScoreDetailBatch:
+    """Batch Target Detail projection from one current-head calculation."""
+
+    details: tuple[TargetScoreDetail, ...]
+    current_target_references: tuple[ScoreTargetReference, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ScoreHistoryRevision:
     """One exact Score revision within an explicit historical lineage."""
 
@@ -544,30 +552,15 @@ def _target_label(
     return native if native is not None else target.target_id
 
 
-def target_score_detail_from_context(
+def _target_score_detail_from_current_records(
     context: ActivityReadContext,
     target_reference: ScoreTargetReference,
+    current: tuple[ScoreRecord, ...],
     *,
-    target_label_resolver: TargetDisplayLabelResolver | None = None,
+    criterion_by_id: dict[str, Criterion],
+    scale_by_id: dict[str, ScoringScale],
+    target_label_resolver: TargetDisplayLabelResolver | None,
 ) -> TargetScoreDetail:
-    """Project one target's current Score heads without inferring requirements."""
-    criterion_by_id = {
-        item.criterion_id: item for item in context.graph.criteria
-    }
-    scale_by_id = {
-        item.scoring_scale_id: item for item in context.graph.scoring_scales
-    }
-    activity_records = tuple(
-        item
-        for item in context.graph.score_records
-        if item.activity_id == context.activity.activity_id
-    )
-    current = tuple(
-        item
-        for item in current_score_lineage_heads(activity_records)
-        if item.target_reference == target_reference
-    )
-
     results: list[TargetScoreResult] = []
     for score in current:
         criterion = _require_criterion(criterion_by_id, score.criterion_id)
@@ -635,6 +628,72 @@ def target_score_detail_from_context(
         results=ordered,
     )
 
+
+def target_score_detail_batch_from_context(
+    context: ActivityReadContext,
+    target_references: tuple[ScoreTargetReference, ...],
+    *,
+    target_label_resolver: TargetDisplayLabelResolver | None = None,
+) -> TargetScoreDetailBatch:
+    """Project many Target Details from one exact current-head calculation."""
+    criterion_by_id = {
+        item.criterion_id: item for item in context.graph.criteria
+    }
+    scale_by_id = {
+        item.scoring_scale_id: item for item in context.graph.scoring_scales
+    }
+    activity_records = tuple(
+        item
+        for item in context.graph.score_records
+        if item.activity_id == context.activity.activity_id
+    )
+    current_heads = current_score_lineage_heads(activity_records)
+
+    current_by_target: dict[ScoreTargetReference, list[ScoreRecord]] = {}
+    for score in current_heads:
+        current_by_target.setdefault(score.target_reference, []).append(score)
+
+    details = tuple(
+        _target_score_detail_from_current_records(
+            context,
+            target_reference,
+            tuple(current_by_target.get(target_reference, ())),
+            criterion_by_id=criterion_by_id,
+            scale_by_id=scale_by_id,
+            target_label_resolver=target_label_resolver,
+        )
+        for target_reference in target_references
+    )
+    current_target_references = tuple(
+        sorted(
+            current_by_target,
+            key=lambda target: (
+                _TARGET_KIND_RANK[target.target_kind],
+                target.target_id,
+                target.owning_system,
+                target.contract_version or "",
+            ),
+        )
+    )
+    return TargetScoreDetailBatch(
+        details=details,
+        current_target_references=current_target_references,
+    )
+
+
+def target_score_detail_from_context(
+    context: ActivityReadContext,
+    target_reference: ScoreTargetReference,
+    *,
+    target_label_resolver: TargetDisplayLabelResolver | None = None,
+) -> TargetScoreDetail:
+    """Project one target's current Score heads without inferring requirements."""
+    batch = target_score_detail_batch_from_context(
+        context,
+        (target_reference,),
+        target_label_resolver=target_label_resolver,
+    )
+    return batch.details[0]
 
 def _score_revision_correction(
     corrections: tuple[CorrectionRecord, ...],
@@ -865,8 +924,10 @@ __all__ = [
     "TargetDisplayLabelResolver",
     "TargetKindScoreCount",
     "TargetScoreDetail",
+    "TargetScoreDetailBatch",
     "TargetScoreResult",
     "activity_score_analysis_from_context",
     "score_history_analysis_from_context",
+    "target_score_detail_batch_from_context",
     "target_score_detail_from_context",
 ]

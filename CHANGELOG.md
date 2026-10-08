@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Issue #114 adds immutable share-safe `StudentFeedbackProjection` output from current Core-student Score lineage heads, preserving exact native values and non-score dispositions while excluding teacher-local rationale, evidence, history, technical IDs, Grade/proficiency inference, and non-student target fan-out.
+- Issue #114 adds zero-write whole-roster/selected review, explicit `PREPARE AVAILABLE ONLY` handling for incomplete all-roster requests, literal `PREPARE` execution, #124-bounded individual feedback filenames, `Print All Feedback.pdf`, static `Feedback Index.html`, and versioned `concord_feedback_distribution_v1` integrity metadata.
+- Issue #114 hardens explicit external distribution destinations with staging verification, path/reparse containment, atomic no-replace final promotion, exact conflict detection, and historical exact-package reuse without rewriting bytes or consulting advanced source state.
+- Issue #114 integrates the local package under Activity Share and adds `concord feedback distribution-preview|distribution-prepare|distribution-verify`, verified Core local-open behavior, and final isolated candidate-wheel qualification against authenticated Core 0.6.4 under `python -I` without raising the declared Core dependency floor.
+
 - Issue #110 makes one Packet generation the first-class render/reprint runtime unit, using one exact Activity snapshot, shared exact immutable Template/layout dependencies, stable target ordering, and one bounded canonical lifecycle reconciliation rather than reconstructing per-target render context.
 - Issue #110 adds teacher-readable complete-generation selection with reviewed-snapshot currentness, literal `RENDER` for eligible first/incomplete rendering and literal `REPRINT` for fully generated sets, while keeping route recovery and planned/failed/cancelled targets explicit.
 - Issue #110 structural qualification locks the 1, 10, and 30 target cases to one full Activity graph materialization, one current-pointer check, and one canonical lifecycle commit, with real standalone-versus-generation PDF/hash/route parity and no replacement route allocation.

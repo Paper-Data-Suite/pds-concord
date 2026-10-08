@@ -252,6 +252,27 @@ complete #66 contract.
 
 [task-activity-menu-doc]: docs/v0.3.0-task-oriented-activity-menus.md
 
+## Student feedback distribution
+
+Activity **Share** now includes **Student feedback distribution (local package)**
+as a distinct operation from Core Academic Result publication. Concord derives
+share-safe feedback only from current Core-student Score lineage heads, presents
+whole-roster completeness before preparation, requires explicit
+`PREPARE AVAILABLE ONLY` when an all-roster request contains unavailable
+students, and requires literal `PREPARE` before derived output is written.
+
+The package contains individual student-scoped PDFs, `Print All Feedback.pdf`,
+`Feedback Index.html`, and a versioned privacy-minimized manifest in an explicit
+external destination. Preparing, verifying, or opening that package creates no
+email/cloud delivery state and does not mutate canonical Score, publication, or
+routing state.
+
+See [student feedback distribution documentation][student-feedback-doc] for the
+complete #114 projection, privacy, currentness, package-integrity, reuse, menu,
+CLI, and installed-wheel contract.
+
+[student-feedback-doc]: docs/v0.3.1-student-feedback-distribution.md
+
 ## Reviewing Artifact attribution
 
 Issue #106 changes Collect's routine attribution path from separate low-level
@@ -376,6 +397,9 @@ concord packet instance-list|instance-show|instance-render|generation-render
 concord criterion-set create|list|show|revise|select
 concord scale create|list|show|revise
 concord score add|list|show|replace
+concord feedback distribution-preview
+concord feedback distribution-prepare
+concord feedback distribution-verify
 concord artifact list|show|assemble
 concord artifact author add|list|show|update|replace
 concord artifact subject add|list|show|update|replace
@@ -523,7 +547,7 @@ The cross-platform equivalent is:
 python scripts/validate_repository.py --core-wheel <wheel>
 ```
 
-The validator authenticates the exact Core v0.6.3 wheel, runs pytest, Ruff,
+The validator authenticates the exact Core v0.6.4 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
 inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
 the full installed Activity-to-publication producer acceptance before
