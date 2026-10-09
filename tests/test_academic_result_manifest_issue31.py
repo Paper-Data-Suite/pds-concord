@@ -699,3 +699,218 @@ def test_identity_and_exact_moderation_evidence_are_cross_validated() -> None:
     )
     with pytest.raises(ConcordAcademicResultManifestValidationError):
         validate_academic_result_manifest(mismatch)
+# Issue #129 — Core Standards durable identity regression coverage.
+
+_ISSUE129_PROFILE_ID = "njsls-ela:profile.2023:11-12"
+_ISSUE129_STANDARD_IDS = (
+    "RL.TS.11-12.4",
+    "W.NW.11-12.3.D",
+    "8.1.12.NI.1",
+    "njsls-ela:RL.TS.11-12.4",
+)
+
+
+def test_issue129_all_confirmed_manifest_fields_accept_standards_identity_domain(
+) -> None:
+    manifest = _manifest()
+    profile_id = _ISSUE129_PROFILE_ID
+    standard_a, standard_b, standard_c, standard_d = _ISSUE129_STANDARD_IDS
+
+    activity_profile = replace(
+        manifest.activity_context,
+        standards_profile_id=profile_id,
+    )
+    assert activity_profile.standards_profile_id == profile_id
+
+    activity_focus = replace(
+        manifest.activity_context,
+        focus_standard_ids=(
+            standard_a,
+            standard_b,
+            standard_c,
+            standard_d,
+        ),
+    )
+    assert activity_focus.focus_standard_ids == _ISSUE129_STANDARD_IDS
+
+    criterion_set = replace(
+        manifest.criterion_sets[1],
+        standards_profile_id=profile_id,
+    )
+    assert criterion_set.standards_profile_id == profile_id
+
+    standard_criterion = replace(
+        manifest.criteria[1],
+        standard_id=standard_d,
+    )
+    assert standard_criterion.standard_id == standard_d
+
+    aligned_criterion = replace(
+        manifest.criteria[0],
+        alignment_standard_ids=(standard_a, standard_b, standard_c),
+    )
+    assert aligned_criterion.alignment_standard_ids == (
+        standard_a,
+        standard_b,
+        standard_c,
+    )
+
+    score = replace(
+        manifest.scores[1],
+        standard_id=standard_d,
+    )
+    assert score.standard_id == standard_d
+
+    standards_result = replace(
+        manifest.standards_result_projection[0],
+        standard_id=standard_d,
+    )
+    assert standards_result.standard_id == standard_d
+
+
+def test_issue129_complete_manifest_round_trip_preserves_exact_standards_ids(
+) -> None:
+    manifest = _manifest()
+    profile_id = _ISSUE129_PROFILE_ID
+    primary = "njsls-ela:RL.TS.11-12.4"
+    secondary = "W.NW.11-12.3.D"
+    additional = "8.1.12.NI.1"
+
+    activity_context = replace(
+        manifest.activity_context,
+        standards_profile_id=profile_id,
+        focus_standard_ids=(primary, secondary, additional),
+    )
+    criterion_sets = (
+        manifest.criterion_sets[0],
+        replace(
+            manifest.criterion_sets[1],
+            standards_profile_id=profile_id,
+        ),
+    )
+    criteria = (
+        replace(
+            manifest.criteria[0],
+            alignment_standard_ids=(secondary,),
+        ),
+        replace(
+            manifest.criteria[1],
+            standard_id=primary,
+            alignment_standard_ids=(additional,),
+        ),
+    )
+    scores = (
+        manifest.scores[0],
+        replace(manifest.scores[1], standard_id=primary),
+    )
+    standards_results = (
+        replace(
+            manifest.standards_result_projection[0],
+            standard_id=primary,
+        ),
+    )
+    candidate = replace(
+        manifest,
+        activity_context=activity_context,
+        criterion_sets=criterion_sets,
+        criteria=criteria,
+        scores=scores,
+        standards_result_projection=standards_results,
+        projection=replace(
+            manifest.projection,
+            projection_digest="0" * 64,
+        ),
+    )
+    candidate = with_semantic_projection_digest(candidate)
+
+    native = academic_result_manifest_to_dict(candidate)
+    restored_mapping = academic_result_manifest_from_dict(native)
+    encoded = academic_result_manifest_to_bytes(candidate)
+    restored_bytes = academic_result_manifest_from_bytes(encoded)
+
+    assert restored_mapping == candidate
+    assert restored_bytes == candidate
+    assert academic_result_manifest_to_bytes(restored_bytes) == encoded
+
+    assert restored_bytes.activity_context.standards_profile_id == profile_id
+    assert restored_bytes.activity_context.focus_standard_ids == (
+        primary,
+        secondary,
+        additional,
+    )
+    assert restored_bytes.criterion_sets[1].standards_profile_id == profile_id
+    assert restored_bytes.criteria[0].alignment_standard_ids == (secondary,)
+    assert restored_bytes.criteria[1].standard_id == primary
+    assert restored_bytes.criteria[1].alignment_standard_ids == (additional,)
+    assert restored_bytes.scores[1].standard_id == primary
+    assert restored_bytes.standards_result_projection[0].standard_id == primary
+
+
+def test_issue129_standards_identity_normalization_matches_core_text_semantics(
+) -> None:
+    manifest = _manifest()
+    identity = "njsls-ela:RL.TS.11-12.4"
+
+    criterion = replace(
+        manifest.criteria[1],
+        standard_id=f"  {identity}  ",
+    )
+    assert criterion.standard_id == identity
+
+    activity = replace(
+        manifest.activity_context,
+        focus_standard_ids=(f"  {identity}  ",),
+    )
+    assert activity.focus_standard_ids == (identity,)
+
+    with pytest.raises(ConcordAcademicResultManifestValidationError):
+        replace(
+            manifest.activity_context,
+            focus_standard_ids=(identity, f" {identity} "),
+        )
+
+
+@pytest.mark.parametrize("invalid", ["", " ", "\t", "\n"])
+def test_issue129_standards_identity_rejects_blank_text(
+    invalid: str,
+) -> None:
+    manifest = _manifest()
+
+    with pytest.raises(ConcordAcademicResultManifestValidationError):
+        replace(
+            manifest.standards_result_projection[0],
+            standard_id=invalid,
+        )
+
+
+def test_issue129_standards_identity_rejects_non_string_values() -> None:
+    manifest = _manifest()
+
+    with pytest.raises(ConcordAcademicResultManifestValidationError):
+        replace(
+            manifest.criteria[1],
+            standard_id=123,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ConcordAcademicResultManifestValidationError):
+        replace(
+            manifest.activity_context,
+            focus_standard_ids="RL.TS.11-12.4",  # type: ignore[arg-type]
+        )
+
+
+def test_issue129_generic_routing_identifier_validation_remains_strict() -> None:
+    manifest = _manifest()
+    standards_identity = "framework/2026:RL.TS.11-12.4"
+
+    accepted = replace(
+        manifest.standards_result_projection[0],
+        standard_id=standards_identity,
+    )
+    assert accepted.standard_id == standards_identity
+
+    with pytest.raises(ConcordAcademicResultManifestValidationError):
+        replace(
+            manifest.activity_context,
+            activity_id=standards_identity,
+        )
