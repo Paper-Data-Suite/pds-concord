@@ -118,3 +118,35 @@ exact durable identity
 ```
 
 No display-derived value becomes a durable key.
+## Slice 3 depiction resolution
+
+Issue #129 Slice 3 resolves the bounded teacher-facing presentation gaps found
+by this audit without changing durable or public machine contracts.
+
+A shared read-only `concord.standards_display` layer now keeps these concepts
+separate:
+
+```text
+durable identity
+    StandardDefinition.standard_id / StandardsProfile.profile_id
+
+teacher depiction
+    StandardDefinition.code + short_name / StandardsProfile.title
+
+fallback
+    exact durable identity
+```
+
+The presentation layer is used by:
+
+- Activity copy review in the menu;
+- direct CLI Activity copy preview;
+- direct CLI Activity detail when Core Standards metadata is available;
+- Activity Score Analysis PDF ordinary presentation.
+
+Activity Score Analysis JSON/CSV continues to retain the durable `standard_id`
+alongside its display metadata. `concord_academic_result_manifest_v1` is
+unchanged.
+
+No display label is written back into native Activity, Criterion, Score, or
+Standards Profile identity fields.

@@ -66,6 +66,10 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
+from concord.standards_display import (
+    resolve_profile_display,
+    resolve_standard_display,
+)
 from concord.storage_errors import ConcordStoragePartialSuccessError
 from concord.workflows import (
     ActivitySummary,
@@ -447,7 +451,11 @@ def _copy_description(source_description: str | None) -> OptionalTextUpdate:
         pause_for_user()
 
 
-def _copy_review_lines(prepared: PreparedActivityCopy) -> tuple[str, ...]:
+def _copy_review_lines(
+    prepared: PreparedActivityCopy,
+    *,
+    standards_library: StandardsLibrary | None = None,
+) -> tuple[str, ...]:
     privacy = (
         prepared.privacy_policy.classification
         if prepared.privacy_policy is not None
@@ -465,11 +473,21 @@ def _copy_review_lines(prepared: PreparedActivityCopy) -> tuple[str, ...]:
         f"First Session: {prepared.first_session_label or prepared.first_session_id}",
     ]
     if prepared.standards_profile_id is not None:
-        lines.append(f"Standards profile: {prepared.standards_profile_id}")
+        profile = resolve_profile_display(
+            prepared.standards_profile_id,
+            standards_library,
+        )
+        lines.append(f"Standards profile: {profile.label}")
         lines.append("Focus Standards (ordered):")
         lines.extend(
-            f"  {index}. {standard_id}"
-            for index, standard_id in enumerate(prepared.focus_standard_ids, start=1)
+            (
+                f"  {index}. "
+                f"{resolve_standard_display(standard_id, standards_library).label}"
+            )
+            for index, standard_id in enumerate(
+                prepared.focus_standard_ids,
+                start=1,
+            )
         )
     for diagnostic in prepared.diagnostics:
         lines.append(f"Notice: {diagnostic.message}")
@@ -584,7 +602,12 @@ def _copy_activity(state: MenuSessionContext) -> None:
             workspace_root=root,
             standards_library=library,
         )
-        if not _confirm_copy(_copy_review_lines(prepared)):
+        if not _confirm_copy(
+            _copy_review_lines(
+                prepared,
+                standards_library=library,
+            )
+        ):
             return
         result = copy_activity(
             CopyActivityRequest(

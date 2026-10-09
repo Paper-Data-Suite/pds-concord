@@ -17,6 +17,7 @@ from concord.models import (
     ScoringScale,
 )
 from concord.models.common import JsonScalar, scalar_key
+from concord.standards_display import resolve_standard_display
 from concord.workflows._score_lineage import (
     current_score_lineage_heads,
     score_lineage_chains,
@@ -447,19 +448,8 @@ def _standard_display(
     standard_id: str,
     standards_library: StandardsLibrary | None,
 ) -> tuple[str, str | None, str | None]:
-    if standards_library is None:
-        return standard_id, None, None
-    definition = next(
-        (
-            item
-            for item in standards_library.standards
-            if item.standard_id == standard_id
-        ),
-        None,
-    )
-    if definition is None:
-        return standard_id, None, None
-    return definition.code, definition.code, definition.short_name
+    display = resolve_standard_display(standard_id, standards_library)
+    return display.code or display.standard_id, display.code, display.short_name
 
 
 def _standard_analyses(
