@@ -3,6 +3,7 @@
 from pds_core.publication_compatibility import (
     PublicationContractSupport,
     PublicationProducerProfile,
+    PublicationReaderSupport,
     SourceRecordContractSupport,
     validate_publication_producer_profile,
 )
@@ -12,10 +13,12 @@ from concord.academic_result_manifest import (
     ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
 )
 from concord.pds_contract import (
+    CONCORD_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
     CONCORD_ACADEMIC_WORK_CONTRACT_VERSION,
     CONCORD_ACTIVITY_CONTRACT_VERSION,
     CONCORD_ACTIVITY_RECORD_KIND,
     CONCORD_DISPLAY_NAME,
+    CONCORD_DISTRIBUTION_NAME,
     CONCORD_MODULE_ID,
 )
 
@@ -55,6 +58,17 @@ def get_publication_producer_profile() -> PublicationProducerProfile:
                         ),
                     ),
                     allows_missing_source_record=False,
+                    reader_support=(
+                        PublicationReaderSupport(
+                            manifest_contract_version=(
+                                ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION
+                            ),
+                            distribution_name=CONCORD_DISTRIBUTION_NAME,
+                            reader_contract_version=(
+                                CONCORD_ACADEMIC_RESULT_READER_CONTRACT_VERSION
+                            ),
+                        ),
+                    ),
                 ),
             ),
         )
