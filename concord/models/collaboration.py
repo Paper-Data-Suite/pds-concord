@@ -21,11 +21,13 @@ from concord.models.common import (
     controlled_key,
     identifier,
     optional_identifier,
+    optional_standards_identity,
     optional_text,
     optional_timestamp,
     positive_int,
     require_text,
     tuple_of_identifiers,
+    tuple_of_standards_identities,
 )
 
 ACTIVITY_TYPES = frozenset({"socratic_seminar", "laboratory", "project"})
@@ -101,11 +103,21 @@ class Activity:
                 {"draft", "configured", "active", "completed", "cancelled", "archived"}
             ),
         )
-        optional_identifier(self.standards_profile_id, "standards_profile_id")
+        object.__setattr__(
+            self,
+            "standards_profile_id",
+            optional_standards_identity(
+                self.standards_profile_id,
+                "standards_profile_id",
+            ),
+        )
         object.__setattr__(
             self,
             "focus_standard_ids",
-            tuple_of_identifiers(self.focus_standard_ids, "focus_standard_ids"),
+            tuple_of_standards_identities(
+                self.focus_standard_ids,
+                "focus_standard_ids",
+            ),
         )
         object.__setattr__(
             self,

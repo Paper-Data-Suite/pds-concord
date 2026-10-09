@@ -55,6 +55,54 @@ def optional_identifier(value: object, field_name: str) -> str | None:
     return identifier(value, field_name)
 
 
+def standards_identity(value: object, field_name: str) -> str:
+    """Normalize one Core Standards durable identity without routing grammar."""
+    if not isinstance(value, str):
+        raise ConcordModelError(
+            f"{field_name} must be a Standards identity string."
+        )
+    normalized = value.strip()
+    if not normalized:
+        raise ConcordModelError(
+            f"{field_name} must be a nonblank Standards identity."
+        )
+    return normalized
+
+
+def optional_standards_identity(
+    value: object,
+    field_name: str,
+) -> str | None:
+    if value is None:
+        return None
+    return standards_identity(value, field_name)
+
+
+def tuple_of_standards_identities(
+    value: Iterable[str],
+    field_name: str,
+) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes)):
+        raise ConcordModelError(
+            f"{field_name} must be an iterable of Standards identities."
+        )
+    try:
+        values = tuple(value)
+    except TypeError as error:
+        raise ConcordModelError(
+            f"{field_name} must be iterable."
+        ) from error
+    normalized = tuple(
+        standards_identity(item, f"{field_name}[{index}]")
+        for index, item in enumerate(values)
+    )
+    if len(set(normalized)) != len(normalized):
+        raise ConcordModelError(
+            f"{field_name} must not contain duplicates."
+        )
+    return normalized
+
+
 def controlled(value: object, field_name: str, allowed: frozenset[str]) -> str:
     text = require_text(value, field_name)
     if text not in allowed:

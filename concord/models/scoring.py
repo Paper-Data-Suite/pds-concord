@@ -18,6 +18,7 @@ from concord.models.common import (
     controlled,
     identifier,
     optional_identifier,
+    optional_standards_identity,
     optional_text,
     positive_int,
     require_bool,
@@ -25,6 +26,7 @@ from concord.models.common import (
     scalar_key,
     timestamp,
     tuple_of_identifiers,
+    tuple_of_standards_identities,
     tuple_of_values,
 )
 
@@ -56,7 +58,14 @@ class CriterionSet:
             "criterion_set_kind",
             frozenset({"standard_backed", "local", "mixed"}),
         )
-        optional_identifier(self.standards_profile_id, "standards_profile_id")
+        object.__setattr__(
+            self,
+            "standards_profile_id",
+            optional_standards_identity(
+                self.standards_profile_id,
+                "standards_profile_id",
+            ),
+        )
         object.__setattr__(
             self,
             "criterion_ids",
@@ -102,11 +111,21 @@ class Criterion:
             "criterion_kind",
             frozenset({"standard_backed", "local"}),
         )
-        optional_identifier(self.standard_id, "standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            optional_standards_identity(
+                self.standard_id,
+                "standard_id",
+            ),
+        )
         object.__setattr__(
             self,
             "alignment_standard_ids",
-            tuple_of_identifiers(self.alignment_standard_ids, "alignment_standard_ids"),
+            tuple_of_standards_identities(
+                self.alignment_standard_ids,
+                "alignment_standard_ids",
+            ),
         )
         target_kinds = tuple(self.supported_target_kinds)
         if not target_kinds or len(set(target_kinds)) != len(target_kinds):
@@ -273,7 +292,14 @@ class ScoreRecord:
         kind = controlled(
             self.score_kind, "score_kind", frozenset({"standard_backed", "local"})
         )
-        optional_identifier(self.standard_id, "standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            optional_standards_identity(
+                self.standard_id,
+                "standard_id",
+            ),
+        )
         identifier(self.scoring_scale_id, "scoring_scale_id")
         disposition = controlled(
             self.disposition,
