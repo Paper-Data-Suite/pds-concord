@@ -323,3 +323,60 @@ no sibling PDS package is required
 The full clean-wheel chain from Activity creation through publication, Core
 verification, Concord consumer read, Artifact authorization/read,
 supersession/withdrawal, and audit remains assigned to Issue #33.
+## Stable reader identity — Core 0.6.5 / Issue #129
+
+Concord now names the public manifest-reader behavior documented above as:
+
+```text
+concord_academic_result_reader_v1
+```
+
+and binds that reader contract specifically to:
+
+```text
+concord_academic_result_manifest_v1
+```
+
+through Core `PublicationReaderSupport`.
+
+The reader-contract identity is deliberately independent from the Concord Python
+distribution version. A later `pds-concord` release may continue to declare
+reader v1 when all covered behavior remains compatible.
+
+Reader v1 freezes the following consumer-visible boundary:
+
+- stable imports exported from `concord.academic_result_reader`;
+- `read_academic_result_manifest(bytes)` immutable canonical-byte input;
+- `validate_academic_result_manifest(...)` for an existing immutable public model;
+- exact Criterion Set, Criterion, Scale, Scale-level, Score, Evidence-link,
+  Moderation, and Target relationship lookups;
+- type-sensitive Scale values without coercion;
+- the public manifest/projection model fields returned to consumers;
+- the public reader exception hierarchy and privacy-bounded failure messages;
+- deterministic interpretation of the same canonical bytes;
+- zero workspace, registry, catalog, publication-selection, or consumer-policy I/O.
+
+Issue #129 additionally qualifies Core Standards identity as durable text rather
+than generic routing/path identifier grammar. Reader v1 therefore preserves
+punctuation-bearing `standards_profile_id` and `standard_id` values exactly, for
+example:
+
+```text
+njsls-ela:profile.2023:11-12
+njsls-ela:2023:rl-ts-11-12-4
+```
+
+Those durable identities are not replaced with teacher-facing `code`,
+`short_name`, or Profile title values inside the reader model.
+
+The following do **not** change reader v1 by themselves:
+
+- a Concord package-version increment;
+- documentation/release-note changes;
+- internal implementation refactors that preserve the public behavior above;
+- teacher-facing depiction changes outside the public reader;
+- consumer-specific Meridian or Vitrine projection policy.
+
+A change that breaks the covered imports, call shapes, returned public model,
+validation/exception semantics, or interpretation behavior requires a new reader
+contract identity even if the manifest remains v1.

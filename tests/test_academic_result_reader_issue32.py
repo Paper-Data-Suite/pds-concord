@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from dataclasses import fields
 from datetime import datetime, timezone
+from inspect import signature
 from pathlib import Path
 
 import pytest
@@ -50,6 +52,10 @@ from concord.academic_result_reader import (
     read_academic_result_manifest,
     validate_academic_result_manifest,
 )
+
+PROFILE_ID = "njsls-ela:profile.2023:11-12"
+STANDARD_ID = "njsls-ela:2023:rl-ts-11-12-4"
+
 
 EXPECTED_PUBLIC = {
     "AcademicResultManifest",
@@ -149,7 +155,7 @@ def _manifest() -> AcademicResultManifest:
         criterion_ids=("criterion-standard",),
         status="active",
         supersedes_criterion_set_id=None,
-        standards_profile_id="profile-1",
+        standards_profile_id=PROFILE_ID,
     )
     local_criterion = CriterionProjection(
         criterion_id="criterion-local",
@@ -173,7 +179,7 @@ def _manifest() -> AcademicResultManifest:
         criterion_kind="standard_backed",
         supported_target_kinds=("core_student",),
         status="active",
-        standard_id="standard-1",
+        standard_id=STANDARD_ID,
         alignment_standard_ids=(),
         default_scoring_scale_id="scale-standard",
     )
@@ -246,7 +252,7 @@ def _manifest() -> AcademicResultManifest:
         ),
         criterion_id="criterion-standard",
         score_kind="standard_backed",
-        standard_id="standard-1",
+        standard_id=STANDARD_ID,
         scoring_scale_id="scale-standard",
         disposition="scored",
         value="meets",
@@ -300,8 +306,8 @@ def _manifest() -> AcademicResultManifest:
             class_id="class-1",
             title="Synthetic Collaborative Activity",
             scoring_orientation="mixed",
-            standards_profile_id="profile-1",
-            focus_standard_ids=("standard-1",),
+            standards_profile_id=PROFILE_ID,
+            focus_standard_ids=(STANDARD_ID,),
             criterion_set_ids=("set-standard", "set-local"),
         ),
         criterion_sets=(local_set, standard_set),
@@ -311,7 +317,7 @@ def _manifest() -> AcademicResultManifest:
         score_evidence_links=(link,),
         moderation_records=(moderation,),
         standards_result_projection=(
-            StandardsResultProjection("score-standard", "standard-1"),
+            StandardsResultProjection("score-standard", STANDARD_ID),
         ),
         privacy=PrivacyProjection(
             classification="teacher_and_subjects",
@@ -563,3 +569,197 @@ def test_reader_public_functions_do_not_print(capsys) -> None:
         manifest.scores[0].target_reference,
     )
     assert capsys.readouterr() == ("", "")
+def test_issue129_reader_v1_public_callable_shapes_are_stable() -> None:
+    assert tuple(signature(read_academic_result_manifest).parameters) == ("value",)
+    assert tuple(signature(validate_academic_result_manifest).parameters) == (
+        "manifest",
+    )
+    assert tuple(signature(lookup_academic_result_criterion_set).parameters) == (
+        "manifest",
+        "criterion_set_id",
+    )
+    assert tuple(signature(lookup_academic_result_criterion).parameters) == (
+        "manifest",
+        "criterion_id",
+    )
+    assert tuple(signature(lookup_academic_result_scoring_scale).parameters) == (
+        "manifest",
+        "scoring_scale_id",
+    )
+    assert tuple(signature(lookup_academic_result_scale_level).parameters) == (
+        "manifest",
+        "scoring_scale_id",
+        "value",
+    )
+    assert tuple(signature(lookup_academic_result_score).parameters) == (
+        "manifest",
+        "score_record_id",
+    )
+    assert tuple(
+        signature(lookup_academic_result_score_evidence_link).parameters
+    ) == (
+        "manifest",
+        "score_evidence_link_id",
+    )
+    assert tuple(
+        signature(list_academic_result_score_evidence_links).parameters
+    ) == (
+        "manifest",
+        "score_record_id",
+    )
+    assert tuple(signature(lookup_academic_result_moderation).parameters) == (
+        "manifest",
+        "moderation_record_id",
+    )
+    assert tuple(signature(list_academic_result_scores_for_target).parameters) == (
+        "manifest",
+        "target",
+    )
+
+
+def test_issue129_reader_v1_key_public_model_fields_are_stable() -> None:
+    assert tuple(item.name for item in fields(AcademicResultManifest)) == (
+        "record_type",
+        "contract_version",
+        "producer_module_id",
+        "generated_at",
+        "record_set",
+        "work",
+        "source_activity",
+        "projection",
+        "activity_context",
+        "criterion_sets",
+        "criteria",
+        "scoring_scales",
+        "scores",
+        "score_evidence_links",
+        "moderation_records",
+        "standards_result_projection",
+        "privacy",
+    )
+    assert tuple(item.name for item in fields(CriterionSetProjection)) == (
+        "criterion_set_id",
+        "lineage_id",
+        "revision",
+        "criterion_set_kind",
+        "scope",
+        "criterion_ids",
+        "status",
+        "supersedes_criterion_set_id",
+        "standards_profile_id",
+    )
+    assert tuple(item.name for item in fields(CriterionProjection)) == (
+        "criterion_id",
+        "criterion_set_id",
+        "key",
+        "label",
+        "definition",
+        "criterion_kind",
+        "supported_target_kinds",
+        "status",
+        "standard_id",
+        "alignment_standard_ids",
+        "default_scoring_scale_id",
+    )
+    assert tuple(item.name for item in fields(ScoreProjection)) == (
+        "score_record_id",
+        "activity_id",
+        "session_id",
+        "target_reference",
+        "criterion_id",
+        "score_kind",
+        "standard_id",
+        "scoring_scale_id",
+        "disposition",
+        "value",
+        "basis",
+        "scorer",
+        "scored_at",
+        "moderation_complete",
+        "status_reason",
+        "supersedes_score_record_id",
+        "current_state",
+    )
+    assert tuple(item.name for item in fields(TargetReferenceProjection)) == (
+        "target_kind",
+        "target_id",
+        "owning_system",
+        "contract_version",
+    )
+
+
+def test_issue129_reader_v1_preserves_exact_core_standards_identities() -> None:
+    raw = _bytes()
+    before = bytes(raw)
+    manifest = read_academic_result_manifest(raw)
+
+    assert raw == before
+    assert manifest.activity_context.standards_profile_id == PROFILE_ID
+    assert manifest.activity_context.focus_standard_ids == (STANDARD_ID,)
+    assert manifest.criterion_sets[1].standards_profile_id == PROFILE_ID
+    assert manifest.criteria[1].standard_id == STANDARD_ID
+    assert manifest.scores[1].standard_id == STANDARD_ID
+    assert manifest.standards_result_projection[0].standard_id == STANDARD_ID
+
+    criterion = lookup_academic_result_criterion(
+        manifest,
+        "criterion-standard",
+    )
+    score = lookup_academic_result_score(manifest, "score-standard")
+    assert criterion.standard_id == STANDARD_ID
+    assert score.standard_id == STANDARD_ID
+
+
+def test_issue129_reader_v1_is_deterministic_for_same_canonical_bytes() -> None:
+    raw = _bytes()
+
+    first = read_academic_result_manifest(raw)
+    second = read_academic_result_manifest(raw)
+
+    assert first == second
+    assert academic_result_manifest_to_bytes(first) == raw
+    assert academic_result_manifest_to_bytes(second) == raw
+    assert lookup_academic_result_score(first, "score-standard") == (
+        lookup_academic_result_score(second, "score-standard")
+    )
+
+
+def test_issue129_reader_v1_pure_read_uses_no_filesystem_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = _bytes()
+
+    def fail_open(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("Reader v1 must not open workspace/filesystem state.")
+
+    monkeypatch.setattr("builtins.open", fail_open)
+
+    manifest = read_academic_result_manifest(raw)
+    assert lookup_academic_result_score(
+        manifest,
+        "score-standard",
+    ).standard_id == STANDARD_ID
+
+
+def test_issue129_reader_v1_exception_hierarchy_remains_consumer_safe() -> None:
+    assert issubclass(
+        ConcordAcademicResultReaderValidationError,
+        reader_module.ConcordAcademicResultReaderError,
+    )
+    assert issubclass(
+        ConcordAcademicResultReaderDecodeError,
+        ConcordAcademicResultReaderValidationError,
+    )
+    assert issubclass(
+        ConcordAcademicResultReaderNotFoundError,
+        reader_module.ConcordAcademicResultReaderError,
+    )
+
+    with pytest.raises(ConcordAcademicResultReaderDecodeError) as decode:
+        read_academic_result_manifest(b"not-json\n")
+    assert str(decode.value) == "Academic-result manifest bytes are invalid."
+
+    secret = "private-missing-score"
+    with pytest.raises(ConcordAcademicResultReaderNotFoundError) as missing:
+        lookup_academic_result_score(_manifest(), secret)
+    assert secret not in str(missing.value)
