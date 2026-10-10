@@ -20,7 +20,7 @@ def test_installed_smoke_qualifies_both_operations_capabilities() -> None:
     assert 'concord_console_entries[0].value == "concord.cli:main"' in text
     assert "_run_with_input([str(concord)], work" in text
     assert '"paper-data-suite"' in text
-    assert '"0.6.4"' in text
+    assert '"0.6.5"' in text
 
 
 def test_normative_interoperability_doc_records_required_boundaries() -> None:

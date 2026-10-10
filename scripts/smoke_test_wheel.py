@@ -962,7 +962,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 (
                     "import importlib.metadata as m, concord, pds_core; "
                     "assert concord.__version__ == m.version('pds-concord'); "
-                    "assert m.version('pds-core') == '0.6.4'"
+                    "assert m.version('pds-core') == '0.6.5'"
                 ),
             ],
             outside,
@@ -1030,6 +1030,17 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                         {"concord_activity_v1"}
                     )
                     assert source.allows_unversioned is False
+                    assert len(contract.reader_support) == 1
+                    reader_support = contract.reader_support[0]
+                    assert (
+                        reader_support.manifest_contract_version
+                        == "concord_academic_result_manifest_v1"
+                    )
+                    assert reader_support.distribution_name == "pds-concord"
+                    assert (
+                        reader_support.reader_contract_version
+                        == "concord_academic_result_reader_v1"
+                    )
                     forbidden = {
                         "scoreform",
                         "quillan",
@@ -1095,7 +1106,7 @@ def smoke_test(concord_wheel: Path, core_wheel: Path) -> None:
                 "--version",
                 _wheel_version(concord_wheel),
                 "--expected-core-version",
-                "0.6.4",
+                "0.6.5",
             ],
             outside,
         )

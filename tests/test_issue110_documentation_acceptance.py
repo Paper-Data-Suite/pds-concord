@@ -108,7 +108,6 @@ def test_issue110_structural_acceptance_records_1_10_30_and_bounded_commit() -> 
     assert "assert commits == [(target_count, 9)]" in text
 
 
-def test_issue110_dependency_floor_remains_core063_compatible() -> None:
+def test_issue110_historical_floor_is_superseded_by_issue129_core065() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.3,<0.7"' in text
-    assert '"pds-core>=0.6.4,<0.7"' not in text
+    assert '"pds-core>=0.6.5,<0.7"' in text

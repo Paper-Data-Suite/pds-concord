@@ -29,7 +29,7 @@ name = "pds-concord"
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "pds-core>=0.6.3,<0.7",
+    "pds-core>=0.6.5,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",

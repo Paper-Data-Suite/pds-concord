@@ -13,7 +13,7 @@ def test_issue108_installed_smoke_is_present_and_isolated() -> None:
     text = SMOKE.read_text(encoding="utf-8")
     assert "EXPECTED_CORE_SHA256" in text
     assert (
-        "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+        "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
         in text
     )
     assert '"-m", "pip", "check"' in text

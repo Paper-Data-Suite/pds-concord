@@ -22,7 +22,7 @@ from scripts.verify_release_compatibility import (
 ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED = (
-    "pds-core>=0.6.3,<0.7",
+    "pds-core>=0.6.5,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",

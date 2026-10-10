@@ -93,10 +93,9 @@ def test_issue129_installed_harness_has_no_source_or_fixture_bypass() -> None:
     assert "from tests" not in source
 
 
-def test_issue129_installed_harness_leaves_historical_release_validators_for_slice8(
-) -> None:
+def test_issue129_slice8_promotes_active_release_validators() -> None:
     source = (ROOT / "scripts" / "verify_release_artifacts.py").read_text(
         encoding="utf-8"
     )
-    assert 'RELEASE_VERSION = "0.3.0"' in source
-    assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")' in source
+    assert 'RELEASE_VERSION = "0.3.1"' in source
+    assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")' in source

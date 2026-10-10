@@ -64,8 +64,8 @@ def _smoke_code() -> str:
             inspect_guided_activity_setup,
         )
 
-        assert metadata.version("pds-core") == "0.6.4"
-        assert metadata.version("pds-concord") == "0.3.0"
+        assert metadata.version("pds-core") == "0.6.5"
+        assert metadata.version("pds-concord") == "0.3.1"
         assert callable(launch_guided_activity_menu)
         assert callable(launch_guided_continue_setup)
 

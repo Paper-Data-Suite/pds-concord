@@ -1,4 +1,4 @@
-"""Validate the Concord v0.3.0 release artifacts."""
+"""Validate the Concord v0.3.1 release artifacts."""
 
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-RELEASE_VERSION = "0.3.0"
-EXPECTED_WHEEL = "pds_concord-0.3.0-py3-none-any.whl"
-EXPECTED_SDIST = "pds_concord-0.3.0.tar.gz"
-EXPECTED_DIST_INFO = "pds_concord-0.3.0.dist-info"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
+RELEASE_VERSION = "0.3.1"
+EXPECTED_WHEEL = "pds_concord-0.3.1-py3-none-any.whl"
+EXPECTED_SDIST = "pds_concord-0.3.1.tar.gz"
+EXPECTED_DIST_INFO = "pds_concord-0.3.1.dist-info"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_RUNTIME_REQUIREMENTS = (
-    "pds-core>=0.6.3,<0.7",
+    "pds-core>=0.6.5,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
@@ -55,6 +55,7 @@ REQUIRED_WHEEL_FILES = frozenset(
         "concord/academic_result_artifacts.py",
         "concord/artifact_rendering.py",
         "concord/generated_paths.py",
+        "concord/standards_display.py",
         "concord/menu_student_feedback.py",
         "concord/cli_app/handlers/feedback.py",
         "concord/workflows/student_feedback.py",

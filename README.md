@@ -1,11 +1,11 @@
 # pds-concord
 
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
-created during collaborative classroom Activities. The released v0.2.0 artifact
-remains historically qualified against `pds-core` v0.6.0. Current source is the
-v0.3.0 development line (`0.3.0.dev0`) and requires `pds-core>=0.6.3,<0.7`
-under the suite policy of developing against the latest released PDS
-dependencies. The neutral `grouping_signal_set_v1` contract introduced in
+created during collaborative classroom Activities. Historical released artifacts
+retain their original qualification evidence. Current source is the v0.3.1
+release candidate and requires `pds-core>=0.6.5,<0.7`; Issue #129 uses Core
+0.6.5's producer reader-contract metadata while preserving existing Concord
+workspace and manifest contracts. The neutral `grouping_signal_set_v1` contract introduced in
 Core 0.6.1 remains the grouping-signal boundary consumed by Concord. Official
 release artifacts are distributed through GitHub Releases only after independent
 review, hosted CI, merge, and exact-main requalification.
@@ -96,36 +96,33 @@ canonical manifest reader and a separately authorization-gated, bounded Artifact
 reader. Concord does **not** calculate Grades or proficiency; Meridian owns
 downstream grading/reporting policy. The complete clean-wheel
 producer-to-consumer acceptance path established by issue #33 is part of the
-authoritative release qualification.
+authoritative release qualification. Core 0.6.5 additionally advertises
+`concord_academic_result_reader_v1` for
+`concord_academic_result_manifest_v1`; distribution version remains
+qualification provenance rather than downstream semantic compatibility.
 
 ## Requirements and installation
 
 Current Concord development requires Python 3.11 or newer and
-`pds-core>=0.6.3,<0.7`. Core is distributed as authenticated GitHub Release
-artifacts rather than through PyPI. For v0.3 development, download the released
-`pds_core-0.6.3-py3-none-any.whl` from the
-[pds-core v0.6.3 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.3).
+`pds-core>=0.6.5,<0.7`. Core is distributed as authenticated GitHub Release
+artifacts rather than through PyPI. For the v0.3.1 release candidate, download
+`pds_core-0.6.5-py3-none-any.whl` from the
+[pds-core v0.6.5 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.5).
 When qualifying the immutable grouping-signal fixture asset, continue to use
 `pds-core-0.6.1-grouping-signal-fixtures.zip` from the historical
 [pds-core v0.6.1 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.1).
-Then verify/install the Core 0.6.3 wheel before installing Concord from source:
+Then verify/install the Core 0.6.5 wheel before installing Concord from source:
 
 ```powershell
-python scripts/verify_core_wheel.py path\to\pds_core-0.6.3-py3-none-any.whl
+python scripts/verify_core_wheel.py path\to\pds_core-0.6.5-py3-none-any.whl
 python scripts/verify_core_grouping_fixtures.py path\to\pds-core-0.6.1-grouping-signal-fixtures.zip
-python -m pip install path\to\pds_core-0.6.3-py3-none-any.whl
+python -m pip install path\to\pds_core-0.6.5-py3-none-any.whl
 python -m pip install -e ".[dev]"
 ```
 
-Historical v0.2.0 release installation remains documented by the `v0.2.0`
-tag and its release checklist. That tagged source uses Core 0.6.0 and its own
-version of `scripts/verify_core_wheel.py`; the current v0.3 development verifier
-intentionally authenticates only the Core 0.6.3 wheel.
-
-The Concord v0.2.0 wheel and checksum file remain available through that
-historical GitHub Release and must be authenticated against its published
-`SHA256SUMS.txt`. For current source development, use the Core 0.6.3 procedure
-above.
+Historical release tags retain their original Core qualification artifacts and
+release evidence. The active verifier authenticates only the exact Core 0.6.5
+wheel required by the current v0.3.1 release boundary.
 
 ## Teacher menu
 
@@ -538,7 +535,7 @@ Run focused checks with `python -m pytest`, `python -m ruff check .`, and
 `python -m mypy`. Run the complete repository validation on Windows with:
 
 ```powershell
-.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.3-py3-none-any.whl
+.\run_tests.ps1 -CoreWheel path\to\pds_core-0.6.5-py3-none-any.whl
 ```
 
 The cross-platform equivalent is:
@@ -547,7 +544,7 @@ The cross-platform equivalent is:
 python scripts/validate_repository.py --core-wheel <wheel>
 ```
 
-The validator authenticates the exact Core v0.6.4 wheel, runs pytest, Ruff,
+The validator authenticates the exact Core v0.6.5 wheel, runs pytest, Ruff,
 strict Mypy, documentation checks, package builds, Twine validation, package
 inspection, isolated installed-wheel workflow/menu/public-reader smoke tests, and
 the full installed Activity-to-publication producer acceptance before

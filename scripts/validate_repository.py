@@ -380,6 +380,24 @@ def validate(
                 timings=timings,
             )
 
+        with tempfile.TemporaryDirectory(
+            prefix="pds-concord-issue129-final-"
+        ) as issue129_work:
+            _run(
+                [
+                    python,
+                    "scripts/run_issue129_installed_acceptance.py",
+                    "--repository",
+                    str(ROOT),
+                    "--work",
+                    issue129_work,
+                    "--core-wheel",
+                    str(core_wheel),
+                ],
+                phase="installed-wheel smoke: issue #129 Core 0.6.5 reader contract",
+                timings=timings,
+            )
+
         _run(
             ["git", "diff", "--check"],
             phase="git diff check",

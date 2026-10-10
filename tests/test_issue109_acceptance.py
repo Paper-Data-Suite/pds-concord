@@ -72,7 +72,6 @@ def test_issue109_documentation_validator_enforces_current_contract() -> None:
     assert DOC.name in source
 
 
-def test_issue109_dependency_floor_remains_unchanged() -> None:
+def test_issue109_historical_floor_is_superseded_by_issue129_core065() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.3,<0.7"' in text
-    assert '"pds-core>=0.6.4,<0.7"' not in text
+    assert '"pds-core>=0.6.5,<0.7"' in text
