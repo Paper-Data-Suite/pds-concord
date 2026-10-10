@@ -86,12 +86,16 @@ def handle_copy_preview(args: argparse.Namespace) -> int:
     # Actor context is required and structurally validated for parity with the
     # eventual write, but is intentionally absent from the semantic review digest.
     workflow_actor(args)
+    standards_library = load_command_standards_library(args)
     prepared = prepare_activity_copy(
         _prepare_copy_request(args),
         workspace_root=workspace_arg(args),
-        standards_library=load_command_standards_library(args),
+        standards_library=standards_library,
     )
-    print_activity_copy_preview(prepared)
+    print_activity_copy_preview(
+        prepared,
+        standards_library=standards_library,
+    )
     return 0
 
 
@@ -138,7 +142,10 @@ def handle_show(args: argparse.Namespace) -> int:
         args.activity_id,
         workspace_root=workspace_arg(args),
     )
-    print_activity_detail(detail)
+    print_activity_detail(
+        detail,
+        standards_library=load_command_standards_library(args),
+    )
     return 0
 
 

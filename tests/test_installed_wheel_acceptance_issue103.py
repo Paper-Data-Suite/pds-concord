@@ -30,8 +30,8 @@ def test_issue103_installed_smoke_covers_required_teacher_path() -> None:
     source = scan_smoke._smoke_code()
     compile(source, "scan_inbox_routing_smoke.py", "exec")
     required = (
-        'metadata.version("pds-core") == "0.6.4"',
-        'metadata.version("pds-concord") == "0.3.0"',
+        'metadata.version("pds-core") == "0.6.5"',
+        'metadata.version("pds-concord") == "0.3.1"',
         '"site-packages"',
         'scans_inbox_dir(root)',
         'first = inbox / "alpha.pdf"',

@@ -9,8 +9,8 @@ VALIDATOR = ROOT / "scripts" / "validate_repository.py"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
-CORE_064_SHA256 = (
-    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_065_SHA256 = (
+    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 )
 
 
@@ -18,16 +18,16 @@ def _source() -> str:
     return SMOKE.read_text(encoding="utf-8")
 
 
-def test_issue109_installed_smoke_compiles_and_authenticates_core064() -> None:
+def test_issue109_installed_smoke_compiles_and_authenticates_core065() -> None:
     source = _source()
     ast.parse(source)
     required = (
         "venv.EnvBuilder(with_pip=True)",
         '"pip", "check"',
         '[str(python), "-I", str(smoke_path)]',
-        'metadata.version("pds-core") == "0.6.4"',
-        'metadata.version("pds-concord") == "0.3.0"',
-        CORE_064_SHA256,
+        'metadata.version("pds-core") == "0.6.5"',
+        'metadata.version("pds-concord") == "0.3.1"',
+        CORE_065_SHA256,
         "Issue #109 candidate wheel SHA-256:",
         "Issue #109 Core wheel SHA-256:",
         "site-packages",
@@ -76,7 +76,6 @@ def test_issue109_routing_review_modules_are_required_wheel_content() -> None:
         assert path in source
 
 
-def test_issue109_dependency_floor_remains_core063_compatible() -> None:
+def test_issue109_historical_smoke_is_superseded_by_core065_release_floor() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.3,<0.7"' in text
-    assert '"pds-core>=0.6.4,<0.7"' not in text
+    assert '"pds-core>=0.6.5,<0.7"' in text

@@ -202,7 +202,7 @@ def test_manifest_is_versioned_private_and_binds_managed_artifacts(
 
     assert manifest["schema_version"] == STUDENT_FEEDBACK_MANIFEST_SCHEMA_VERSION
     assert manifest["created_at"] == "2026-10-08T04:30:00+00:00"
-    assert manifest["concord_version"] == "0.3.0"
+    assert manifest["concord_version"] == "0.3.1"
     assert manifest["source"] == {
         "class_id": "class-1",
         "activity_id": "activity-1",

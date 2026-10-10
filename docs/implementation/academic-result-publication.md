@@ -466,3 +466,27 @@ workspace mutation or sibling-module dependencies.
 No Meridian adapter, portfolio projection, consumer target policy, Grade,
 proficiency, mastery, Academic Period membership, weighting, or report logic is
 implemented by this publication boundary.
+
+## Core 0.6.5 reader-support declaration
+
+Issue #129 adds producer-declared reader metadata without changing the existing
+manifest schema or publication authorization sequence.
+
+For `academic_result_set` +
+`concord_academic_result_manifest_v1`, the producer profile advertises exactly:
+
+```text
+distribution_name:
+    pds-concord
+
+reader_contract_version:
+    concord_academic_result_reader_v1
+```
+
+Core records and validates this declaration through
+`PublicationReaderSupport`. Core publication compatibility remains independent
+of reader metadata; Meridian and Vitrine independently decide whether their
+adapters support the declared reader contract.
+
+The exact installed Concord distribution version remains provenance and release
+qualification evidence. It is not the semantic reader-compatibility gate.

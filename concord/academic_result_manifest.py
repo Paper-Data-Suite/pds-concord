@@ -237,6 +237,46 @@ def _optional_identifier(value: object, field: str) -> str | None:
     return _identifier(value, field)
 
 
+def _standards_identity(value: object, field: str) -> str:
+    """Validate one Core Standards durable identity without routing grammar."""
+    if not isinstance(value, str):
+        _fail(f"{field} must be a Standards identity string.")
+    normalized = value.strip()
+    if not normalized:
+        _fail(f"{field} must be a nonblank Standards identity.")
+    return normalized
+
+
+def _optional_standards_identity(
+    value: object,
+    field: str,
+) -> str | None:
+    if value is None:
+        return None
+    return _standards_identity(value, field)
+
+
+def _tuple_standards_identities(
+    value: Sequence[str],
+    field: str,
+) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes, bytearray)):
+        _fail(f"{field} must be an array of Standards identities.")
+    try:
+        entries = tuple(value)
+    except TypeError as error:
+        raise ConcordAcademicResultManifestValidationError(
+            f"{field} must be an array of Standards identities."
+        ) from error
+    result = tuple(
+        _standards_identity(item, f"{field}[{index}]")
+        for index, item in enumerate(entries)
+    )
+    if len(set(result)) != len(result):
+        _fail(f"{field} must not contain duplicates.")
+    return result
+
+
 def _lower_kind(value: object, field: str) -> str:
     text = _identifier(value, field)
     if text != text.lower():
@@ -500,14 +540,18 @@ class ActivityContextProjection:
             "activity_context.scoring_orientation",
             _SCORING_ORIENTATIONS,
         )
-        _optional_identifier(
-            self.standards_profile_id,
-            "activity_context.standards_profile_id",
+        object.__setattr__(
+            self,
+            "standards_profile_id",
+            _optional_standards_identity(
+                self.standards_profile_id,
+                "activity_context.standards_profile_id",
+            ),
         )
         object.__setattr__(
             self,
             "focus_standard_ids",
-            _tuple_identifiers(
+            _tuple_standards_identities(
                 self.focus_standard_ids,
                 "activity_context.focus_standard_ids",
             ),
@@ -560,9 +604,13 @@ class CriterionSetProjection:
             self.supersedes_criterion_set_id,
             "criterion_set.supersedes_criterion_set_id",
         )
-        _optional_identifier(
-            self.standards_profile_id,
-            "criterion_set.standards_profile_id",
+        object.__setattr__(
+            self,
+            "standards_profile_id",
+            _optional_standards_identity(
+                self.standards_profile_id,
+                "criterion_set.standards_profile_id",
+            ),
         )
 
 
@@ -602,11 +650,18 @@ class CriterionProjection:
             )
         object.__setattr__(self, "supported_target_kinds", targets)
         _controlled(self.status, "criterion.status", _CRITERION_STATUSES)
-        _optional_identifier(self.standard_id, "criterion.standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            _optional_standards_identity(
+                self.standard_id,
+                "criterion.standard_id",
+            ),
+        )
         object.__setattr__(
             self,
             "alignment_standard_ids",
-            _tuple_identifiers(
+            _tuple_standards_identities(
                 self.alignment_standard_ids,
                 "criterion.alignment_standard_ids",
             ),
@@ -934,7 +989,14 @@ class ScoreProjection:
             ScoreKind,
             _controlled(self.score_kind, "score.score_kind", _SCORE_KINDS),
         )
-        _optional_identifier(self.standard_id, "score.standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            _optional_standards_identity(
+                self.standard_id,
+                "score.standard_id",
+            ),
+        )
         _identifier(self.scoring_scale_id, "score.scoring_scale_id")
         disposition = cast(
             ScoreDisposition,
@@ -1152,7 +1214,14 @@ class StandardsResultProjection:
             self.score_record_id,
             "standards_result.score_record_id",
         )
-        _identifier(self.standard_id, "standards_result.standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            _standards_identity(
+                self.standard_id,
+                "standards_result.standard_id",
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)

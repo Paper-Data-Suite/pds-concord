@@ -39,7 +39,7 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
     expected_runtime = {
         canonicalize_name(requirement.name): requirement
         for requirement in (
-            Requirement("pds-core>=0.6.3,<0.7"),
+            Requirement("pds-core>=0.6.5,<0.7"),
             Requirement("Pillow>=11,<13"),
             Requirement("qrcode>=8,<9"),
             Requirement("pypdfium2>=4.30,<5"),

@@ -9,6 +9,7 @@ from typing import Final
 from PIL import Image, ImageDraw, ImageFont
 
 from concord.routing.starter_layout_pdf import starter_images_to_pdf
+from concord.standards_display import format_standard_display_label
 from concord.workflows.activity_score_report_output import (
     RenderedScoreAnalysisArtifact,
     RenderedScoreAnalysisReport,
@@ -330,6 +331,14 @@ def _activity_images(payload: ActivityAnalysisReport) -> tuple[Image.Image, ...]
         report_title="Concord Activity Score Analysis",
         activity_title=payload.activity_title,
     )
+    standard_labels = {
+        item.standard_id: format_standard_display_label(
+            item.standard_id,
+            code=item.standard_code,
+            short_name=item.standard_short_name,
+        )
+        for item in payload.standard_analyses
+    }
     painter.heading(payload.activity_title)
     painter.key_values(
         (
@@ -383,7 +392,11 @@ def _activity_images(payload: ActivityAnalysisReport) -> tuple[Image.Image, ...]
         )
         if criterion.standard_id is not None:
             painter.paragraph(
-                f"Standard ID: {criterion.standard_id}",
+                "Standard: "
+                + standard_labels.get(
+                    criterion.standard_id,
+                    criterion.standard_id,
+                ),
                 font=_SMALL_FONT,
                 after=8,
             )
@@ -432,7 +445,11 @@ def _activity_images(payload: ActivityAnalysisReport) -> tuple[Image.Image, ...]
         painter.heading("Standards / Criterion View")
         rows = tuple(
             (
-                standard.standard_label,
+                format_standard_display_label(
+                    standard.standard_id,
+                    code=standard.standard_code,
+                    short_name=standard.standard_short_name,
+                ),
                 criterion.criterion_label,
                 item.target_kind,
                 (

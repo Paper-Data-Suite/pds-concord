@@ -4,7 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.1 - 2026-10-09
+
 ### Added
+
+- Issue #129 corrects Core Standards identity handling across native state,
+  manifest generation, publication, public reading, analysis, and reporting,
+  preserving punctuation-bearing durable `standard_id` / `profile_id` values
+  while keeping `code`, `short_name`, and Profile title presentation-only.
+- Concord now requires `pds-core>=0.6.5,<0.7` and advertises
+  `concord_academic_result_reader_v1` for
+  `concord_academic_result_manifest_v1` through Core
+  `PublicationReaderSupport`; downstream compatibility is keyed to the stable
+  reader/data contract rather than an exact Concord package version.
+- v0.3.1 release qualification authenticates the exact released Core 0.6.5
+  wheel, repins the active installed-smoke matrix, and includes an isolated
+  noneditable Standards -> publication -> public-reader acceptance path.
+
 
 - Issue #114 adds immutable share-safe `StudentFeedbackProjection` output from current Core-student Score lineage heads, preserving exact native values and non-score dispositions while excluding teacher-local rationale, evidence, history, technical IDs, Grade/proficiency inference, and non-student target fan-out.
 - Issue #114 adds zero-write whole-roster/selected review, explicit `PREPARE AVAILABLE ONLY` handling for incomplete all-roster requests, literal `PREPARE` execution, #124-bounded individual feedback filenames, `Print All Feedback.pdf`, static `Feedback Index.html`, and versioned `concord_feedback_distribution_v1` integrity metadata.

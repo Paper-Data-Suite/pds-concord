@@ -972,3 +972,18 @@ Groups, manual/arrangement/random GroupPlans, exact Core-backed similar/mixed
 planning, all three missing-signal dispositions, preview/approval/application
 boundaries, Meridian runtime isolation, and the explicit deferral of real
 Meridian-producer acceptance until a stable producer export exists.
+
+### v0.3.1 Core 0.6.5 reader compatibility and release qualification
+
+Issue #129 documentation:
+
+- [`development/issue-129-reader-contract-foundation.md`](development/issue-129-reader-contract-foundation.md)
+- [`development/issue-129-reader-v1-qualification.md`](development/issue-129-reader-v1-qualification.md)
+- [`development/issue-129-publication-reporting-qualification.md`](development/issue-129-publication-reporting-qualification.md)
+- [`development/issue-129-installed-core065-acceptance.md`](development/issue-129-installed-core065-acceptance.md)
+- [`v0.3.1-release-checklist.md`](v0.3.1-release-checklist.md)
+
+These documents define the durable Standards identity/display split, stable
+`concord_academic_result_reader_v1` boundary, exact Core 0.6.5 installed
+qualification, and v0.3.1 release-finalization gate. Historical v0.3.0 release
+audit/checklist evidence remains unchanged.

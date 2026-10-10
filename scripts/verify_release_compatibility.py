@@ -1,4 +1,4 @@
-"""Verify the Concord v0.3.0 release package and frozen public boundary."""
+"""Verify the Concord v0.3.1 release package and frozen public boundary."""
 
 from __future__ import annotations
 
@@ -18,21 +18,23 @@ import concord.academic_result_reader as reader
 from concord.pds_contract import (
     ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
     ACADEMIC_RESULT_MANIFEST_RECORD_TYPE,
+    CONCORD_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
     CONCORD_ACADEMIC_RESULT_RECORD_SET_ID,
     CONCORD_ACADEMIC_WORK_CONTRACT_VERSION,
     CONCORD_ACADEMIC_WORK_KIND,
     CONCORD_ACTIVITY_CONTRACT_VERSION,
     CONCORD_ACTIVITY_RECORD_KIND,
+    CONCORD_DISTRIBUTION_NAME,
     CONCORD_MODULE_ID,
 )
 from concord.pds_publication import get_publication_producer_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.3.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.3,<0.7")
+RELEASE_VERSION = "0.3.1"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_RUNTIME_REQUIREMENTS = (
-    "pds-core>=0.6.3,<0.7",
+    "pds-core>=0.6.5,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
@@ -72,7 +74,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the current v0.3.0 release boundary has drifted."""
+    """Raised when the current v0.3.1 release boundary has drifted."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,7 +385,7 @@ def validate_release_compatibility() -> None:
         )
     if version_literals != [RELEASE_VERSION]:
         raise ReleaseCompatibilityError(
-            "Concord must have exactly one authoritative 0.3.0 release version literal"
+            "Concord must have exactly one authoritative 0.3.1 release version literal"
         )
     validate_release_metadata(project, version_literals[0])
     validate_sibling_import_isolation()
@@ -423,6 +425,26 @@ def validate_release_compatibility() -> None:
             support.allows_missing_source_record,
         )
     )
+    actual_reader_support = tuple(
+        (
+            item.manifest_contract_version,
+            item.distribution_name,
+            item.reader_contract_version,
+        )
+        for item in support.reader_support
+    )
+    expected_reader_support = (
+        (
+            ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+            CONCORD_DISTRIBUTION_NAME,
+            CONCORD_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
+        ),
+    )
+    if actual_reader_support != expected_reader_support:
+        raise ReleaseCompatibilityError(
+            "publication reader-support declaration changed: "
+            f"{actual_reader_support!r}"
+        )
     validate_reader_and_artifact_boundary()
     validate_structural_policy_absence()
 
@@ -440,9 +462,9 @@ def main() -> int:
         print(f"Release compatibility audit failed: {error}")
         return 1
     print(
-        "Concord v0.3.0 release compatibility passed: Core >=0.6.3,<0.7; "
-        "contracts/profile exact; reader consumer-neutral; Artifact gate separate; "
-        "sibling and grading/selection policy absent."
+        "Concord v0.3.1 release compatibility passed: Core >=0.6.5,<0.7; "
+        "contracts/profile/reader-support exact; reader consumer-neutral; "
+        "Artifact gate separate; sibling and grading/selection policy absent."
     )
     return 0
 

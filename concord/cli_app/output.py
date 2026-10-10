@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from pds_core.standards import StandardsLibrary
+
 from concord.models import ConcordRecordReference, ParticipantReference, Session
+from concord.standards_display import (
+    resolve_profile_display,
+    resolve_standard_display,
+)
 from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
@@ -34,7 +40,11 @@ def print_commit(result: WorkflowCommitResult) -> None:
         print(f"Changed: {changed}")
 
 
-def print_activity_copy_preview(item: PreparedActivityCopy) -> None:
+def print_activity_copy_preview(
+    item: PreparedActivityCopy,
+    *,
+    standards_library: StandardsLibrary | None = None,
+) -> None:
     print(
         f"Source Activity: {item.source_class_id}/{item.source_activity_id}"
     )
@@ -47,10 +57,20 @@ def print_activity_copy_preview(item: PreparedActivityCopy) -> None:
     print(f"Description: {item.description if item.description is not None else '-'}")
     print(f"Activity type: {item.activity_type}")
     print(f"Scoring orientation: {item.scoring_orientation}")
-    print(f"Standards profile: {item.standards_profile_id or '-'}")
+    profile_label = "-"
+    if item.standards_profile_id is not None:
+        profile_label = resolve_profile_display(
+            item.standards_profile_id,
+            standards_library,
+        ).label
+    print(f"Standards profile: {profile_label}")
+    focus_labels = tuple(
+        resolve_standard_display(standard_id, standards_library).label
+        for standard_id in item.focus_standard_ids
+    )
     print(
         "Focus standards: "
-        + (", ".join(item.focus_standard_ids) if item.focus_standard_ids else "-")
+        + (", ".join(focus_labels) if focus_labels else "-")
     )
     classification = (
         item.privacy_policy.classification
@@ -80,7 +100,11 @@ def print_activity_summary(item: ActivitySummary) -> None:
     )
 
 
-def print_activity_detail(detail: ActivityDetail) -> None:
+def print_activity_detail(
+    detail: ActivityDetail,
+    *,
+    standards_library: StandardsLibrary | None = None,
+) -> None:
     item = detail.summary
     print(f"Class: {item.class_id}")
     print(f"Activity: {item.activity_id}")
@@ -94,8 +118,16 @@ def print_activity_detail(detail: ActivityDetail) -> None:
     if detail.description is not None:
         print(f"Description: {detail.description}")
     if detail.standards_profile_id is not None:
-        print(f"Standards profile: {detail.standards_profile_id}")
-        print(f"Focus standards: {', '.join(detail.focus_standard_ids)}")
+        profile = resolve_profile_display(
+            detail.standards_profile_id,
+            standards_library,
+        )
+        focus_labels = tuple(
+            resolve_standard_display(standard_id, standards_library).label
+            for standard_id in detail.focus_standard_ids
+        )
+        print(f"Standards profile: {profile.label}")
+        print(f"Focus standards: {', '.join(focus_labels)}")
 
 
 def print_session_summary(item: SessionSummary) -> None:

@@ -21,9 +21,9 @@ from scripts.verify_release_artifacts import (
 
 METADATA = """Metadata-Version: 2.4
 Name: pds-concord
-Version: 0.3.0
+Version: 0.3.1
 Requires-Python: >=3.11
-Requires-Dist: pds-core<0.7,>=0.6.3
+Requires-Dist: pds-core<0.7,>=0.6.5
 Requires-Dist: Pillow<13,>=11
 Requires-Dist: qrcode<9,>=8
 Requires-Dist: pypdfium2<5,>=4.30
@@ -48,7 +48,7 @@ name = "pds-concord"
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "pds-core>=0.6.3,<0.7",
+    "pds-core>=0.6.5,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
@@ -70,7 +70,7 @@ concord = "concord.pds_operations:get_module_operations_profile"
 [tool.setuptools.dynamic]
 version = { attr = "concord._version.__version__" }
 """
-VERSION_SOURCE = '__version__ = "0.3.0"\n'
+VERSION_SOURCE = '__version__ = "0.3.1"\n'
 
 
 def _write_wheel(
@@ -80,9 +80,9 @@ def _write_wheel(
         for name in sorted(REQUIRED_WHEEL_FILES):
             if name != omit:
                 archive.writestr(name, "")
-        archive.writestr("pds_concord-0.3.0.dist-info/METADATA", metadata)
+        archive.writestr("pds_concord-0.3.1.dist-info/METADATA", metadata)
         archive.writestr(
-            "pds_concord-0.3.0.dist-info/entry_points.txt",
+            "pds_concord-0.3.1.dist-info/entry_points.txt",
             ENTRY_POINTS,
         )
 
@@ -102,7 +102,7 @@ def _write_sdist(
     pyproject: str = PYPROJECT,
     version_source: str = VERSION_SOURCE,
 ) -> None:
-    root = "pds_concord-0.3.0"
+    root = "pds_concord-0.3.1"
     with tarfile.open(path, "w:gz") as archive:
         _tar_file(archive, f"{root}/PKG-INFO", metadata)
         fixture_root = f"{root}/tests/fixtures/core_grouping_signals/v1"
@@ -149,7 +149,7 @@ def test_release_directory_rejects_wrong_name_and_extra_artifact(
 
 
 def test_wheel_rejects_wrong_metadata_version(tmp_path: Path) -> None:
-    wrong = METADATA.replace("Version: 0.3.0", "Version: 0.2.1")
+    wrong = METADATA.replace("Version: 0.3.1", "Version: 0.2.1")
     path = tmp_path / EXPECTED_WHEEL
     _write_wheel(path, metadata=wrong)
     with pytest.raises(ArtifactValidationError):
@@ -173,7 +173,7 @@ def test_dangerous_archive_member_is_rejected(name: str) -> None:
     "metadata",
     [
         METADATA.replace(
-            "Requires-Dist: pds-core<0.7,>=0.6.3",
+            "Requires-Dist: pds-core<0.7,>=0.6.5",
             "Requires-Dist: pds-core<0.7,>=0.6",
         ),
         METADATA.replace(
