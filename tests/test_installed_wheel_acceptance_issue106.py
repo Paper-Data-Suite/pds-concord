@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_artifact_attribution_batch_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.2-artifact-attribution-batching.md"
+DOC = ROOT / "docs" / "v0.3.1-artifact-attribution-batching.md"
 README = ROOT / "README.md"
 DOCS_README = ROOT / "docs" / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
@@ -90,7 +90,7 @@ def test_issue106_docs_and_package_checks_freeze_batch_boundary() -> None:
     docs_readme = DOCS_README.read_text(encoding="utf-8")
     changelog = CHANGELOG.read_text(encoding="utf-8")
     assert "## Reviewing Artifact attribution" in readme
-    assert "v0.3.2-artifact-attribution-batching.md" in docs_readme
+    assert "v0.3.1-artifact-attribution-batching.md" in docs_readme
     assert "Issue #106" in changelog
 
     package = PACKAGE_CHECK.read_text(encoding="utf-8")

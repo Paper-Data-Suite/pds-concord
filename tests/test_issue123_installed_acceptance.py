@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_activity_score_analysis_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
-DOC = ROOT / "docs" / "v0.3.2-activity-score-analysis-local-reports.md"
+DOC = ROOT / "docs" / "v0.3.1-activity-score-analysis-local-reports.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
 CORE_064_SHA256 = (

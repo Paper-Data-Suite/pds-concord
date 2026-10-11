@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_issue113_relationships_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.2-starter-subject-relationships.md"
+DOC = ROOT / "docs" / "v0.3.1-starter-subject-relationships.md"
 
 
 def _smoke_source() -> str:

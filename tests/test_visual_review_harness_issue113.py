@@ -9,7 +9,7 @@ from concord.routing import starter_layout_pdf
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "run_visual_review_issue113.py"
-DOC = ROOT / "docs" / "v0.3.2-starter-subject-relationships.md"
+DOC = ROOT / "docs" / "v0.3.1-starter-subject-relationships.md"
 
 
 def _source() -> str:

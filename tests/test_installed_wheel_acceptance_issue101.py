@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_rendered_output_opening_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.2-rendered-output-opening.md"
+DOC = ROOT / "docs" / "v0.3.1-rendered-output-opening.md"
 CLI_DOC = ROOT / "docs" / "cli-contract.md"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 RELEASE_CHECK = ROOT / "scripts" / "verify_release_artifacts.py"

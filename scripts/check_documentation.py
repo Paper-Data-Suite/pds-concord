@@ -81,22 +81,22 @@ TASK_ORIENTED_ACTIVITY_MENU_DOC = (
     ROOT / "docs" / "v0.3.0-task-oriented-activity-menus.md"
 )
 RETURNED_ARTIFACT_OPENING_DOC = (
-    ROOT / "docs" / "v0.3.2-returned-artifact-evidence-opening.md"
+    ROOT / "docs" / "v0.3.1-returned-artifact-evidence-opening.md"
 )
 ROUTINE_ARTIFACT_REVIEW_DOC = (
-    ROOT / "docs" / "v0.3.2-routine-artifact-review.md"
+    ROOT / "docs" / "v0.3.1-routine-artifact-review.md"
 )
 ROUTINE_ARTIFACT_SCORING_DOC = (
-    ROOT / "docs" / "v0.3.2-routine-artifact-scoring.md"
+    ROOT / "docs" / "v0.3.1-routine-artifact-scoring.md"
 )
 TEACHER_ROUTING_REVIEW_DOC = (
-    ROOT / "docs" / "v0.3.2-teacher-friendly-routing-review.md"
+    ROOT / "docs" / "v0.3.1-teacher-friendly-routing-review.md"
 )
 GENERATION_PACKET_RENDERING_DOC = (
-    ROOT / "docs" / "v0.3.2-generation-wide-packet-rendering.md"
+    ROOT / "docs" / "v0.3.1-generation-wide-packet-rendering.md"
 )
 STUDENT_FEEDBACK_DISTRIBUTION_DOC = (
-    ROOT / "docs" / "v0.3.2-student-feedback-distribution.md"
+    ROOT / "docs" / "v0.3.1-student-feedback-distribution.md"
 )
 ACTIVITY_ATTENTION_NEXT_ACTIONS_DOC = (
     ROOT / "docs" / "v0.3.0-activity-attention-next-actions.md"
@@ -1060,7 +1060,7 @@ def check_documentation() -> None:
 
     if not RETURNED_ARTIFACT_OPENING_DOC.is_file():
         failures.append(
-            "Current v0.3.2 returned Artifact evidence opening document is missing."
+            "Current v0.3.1 returned Artifact evidence opening document is missing."
         )
     else:
         returned_open_doc = RETURNED_ARTIFACT_OPENING_DOC.read_text(
@@ -1080,7 +1080,7 @@ def check_documentation() -> None:
 
     if not ROUTINE_ARTIFACT_REVIEW_DOC.is_file():
         failures.append(
-            "Current v0.3.2 routine Artifact Review document is missing."
+            "Current v0.3.1 routine Artifact Review document is missing."
         )
     else:
         routine_review_doc = ROUTINE_ARTIFACT_REVIEW_DOC.read_text(
@@ -1100,7 +1100,7 @@ def check_documentation() -> None:
 
     if not ROUTINE_ARTIFACT_SCORING_DOC.is_file():
         failures.append(
-            "Current v0.3.2 routine Artifact scoring document is missing."
+            "Current v0.3.1 routine Artifact scoring document is missing."
         )
     else:
         routine_scoring_doc = ROUTINE_ARTIFACT_SCORING_DOC.read_text(
@@ -1120,7 +1120,7 @@ def check_documentation() -> None:
 
     if not TEACHER_ROUTING_REVIEW_DOC.is_file():
         failures.append(
-            "Current v0.3.2 teacher-friendly Routing Review document is missing."
+            "Current v0.3.1 teacher-friendly Routing Review document is missing."
         )
     else:
         routing_review_doc = TEACHER_ROUTING_REVIEW_DOC.read_text(
@@ -1140,7 +1140,7 @@ def check_documentation() -> None:
 
     if not GENERATION_PACKET_RENDERING_DOC.is_file():
         failures.append(
-            "Current v0.3.2 generation-wide Packet rendering document is missing."
+            "Current v0.3.1 generation-wide Packet rendering document is missing."
         )
     else:
         generation_rendering_doc = GENERATION_PACKET_RENDERING_DOC.read_text(
@@ -1160,7 +1160,7 @@ def check_documentation() -> None:
 
     if not STUDENT_FEEDBACK_DISTRIBUTION_DOC.is_file():
         failures.append(
-            "Current v0.3.2 student feedback distribution document is missing."
+            "Current v0.3.1 student feedback distribution document is missing."
         )
     else:
         feedback_doc = STUDENT_FEEDBACK_DISTRIBUTION_DOC.read_text(

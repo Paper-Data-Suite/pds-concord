@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC = ROOT / "docs" / "v0.3.2-generation-wide-packet-rendering.md"
+DOC = ROOT / "docs" / "v0.3.1-generation-wide-packet-rendering.md"
 DOC_INDEX = ROOT / "docs" / "README.md"
 ROOT_README = ROOT / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
@@ -79,7 +79,7 @@ def test_issue110_documentation_checker_requires_normative_contract() -> None:
     required = (
         "GENERATION_PACKET_RENDERING_DOC",
         "REQUIRED_GENERATION_PACKET_RENDERING_PHRASES",
-        "v0.3.2-generation-wide-packet-rendering.md",
+        "v0.3.1-generation-wide-packet-rendering.md",
         "PacketGenerationSummary",
         "Render / reprint a complete generation",
         "scripts/smoke_test_packet_generation_rendering_wheel.py",
