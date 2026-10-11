@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.2 - 2026-10-10
+
+### Changed
+
+- Issue #132 upgrades the required ZXing-C++ Python binding to
+  `zxing-cpp>=3.1.1,<4`, allowing a shared installation with ScoreForm
+  v0.13.0's optional QR recovery backend.
+- Concord's existing `read_barcodes(image)` scan decoder and retain-first
+  PDS2 routing contracts remain unchanged; real image/PDF and cross-module
+  decoding are qualified under ZXing-C++ 3.1.1.
+
+
 ## 0.3.1 - 2026-10-09
 
 ### Added

@@ -17,7 +17,7 @@ from concord.workflows import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC = ROOT / "docs" / "v0.3.1-activity-score-analysis-local-reports.md"
+DOC = ROOT / "docs" / "v0.3.2-activity-score-analysis-local-reports.md"
 DOC_INDEX = ROOT / "docs" / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 REPORTS = ROOT / "concord" / "workflows" / "activity_score_reports.py"
@@ -108,7 +108,7 @@ def test_issue123_documentation_freezes_semantic_and_path_boundaries() -> None:
 def test_issue123_documentation_is_indexed_and_changelog_is_current() -> None:
     index = DOC_INDEX.read_text(encoding="utf-8")
     changelog = CHANGELOG.read_text(encoding="utf-8")
-    assert "v0.3.1-activity-score-analysis-local-reports.md" in index
+    assert "v0.3.2-activity-score-analysis-local-reports.md" in index
     assert "Issue #123" in changelog
     assert "Activity Score Analysis" in changelog
     assert "GENERATE" in changelog

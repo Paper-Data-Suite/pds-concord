@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC = ROOT / "docs" / "v0.3.1-teacher-friendly-routing-review.md"
+DOC = ROOT / "docs" / "v0.3.2-teacher-friendly-routing-review.md"
 DOC_INDEX = ROOT / "docs" / "README.md"
 README = ROOT / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
@@ -49,7 +49,7 @@ def test_issue109_teacher_readme_explains_route_scans_vs_review() -> None:
         "DEFER",
         "RESOLVE",
         "does not create, repair, or guess routes",
-        "v0.3.1-teacher-friendly-routing-review.md",
+        "v0.3.2-teacher-friendly-routing-review.md",
     )
     for fragment in required:
         assert fragment in text

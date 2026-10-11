@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_issue113_relationships_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.1-starter-subject-relationships.md"
+DOC = ROOT / "docs" / "v0.3.2-starter-subject-relationships.md"
 
 
 def _smoke_source() -> str:
@@ -22,7 +22,7 @@ def test_issue113_installed_smoke_compiles_and_is_isolated() -> None:
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
         'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.1"',
+        'metadata.version("pds-concord") == "0.3.2"',
         "Issue #113 candidate wheel SHA-256:",
         "Issue #113 Core wheel SHA-256:",
     )

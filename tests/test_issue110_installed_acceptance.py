@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_packet_generation_rendering_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.1-generation-wide-packet-rendering.md"
+DOC = ROOT / "docs" / "v0.3.2-generation-wide-packet-rendering.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
 CORE_064_SHA256 = (
@@ -29,7 +29,7 @@ def test_issue110_installed_smoke_compiles_and_authenticates_core064() -> None:
         '"pip", "install"',
         '[str(python), "-I", str(smoke_path)]',
         'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.1"',
+        'metadata.version("pds-concord") == "0.3.2"',
         CORE_065_SHA256,
         "Issue #110 candidate wheel SHA-256:",
         "Issue #110 Core wheel SHA-256:",

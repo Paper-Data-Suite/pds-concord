@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_activity_score_analysis_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
-DOC = ROOT / "docs" / "v0.3.1-activity-score-analysis-local-reports.md"
+DOC = ROOT / "docs" / "v0.3.2-activity-score-analysis-local-reports.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
 CORE_064_SHA256 = (
@@ -30,7 +30,7 @@ def test_issue123_installed_smoke_compiles_and_authenticates_core064() -> None:
         '"pip",',
         '[str(python), "-I", str(smoke_path)]',
         'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.1"',
+        'metadata.version("pds-concord") == "0.3.2"',
         CORE_065_SHA256,
         "Issue #123 candidate wheel SHA-256:",
         "Issue #123 Core wheel SHA-256:",

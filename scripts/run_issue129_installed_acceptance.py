@@ -1,4 +1,4 @@
-"""Build and qualify the Concord v0.3.1 Issue #129 wheel under Core 0.6.5."""
+"""Build and qualify the Concord v0.3.2 Issue #129 wheel under Core 0.6.5."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from email.parser import BytesParser
 from email.policy import default
 from pathlib import Path
 
-EXPECTED_CONCORD_VERSION = "0.3.1"
-EXPECTED_CONCORD_WHEEL = "pds_concord-0.3.1-py3-none-any.whl"
+EXPECTED_CONCORD_VERSION = "0.3.2"
+EXPECTED_CONCORD_WHEEL = "pds_concord-0.3.2-py3-none-any.whl"
 EXPECTED_CORE_VERSION = "0.6.5"
 EXPECTED_CORE_WHEEL = "pds_core-0.6.5-py3-none-any.whl"
 EXPECTED_CORE_SHA256 = (
@@ -612,7 +612,7 @@ def run_acceptance(
         name, version = _wheel_metadata(wheel)
         if name != "pds-concord" or version != EXPECTED_CONCORD_VERSION:
             raise Issue129InstalledAcceptanceError(
-                "candidate wheel metadata is not exactly pds-concord 0.3.1"
+                "candidate wheel metadata is not exactly pds-concord 0.3.2"
             )
         concord_digest = _sha256(wheel)
 

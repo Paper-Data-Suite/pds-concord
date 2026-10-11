@@ -67,7 +67,7 @@ def _smoke_code() -> str:
         )
 
         assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.1"
+        assert metadata.version("pds-concord") == "0.3.2"
 
         module_path = Path(concord.__file__).resolve().as_posix().lower()
         assert "site-packages" in module_path, module_path

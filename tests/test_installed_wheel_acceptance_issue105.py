@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke_test_returned_artifact_evidence_opening_wheel.py"
 VALIDATOR = ROOT / "scripts" / "validate_repository.py"
-DOC = ROOT / "docs" / "v0.3.1-returned-artifact-evidence-opening.md"
+DOC = ROOT / "docs" / "v0.3.2-returned-artifact-evidence-opening.md"
 README = ROOT / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 CLI_DOC = ROOT / "docs" / "cli-contract.md"
@@ -27,7 +27,7 @@ def test_issue105_installed_smoke_compiles_and_isolated() -> None:
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
         'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.1"',
+        'metadata.version("pds-concord") == "0.3.2"',
         "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18",
         "Issue #105 candidate wheel SHA-256:",
         "Issue #105 Core wheel SHA-256:",
