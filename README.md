@@ -2,7 +2,7 @@
 
 Concord is the Paper Data Suite module for paper-first, human-reviewed evidence
 created during collaborative classroom Activities. Historical released artifacts
-retain their original qualification evidence. Current source is the v0.3.1
+retain their original qualification evidence. Current source is the v0.3.2
 release candidate and requires `pds-core>=0.6.5,<0.7`; Issue #129 uses Core
 0.6.5's producer reader-contract metadata while preserving existing Concord
 workspace and manifest contracts. The neutral `grouping_signal_set_v1` contract introduced in
@@ -105,7 +105,7 @@ qualification provenance rather than downstream semantic compatibility.
 
 Current Concord development requires Python 3.11 or newer and
 `pds-core>=0.6.5,<0.7`. Core is distributed as authenticated GitHub Release
-artifacts rather than through PyPI. For the v0.3.1 release candidate, download
+artifacts rather than through PyPI. For the v0.3.2 release candidate, download
 `pds_core-0.6.5-py3-none-any.whl` from the
 [pds-core v0.6.5 release](https://github.com/Paper-Data-Suite/pds-core/releases/tag/v0.6.5).
 When qualifying the immutable grouping-signal fixture asset, continue to use

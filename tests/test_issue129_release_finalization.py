@@ -14,7 +14,7 @@ CORE_065_SHA256 = (
 
 
 def test_issue129_active_release_identity_and_core_floor() -> None:
-    assert __version__ == "0.3.1"
+    assert __version__ == "0.3.2"
     project = tomllib.loads(
         (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
@@ -26,7 +26,7 @@ def test_issue129_active_release_identity_and_core_floor() -> None:
         "scripts/verify_release_compatibility.py",
     ):
         source = (ROOT / relative).read_text(encoding="utf-8")
-        assert "0.3.1" in source
+        assert "0.3.2" in source
         assert "pds-core>=0.6.5,<0.7" in source
 
 

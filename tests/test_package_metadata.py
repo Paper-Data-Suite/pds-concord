@@ -43,7 +43,7 @@ def test_built_wheel_metadata_and_contents(built_wheel: Path) -> None:
             Requirement("Pillow>=11,<13"),
             Requirement("qrcode>=8,<9"),
             Requirement("pypdfium2>=4.30,<5"),
-            Requirement("zxing-cpp>=2.3,<3"),
+            Requirement("zxing-cpp>=3.1.1,<4"),
         )
     }
     assert runtime == expected_runtime

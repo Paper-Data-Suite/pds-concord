@@ -85,7 +85,7 @@ def _smoke_code() -> str:
         )
 
         assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.1"
+        assert metadata.version("pds-concord") == "0.3.2"
 
         with tempfile.TemporaryDirectory(prefix="concord-presets-installed-") as raw:
             root = ensure_workspace_root(Path(raw) / "workspace")

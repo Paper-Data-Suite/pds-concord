@@ -21,13 +21,13 @@ from scripts.verify_release_artifacts import (
 
 METADATA = """Metadata-Version: 2.4
 Name: pds-concord
-Version: 0.3.1
+Version: 0.3.2
 Requires-Python: >=3.11
 Requires-Dist: pds-core<0.7,>=0.6.5
 Requires-Dist: Pillow<13,>=11
 Requires-Dist: qrcode<9,>=8
 Requires-Dist: pypdfium2<5,>=4.30
-Requires-Dist: zxing-cpp<3,>=2.3
+Requires-Dist: zxing-cpp<4,>=3.1.1
 
 Synthetic test package.
 """
@@ -52,7 +52,7 @@ dependencies = [
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
-    "zxing-cpp>=2.3,<3",
+    "zxing-cpp>=3.1.1,<4",
 ]
 
 [project.scripts]
@@ -70,7 +70,7 @@ concord = "concord.pds_operations:get_module_operations_profile"
 [tool.setuptools.dynamic]
 version = { attr = "concord._version.__version__" }
 """
-VERSION_SOURCE = '__version__ = "0.3.1"\n'
+VERSION_SOURCE = '__version__ = "0.3.2"\n'
 
 
 def _write_wheel(
@@ -80,9 +80,9 @@ def _write_wheel(
         for name in sorted(REQUIRED_WHEEL_FILES):
             if name != omit:
                 archive.writestr(name, "")
-        archive.writestr("pds_concord-0.3.1.dist-info/METADATA", metadata)
+        archive.writestr("pds_concord-0.3.2.dist-info/METADATA", metadata)
         archive.writestr(
-            "pds_concord-0.3.1.dist-info/entry_points.txt",
+            "pds_concord-0.3.2.dist-info/entry_points.txt",
             ENTRY_POINTS,
         )
 
@@ -102,7 +102,7 @@ def _write_sdist(
     pyproject: str = PYPROJECT,
     version_source: str = VERSION_SOURCE,
 ) -> None:
-    root = "pds_concord-0.3.1"
+    root = "pds_concord-0.3.2"
     with tarfile.open(path, "w:gz") as archive:
         _tar_file(archive, f"{root}/PKG-INFO", metadata)
         fixture_root = f"{root}/tests/fixtures/core_grouping_signals/v1"
@@ -149,7 +149,7 @@ def test_release_directory_rejects_wrong_name_and_extra_artifact(
 
 
 def test_wheel_rejects_wrong_metadata_version(tmp_path: Path) -> None:
-    wrong = METADATA.replace("Version: 0.3.1", "Version: 0.2.1")
+    wrong = METADATA.replace("Version: 0.3.2", "Version: 0.2.1")
     path = tmp_path / EXPECTED_WHEEL
     _write_wheel(path, metadata=wrong)
     with pytest.raises(ArtifactValidationError):
@@ -201,8 +201,8 @@ def test_wheel_rejects_core_and_sibling_dependency_drift(
             "Requires-Dist: Pillow<12,>=11",
         ),
         METADATA.replace(
-            "Requires-Dist: zxing-cpp<3,>=2.3",
-            "Requires-Dist: zxing-cpp<3,>=2.3; python_version<'3.14'",
+            "Requires-Dist: zxing-cpp<4,>=3.1.1",
+            "Requires-Dist: zxing-cpp<4,>=3.1.1; python_version<'3.14'",
         ),
     ],
 )

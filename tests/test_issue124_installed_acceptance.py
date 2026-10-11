@@ -52,7 +52,7 @@ def test_issue124_installed_smoke_compiles_and_authenticates_core064() -> None:
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
         'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.1"',
+        'metadata.version("pds-concord") == "0.3.2"',
         CORE_065_SHA256,
         "Issue #124 candidate wheel SHA-256:",
         "Issue #124 Core wheel SHA-256:",

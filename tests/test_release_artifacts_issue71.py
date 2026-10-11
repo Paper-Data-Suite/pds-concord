@@ -33,7 +33,7 @@ dependencies = [
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
-    "zxing-cpp>=2.3,<3",
+    "zxing-cpp>=3.1.1,<4",
 ]
 
 [project.scripts]

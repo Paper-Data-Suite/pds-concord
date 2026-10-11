@@ -208,7 +208,7 @@ def _smoke_code() -> str:
         require_installed(concord, "pds-concord")
         require_installed(pds_core, "pds-core")
         assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.1"
+        assert metadata.version("pds-concord") == "0.3.2"
         stage("isolated site-packages provenance and exact Core 0.6.5")
 
         with tempfile.TemporaryDirectory(

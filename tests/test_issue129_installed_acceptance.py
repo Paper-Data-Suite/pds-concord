@@ -21,7 +21,7 @@ def _source() -> str:
 def test_issue129_candidate_version_is_031() -> None:
     assert VERSION.read_text(encoding="utf-8") == (
         '"""Authoritative Concord package version."""\n\n'
-        '__version__ = "0.3.1"\n'
+        '__version__ = "0.3.2"\n'
     )
 
 
@@ -30,8 +30,8 @@ def test_issue129_installed_harness_compiles_and_authenticates_core065() -> None
     ast.parse(source)
 
     required = (
-        'EXPECTED_CONCORD_VERSION = "0.3.1"',
-        'EXPECTED_CONCORD_WHEEL = "pds_concord-0.3.1-py3-none-any.whl"',
+        'EXPECTED_CONCORD_VERSION = "0.3.2"',
+        'EXPECTED_CONCORD_WHEEL = "pds_concord-0.3.2-py3-none-any.whl"',
         'EXPECTED_CORE_VERSION = "0.6.5"',
         'EXPECTED_CORE_WHEEL = "pds_core-0.6.5-py3-none-any.whl"',
         CORE_065_SHA256,
@@ -97,5 +97,5 @@ def test_issue129_slice8_promotes_active_release_validators() -> None:
     source = (ROOT / "scripts" / "verify_release_artifacts.py").read_text(
         encoding="utf-8"
     )
-    assert 'RELEASE_VERSION = "0.3.1"' in source
+    assert 'RELEASE_VERSION = "0.3.2"' in source
     assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")' in source
