@@ -13,6 +13,10 @@ from concord.menu_navigation import (
     parse_menu_navigation,
 )
 from concord.menu_prompts import confirm_write, prompt_text, select_one, show_result
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_version_line,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -68,9 +72,9 @@ def _help() -> None:
 
 def _summary_label(item: PacketSummary) -> str:
     return (
-        f"{item.name} ({item.packet_definition_id}) - {item.status}; "
-        f"current={item.current_packet_version_id or '-'}; "
-        f"head={item.head_packet_version_id}"
+        f"{item.name} | {item.status.replace('_', ' ')} | "
+        + ("Current version selected" if item.current_packet_version_id
+           else "No current version selected")
     )
 
 
@@ -81,7 +85,10 @@ def _choose_packet(*, title: str) -> PacketSummary:
     return select_one(
         title,
         items,
-        tuple(_summary_label(item) for item in items),
+        distinguish_equal_labels(
+            tuple(_summary_label(item) for item in items),
+            noun="packet",
+        ),
         help_text="Choose the reusable Packet for this workspace-level action.",
     )
 
@@ -132,16 +139,33 @@ def _find_version(detail: PacketDetail, version_id: str) -> PacketVersion:
 def _detail_lines(detail: PacketDetail) -> tuple[str, ...]:
     definition = detail.definition
     summary = detail.summary
+    current = next(
+        (item for item in detail.versions
+         if item.packet_version_id == summary.current_packet_version_id),
+        None,
+    )
+    head = next(
+        (item for item in detail.versions
+         if item.packet_version_id == summary.head_packet_version_id),
+        None,
+    )
     lines = [
-        f"Packet: {summary.packet_definition_id}",
-        f"Name: {summary.name}",
+        f"Packet: {summary.name}",
         f"Purpose: {definition.purpose}",
-        f"Status: {summary.status}",
-        f"Current Version: {summary.current_packet_version_id or '-'}",
-        f"Head Version: {summary.head_packet_version_id}",
-        f"Snapshot: {summary.snapshot_revision}",
+        f"Status: {summary.status.replace('_', ' ')}",
+        "Current version: " + (
+            "none" if summary.current_packet_version_id is None
+            else (teacher_version_line(current.version_label,
+                    current.revision_sequence, current.status)
+                  if current is not None else "unavailable; refresh before editing")
+        ),
+        "Latest revision: " + (
+            teacher_version_line(head.version_label, head.revision_sequence,
+                                 head.status)
+            if head is not None else "unavailable; refresh before editing"
+        ),
         f"Versions: {len(detail.versions)}",
-        f"Head components: {summary.component_count}",
+        f"Latest-revision components: {summary.component_count}",
     ]
     if definition.description is not None:
         lines.append(f"Description: {definition.description}")
@@ -229,8 +253,8 @@ def _show_history() -> None:
             markers.append("head")
         marker = f" ({', '.join(markers)})" if markers else ""
         lines.append(
-            f"{version.revision_sequence}. {version.packet_version_id} - "
-            f"{version.version_label} [{version.status}] "
+            f"{version.revision_sequence}. {version.version_label} "
+            f"[{version.status}] "
             f"components={len(version.components)}{marker}"
         )
     show_result("Packet Version History", tuple(lines))

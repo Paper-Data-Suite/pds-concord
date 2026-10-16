@@ -21,6 +21,11 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_planned_date,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -981,15 +986,18 @@ def launch_prepared_materials_menu(
 def _list_instances(activity: ActivitySummary) -> None:
     try:
         items = list_packet_instances(activity.class_id, activity.activity_id)
+        target_labels = _teacher_instance_labels(activity, items)
         lines = (
-            tuple(
-                f"{item.packet_instance_id}: {item.target_key}; "
-                f"{item.generation_status}; generation={item.generation_id}; "
-                f"pages={item.page_count}; output={item.output_relative_path or '-'}"
-                for item in items
+            distinguish_equal_labels(tuple(
+                f"{target} | {item.audience_kind.replace('_', ' ')} | "
+                f"{item.generation_status.replace('_', ' ')} | "
+                f"{item.page_count} pages | "
+                f"{teacher_recorded_instant(item.created_at, kind='Created')}"
+                for target, item in zip(target_labels, items, strict=True)
+            ), noun="copy")
+            if items else (
+                "No Packet Instances have been generated for this Activity.",
             )
-            if items
-            else ("No Packet Instances have been generated for this Activity.",)
         )
         show_result("Packet Instances", lines)
     except Exception as error:
@@ -1018,24 +1026,25 @@ def _choose_generation(
     *,
     title: str,
 ) -> PacketGenerationSummary:
-    items = list_packet_generations(
-        activity.class_id,
-        activity.activity_id,
-    )
+    items = list_packet_generations(activity.class_id, activity.activity_id)
     if not items:
         raise ConcordWorkflowError("No Packet generations are available.")
+    base_labels = tuple(
+        f"{item.packet_name} - {item.session_label} | "
+        f"{item.instance_count} Packets - {item.page_count} pages - "
+        f"{_generation_state_label(item)} | "
+        f"{teacher_planned_date(item.generation_date)} | "
+        f"{teacher_recorded_instant(item.created_at, kind='Created')}"
+        for item in items
+    )
+    labels = distinguish_equal_labels(base_labels, noun="generation")
     return select_one(
         title,
         items,
-        tuple(
-            f"{item.packet_name} — {item.session_label} | "
-            f"{item.instance_count} Packets — {item.page_count} pages — "
-            f"{_generation_state_label(item)}"
-            for item in items
-        ),
+        labels,
         help_text=(
-            "Choose the complete class-set generation by Packet, Session, "
-            "counts, and current status."
+            "Choose the exact Packet generation. Planned date and actual created "
+            "time are different; repeated runs may share a planned date."
         ),
     )
 
@@ -1180,15 +1189,21 @@ def _choose_instance(
     items = list_packet_instances(activity.class_id, activity.activity_id)
     if not items:
         raise ConcordWorkflowError("No Packet Instances are available.")
+    target_labels = _teacher_instance_labels(activity, items)
+    base_labels = tuple(
+        f"{target} | {item.generation_status.replace('_', ' ')} | "
+        f"{item.page_count} pages | "
+        f"{teacher_recorded_instant(item.created_at, kind='Created')}"
+        for target, item in zip(target_labels, items, strict=True)
+    )
     return select_one(
         title,
         items,
-        tuple(
-            f"{item.target_key} - {item.generation_status} "
-            f"({item.packet_instance_id})"
-            for item in items
+        distinguish_equal_labels(base_labels, noun="copy"),
+        help_text=(
+            "Choose the intended audience and creation time. "
+            "Numbered copies are not chronological rankings."
         ),
-        help_text="Choose one Activity-specific Packet Instance.",
     )
 
 
@@ -1201,18 +1216,17 @@ def _inspect_instance(activity: ActivitySummary) -> None:
             selected.packet_instance_id,
         )
         item = detail.summary
+        target_label = _teacher_instance_labels(activity, (item,))[0]
         lines = (
-            f"Packet Instance: {item.packet_instance_id}",
-            f"Generation: {item.generation_id}",
-            f"Packet: {item.packet_definition_id}:{item.packet_version_id}",
-            f"Session: {item.session_id}",
-            f"Target: {item.target_key}",
-            f"Status: {item.generation_status}",
+            f"Audience: {target_label}",
+            f"Audience kind: {item.audience_kind.replace('_', ' ')}",
+            f"Status: {item.generation_status.replace('_', ' ')}",
+            teacher_recorded_instant(item.created_at, kind="Created"),
             f"Artifacts: {item.artifact_count}",
             f"Pages: {item.page_count}",
             f"Routes: {item.route_count}",
-            f"Output: {item.output_relative_path or '-'}",
-            f"Output SHA-256: {item.output_sha256 or '-'}",
+            "Output ready: " + ("yes" if item.output_relative_path else "no"),
+            "Technical identifiers, paths and checksums are hidden from this view.",
         )
         show_result("Packet Instance", lines)
     except CancelMenuAction:

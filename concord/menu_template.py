@@ -13,6 +13,10 @@ from concord.menu_navigation import (
     parse_menu_navigation,
 )
 from concord.menu_prompts import confirm_write, prompt_text, select_one, show_result
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_version_line,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -79,9 +83,9 @@ def _help() -> None:
 
 def _summary_label(item: TemplateSummary) -> str:
     return (
-        f"{item.name} ({item.template_id}) - {item.status}; "
-        f"current={item.current_template_version_id or '-'}; "
-        f"head={item.head_template_version_id}"
+        f"{item.name} | {item.status.replace('_', ' ')} | "
+        + ("Current version selected" if item.current_template_version_id
+           else "No current version selected")
     )
 
 
@@ -92,7 +96,10 @@ def _choose_template(*, title: str) -> TemplateSummary:
     return select_one(
         title,
         items,
-        tuple(_summary_label(item) for item in items),
+        distinguish_equal_labels(
+            tuple(_summary_label(item) for item in items),
+            noun="template",
+        ),
         help_text="Choose the reusable Template for this workspace-level action.",
     )
 
@@ -100,15 +107,32 @@ def _choose_template(*, title: str) -> TemplateSummary:
 def _detail_lines(detail: TemplateDetail) -> tuple[str, ...]:
     definition = detail.definition
     summary = detail.summary
+    current = next(
+        (item for item in detail.versions
+         if item.template_version_id == summary.current_template_version_id),
+        None,
+    )
+    head = next(
+        (item for item in detail.versions
+         if item.template_version_id == summary.head_template_version_id),
+        None,
+    )
     lines = [
-        f"Template: {summary.template_id}",
-        f"Name: {summary.name}",
+        f"Template: {summary.name}",
         f"Purpose: {definition.purpose}",
-        f"Status: {summary.status}",
+        f"Status: {summary.status.replace('_', ' ')}",
         f"Artifact category: {summary.artifact_category}",
-        f"Current Version: {summary.current_template_version_id or '-'}",
-        f"Head Version: {summary.head_template_version_id}",
-        f"Snapshot: {summary.snapshot_revision}",
+        "Current version: " + (
+            "none" if summary.current_template_version_id is None
+            else (teacher_version_line(current.version_label,
+                    current.revision_sequence, current.status)
+                  if current is not None else "unavailable; refresh before editing")
+        ),
+        "Latest revision: " + (
+            teacher_version_line(head.version_label, head.revision_sequence,
+                                 head.status)
+            if head is not None else "unavailable; refresh before editing"
+        ),
         f"Versions: {len(detail.versions)}",
     ]
     if definition.description is not None:
@@ -204,7 +228,6 @@ def _show_history() -> None:
         marker = f" ({', '.join(markers)})" if markers else ""
         lines.append(
             f"{version.revision_sequence}. "
-            f"{version.template_version_id} - "
             f"{version.version_label} [{version.status}]{marker}"
         )
     show_result("Template Version History", tuple(lines))
