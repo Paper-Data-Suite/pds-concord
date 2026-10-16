@@ -54,6 +54,32 @@ def _context(artifact_id: str, *, quick: bool) -> ArtifactRoutineReviewContext:
     )
 
 
+
+@pytest.fixture(autouse=True)
+def _stub_review_next_teacher_projection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The legacy routing tests use synthetic Activities with no disk workspace."""
+    from concord.workflows.teacher_artifact_choices import TeacherArtifactChoice
+
+    choices = tuple(
+        TeacherArtifactChoice(
+            summary=SimpleNamespace(
+                artifact_instance_id=identity, snapshot_revision=10
+            ),
+            label=f"Group {position} | Session 1 - Workshop | returned 1/1",
+            group_label=f"Group {position}",
+            session_label="Session 1 - Workshop",
+        )
+        for position, identity in enumerate(
+            ("artifact-a", "artifact-b", "artifact-detailed"), start=1
+        )
+    )
+    monkeypatch.setattr(
+        menu_artifact,
+        "list_teacher_artifact_choices",
+        lambda *args, **kwargs: choices,
+    )
+
+
 def test_review_next_reloads_selector_after_each_successful_review(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -74,11 +100,6 @@ def test_review_next_reloads_selector_after_each_successful_review(
         return next(next_items)
 
     monkeypatch.setattr(menu_artifact, "inspect_next_artifact_review", fake_next)
-    monkeypatch.setattr(
-        menu_artifact,
-        "_review_next_artifact_summary",
-        lambda activity, artifact_id: _artifact(artifact_id),
-    )
     monkeypatch.setattr(
         menu_artifact,
         "inspect_artifact_routine_review",
@@ -130,11 +151,6 @@ def test_review_next_does_not_skip_detailed_review_case(
     )
     monkeypatch.setattr(
         menu_artifact,
-        "_review_next_artifact_summary",
-        lambda activity, artifact_id: _artifact(artifact_id),
-    )
-    monkeypatch.setattr(
-        menu_artifact,
         "inspect_artifact_routine_review",
         lambda *args: _context("artifact-detailed", quick=False),
     )
@@ -176,11 +192,6 @@ def test_review_next_stops_without_reload_when_review_not_committed(
     monkeypatch.setattr(menu_artifact, "inspect_next_artifact_review", fake_next)
     monkeypatch.setattr(
         menu_artifact,
-        "_review_next_artifact_summary",
-        lambda activity, artifact_id: _artifact(artifact_id),
-    )
-    monkeypatch.setattr(
-        menu_artifact,
         "inspect_artifact_routine_review",
         lambda *args: _context("artifact-a", quick=route == "quick"),
     )
@@ -212,11 +223,6 @@ def test_review_next_detailed_evidence_open_failure_stops_before_review(
         lambda class_id, activity_id: SimpleNamespace(
             artifact=_artifact("artifact-detailed")
         ),
-    )
-    monkeypatch.setattr(
-        menu_artifact,
-        "_review_next_artifact_summary",
-        lambda activity, artifact_id: _artifact(artifact_id),
     )
     monkeypatch.setattr(
         menu_artifact,

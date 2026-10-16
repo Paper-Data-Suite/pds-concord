@@ -77,7 +77,6 @@ from concord.workflows import (
     create_scoring_scale,
     get_preset,
     get_preset_revision,
-    list_artifacts,
     list_criterion_sets,
     list_current_score_heads,
     list_groups,
@@ -103,6 +102,9 @@ from concord.workflows import (
 )
 from concord.workflows.context import actor_reference
 from concord.workflows.moderation import list_applicable_moderation_records
+from concord.workflows.teacher_artifact_choices import (
+    list_teacher_artifact_choices,
+)
 
 _TARGET_KINDS = (
     "core_student",
@@ -1030,19 +1032,21 @@ def _choose_target(
             target_id=activity.activity_id,
             owning_system="concord",
         )
-    artifacts = list_artifacts(activity.class_id, activity.activity_id)
-    artifact = select_one(
+    choices = list_teacher_artifact_choices(
+        activity.class_id, activity.activity_id
+    )
+    selected = select_one(
         "Choose Score Target Artifact",
-        artifacts,
-        tuple(
-            f"{item.artifact_instance_id} [{item.artifact_status}]"
-            for item in artifacts
+        choices,
+        tuple(item.label for item in choices),
+        help_text=(
+            "Choose the Group, Session and work to score. "
+            "This selects one exact Artifact; it does not choose scan history."
         ),
-        help_text="Choose one explicit Artifact Instance target.",
     )
     return ScoreTargetReference(
         target_kind=target_kind,
-        target_id=artifact.artifact_instance_id,
+        target_id=selected.summary.artifact_instance_id,
         owning_system="concord",
     )
 

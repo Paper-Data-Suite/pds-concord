@@ -54,11 +54,13 @@ def test_inventory_covers_teacher_entrypoints_without_workspace_access() -> None
     assert not any("C:\\Users\\" in item["path"] for item in report["findings"])
 
 
-def test_committed_inventory_is_deterministic_and_complete() -> None:
-    expected = canonical_bytes(collect(ROOT))
+def test_committed_inventory_is_frozen_baseline_and_complete() -> None:
+    # This file records Slice 0 source; later menu changes must not rewrite it.
     assert INVENTORY.is_file()
-    assert INVENTORY.read_bytes() == expected
+    expected = INVENTORY.read_bytes()
     parsed = json.loads(expected)
+    assert canonical_bytes(parsed) == expected
+    assert parsed["baseline_commit"] == BASELINE_COMMIT
     assert parsed["source_checksums"]["concord/menu_artifact.py"]
     assert parsed["source_checksums"]["concord/menu_scoring.py"]
     assert parsed["source_checksums"]["concord/menu_publication.py"]

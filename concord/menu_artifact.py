@@ -135,6 +135,10 @@ from concord.workflows.moderation import (
     replace_moderation_record,
     show_moderation_record,
 )
+from concord.workflows.teacher_artifact_choices import (
+    TeacherArtifactChoice,
+    list_teacher_artifact_choices,
+)
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -288,35 +292,46 @@ def _render(activity: ActivitySummary, state: MenuSessionContext) -> None:
         ),
     )
 
-def _choose_artifact(activity: ActivitySummary, *, title: str) -> ArtifactSummary:
-    artifacts = list_artifacts(activity.class_id, activity.activity_id)
+def _choose_artifact_choice(
+    activity: ActivitySummary, *, title: str
+) -> TeacherArtifactChoice:
+    choices = list_teacher_artifact_choices(
+        activity.class_id,
+        activity.activity_id,
+    )
     return select_one(
         title,
-        artifacts,
-        [
-            (
-                f"{item.artifact_instance_id}  [{item.artifact_status}]  "
-                f"returned {item.returned_required_page_count}/"
-                f"{item.required_return_page_count}"
-            )
-            for item in artifacts
-        ],
-        help_text="Choose the Artifact Instance for this exact operation.",
+        choices,
+        tuple(item.label for item in choices),
+        help_text=(
+            "Choose the correct Group, Session and returned-work status. "
+            "Work copy numbers distinguish identical labels, not chronology."
+        ),
     )
 
 
+def _choose_artifact(activity: ActivitySummary, *, title: str) -> ArtifactSummary:
+    """Keep existing callers' exact, typed Artifact identity contract."""
+    return _choose_artifact_choice(activity, title=title).summary
+
+
 def _list_artifacts(activity: ActivitySummary) -> None:
-    artifact = _choose_artifact(activity, title="Artifacts")
+    choice = _choose_artifact_choice(activity, title="Artifacts")
+    artifact = choice.summary
     detail = show_artifact(
         activity.class_id,
         activity.activity_id,
         artifact.artifact_instance_id,
     )
     item = detail.summary
+    if item.snapshot_revision != artifact.snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "The selected work changed. Refresh and choose it again."
+        )
     show_result(
         "Artifact Detail",
         (
-            f"Artifact: {item.artifact_instance_id}",
+            f"Work: {choice.label}",
             f"Category: {item.artifact_category}",
             f"Status: {item.artifact_status}",
             (
@@ -326,8 +341,8 @@ def _list_artifacts(activity: ActivitySummary) -> None:
             ),
             f"Authors: {item.current_author_count}",
             f"Subjects: {item.current_subject_count}",
-            f"Session: {detail.session_id or '-'}",
-            f"Group: {detail.group_id or '-'}",
+            f"Session: {choice.session_label}",
+            f"Group: {choice.group_label}",
             f"Privacy: {detail.privacy_classification}",
         ),
     )
@@ -422,7 +437,8 @@ def open_returned_work(activity: ActivitySummary) -> None:
     """Open one exact existing returned Artifact without changing workflow state."""
     try:
         current = _latest(activity)
-        artifact = _choose_artifact(current, title="Open Returned Work")
+        choice = _choose_artifact_choice(current, title="Open Returned Work")
+        artifact = choice.summary
         selections = _assembly_selections(current, artifact)
         open_returned_artifact_evidence(
             current.class_id,
@@ -432,10 +448,12 @@ def open_returned_work(activity: ActivitySummary) -> None:
             expected_snapshot_revision=current.snapshot_revision,
         )
         show_result(
-            "Returned Work Opened",
+            "Returned Work Viewer Requested",
             (
-                "Returned work opened in your default PDF viewer.",
-                "Opening this evidence did not Review, Moderate, or Score the work.",
+                f"Selected work: {choice.label}",
+                "Requested opening in your default PDF viewer.",
+                "This does not prove the viewer displayed the PDF.",
+                "Opening did not Review, Moderate, or Score the work.",
             ),
         )
     except CancelMenuAction:
@@ -451,14 +469,17 @@ def open_returned_work(activity: ActivitySummary) -> None:
 
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
-    artifact = _choose_artifact(current, title="Assemble Returned Artifact")
+    choice = _choose_artifact_choice(
+        current, title="Assemble Returned Artifact"
+    )
+    artifact = choice.summary
     selections = _assembly_selections(current, artifact)
     if not confirm_write(
         "Assemble Returned Artifact",
         "ASSEMBLE",
         (
             f"Activity: {current.title}",
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {choice.label}",
             f"Exact occurrence selections: {len(selections)}",
         ),
     ):
@@ -476,11 +497,14 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Returned Artifact Assembled",
         (
-            f"Artifact: {result.artifact_instance_id}",
-            f"Assembly: {result.assembly_id}",
+            f"Work: {choice.label}",
             f"Pages: {result.page_count}",
-            f"Output: {result.output_path.name}",
-            f"Reused existing exact assembly: {'yes' if result.reused else 'no'}",
+            (
+                "Existing exact assembly verified and reused."
+                if result.reused
+                else "New exact assembly created and verified."
+            ),
+            "The original scan evidence was not changed.",
         ),
     )
 
@@ -1800,6 +1824,7 @@ def _review_next_artifact_summary(
     activity: ActivitySummary,
     artifact_instance_id: str,
 ) -> ArtifactSummary:
+    """Preserve the exact-selection contract used by earlier Review-next flows."""
     matches = tuple(
         item
         for item in list_artifacts(activity.class_id, activity.activity_id)
@@ -1807,13 +1832,44 @@ def _review_next_artifact_summary(
     )
     if not matches:
         raise ConcordWorkflowNotFoundError(
-            "The next Artifact awaiting Review is no longer available."
+            "The next work awaiting Review is no longer available."
         )
     if len(matches) != 1:
         raise ConcordWorkflowConflictError(
-            "The next Artifact awaiting Review is not unique."
+            "The next work awaiting Review is not unique."
         )
     return matches[0]
+
+
+def _review_next_artifact_choice(
+    activity: ActivitySummary,
+    artifact_instance_id: str,
+) -> TeacherArtifactChoice:
+    """Select exact Review-next work from one canonical teacher projection."""
+    choices = list_teacher_artifact_choices(
+        activity.class_id,
+        activity.activity_id,
+        expected_snapshot_revision=activity.snapshot_revision,
+    )
+    matches = tuple(
+        item
+        for item in choices
+        if item.summary.artifact_instance_id == artifact_instance_id
+    )
+    if not matches:
+        raise ConcordWorkflowNotFoundError(
+            "The next work awaiting Review is no longer available."
+        )
+    if len(matches) != 1:
+        raise ConcordWorkflowConflictError(
+            "The next work awaiting Review is not unique."
+        )
+    choice = matches[0]
+    if choice.summary.snapshot_revision != activity.snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "Returned-work context changed. Refresh and select it again."
+        )
+    return choice
 
 
 def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
@@ -1830,10 +1886,11 @@ def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
             )
             return
 
-        artifact = _review_next_artifact_summary(
+        choice = _review_next_artifact_choice(
             current,
             next_item.artifact.artifact_instance_id,
         )
+        artifact = choice.summary
         context = inspect_artifact_routine_review(
             current.class_id,
             current.activity_id,
@@ -1849,7 +1906,7 @@ def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
             show_result(
                 "Review Next",
                 (
-                    f"Artifact: {artifact.artifact_instance_id}",
+                    f"Selected work: {choice.label}",
                     "This next first-Review Artifact requires Detailed Review.",
                     *reasons,
                     "It will not be skipped.",
