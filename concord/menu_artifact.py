@@ -135,9 +135,18 @@ from concord.workflows.moderation import (
     replace_moderation_record,
     show_moderation_record,
 )
+from concord.workflows.returned_assembly_versions import (
+    list_verified_assembly_versions,
+)
 from concord.workflows.teacher_artifact_choices import (
     TeacherArtifactChoice,
     list_teacher_artifact_choices,
+)
+from concord.workflows.teacher_evidence_chronology import (
+    display_recorded_time,
+    instant,
+    occurrence_labels,
+    ordered_occurrences,
 )
 
 
@@ -364,19 +373,16 @@ def _assembly_selections(
     for page_id, candidates in grouped.items():
         if len(candidates) < 2:
             continue
+        ordered = ordered_occurrences(tuple(candidates))
         selected = select_one(
-            f"Choose Returned Occurrence - Page {candidates[0].logical_page_number}",
-            tuple(candidates),
-            [
-                (
-                    f"Scan {item.source_scan_id}; source page "
-                    f"{item.source_page_number}; ref {item.scan_reference_id}"
-                )
-                for item in candidates
-            ],
+            f"Choose Returned Occurrence - Page {ordered[0].logical_page_number}",
+            ordered,
+            occurrence_labels(ordered),
             help_text=(
                 "Several retained physical occurrences exist for this Artifact Page. "
-                "Choose the exact occurrence for this assembly only."
+                "Choose the exact occurrence for this assembly only. "
+                "Routed time is not necessarily physical scan time. "
+                "Equal recorded times do not establish which scan is newer."
             ),
         )
         selections.append(
@@ -463,6 +469,93 @@ def open_returned_work(activity: ActivitySummary) -> None:
     except Exception as error:
         show_result(
             "Open Returned Work",
+            _open_returned_work_failure_lines(error),
+        )
+
+
+def open_verified_assembly_version(activity: ActivitySummary) -> None:
+    """Choose and open one previously assembled, still-verified PDF version."""
+    try:
+        current = _latest(activity)
+        choice = _choose_artifact_choice(current, title="Assembly Version History")
+        artifact = choice.summary
+        versions = list_verified_assembly_versions(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+            expected_snapshot_revision=current.snapshot_revision,
+        )
+        if not versions:
+            show_result(
+                "Assembly Version History",
+                (
+                    f"Selected work: {choice.label}",
+                    "No previously assembled version is available.",
+                    "Choose Assemble returned work to create an exact version.",
+                ),
+            )
+            return
+        timestamps = [instant(item.assembled_at) for item in versions]
+        labels = []
+        for item in versions:
+            when = display_recorded_time(item.assembled_at)
+            tied = timestamps.count(instant(item.assembled_at)) > 1
+            order_note = (
+                "same recorded time; order uncertain" if tied else
+                "recorded assembly creation time"
+            )
+            attention = {
+                "newer": " | Newer routed evidence available",
+                "additional_uncertain": (
+                    " | Additional evidence; chronology uncertain"
+                ),
+                "none": "",
+            }[item.newer_evidence_status]
+            labels.append(
+                f"Assembled {when} ({order_note}) | "
+                f"{item.page_count} pages{attention}"
+            )
+        selected = select_one(
+            "Open a Verified Assembly Version",
+            versions,
+            tuple(labels),
+            help_text=(
+                "Choose one exact verified older or newer assembly. "
+                "Assembly-created time is not scan-routed time. "
+                "This does not establish which version was reviewed or scored."
+            ),
+        )
+        # Core's safe local opener runs only after the exact lineage, canonical
+        # snapshot, retained sources, manifest and PDF hash are verified AGAIN.
+        open_returned_artifact_evidence(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+            selections=selected.selections,
+            expected_snapshot_revision=current.snapshot_revision,
+        )
+        show_result(
+            "Assembly Version Viewer Requested",
+            (
+                f"Selected work: {choice.label}",
+                (
+                    "Recorded assembly creation: "
+                    f"{display_recorded_time(selected.assembled_at)}"
+                ),
+                f"Pages: {selected.page_count}",
+                "Requested opening of this exact assembly in the default PDF viewer.",
+                "Viewer display cannot be confirmed automatically.",
+                "This did not change Review, Moderation, or Score state.",
+                "Historical Review/Score assembly basis is not established here.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+        raise
+    except Exception as error:
+        show_result(
+            "Assembly Version History",
             _open_returned_work_failure_lines(error),
         )
 
@@ -3217,6 +3310,7 @@ def launch_collect_work_menu(
         print("3. Review attribution")
         print("4. Advanced attribution tools")
         print("O. Open returned work")
+        print("V. Open a verified saved assembly version")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3249,6 +3343,8 @@ def launch_collect_work_menu(
                 _launch_advanced_attribution_menu(activity, state)
             elif choice.upper() == "O":
                 open_returned_work(activity)
+            elif choice.upper() == "V":
+                open_verified_assembly_version(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
@@ -3274,6 +3370,7 @@ def launch_review_work_menu(
         print("2. Moderation")
         print("3. Score this work")
         print("O. Open returned work")
+        print("V. Open a verified saved assembly version")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3308,6 +3405,8 @@ def launch_review_work_menu(
                 _score_selected_artifact(activity, state)
             elif choice.upper() == "O":
                 open_returned_work(activity)
+            elif choice.upper() == "V":
+                open_verified_assembly_version(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()

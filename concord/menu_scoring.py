@@ -9,7 +9,10 @@ from uuid import uuid4
 
 from pds_core.standards import StandardsLibrary
 
-from concord.menu_artifact import open_returned_work
+from concord.menu_artifact import (
+    open_returned_work,
+    open_verified_assembly_version,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -2105,6 +2108,7 @@ def launch_score_menu(
         print("3. Revise a Score")
         print("4. Review Score Analysis")
         print("O. Open returned work")
+        print("V. Open a verified saved assembly version")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2134,6 +2138,8 @@ def launch_score_menu(
             launch_score_analysis_menu(activity)
         elif choice.upper() == "O":
             open_returned_work(activity)
+        elif choice.upper() == "V":
+            open_verified_assembly_version(activity)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
