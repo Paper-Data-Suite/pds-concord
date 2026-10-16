@@ -873,13 +873,13 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
         "Add Artifact Author",
         "ADD",
         (
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {artifact.artifact_status.replace('_', ' ')}",
             f"Authorship mode: {mode}",
             f"Attribution status: {status}",
         ),
     ):
         return
-    result = add_artifact_author(
+    add_artifact_author(
         AddArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -899,8 +899,8 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Artifact Author Added",
         (
-            f"Artifact Author: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Author association saved.",
+            "Use Author list to inspect its current status.",
         ),
     )
 
@@ -913,12 +913,15 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
         "Update Artifact Author",
         "UPDATE",
         (
-            f"Completed by: {selected.reference_display_label or 'Unknown'}",
+            (
+                "Completed by: "
+                f"{selected.reference_display_label or 'Participant not recorded'}"
+            ),
             f"New attribution status: {status}",
         ),
     ):
         return
-    result = update_artifact_author(
+    update_artifact_author(
         UpdateArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -931,8 +934,8 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
     show_result(
         "Artifact Author Updated",
         (
-            f"Artifact Author: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Author attribution status updated.",
+            "The previous relationship remains auditable.",
         ),
     )
 
@@ -979,7 +982,7 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
         ),
     ):
         return
-    result = replace_artifact_author(
+    replace_artifact_author(
         ReplaceArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1001,9 +1004,8 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
     show_result(
         "Artifact Author Corrected",
         (
-            f"Successor: {result.association_id}",
-            f"Correction: {correction_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "A corrected Author association was saved.",
+            "The preceding association remains in history.",
         ),
     )
 
@@ -1272,14 +1274,14 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
         "Add Artifact Subject",
         "ADD",
         (
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {artifact.artifact_status.replace('_', ' ')}",
             f"Subject kind: {reference.subject_kind}",
             f"Subject role: {role}",
             f"Confirmation: {status}",
         ),
     ):
         return
-    result = add_artifact_subject(
+    add_artifact_subject(
         AddArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1297,8 +1299,8 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Artifact Subject Added",
         (
-            f"Artifact Subject: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Subject association saved.",
+            "Use Subject list to inspect its current status.",
         ),
     )
 
@@ -1311,12 +1313,12 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
         "Update Artifact Subject",
         "UPDATE",
         (
-            f"Artifact Subject: {selected.artifact_subject_id}",
+            f"Subject: {selected.reference_display_label or 'Subject not recorded'}",
             f"New confirmation status: {status}",
         ),
     ):
         return
-    result = update_artifact_subject(
+    update_artifact_subject(
         UpdateArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1329,8 +1331,8 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
     show_result(
         "Artifact Subject Updated",
         (
-            f"Artifact Subject: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Subject confirmation status updated.",
+            "The previous relationship remains auditable.",
         ),
     )
 
@@ -1371,7 +1373,7 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
         ),
     ):
         return
-    result = replace_artifact_subject(
+    replace_artifact_subject(
         ReplaceArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1391,9 +1393,8 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
     show_result(
         "Artifact Subject Corrected",
         (
-            f"Successor: {result.association_id}",
-            f"Correction: {correction_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "A corrected Subject association was saved.",
+            "The preceding association remains in history.",
         ),
     )
 

@@ -35,6 +35,10 @@ from concord.menu_prompts import (
     slug_identifier,
 )
 from concord.menu_score_analysis import launch_score_analysis_menu
+from concord.menu_score_teacher_labels import (
+    ScoreTeacherLabels,
+    build_score_teacher_labels,
+)
 from concord.menu_teacher_history import (
     distinguish_equal_labels,
     teacher_recorded_instant,
@@ -241,9 +245,9 @@ def _choose_scale(activity: ActivitySummary) -> ScoringScaleSummary:
     return select_one(
         "Choose a Scoring Scale",
         scales,
-        tuple(
-            f"{item.name} ({item.scoring_scale_id}, rev {item.revision})"
-            for item in scales
+        distinguish_equal_labels(
+            tuple(f"{item.name} - revision {item.revision}" for item in scales),
+            noun="Scoring Scale choice",
         ),
         help_text=(
             "Choose the exact native Scale revision. Concord does not normalize "
@@ -985,10 +989,12 @@ def _choose_criterion(activity: ActivitySummary) -> Criterion:
     return select_one(
         "Choose a Criterion",
         pairs,
-        tuple(
-            f"{criterion.label} ({criterion.criterion_id}) "
-            f"[{criterion.criterion_kind}]"
-            for _, criterion in pairs
+        distinguish_equal_labels(
+            tuple(
+                f"{criterion.label} [{criterion.criterion_kind}]"
+                for _, criterion in pairs
+            ),
+            noun="Criterion choice",
         ),
         help_text=(
             "Choose one explicit Criterion. Concord does not infer a Criterion "
@@ -1066,7 +1072,8 @@ def _optional_score_session(activity: ActivitySummary) -> str | None:
     labels = (
         "No separate Score Session context",
         *(
-            f"{item.sequence}. {item.label or item.session_id} - {item.status}"
+            f"Session {item.sequence}: "
+            f"{item.label or 'Unlabeled session'} - {item.status}"
             for item in sessions
         ),
     )
@@ -1406,12 +1413,13 @@ def _score_confirmation_lines(
     basis: str,
     evidence_count: int,
 ) -> tuple[str, ...]:
+    labels = build_score_teacher_labels(activity)
     lines = [
         f"Activity: {activity.title}",
-        f"Target: {target.target_kind}:{target.target_id}",
-        f"Criterion: {criterion.label} ({criterion.criterion_id})",
-        f"Scale: {scale.name} ({scale.scoring_scale_id})",
-        f"Session context: {session_id or '-'}",
+        f"Target: {labels.target(target.target_kind, target.target_id)}",
+        f"Criterion: {criterion.label}",
+        f"Scale: {scale.name}",
+        f"Session context: {labels.session(session_id)}",
         f"Disposition: {disposition}",
         f"Value: {'-' if value is None else json.dumps(value)}",
         f"Basis: {basis}",
@@ -1482,9 +1490,9 @@ def _record_score(
         show_result(
             "Score Recorded",
             (
-                f"Score: {result.score_record_id}",
+                "The exact Score was saved.",
                 f"Evidence Links: {len(result.score_evidence_link_ids)}",
-                f"Snapshot: {result.commit.snapshot_revision}",
+                "Use View Scores to inspect the current record.",
             ),
         )
     except CancelMenuAction:
@@ -1493,10 +1501,17 @@ def _record_score(
         _handle_error(activity, error)
 
 
-def _score_label(item: ScoreSummary) -> str:
+def _score_label(
+    item: ScoreSummary, labels: ScoreTeacherLabels | None = None
+) -> str:
     value = "-" if item.value is None else json.dumps(item.value)
     state = "current" if item.is_current else "historical"
-    target = item.target_reference.target_kind.replace("_", " ")
+    reference = item.target_reference
+    target = (
+        labels.target(reference.target_kind, reference.target_id)
+        if labels is not None
+        else reference.target_kind.replace("_", " ")
+    )
     return (
         f"{teacher_recorded_instant(item.scored_at, kind='Scored')} - "
         f"{target} - {item.disposition.replace('_', ' ')} {value} "
@@ -1512,11 +1527,14 @@ def _browse_scores(activity: ActivitySummary) -> None:
             standards_library=_library(),
             current_only=False,
         )
+        labels = build_score_teacher_labels(
+            activity, include_score_definitions=True
+        )
         selected = select_one(
             "Scores",
             scores,
             distinguish_equal_labels(
-                tuple(_score_label(item) for item in scores),
+                tuple(_score_label(item, labels) for item in scores),
                 noun="Score choice",
             ),
             help_text=(
@@ -1531,19 +1549,19 @@ def _browse_scores(activity: ActivitySummary) -> None:
             standards_library=_library(),
         )
         lines = [
-            f"{_score_label(selected)}",
+            _score_label(selected, labels),
             "Exact scored scan version not recorded in Score metadata.",
-            (
-                "Target type: "
-                f"{selected.target_reference.target_kind.replace('_', ' ')}"
+            "Target: " + labels.target(
+                selected.target_reference.target_kind,
+                selected.target_reference.target_id,
             ),
-            "Criterion: linked to this Score (advanced details)",
+            f"Criterion: {labels.criterion(selected.criterion_id)}",
             f"Disposition: {selected.disposition}",
             (
                 "Value: "
                 + ("-" if selected.value is None else json.dumps(selected.value))
             ),
-            "Scale: linked to this Score (advanced details)",
+            f"Scale: {labels.scale(selected.scoring_scale_id)}",
             f"Basis: {selected.basis}",
             f"Rationale: {detail.rationale or '-'}",
             f"Evidence Links: {len(detail.evidence_links)}",
@@ -1570,11 +1588,14 @@ def _revise_score(
             current.activity_id,
             standards_library=_library(),
         )
+        labels = build_score_teacher_labels(
+            current, include_score_definitions=True
+        )
         predecessor = select_one(
             "Revise a Score",
             heads,
             distinguish_equal_labels(
-                tuple(_score_label(item) for item in heads),
+                tuple(_score_label(item, labels) for item in heads),
                 noun="Score choice",
             ),
             help_text="Choose the current Score lineage head to revise.",
@@ -1597,8 +1618,8 @@ def _revise_score(
         )
         assert correction_reason is not None
         lines = (
-            f"Current Score: {predecessor.score_record_id}",
-            f"Replacement: {replacement_id}",
+            "Current Score: " + _score_label(predecessor, labels),
+            "A new immutable Score revision will be recorded.",
             *_score_confirmation_lines(
                 current,
                 draft.target,
@@ -1641,9 +1662,9 @@ def _revise_score(
         show_result(
             "Score Revised",
             (
-                f"Replacement: {result.score_record_id}",
+                "A new immutable Score revision was saved.",
                 f"Evidence Links: {len(result.score_evidence_link_ids)}",
-                f"Snapshot: {result.commit.snapshot_revision}",
+                "The previous Score remains in history.",
             ),
         )
     except CancelMenuAction:
