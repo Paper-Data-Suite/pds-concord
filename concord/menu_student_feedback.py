@@ -352,7 +352,8 @@ def _open_existing_folder() -> None:
     show_result(
         "Student Feedback Distribution",
         (
-            "Verified distribution folder opened.",
+            "Requested opening of the verified distribution folder.",
+            "This does not prove the folder was displayed.",
             f"Feedback files: {verified.selected_count}",
         ),
     )
@@ -365,7 +366,8 @@ def _open_existing_print_pdf() -> None:
     show_result(
         "Student Feedback Distribution",
         (
-            "Verified class print PDF opened.",
+            "Requested opening of the verified class print PDF.",
+            "This does not prove the PDF was displayed.",
             f"Class print pages: {verified.combined_page_count}",
         ),
     )

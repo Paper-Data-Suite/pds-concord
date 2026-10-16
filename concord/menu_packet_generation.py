@@ -881,8 +881,9 @@ def _open_ready_packet(
         show_result(
             "Open Rendered Packet",
             (
-                f"Opened: {label}",
-                "Concord requested the system viewer for the verified PDF.",
+                f"Requested viewer opening for: {label}",
+                "The OS accepted the request; this does not prove "
+                "the PDF was displayed.",
             ),
         )
     except CancelMenuAction:
@@ -915,7 +916,8 @@ def _open_ready_folder(
         show_result(
             "Open Rendered Packet Folder",
             (
-                "Opened the verified rendered-Packet folder.",
+                "Requested opening of the verified rendered-Packet folder.",
+                "This does not prove the folder was displayed.",
                 "This is a local viewing/printing folder, not a share-safe export.",
             ),
         )
