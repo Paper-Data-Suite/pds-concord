@@ -27,6 +27,10 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -244,23 +248,25 @@ def _list_pages(activity: ActivitySummary) -> None:
     if not pages:
         show_result("Artifact Pages", ("No Artifact Pages have been prepared.",))
         return
+    labels = distinguish_equal_labels(
+        tuple(
+            f"Page {item.page_number} - {item.page_status.replace('_', ' ')}"
+            for item in pages
+        ), noun="page choice",
+    )
     page = select_one(
         "Artifact Pages",
         pages,
-        [
-            f"{item.artifact_page_id}  page {item.page_number}  [{item.page_status}]"
-            for item in pages
-        ],
-        help_text="Navigate every prepared page, then choose one for compact detail.",
+        labels,
+        help_text="Choose an exact Page; matching numbers may be separate work.",
     )
     show_result(
         "Artifact Page Detail",
         (
-            f"Page: {page.artifact_page_id}",
-            f"Artifact: {page.artifact_instance_id}",
-            f"Physical page: {page.page_number}",
-            f"Status: {page.page_status}",
-            f"Route: {page.route_id or '-'}",
+            f"Page: {page.page_number}",
+            f"Status: {page.page_status.replace('_', ' ')}",
+            f"Route prepared: {'yes' if page.route_id else 'not yet'}",
+            "The exact Page and route references remain preserved.",
         ),
     )
 
@@ -1565,7 +1571,8 @@ def _review_values() -> tuple[
 def _review_label(item: ArtifactReviewSummary) -> str:
     state = "current" if item.is_current else "historical"
     return (
-        f"{item.artifact_instance_id} - {item.review_outcome.replace('_', ' ')} - "
+        f"{teacher_recorded_instant(item.reviewed_at, kind='Reviewed')} - "
+        f"{item.review_outcome.replace('_', ' ')} - "
         f"{item.scoring_readiness.replace('_', ' ')} [{state}]"
     )
 
@@ -1574,9 +1581,8 @@ def _show_review_detail(item: ArtifactReviewSummary) -> None:
     show_result(
         "Artifact Review Detail",
         (
-            f"Artifact: {item.artifact_instance_id}",
-            f"Review: {item.artifact_review_id}",
-            f"Reviewer: {item.reviewer_display_label or '-'}",
+            f"Reviewer: {item.reviewer_display_label or 'Not recorded'}",
+            "Exact reviewed scan version not recorded in Review metadata.",
             f"Reviewed at: {item.reviewed_at}",
             f"Readability: {item.readability_judgment}",
             f"Page completeness: {item.page_completeness_judgment}",
@@ -1605,7 +1611,7 @@ def _view_current_review(activity: ActivitySummary) -> None:
     if item is None:
         show_result(
             "Artifact Review",
-            (f"Artifact {artifact.artifact_instance_id} has no current Review.",),
+            ("The selected work has no current Review.",),
         )
         return
     _show_review_detail(item)
@@ -1620,7 +1626,10 @@ def _view_review_history(activity: ActivitySummary) -> None:
     selected = select_one(
         "Artifact Review History",
         items,
-        [_review_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_review_label(item) for item in items),
+            noun="Review choice",
+        ),
         help_text="Choose an exact preserved Review record to inspect.",
     )
     _show_review_detail(
@@ -2485,14 +2494,11 @@ def _moderation_values() -> tuple[str, str, str, str | None, PrivacyPolicy]:
 
 def _moderation_label(item: ModerationSummary) -> str:
     evidence = item.evidence_reference
-    scope = ", ".join(
-        f"{subject.subject_kind}:{subject.subject_id}"
-        for subject in item.target_subject_references
-    )
     state = "current" if item.is_current else "historical"
     return (
-        f"{evidence.owning_system}:{evidence.evidence_kind}:{evidence.record_id} - "
-        f"{scope or 'general'} - {item.status} - {item.permitted_use} [{state}]"
+        f"{teacher_recorded_instant(item.moderated_at, kind='Moderated')} - "
+        f"{evidence.evidence_kind.replace('_', ' ')} evidence - "
+        f"{item.status.replace('_', ' ')} - {item.permitted_use} [{state}]"
     )
 
 
@@ -2505,7 +2511,10 @@ def _show_moderation(activity: ActivitySummary) -> None:
     selected = select_one(
         "Moderation Decisions",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text="Choose one exact Moderation decision to inspect.",
     )
     detail = show_moderation_record(
@@ -2518,21 +2527,18 @@ def _show_moderation(activity: ActivitySummary) -> None:
     show_result(
         "Moderation Detail",
         (
-            f"Moderation: {item.moderation_record_id}",
+            f"Decision: {item.status.replace('_', ' ')}",
             (
                 "Evidence: "
-                f"{evidence.owning_system}:{evidence.evidence_kind}:"
-                f"{evidence.record_id}"
+                f"{evidence.evidence_kind.replace('_', ' ')} "
+                f"(source: {evidence.owning_system})"
             ),
             (
                 "Subject scope: "
-                + (
-                    ", ".join(
-                        f"{subject.subject_kind}:{subject.subject_id}"
-                        for subject in item.target_subject_references
-                    )
-                    or "general"
-                )
+                + (", ".join(
+                    subject.subject_kind.replace("_", " ")
+                    for subject in item.target_subject_references
+                ) or "general")
             ),
             f"Status: {item.status}",
             f"Permitted use: {item.permitted_use}",
@@ -2612,7 +2618,10 @@ def _replace_moderation(
     predecessor = select_one(
         "Revise Current Moderation",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text=(
             "Revision preserves the predecessor's exact evidence and Subject scope."
         ),
@@ -2700,7 +2709,10 @@ def _view_applicable_moderation(activity: ActivitySummary) -> None:
     selected = select_one(
         "Applicable Moderation",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text=(
             "All applicable current decisions are returned; Concord does not "
             "choose one by timestamp or ID."

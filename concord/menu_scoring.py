@@ -35,6 +35,10 @@ from concord.menu_prompts import (
     slug_identifier,
 )
 from concord.menu_score_analysis import launch_score_analysis_menu
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -1490,12 +1494,13 @@ def _record_score(
 
 
 def _score_label(item: ScoreSummary) -> str:
-    target = item.target_reference
     value = "-" if item.value is None else json.dumps(item.value)
+    state = "current" if item.is_current else "historical"
+    target = item.target_reference.target_kind.replace("_", " ")
     return (
-        f"{item.score_record_id} - {target.target_kind}:{target.target_id} - "
-        f"{item.disposition} {value} [{item.criterion_id}] "
-        f"{'current' if item.is_current else 'historical'}"
+        f"{teacher_recorded_instant(item.scored_at, kind='Scored')} - "
+        f"{target} - {item.disposition.replace('_', ' ')} {value} "
+        f"[{state}]"
     )
 
 
@@ -1510,7 +1515,10 @@ def _browse_scores(activity: ActivitySummary) -> None:
         selected = select_one(
             "Scores",
             scores,
-            tuple(_score_label(item) for item in scores),
+            distinguish_equal_labels(
+                tuple(_score_label(item) for item in scores),
+                noun="Score choice",
+            ),
             help_text=(
                 "Choose one exact Score revision. Current and historical Scores "
                 "remain visible; no latest-by-target heuristic is applied."
@@ -1523,19 +1531,19 @@ def _browse_scores(activity: ActivitySummary) -> None:
             standards_library=_library(),
         )
         lines = [
-            f"Score: {selected.score_record_id}",
+            f"{_score_label(selected)}",
+            "Exact scored scan version not recorded in Score metadata.",
             (
-                "Target: "
-                f"{selected.target_reference.target_kind}:"
-                f"{selected.target_reference.target_id}"
+                "Target type: "
+                f"{selected.target_reference.target_kind.replace('_', ' ')}"
             ),
-            f"Criterion: {selected.criterion_id}",
+            "Criterion: linked to this Score (advanced details)",
             f"Disposition: {selected.disposition}",
             (
                 "Value: "
                 + ("-" if selected.value is None else json.dumps(selected.value))
             ),
-            f"Scale: {selected.scoring_scale_id}",
+            "Scale: linked to this Score (advanced details)",
             f"Basis: {selected.basis}",
             f"Rationale: {detail.rationale or '-'}",
             f"Evidence Links: {len(detail.evidence_links)}",
@@ -1565,7 +1573,10 @@ def _revise_score(
         predecessor = select_one(
             "Revise a Score",
             heads,
-            tuple(_score_label(item) for item in heads),
+            distinguish_equal_labels(
+                tuple(_score_label(item) for item in heads),
+                noun="Score choice",
+            ),
             help_text="Choose the current Score lineage head to revise.",
         )
         draft = _score_components(current, state)

@@ -166,6 +166,7 @@ def test_moderation_revision_preserves_exact_predecessor_scope(
     )
     predecessor = SimpleNamespace(
         moderation_record_id="moderation-before",
+        moderated_at="2026-10-12T19:58:00-04:00",
         evidence_reference=evidence,
         target_subject_references=(subject,),
         status="disputed",
@@ -284,6 +285,7 @@ def test_review_history_uses_shared_pagination_after_ten(
     items = tuple(
         SimpleNamespace(
             artifact_review_id=f"review-{index}",
+            reviewed_at="2026-10-12T19:58:00-04:00",
             artifact_instance_id="artifact-1",
             review_outcome="ready",
             scoring_readiness="ready",
@@ -324,6 +326,7 @@ def test_applicable_moderation_returns_candidates_without_heuristic_choice(
     candidates = (
         SimpleNamespace(
             moderation_record_id="moderation-general",
+            moderated_at="2026-10-12T19:58:00-04:00",
             evidence_reference=evidence,
             target_subject_references=(),
             status="accepted",
@@ -333,6 +336,7 @@ def test_applicable_moderation_returns_candidates_without_heuristic_choice(
         ),
         SimpleNamespace(
             moderation_record_id="moderation-student",
+            moderated_at="2026-10-13T10:06:00-04:00",
             evidence_reference=evidence,
             target_subject_references=(
                 SubjectReference(

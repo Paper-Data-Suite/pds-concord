@@ -28,6 +28,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -130,7 +131,10 @@ def _choose_kind(title: str = "Choose a Preset Type") -> str:
 
 
 def _summary_label(item: PresetSummary) -> str:
-    return f"{item.name} ({item.preset_id}) - {item.status}"
+    return (
+        f"{item.name} - {item.status.replace('_', ' ')} "
+        f"(saved revision {item.revision})"
+    )
 
 
 def _choose_preset(
@@ -147,7 +151,10 @@ def _choose_preset(
     return select_one(
         title,
         items,
-        tuple(_summary_label(item) for item in items),
+        distinguish_equal_labels(
+            tuple(_summary_label(item) for item in items),
+            noun="preset choice",
+        ),
         help_text=(
             "Choose one saved preset. Revision details remain hidden unless viewed."
         ),
@@ -156,7 +163,10 @@ def _choose_preset(
 
 def _list(kind: str) -> None:
     items = list_presets(kind, include_retired=True)
-    lines = tuple(_summary_label(item) for item in items)
+    lines = distinguish_equal_labels(
+        tuple(_summary_label(item) for item in items),
+        noun="preset choice",
+    )
     if not lines:
         lines = (f"No reusable {_kind_label(kind)} presets are available.",)
     show_result(f"Saved {_kind_label(kind)} Presets", lines)
