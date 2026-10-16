@@ -1,4 +1,4 @@
-"""Validate the Concord v0.3.2 release artifacts."""
+"""Validate the Concord v0.3.3 release artifacts."""
 
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-RELEASE_VERSION = "0.3.2"
-EXPECTED_WHEEL = "pds_concord-0.3.2-py3-none-any.whl"
-EXPECTED_SDIST = "pds_concord-0.3.2.tar.gz"
-EXPECTED_DIST_INFO = "pds_concord-0.3.2.dist-info"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
+RELEASE_VERSION = "0.3.3"
+EXPECTED_WHEEL = "pds_concord-0.3.3-py3-none-any.whl"
+EXPECTED_SDIST = "pds_concord-0.3.3.tar.gz"
+EXPECTED_DIST_INFO = "pds_concord-0.3.3.dist-info"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_RUNTIME_REQUIREMENTS = (
-    "pds-core>=0.6.5,<0.7",
+    "pds-core>=0.6.6,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",

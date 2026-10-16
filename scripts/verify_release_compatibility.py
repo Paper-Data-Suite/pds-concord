@@ -1,4 +1,4 @@
-"""Verify the Concord v0.3.2 release package and frozen public boundary."""
+"""Verify the Concord v0.3.3 release package and frozen public boundary."""
 
 from __future__ import annotations
 
@@ -30,11 +30,11 @@ from concord.pds_contract import (
 from concord.pds_publication import get_publication_producer_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.3.2"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
+RELEASE_VERSION = "0.3.3"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_RUNTIME_REQUIREMENTS = (
-    "pds-core>=0.6.5,<0.7",
+    "pds-core>=0.6.6,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",
@@ -74,7 +74,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the current v0.3.2 release boundary has drifted."""
+    """Raised when the current v0.3.3 release boundary has drifted."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -385,7 +385,7 @@ def validate_release_compatibility() -> None:
         )
     if version_literals != [RELEASE_VERSION]:
         raise ReleaseCompatibilityError(
-            "Concord must have exactly one authoritative 0.3.2 release version literal"
+            "Concord must have exactly one authoritative 0.3.3 release version literal"
         )
     validate_release_metadata(project, version_literals[0])
     validate_sibling_import_isolation()
@@ -462,7 +462,7 @@ def main() -> int:
         print(f"Release compatibility audit failed: {error}")
         return 1
     print(
-        "Concord v0.3.2 release compatibility passed: Core >=0.6.5,<0.7; "
+        "Concord v0.3.3 release compatibility passed: Core >=0.6.6,<0.7; "
         "contracts/profile/reader-support exact; reader consumer-neutral; "
         "Artifact gate separate; sibling and grading/selection policy absent."
     )

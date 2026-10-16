@@ -18,10 +18,10 @@ def _source() -> str:
     return HARNESS.read_text(encoding="utf-8")
 
 
-def test_issue129_candidate_version_is_031() -> None:
+def test_issue129_harness_is_frozen_but_candidate_advances() -> None:
     assert VERSION.read_text(encoding="utf-8") == (
         '"""Authoritative Concord package version."""\n\n'
-        '__version__ = "0.3.2"\n'
+        '__version__ = "0.3.3"\n'
     )
 
 
@@ -93,9 +93,9 @@ def test_issue129_installed_harness_has_no_source_or_fixture_bypass() -> None:
     assert "from tests" not in source
 
 
-def test_issue129_slice8_promotes_active_release_validators() -> None:
+def test_issue134_active_release_validators_follow_core066() -> None:
     source = (ROOT / "scripts" / "verify_release_artifacts.py").read_text(
         encoding="utf-8"
     )
-    assert 'RELEASE_VERSION = "0.3.2"' in source
-    assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")' in source
+    assert 'RELEASE_VERSION = "0.3.3"' in source
+    assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.6,<0.7")' in source
