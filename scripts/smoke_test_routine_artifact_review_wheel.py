@@ -350,6 +350,7 @@ def _smoke_code() -> str:
 
             real_show_activity = show_activity
             real_list_artifacts = list_artifacts
+            real_teacher_choices = artifact_menu.list_teacher_artifact_choices
             real_inspect_next = inspect_next_artifact_review
             real_inspect_routine = inspect_artifact_routine_review
             real_record_routine = record_routine_artifact_review
@@ -365,6 +366,19 @@ def _smoke_code() -> str:
                 return real_list_artifacts(
                     class_id,
                     activity_id,
+                    workspace_root=root,
+                )
+
+            def teacher_choices_bound(
+                class_id: str,
+                activity_id: str,
+                *,
+                expected_snapshot_revision: int | None = None,
+            ) -> object:
+                return real_teacher_choices(
+                    class_id,
+                    activity_id,
+                    expected_snapshot_revision=expected_snapshot_revision,
                     workspace_root=root,
                 )
 
@@ -453,9 +467,27 @@ def _smoke_code() -> str:
                 ACTIVITY_ID,
                 workspace_root=root,
             ).summary
+            teacher_choices = teacher_choices_bound(
+                CLASS_ID,
+                ACTIVITY_ID,
+                expected_snapshot_revision=activity.snapshot_revision,
+            )
+            assert tuple(
+                choice.summary.artifact_instance_id for choice in teacher_choices
+            ) == ("artifact-1", "artifact-2")
+            assert all(
+                choice.summary.artifact_instance_id not in choice.label
+                for choice in teacher_choices
+            )
+            stage("snapshot-scoped teacher Artifact choice projection")
             with (
                 patch.object(artifact_menu, "_latest", latest_bound),
                 patch.object(artifact_menu, "list_artifacts", list_bound),
+                patch.object(
+                    artifact_menu,
+                    "list_teacher_artifact_choices",
+                    teacher_choices_bound,
+                ),
                 patch.object(
                     artifact_menu,
                     "inspect_next_artifact_review",
