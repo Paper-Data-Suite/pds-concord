@@ -110,4 +110,4 @@ def test_issue110_structural_acceptance_records_1_10_30_and_bounded_commit() -> 
 
 def test_issue110_historical_floor_is_superseded_by_issue129_core065() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.5,<0.7"' in text
+    assert '"pds-core>=0.6.6,<0.7"' in text

@@ -12,7 +12,7 @@ import venv
 from pathlib import Path
 
 EXPECTED_CORE_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 )
 
 

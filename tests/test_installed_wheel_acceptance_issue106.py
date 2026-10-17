@@ -26,9 +26,9 @@ def test_issue106_installed_smoke_compiles_and_isolated() -> None:
         '"pip", "check"',
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
-        'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.2"',
-        "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18",
+        'metadata.version("pds-core") == "0.6.6"',
+        'metadata.version("pds-concord") == "0.3.3"',
+        "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301",
         "Issue #106 candidate wheel SHA-256:",
         "Issue #106 Core wheel SHA-256:",
     )
