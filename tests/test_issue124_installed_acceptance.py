@@ -15,8 +15,8 @@ RELEASE_CHECK = ROOT / "scripts" / "verify_release_artifacts.py"
 CORE_064_SHA256 = (
     "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
 )
-CORE_065_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+CORE_066_SHA256 = (
+    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 )
 CORE_063_SHA256 = (
     "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
@@ -51,9 +51,9 @@ def test_issue124_installed_smoke_compiles_and_authenticates_core064() -> None:
         '"pip", "install"',
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
-        'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.2"',
-        CORE_065_SHA256,
+        'metadata.version("pds-core") == "0.6.6"',
+        'metadata.version("pds-concord") == "0.3.3"',
+        CORE_066_SHA256,
         "Issue #124 candidate wheel SHA-256:",
         "Issue #124 Core wheel SHA-256:",
     )
@@ -99,12 +99,12 @@ def test_issue124_installed_smoke_covers_path_and_provenance_boundaries() -> Non
 
 def test_issue124_active_core_verifier_is_now_core065() -> None:
     verifier = CORE_VERIFY.read_text(encoding="utf-8")
-    assert 'EXPECTED_CORE_VERSION = "0.6.5"' in verifier
+    assert 'EXPECTED_CORE_VERSION = "0.6.6"' in verifier
     assert (
-        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.5-py3-none-any.whl"'
+        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.6-py3-none-any.whl"'
         in verifier
     )
-    assert CORE_065_SHA256 in verifier
+    assert CORE_066_SHA256 in verifier
     assert CORE_063_SHA256 not in verifier
 
     for relative in REPINNED_SMOKES:
@@ -116,7 +116,7 @@ def test_issue124_active_core_verifier_is_now_core065() -> None:
 
 def test_issue124_historical_floor_is_superseded_by_issue129_core065() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.5,<0.7"' in text
+    assert '"pds-core>=0.6.6,<0.7"' in text
 
 
 def test_issue124_installed_smoke_is_wired_into_authoritative_validator() -> None:

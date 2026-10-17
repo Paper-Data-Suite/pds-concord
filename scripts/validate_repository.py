@@ -380,21 +380,23 @@ def validate(
                 timings=timings,
             )
 
+        # The published v0.3.2/Core 0.6.5 acceptance stays frozen as
+        # historical evidence. Qualify the new candidate in a separate lane.
         with tempfile.TemporaryDirectory(
-            prefix="pds-concord-issue129-final-"
-        ) as issue129_work:
+            prefix="pds-concord-issue134-core066-"
+        ) as issue134_work:
             _run(
                 [
                     python,
-                    "scripts/run_issue129_installed_acceptance.py",
+                    "scripts/run_issue134_installed_acceptance.py",
                     "--repository",
                     str(ROOT),
                     "--work",
-                    issue129_work,
+                    issue134_work,
                     "--core-wheel",
                     str(core_wheel),
                 ],
-                phase="installed-wheel smoke: issue #129 Core 0.6.5 reader contract",
+                phase="installed-wheel smoke: issue #134 Core 0.6.6 reader contract",
                 timings=timings,
             )
 

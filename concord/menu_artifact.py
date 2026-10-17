@@ -27,6 +27,10 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -135,6 +139,19 @@ from concord.workflows.moderation import (
     replace_moderation_record,
     show_moderation_record,
 )
+from concord.workflows.returned_assembly_versions import (
+    list_verified_assembly_versions,
+)
+from concord.workflows.teacher_artifact_choices import (
+    TeacherArtifactChoice,
+    list_teacher_artifact_choices,
+)
+from concord.workflows.teacher_evidence_chronology import (
+    display_recorded_time,
+    instant,
+    occurrence_labels,
+    ordered_occurrences,
+)
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -231,23 +248,25 @@ def _list_pages(activity: ActivitySummary) -> None:
     if not pages:
         show_result("Artifact Pages", ("No Artifact Pages have been prepared.",))
         return
+    labels = distinguish_equal_labels(
+        tuple(
+            f"Page {item.page_number} - {item.page_status.replace('_', ' ')}"
+            for item in pages
+        ), noun="page choice",
+    )
     page = select_one(
         "Artifact Pages",
         pages,
-        [
-            f"{item.artifact_page_id}  page {item.page_number}  [{item.page_status}]"
-            for item in pages
-        ],
-        help_text="Navigate every prepared page, then choose one for compact detail.",
+        labels,
+        help_text="Choose an exact Page; matching numbers may be separate work.",
     )
     show_result(
         "Artifact Page Detail",
         (
-            f"Page: {page.artifact_page_id}",
-            f"Artifact: {page.artifact_instance_id}",
-            f"Physical page: {page.page_number}",
-            f"Status: {page.page_status}",
-            f"Route: {page.route_id or '-'}",
+            f"Page: {page.page_number}",
+            f"Status: {page.page_status.replace('_', ' ')}",
+            f"Route prepared: {'yes' if page.route_id else 'not yet'}",
+            "The exact Page and route references remain preserved.",
         ),
     )
 
@@ -288,35 +307,46 @@ def _render(activity: ActivitySummary, state: MenuSessionContext) -> None:
         ),
     )
 
-def _choose_artifact(activity: ActivitySummary, *, title: str) -> ArtifactSummary:
-    artifacts = list_artifacts(activity.class_id, activity.activity_id)
+def _choose_artifact_choice(
+    activity: ActivitySummary, *, title: str
+) -> TeacherArtifactChoice:
+    choices = list_teacher_artifact_choices(
+        activity.class_id,
+        activity.activity_id,
+    )
     return select_one(
         title,
-        artifacts,
-        [
-            (
-                f"{item.artifact_instance_id}  [{item.artifact_status}]  "
-                f"returned {item.returned_required_page_count}/"
-                f"{item.required_return_page_count}"
-            )
-            for item in artifacts
-        ],
-        help_text="Choose the Artifact Instance for this exact operation.",
+        choices,
+        tuple(item.label for item in choices),
+        help_text=(
+            "Choose the correct Group, Session and returned-work status. "
+            "Work copy numbers distinguish identical labels, not chronology."
+        ),
     )
 
 
+def _choose_artifact(activity: ActivitySummary, *, title: str) -> ArtifactSummary:
+    """Keep existing callers' exact, typed Artifact identity contract."""
+    return _choose_artifact_choice(activity, title=title).summary
+
+
 def _list_artifacts(activity: ActivitySummary) -> None:
-    artifact = _choose_artifact(activity, title="Artifacts")
+    choice = _choose_artifact_choice(activity, title="Artifacts")
+    artifact = choice.summary
     detail = show_artifact(
         activity.class_id,
         activity.activity_id,
         artifact.artifact_instance_id,
     )
     item = detail.summary
+    if item.snapshot_revision != artifact.snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "The selected work changed. Refresh and choose it again."
+        )
     show_result(
         "Artifact Detail",
         (
-            f"Artifact: {item.artifact_instance_id}",
+            f"Work: {choice.label}",
             f"Category: {item.artifact_category}",
             f"Status: {item.artifact_status}",
             (
@@ -326,8 +356,8 @@ def _list_artifacts(activity: ActivitySummary) -> None:
             ),
             f"Authors: {item.current_author_count}",
             f"Subjects: {item.current_subject_count}",
-            f"Session: {detail.session_id or '-'}",
-            f"Group: {detail.group_id or '-'}",
+            f"Session: {choice.session_label}",
+            f"Group: {choice.group_label}",
             f"Privacy: {detail.privacy_classification}",
         ),
     )
@@ -349,19 +379,16 @@ def _assembly_selections(
     for page_id, candidates in grouped.items():
         if len(candidates) < 2:
             continue
+        ordered = ordered_occurrences(tuple(candidates))
         selected = select_one(
-            f"Choose Returned Occurrence - Page {candidates[0].logical_page_number}",
-            tuple(candidates),
-            [
-                (
-                    f"Scan {item.source_scan_id}; source page "
-                    f"{item.source_page_number}; ref {item.scan_reference_id}"
-                )
-                for item in candidates
-            ],
+            f"Choose Returned Occurrence - Page {ordered[0].logical_page_number}",
+            ordered,
+            occurrence_labels(ordered),
             help_text=(
                 "Several retained physical occurrences exist for this Artifact Page. "
-                "Choose the exact occurrence for this assembly only."
+                "Choose the exact occurrence for this assembly only. "
+                "Routed time is not necessarily physical scan time. "
+                "Equal recorded times do not establish which scan is newer."
             ),
         )
         selections.append(
@@ -422,7 +449,8 @@ def open_returned_work(activity: ActivitySummary) -> None:
     """Open one exact existing returned Artifact without changing workflow state."""
     try:
         current = _latest(activity)
-        artifact = _choose_artifact(current, title="Open Returned Work")
+        choice = _choose_artifact_choice(current, title="Open Returned Work")
+        artifact = choice.summary
         selections = _assembly_selections(current, artifact)
         open_returned_artifact_evidence(
             current.class_id,
@@ -432,10 +460,12 @@ def open_returned_work(activity: ActivitySummary) -> None:
             expected_snapshot_revision=current.snapshot_revision,
         )
         show_result(
-            "Returned Work Opened",
+            "Returned Work Viewer Requested",
             (
-                "Returned work opened in your default PDF viewer.",
-                "Opening this evidence did not Review, Moderate, or Score the work.",
+                f"Selected work: {choice.label}",
+                "Requested opening in your default PDF viewer.",
+                "This does not prove the viewer displayed the PDF.",
+                "Opening did not Review, Moderate, or Score the work.",
             ),
         )
     except CancelMenuAction:
@@ -449,16 +479,106 @@ def open_returned_work(activity: ActivitySummary) -> None:
         )
 
 
+def open_verified_assembly_version(activity: ActivitySummary) -> None:
+    """Choose and open one previously assembled, still-verified PDF version."""
+    try:
+        current = _latest(activity)
+        choice = _choose_artifact_choice(current, title="Assembly Version History")
+        artifact = choice.summary
+        versions = list_verified_assembly_versions(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+            expected_snapshot_revision=current.snapshot_revision,
+        )
+        if not versions:
+            show_result(
+                "Assembly Version History",
+                (
+                    f"Selected work: {choice.label}",
+                    "No previously assembled version is available.",
+                    "Choose Assemble returned work to create an exact version.",
+                ),
+            )
+            return
+        timestamps = [instant(item.assembled_at) for item in versions]
+        labels = []
+        for item in versions:
+            when = display_recorded_time(item.assembled_at)
+            tied = timestamps.count(instant(item.assembled_at)) > 1
+            order_note = (
+                "same recorded time; order uncertain" if tied else
+                "recorded assembly creation time"
+            )
+            attention = {
+                "newer": " | Newer routed evidence available",
+                "additional_uncertain": (
+                    " | Additional evidence; chronology uncertain"
+                ),
+                "none": "",
+            }[item.newer_evidence_status]
+            labels.append(
+                f"Assembled {when} ({order_note}) | "
+                f"{item.page_count} pages{attention}"
+            )
+        selected = select_one(
+            "Open a Verified Assembly Version",
+            versions,
+            tuple(labels),
+            help_text=(
+                "Choose one exact verified older or newer assembly. "
+                "Assembly-created time is not scan-routed time. "
+                "This does not establish which version was reviewed or scored."
+            ),
+        )
+        # Core's safe local opener runs only after the exact lineage, canonical
+        # snapshot, retained sources, manifest and PDF hash are verified AGAIN.
+        open_returned_artifact_evidence(
+            current.class_id,
+            current.activity_id,
+            artifact.artifact_instance_id,
+            selections=selected.selections,
+            expected_snapshot_revision=current.snapshot_revision,
+        )
+        show_result(
+            "Assembly Version Viewer Requested",
+            (
+                f"Selected work: {choice.label}",
+                (
+                    "Recorded assembly creation: "
+                    f"{display_recorded_time(selected.assembled_at)}"
+                ),
+                f"Pages: {selected.page_count}",
+                "Requested opening of this exact assembly in the default PDF viewer.",
+                "Viewer display cannot be confirmed automatically.",
+                "This did not change Review, Moderation, or Score state.",
+                "Historical Review/Score assembly basis is not established here.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except (ReturnToMainMenu, QuitPDS, KeyboardInterrupt, EOFError):
+        raise
+    except Exception as error:
+        show_result(
+            "Assembly Version History",
+            _open_returned_work_failure_lines(error),
+        )
+
+
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
-    artifact = _choose_artifact(current, title="Assemble Returned Artifact")
+    choice = _choose_artifact_choice(
+        current, title="Assemble Returned Artifact"
+    )
+    artifact = choice.summary
     selections = _assembly_selections(current, artifact)
     if not confirm_write(
         "Assemble Returned Artifact",
         "ASSEMBLE",
         (
             f"Activity: {current.title}",
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {choice.label}",
             f"Exact occurrence selections: {len(selections)}",
         ),
     ):
@@ -476,11 +596,14 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Returned Artifact Assembled",
         (
-            f"Artifact: {result.artifact_instance_id}",
-            f"Assembly: {result.assembly_id}",
+            f"Work: {choice.label}",
             f"Pages: {result.page_count}",
-            f"Output: {result.output_path.name}",
-            f"Reused existing exact assembly: {'yes' if result.reused else 'no'}",
+            (
+                "Existing exact assembly verified and reused."
+                if result.reused
+                else "New exact assembly created and verified."
+            ),
+            "The original scan evidence was not changed.",
         ),
     )
 
@@ -750,13 +873,13 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
         "Add Artifact Author",
         "ADD",
         (
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {artifact.artifact_status.replace('_', ' ')}",
             f"Authorship mode: {mode}",
             f"Attribution status: {status}",
         ),
     ):
         return
-    result = add_artifact_author(
+    add_artifact_author(
         AddArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -776,8 +899,8 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Artifact Author Added",
         (
-            f"Artifact Author: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Author association saved.",
+            "Use Author list to inspect its current status.",
         ),
     )
 
@@ -790,12 +913,15 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
         "Update Artifact Author",
         "UPDATE",
         (
-            f"Completed by: {selected.reference_display_label or 'Unknown'}",
+            (
+                "Completed by: "
+                f"{selected.reference_display_label or 'Participant not recorded'}"
+            ),
             f"New attribution status: {status}",
         ),
     ):
         return
-    result = update_artifact_author(
+    update_artifact_author(
         UpdateArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -808,8 +934,8 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
     show_result(
         "Artifact Author Updated",
         (
-            f"Artifact Author: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Author attribution status updated.",
+            "The previous relationship remains auditable.",
         ),
     )
 
@@ -856,7 +982,7 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
         ),
     ):
         return
-    result = replace_artifact_author(
+    replace_artifact_author(
         ReplaceArtifactAuthorRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -878,9 +1004,8 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
     show_result(
         "Artifact Author Corrected",
         (
-            f"Successor: {result.association_id}",
-            f"Correction: {correction_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "A corrected Author association was saved.",
+            "The preceding association remains in history.",
         ),
     )
 
@@ -1149,14 +1274,14 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
         "Add Artifact Subject",
         "ADD",
         (
-            f"Artifact: {artifact.artifact_instance_id}",
+            f"Work: {artifact.artifact_status.replace('_', ' ')}",
             f"Subject kind: {reference.subject_kind}",
             f"Subject role: {role}",
             f"Confirmation: {status}",
         ),
     ):
         return
-    result = add_artifact_subject(
+    add_artifact_subject(
         AddArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1174,8 +1299,8 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
     show_result(
         "Artifact Subject Added",
         (
-            f"Artifact Subject: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Subject association saved.",
+            "Use Subject list to inspect its current status.",
         ),
     )
 
@@ -1188,12 +1313,12 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
         "Update Artifact Subject",
         "UPDATE",
         (
-            f"Artifact Subject: {selected.artifact_subject_id}",
+            f"Subject: {selected.reference_display_label or 'Subject not recorded'}",
             f"New confirmation status: {status}",
         ),
     ):
         return
-    result = update_artifact_subject(
+    update_artifact_subject(
         UpdateArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1206,8 +1331,8 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
     show_result(
         "Artifact Subject Updated",
         (
-            f"Artifact Subject: {result.association_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "Subject confirmation status updated.",
+            "The previous relationship remains auditable.",
         ),
     )
 
@@ -1248,7 +1373,7 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
         ),
     ):
         return
-    result = replace_artifact_subject(
+    replace_artifact_subject(
         ReplaceArtifactSubjectRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
@@ -1268,9 +1393,8 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
     show_result(
         "Artifact Subject Corrected",
         (
-            f"Successor: {result.association_id}",
-            f"Correction: {correction_id}",
-            f"Snapshot: {result.commit.snapshot_revision}",
+            "A corrected Subject association was saved.",
+            "The preceding association remains in history.",
         ),
     )
 
@@ -1448,7 +1572,8 @@ def _review_values() -> tuple[
 def _review_label(item: ArtifactReviewSummary) -> str:
     state = "current" if item.is_current else "historical"
     return (
-        f"{item.artifact_instance_id} - {item.review_outcome.replace('_', ' ')} - "
+        f"{teacher_recorded_instant(item.reviewed_at, kind='Reviewed')} - "
+        f"{item.review_outcome.replace('_', ' ')} - "
         f"{item.scoring_readiness.replace('_', ' ')} [{state}]"
     )
 
@@ -1457,9 +1582,8 @@ def _show_review_detail(item: ArtifactReviewSummary) -> None:
     show_result(
         "Artifact Review Detail",
         (
-            f"Artifact: {item.artifact_instance_id}",
-            f"Review: {item.artifact_review_id}",
-            f"Reviewer: {item.reviewer_display_label or '-'}",
+            f"Reviewer: {item.reviewer_display_label or 'Not recorded'}",
+            "Exact reviewed scan version not recorded in Review metadata.",
             f"Reviewed at: {item.reviewed_at}",
             f"Readability: {item.readability_judgment}",
             f"Page completeness: {item.page_completeness_judgment}",
@@ -1488,7 +1612,7 @@ def _view_current_review(activity: ActivitySummary) -> None:
     if item is None:
         show_result(
             "Artifact Review",
-            (f"Artifact {artifact.artifact_instance_id} has no current Review.",),
+            ("The selected work has no current Review.",),
         )
         return
     _show_review_detail(item)
@@ -1503,7 +1627,10 @@ def _view_review_history(activity: ActivitySummary) -> None:
     selected = select_one(
         "Artifact Review History",
         items,
-        [_review_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_review_label(item) for item in items),
+            noun="Review choice",
+        ),
         help_text="Choose an exact preserved Review record to inspect.",
     )
     _show_review_detail(
@@ -1800,6 +1927,7 @@ def _review_next_artifact_summary(
     activity: ActivitySummary,
     artifact_instance_id: str,
 ) -> ArtifactSummary:
+    """Preserve the exact-selection contract used by earlier Review-next flows."""
     matches = tuple(
         item
         for item in list_artifacts(activity.class_id, activity.activity_id)
@@ -1807,13 +1935,44 @@ def _review_next_artifact_summary(
     )
     if not matches:
         raise ConcordWorkflowNotFoundError(
-            "The next Artifact awaiting Review is no longer available."
+            "The next work awaiting Review is no longer available."
         )
     if len(matches) != 1:
         raise ConcordWorkflowConflictError(
-            "The next Artifact awaiting Review is not unique."
+            "The next work awaiting Review is not unique."
         )
     return matches[0]
+
+
+def _review_next_artifact_choice(
+    activity: ActivitySummary,
+    artifact_instance_id: str,
+) -> TeacherArtifactChoice:
+    """Select exact Review-next work from one canonical teacher projection."""
+    choices = list_teacher_artifact_choices(
+        activity.class_id,
+        activity.activity_id,
+        expected_snapshot_revision=activity.snapshot_revision,
+    )
+    matches = tuple(
+        item
+        for item in choices
+        if item.summary.artifact_instance_id == artifact_instance_id
+    )
+    if not matches:
+        raise ConcordWorkflowNotFoundError(
+            "The next work awaiting Review is no longer available."
+        )
+    if len(matches) != 1:
+        raise ConcordWorkflowConflictError(
+            "The next work awaiting Review is not unique."
+        )
+    choice = matches[0]
+    if choice.summary.snapshot_revision != activity.snapshot_revision:
+        raise ConcordWorkflowConflictError(
+            "Returned-work context changed. Refresh and select it again."
+        )
+    return choice
 
 
 def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
@@ -1830,10 +1989,11 @@ def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
             )
             return
 
-        artifact = _review_next_artifact_summary(
+        choice = _review_next_artifact_choice(
             current,
             next_item.artifact.artifact_instance_id,
         )
+        artifact = choice.summary
         context = inspect_artifact_routine_review(
             current.class_id,
             current.activity_id,
@@ -1849,7 +2009,7 @@ def _review_next(activity: ActivitySummary, state: MenuSessionContext) -> None:
             show_result(
                 "Review Next",
                 (
-                    f"Artifact: {artifact.artifact_instance_id}",
+                    f"Selected work: {choice.label}",
                     "This next first-Review Artifact requires Detailed Review.",
                     *reasons,
                     "It will not be skipped.",
@@ -2335,14 +2495,11 @@ def _moderation_values() -> tuple[str, str, str, str | None, PrivacyPolicy]:
 
 def _moderation_label(item: ModerationSummary) -> str:
     evidence = item.evidence_reference
-    scope = ", ".join(
-        f"{subject.subject_kind}:{subject.subject_id}"
-        for subject in item.target_subject_references
-    )
     state = "current" if item.is_current else "historical"
     return (
-        f"{evidence.owning_system}:{evidence.evidence_kind}:{evidence.record_id} - "
-        f"{scope or 'general'} - {item.status} - {item.permitted_use} [{state}]"
+        f"{teacher_recorded_instant(item.moderated_at, kind='Moderated')} - "
+        f"{evidence.evidence_kind.replace('_', ' ')} evidence - "
+        f"{item.status.replace('_', ' ')} - {item.permitted_use} [{state}]"
     )
 
 
@@ -2355,7 +2512,10 @@ def _show_moderation(activity: ActivitySummary) -> None:
     selected = select_one(
         "Moderation Decisions",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text="Choose one exact Moderation decision to inspect.",
     )
     detail = show_moderation_record(
@@ -2368,21 +2528,18 @@ def _show_moderation(activity: ActivitySummary) -> None:
     show_result(
         "Moderation Detail",
         (
-            f"Moderation: {item.moderation_record_id}",
+            f"Decision: {item.status.replace('_', ' ')}",
             (
                 "Evidence: "
-                f"{evidence.owning_system}:{evidence.evidence_kind}:"
-                f"{evidence.record_id}"
+                f"{evidence.evidence_kind.replace('_', ' ')} "
+                f"(source: {evidence.owning_system})"
             ),
             (
                 "Subject scope: "
-                + (
-                    ", ".join(
-                        f"{subject.subject_kind}:{subject.subject_id}"
-                        for subject in item.target_subject_references
-                    )
-                    or "general"
-                )
+                + (", ".join(
+                    subject.subject_kind.replace("_", " ")
+                    for subject in item.target_subject_references
+                ) or "general")
             ),
             f"Status: {item.status}",
             f"Permitted use: {item.permitted_use}",
@@ -2462,7 +2619,10 @@ def _replace_moderation(
     predecessor = select_one(
         "Revise Current Moderation",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text=(
             "Revision preserves the predecessor's exact evidence and Subject scope."
         ),
@@ -2550,7 +2710,10 @@ def _view_applicable_moderation(activity: ActivitySummary) -> None:
     selected = select_one(
         "Applicable Moderation",
         items,
-        [_moderation_label(item) for item in items],
+        distinguish_equal_labels(
+            tuple(_moderation_label(item) for item in items),
+            noun="Moderation choice",
+        ),
         help_text=(
             "All applicable current decisions are returned; Concord does not "
             "choose one by timestamp or ID."
@@ -3160,6 +3323,7 @@ def launch_collect_work_menu(
         print("3. Review attribution")
         print("4. Advanced attribution tools")
         print("O. Open returned work")
+        print("V. Open a verified saved assembly version")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3192,6 +3356,8 @@ def launch_collect_work_menu(
                 _launch_advanced_attribution_menu(activity, state)
             elif choice.upper() == "O":
                 open_returned_work(activity)
+            elif choice.upper() == "V":
+                open_verified_assembly_version(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
@@ -3217,6 +3383,7 @@ def launch_review_work_menu(
         print("2. Moderation")
         print("3. Score this work")
         print("O. Open returned work")
+        print("V. Open a verified saved assembly version")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3251,6 +3418,8 @@ def launch_review_work_menu(
                 _score_selected_artifact(activity, state)
             elif choice.upper() == "O":
                 open_returned_work(activity)
+            elif choice.upper() == "V":
+                open_verified_assembly_version(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()

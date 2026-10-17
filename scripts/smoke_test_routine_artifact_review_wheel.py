@@ -12,7 +12,7 @@ import venv
 from pathlib import Path
 
 EXPECTED_CORE_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 )
 
 
@@ -146,8 +146,8 @@ def _smoke_code() -> str:
 
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
-        assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.2"
+        assert metadata.version("pds-core") == "0.6.6"
+        assert metadata.version("pds-concord") == "0.3.3"
         stage("isolated installed provenance")
 
         with tempfile.TemporaryDirectory(
@@ -350,6 +350,7 @@ def _smoke_code() -> str:
 
             real_show_activity = show_activity
             real_list_artifacts = list_artifacts
+            real_teacher_choices = artifact_menu.list_teacher_artifact_choices
             real_inspect_next = inspect_next_artifact_review
             real_inspect_routine = inspect_artifact_routine_review
             real_record_routine = record_routine_artifact_review
@@ -365,6 +366,19 @@ def _smoke_code() -> str:
                 return real_list_artifacts(
                     class_id,
                     activity_id,
+                    workspace_root=root,
+                )
+
+            def teacher_choices_bound(
+                class_id: str,
+                activity_id: str,
+                *,
+                expected_snapshot_revision: int | None = None,
+            ) -> object:
+                return real_teacher_choices(
+                    class_id,
+                    activity_id,
+                    expected_snapshot_revision=expected_snapshot_revision,
                     workspace_root=root,
                 )
 
@@ -453,9 +467,27 @@ def _smoke_code() -> str:
                 ACTIVITY_ID,
                 workspace_root=root,
             ).summary
+            teacher_choices = teacher_choices_bound(
+                CLASS_ID,
+                ACTIVITY_ID,
+                expected_snapshot_revision=activity.snapshot_revision,
+            )
+            assert tuple(
+                choice.summary.artifact_instance_id for choice in teacher_choices
+            ) == ("artifact-1", "artifact-2")
+            assert all(
+                choice.summary.artifact_instance_id not in choice.label
+                for choice in teacher_choices
+            )
+            stage("snapshot-scoped teacher Artifact choice projection")
             with (
                 patch.object(artifact_menu, "_latest", latest_bound),
                 patch.object(artifact_menu, "list_artifacts", list_bound),
+                patch.object(
+                    artifact_menu,
+                    "list_teacher_artifact_choices",
+                    teacher_choices_bound,
+                ),
                 patch.object(
                     artifact_menu,
                     "inspect_next_artifact_review",
@@ -556,7 +588,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
     core_sha = _sha256(core_wheel)
     if core_sha != EXPECTED_CORE_SHA256:
         raise RuntimeError(
-            "Issue #107 requires the exact released Core 0.6.5 qualification wheel."
+            "Issue #107 requires the exact released Core 0.6.6 qualification wheel."
         )
 
     print(f"Issue #107 candidate wheel SHA-256: {_sha256(concord_wheel)}", flush=True)

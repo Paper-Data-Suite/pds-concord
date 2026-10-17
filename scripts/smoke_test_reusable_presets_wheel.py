@@ -84,8 +84,8 @@ def _smoke_code() -> str:
             revise_scoring_scale_preset,
         )
 
-        assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.2"
+        assert metadata.version("pds-core") == "0.6.6"
+        assert metadata.version("pds-concord") == "0.3.3"
 
         with tempfile.TemporaryDirectory(prefix="concord-presets-installed-") as raw:
             root = ensure_workspace_root(Path(raw) / "workspace")

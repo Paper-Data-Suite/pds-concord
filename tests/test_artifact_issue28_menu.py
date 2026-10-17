@@ -59,8 +59,13 @@ def test_author_nested_navigation_unwinds(
     monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
     monkeypatch.setattr(
         menu_artifact,
-        "list_artifacts",
-        lambda *_args, **_kwargs: (artifact,),
+        "list_teacher_artifact_choices",
+        lambda *_args, **_kwargs: (
+            SimpleNamespace(
+                summary=artifact,
+                label="Group 1 | Session 1 | returned",
+            ),
+        ),
     )
     answers = iter(("6", "2", key))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
@@ -89,8 +94,13 @@ def test_unknown_author_menu_creates_reference_free_request(
     monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
     monkeypatch.setattr(
         menu_artifact,
-        "list_artifacts",
-        lambda *_args, **_kwargs: (artifact,),
+        "list_teacher_artifact_choices",
+        lambda *_args, **_kwargs: (
+            SimpleNamespace(
+                summary=artifact,
+                label="Group 1 | Session 1 | returned",
+            ),
+        ),
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -139,6 +149,7 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
             scan_reference_id="scanref-1",
             source_scan_id="scan-1",
             source_page_number=1,
+                routed_at="2026-10-14T14:12:00-04:00",
         ),
         SimpleNamespace(
             artifact_page_id="page-1",
@@ -146,6 +157,7 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
             scan_reference_id="scanref-2",
             source_scan_id="scan-2",
             source_page_number=1,
+                routed_at="2026-10-12T10:06:00-04:00",
         ),
     )
     captured = []
@@ -159,8 +171,13 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
     monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
     monkeypatch.setattr(
         menu_artifact,
-        "list_artifacts",
-        lambda *_args, **_kwargs: (artifact,),
+        "list_teacher_artifact_choices",
+        lambda *_args, **_kwargs: (
+            SimpleNamespace(
+                summary=artifact,
+                label="Group 1 | Session 1 | returned",
+            ),
+        ),
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -201,8 +218,13 @@ def test_subject_menu_adds_group_subject_without_collapsing_identity(
     monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
     monkeypatch.setattr(
         menu_artifact,
-        "list_artifacts",
-        lambda *_args, **_kwargs: (artifact,),
+        "list_teacher_artifact_choices",
+        lambda *_args, **_kwargs: (
+            SimpleNamespace(
+                summary=artifact,
+                label="Group 1 | Session 1 | returned",
+            ),
+        ),
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -270,8 +292,13 @@ def test_coauthor_and_recorder_for_group_menu_flows_are_explicit(
     monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
     monkeypatch.setattr(
         menu_artifact,
-        "list_artifacts",
-        lambda *_args, **_kwargs: (artifact,),
+        "list_teacher_artifact_choices",
+        lambda *_args, **_kwargs: (
+            SimpleNamespace(
+                summary=artifact,
+                label="Group 1 | Session 1 | returned",
+            ),
+        ),
     )
     monkeypatch.setattr(
         menu_artifact,

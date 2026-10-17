@@ -337,45 +337,42 @@ def _publication_status(activity: ActivitySummary) -> None:
     state = load_concord_publication_series_status(
         activity.class_id, activity.activity_id, workspace_root=_root()
     )
+    current_id = (
+        state.current_selectable_publication.publication_id
+        if state.current_selectable_publication else None
+    )
+    head_id = state.core_head.publication_id if state.core_head else None
+    withdrawn_ids = {item.publication_id for item in state.withdrawals}
     lines = [
-        (
-            "Producer manifest head: "
-            + (str(state.producer_head.revision) if state.producer_head else "none")
+        f"Activity: {activity.title}",
+        "Producer manifest: " + (
+            f"revision {state.producer_head.revision}"
+            if state.producer_head else "not generated"
         ),
-        (
-            "Core structural head: "
-            + (state.core_head.publication_id if state.core_head else "none")
+        "Structural publication: " + (
+            "none" if head_id is None
+            else ("withdrawn" if state.core_head_withdrawal else "available")
         ),
-        f"Core head withdrawn: {'yes' if state.core_head_withdrawal else 'no'}",
-        (
-            "Current selectable publication: "
-            + (
-                state.current_selectable_publication.publication_id
-                if state.current_selectable_publication
-                else "none"
-            )
-        ),
-        (
-            "Current registration revision: "
-            + (
-                str(state.current_registration_revision)
-                if state.current_registration_revision is not None
-                else "none"
-            )
+        "Current selectable publication: " + (
+            "none" if current_id is None else "available"
         ),
         f"Catalog available: {'yes' if state.catalog_available else 'no'}",
         f"Catalog rows: {len(state.catalog_rows)}",
+        "Publication history (revision order, not creation order):",
     ]
     for publication in state.publications:
-        withdrawn = any(
-            item.publication_id == publication.publication_id
-            for item in state.withdrawals
-        )
-        lines.append(
-            f"Revision {publication.record_set_revision}: "
-            f"{publication.publication_id} "
-            f"({'withdrawn' if withdrawn else 'active history'})"
-        )
+        identity = publication.publication_id
+        if identity in withdrawn_ids:
+            status = "withdrawn"
+        elif identity == current_id:
+            status = "current selectable"
+        elif identity == head_id:
+            status = "structural head; not currently selectable"
+        else:
+            status = "historical; not current"
+        lines.append(f"Revision {publication.record_set_revision}: {status}")
+    if not state.publications:
+        lines.append("No publications recorded.")
     show_result("Publication History / Status", tuple(lines))
 
 

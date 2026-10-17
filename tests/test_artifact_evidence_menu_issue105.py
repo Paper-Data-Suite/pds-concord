@@ -59,8 +59,10 @@ def test_shared_open_returned_work_uses_exact_selection_without_writes(
     monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
     monkeypatch.setattr(
         artifact_module,
-        "_choose_artifact",
-        lambda _activity, *, title: artifact,
+        "_choose_artifact_choice",
+        lambda _activity, *, title: SimpleNamespace(
+            summary=artifact, label="Example returned work"
+        ),
     )
     monkeypatch.setattr(
         artifact_module,
@@ -113,10 +115,12 @@ def test_shared_open_returned_work_uses_exact_selection_without_writes(
     assert opened == [("class-1", "activity-1", "artifact-1", selection)]
     assert shown == [
         (
-            "Returned Work Opened",
+            "Returned Work Viewer Requested",
             (
-                "Returned work opened in your default PDF viewer.",
-                "Opening this evidence did not Review, Moderate, or Score the work.",
+                "Selected work: Example returned work",
+                "Requested opening in your default PDF viewer.",
+                "This does not prove the viewer displayed the PDF.",
+                "Opening did not Review, Moderate, or Score the work.",
             ),
         )
     ]
@@ -137,8 +141,10 @@ def test_shared_open_returned_work_guides_missing_assembly_without_writing(
     monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
     monkeypatch.setattr(
         artifact_module,
-        "_choose_artifact",
-        lambda _activity, *, title: artifact,
+        "_choose_artifact_choice",
+        lambda _activity, *, title: SimpleNamespace(
+            summary=artifact, label="Example returned work"
+        ),
     )
     monkeypatch.setattr(
         artifact_module,
@@ -323,8 +329,10 @@ def test_shared_open_passes_selection_snapshot_to_verified_opener(
     monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
     monkeypatch.setattr(
         artifact_module,
-        "_choose_artifact",
-        lambda *_args, **_kwargs: artifact,
+        "_choose_artifact_choice",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            summary=artifact, label="Example returned work"
+        ),
     )
     monkeypatch.setattr(
         artifact_module,
@@ -423,8 +431,10 @@ def test_teacher_open_failures_are_controlled_and_privacy_minimal(
     monkeypatch.setattr(artifact_module, "_latest", lambda selected: selected)
     monkeypatch.setattr(
         artifact_module,
-        "_choose_artifact",
-        lambda *_args, **_kwargs: artifact,
+        "_choose_artifact_choice",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            summary=artifact, label="Example returned work"
+        ),
     )
     monkeypatch.setattr(
         artifact_module,

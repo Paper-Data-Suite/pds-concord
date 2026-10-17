@@ -26,6 +26,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -82,11 +83,16 @@ def _list_groups(activity: ActivitySummary) -> None:
     else:
         if not groups:
             print("No Groups are available.")
-        for item in groups:
-            print(
-                f"{item.label} ({item.group_id}) - {item.status}; "
+        labels = distinguish_equal_labels(
+            tuple(
+                f"{item.label} - {item.status.replace('_', ' ')}; "
                 f"members: {item.member_count}"
-            )
+                for item in groups
+            ),
+            noun="group choice",
+        )
+        for label in labels:
+            print(label)
     print()
     pause_for_user()
 
@@ -165,8 +171,8 @@ def _choose_parent_group(
         if item.group_id != current_group_id
     )
     options: tuple[GroupSummary | None, ...] = (None, *groups)
-    labels = ("No parent Group",) + tuple(
-        f"{item.label} ({item.group_id})" for item in groups
+    labels = ("No parent Group",) + distinguish_equal_labels(
+        tuple(item.label for item in groups), noun="group choice"
     )
     selected = select_one(
         "Choose Parent Group",
@@ -333,17 +339,23 @@ def _list_members(activity: ActivitySummary) -> None:
     print_menu_header("Group Memberships")
     try:
         items = list_memberships(activity.class_id, activity.activity_id)
+        groups = list_groups(activity.class_id, activity.activity_id)
     except ConcordWorkflowError as error:
         print(f"Memberships could not be loaded: {error}")
     else:
         if not items:
             print("No Memberships are available.")
-        for item in items:
-            label = (
-                item.participant_display_label
-                or item.participant_reference.participant_id
-            )
-            print(f"{label} -> {item.group_id} - {item.status}")
+        group_labels = {item.group_id: item.label for item in groups}
+        labels = distinguish_equal_labels(
+            tuple(
+                f"{item.participant_display_label or 'Participant name unavailable'} "
+                f"in {group_labels.get(item.group_id, 'Group not recorded')} "
+                f"- {item.status.replace('_', ' ')}"
+                for item in items
+            ), noun="membership choice",
+        )
+        for label in labels:
+            print(label)
     print()
     pause_for_user()
 
@@ -390,8 +402,8 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
             "Membership Result",
             (
                 f"Memberships added: {len(result.membership_ids)}",
-                f"Group: {group.group_id}",
-                f"Snapshot: {result.commit.snapshot_revision}",
+                f"Group: {group.label}",
+                "Members are recorded in the selected Activity.",
             ),
         )
     except CancelMenuAction:
@@ -420,19 +432,19 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
             "End Membership",
             "END",
             (
-                f"Membership: {membership.membership_id}",
+                "Selected group membership",
                 (
                     "Student: "
                     + (
                         membership.participant_display_label
-                        or membership.participant_reference.participant_id
+                        or "Participant name unavailable"
                     )
                 ),
                 f"Status: {status}",
             ),
         ):
             return
-        result = end_membership(
+        end_membership(
             EndMembershipRequest(
                 class_id=current.class_id,
                 activity_id=current.activity_id,
@@ -446,8 +458,7 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
             "Membership Result",
             (
                 "Membership ended.",
-                f"Membership: {result.membership_id}",
-                f"Snapshot: {result.commit.snapshot_revision}",
+                "The selected membership was ended.",
             ),
         )
     except CancelMenuAction:
@@ -482,15 +493,15 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
                     "Student: "
                     + (
                         membership.participant_display_label
-                        or membership.participant_reference.participant_id
+                        or "Participant name unavailable"
                     )
                 ),
-                f"From: {membership.group_id}",
+                "From: previously assigned Group",
                 f"To: {new_group.label}",
             ),
         ):
             return
-        result = reassign_membership(
+        reassign_membership(
             ReassignMembershipRequest(
                 class_id=current.class_id,
                 activity_id=current.activity_id,
@@ -506,9 +517,8 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
             "Membership Result",
             (
                 "Membership reassigned.",
-                f"New Membership: {result.membership_id}",
-                f"Previous Membership: {result.predecessor_membership_id}",
-                f"Snapshot: {result.commit.snapshot_revision}",
+                f"New Group: {new_group.label}",
+                "The preceding membership is retained in history.",
             ),
         )
     except CancelMenuAction:

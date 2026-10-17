@@ -47,13 +47,11 @@ def _result_lines(
     *,
     no_op: bool,
 ) -> tuple[str, ...]:
-    if no_op:
-        return (
-            "No changes were needed.",
-            f"Session: {session_id}",
-            f"Snapshot: {result_snapshot}",
-        )
-    return ("Session saved.", f"Session: {session_id}", f"Snapshot: {result_snapshot}")
+    """Human result; the exact session ID and revision remain internal."""
+    return (
+        "No Session changes were needed." if no_op else "Session saved.",
+        "Return to the Session list to see its current label and status.",
+    )
 
 
 def _handle_error(activity: ActivitySummary, error: Exception) -> None:
@@ -75,7 +73,10 @@ def _list(activity: ActivitySummary) -> None:
         if not sessions:
             print("No Sessions are available.")
         for item in sessions:
-            print(f"{item.sequence}. {item.label or item.session_id} - {item.status}")
+            print(
+                f"Session {item.sequence}: {item.label or 'Unlabeled session'} "
+                f"[{item.status.replace('_', ' ')}]"
+            )
     print()
     pause_for_user()
 
@@ -116,7 +117,7 @@ def _add(activity: ActivitySummary, state: MenuSessionContext) -> None:
             "ADD",
             (
                 f"Activity: {current.title}",
-                f"Session: {label or session_id}",
+                f"Session: {label or f'Session {sequence}'}",
                 f"Sequence: {sequence}",
                 "Status: planned",
             ),
@@ -194,7 +195,11 @@ def _edit_field(
         if not confirm_write(
             "Edit Session",
             "UPDATE",
-            (f"Session: {session.label or session.session_id}", f"Change: {display}"),
+            (
+                f"Session {session.sequence}: "
+                f"{session.label or 'Unlabeled session'}",
+                f"Change: {display}",
+            ),
         ):
             return
         request = UpdateSessionRequest(**values)  # type: ignore[arg-type]
@@ -225,7 +230,7 @@ def _edit(activity: ActivitySummary, state: MenuSessionContext) -> None:
     while True:
         clear_screen()
         print_menu_header("Edit Session")
-        print(f"Session: {session.label or session.session_id}")
+        print(f"Session {session.sequence}: {session.label or 'Unlabeled session'}")
         print()
         print("1. Label")
         print("2. Sequence")

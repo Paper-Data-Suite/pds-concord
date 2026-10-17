@@ -10,6 +10,7 @@ from concord.models import ArtifactInstance
 from concord.workflows._collaboration import load_graph, work_ref
 from concord.workflows.context import resolve_read_workspace_root
 from concord.workflows.errors import ConcordWorkflowNotFoundError
+from concord.workflows.teacher_evidence_chronology import instant
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -46,6 +47,7 @@ class ArtifactScanOccurrenceSummary:
     source_scan_id: str
     source_page_number: int
     snapshot_revision: int
+    routed_at: str | None = None
 
 
 def _current_author_ids(graph: ConcordRecordGraph) -> frozenset[str]:
@@ -224,17 +226,20 @@ def list_artifact_scan_occurrences(
                 source_scan_id=scan.source_scan_id,
                 source_page_number=scan.source_page_number,
                 snapshot_revision=revision,
+                routed_at=scan.created_provenance.timestamp,
             )
         )
-    return tuple(
-        sorted(
-            occurrences,
-            key=lambda item: (
-                page_order[item.artifact_page_id],
-                item.scan_reference_id,
-            ),
+    def _sort_key(
+        item: ArtifactScanOccurrenceSummary,
+    ) -> tuple[int, int, float, str]:
+        routed = instant(item.routed_at)
+        return (
+            page_order[item.artifact_page_id],
+            0 if routed is not None else 1,
+            -routed.timestamp() if routed is not None else 0.0,
+            item.scan_reference_id,
         )
-    )
+    return tuple(sorted(occurrences, key=_sort_key))
 
 
 __all__ = [

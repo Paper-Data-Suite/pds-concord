@@ -14,9 +14,9 @@ from packaging.utils import canonicalize_name
 from concord.starter_templates.catalog import list_starter_templates
 from concord.starter_templates.catalog_lineage import packaged_starter_asset_names
 
-EXPECTED_VERSION = "0.3.2"
+EXPECTED_VERSION = "0.3.3"
 EXPECTED_RUNTIME_REQUIREMENTS = (
-    "pds-core>=0.6.5,<0.7",
+    "pds-core>=0.6.6,<0.7",
     "Pillow>=11,<13",
     "qrcode>=8,<9",
     "pypdfium2>=4.30,<5",

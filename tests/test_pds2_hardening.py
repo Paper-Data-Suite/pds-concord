@@ -1564,7 +1564,8 @@ def test_artifact_menu_can_select_twelfth_page(
     list_pages_menu(activity)
     output = capsys.readouterr().out
     assert "Page 2 of 2" in output
-    assert "Page: page-12" in output
+    assert "Page: 12" in output
+    assert "Page: page-12" not in output
 
 
 def test_routing_review_menu_can_select_twelfth_failure(

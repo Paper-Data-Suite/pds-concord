@@ -19,8 +19,8 @@ PYPROJECT = ROOT / "pyproject.toml"
 CORE_064_SHA256 = (
     "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
 )
-CORE_065_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+CORE_066_SHA256 = (
+    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 )
 
 ISSUE114_MODULES = (
@@ -49,9 +49,9 @@ def test_issue114_installed_smoke_compiles_and_authenticates_core065() -> None:
         "venv.EnvBuilder(with_pip=True)",
         '"pip",',
         '[str(python), "-I", str(smoke_path)]',
-        'metadata.version("pds-core") == "0.6.5"',
-        'metadata.version("pds-concord") == "0.3.2"',
-        CORE_065_SHA256,
+        'metadata.version("pds-core") == "0.6.6"',
+        'metadata.version("pds-concord") == "0.3.3"',
+        CORE_066_SHA256,
         "Issue #114 candidate wheel SHA-256:",
         "Issue #114 Core wheel SHA-256:",
         "site-packages",
@@ -188,6 +188,6 @@ def test_issue114_changelog_records_distribution_and_qualification() -> None:
 
 def test_issue114_current_release_uses_core065_and_concord031() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert '"pds-core>=0.6.5,<0.7"' in text
+    assert '"pds-core>=0.6.6,<0.7"' in text
     version = (ROOT / "concord" / "_version.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.3.2"' in version
+    assert '__version__ = "0.3.3"' in version

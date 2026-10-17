@@ -25,6 +25,7 @@ from concord.menu_navigation import (
     navigation_hint_with_help,
     parse_menu_navigation,
 )
+from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
     clear_screen,
     page_count,
@@ -393,23 +394,29 @@ def choose_session(
     *,
     title: str = "Choose a Session",
 ) -> SessionSummary:
+    labels = tuple(
+        f"Session {item.sequence} - {item.label or 'Unlabeled session'} "
+        f"[{item.status.replace('_', ' ')}]"
+        for item in sessions
+    )
     return select_one(
         title,
         sessions,
-        [
-            f"{item.sequence}. {item.label or item.session_id} - {item.status}"
-            for item in sessions
-        ],
-        help_text="Choose the Session whose collaboration context you want to change.",
+        distinguish_equal_labels(labels, noun="session choice"),
+        help_text="Choose one exact Session; displayed order is not chronology.",
     )
 
 
 def choose_group(groups: Sequence[GroupSummary], *, title: str) -> GroupSummary:
+    labels = tuple(
+        f"{item.label} - {item.status.replace('_', ' ')} "
+        f"({item.member_count} members)" for item in groups
+    )
     return select_one(
         title,
         groups,
-        [f"{item.label} ({item.group_id}) - {item.status}" for item in groups],
-        help_text="Choose the Activity-specific Group for this action.",
+        distinguish_equal_labels(labels, noun="group choice"),
+        help_text="Choose one exact Activity Group; names may be repeated.",
     )
 
 
@@ -418,19 +425,16 @@ def choose_membership(
     *,
     title: str,
 ) -> MembershipSummary:
+    labels = tuple(
+        f"{item.participant_display_label or 'Participant name unavailable'} "
+        f"- {item.status.replace('_', ' ')} - Group membership"
+        for item in memberships
+    )
     return select_one(
         title,
         memberships,
-        [
-            (
-                item.participant_display_label
-                or item.participant_reference.participant_id
-            )
-            + " "
-            f"in {item.group_id} - {item.status}"
-            for item in memberships
-        ],
-        help_text="Choose the historical Membership record to change.",
+        distinguish_equal_labels(labels, noun="membership choice"),
+        help_text="Choose the exact membership; duplicate names are numbered.",
     )
 
 
@@ -440,7 +444,10 @@ def choose_student(root: Path, class_id: str) -> StudentRecord:
     return select_one(
         "Choose a Student",
         students,
-        [f"{student_display_name(item)} ({item.student_id})" for item in students],
+        distinguish_equal_labels(
+            tuple(student_display_name(item) for item in students),
+            noun="student choice",
+        ),
         help_text=(
             "Students come from the Core-owned class roster; Concord does not copy it."
         ),
@@ -453,7 +460,10 @@ def choose_students(root: Path, class_id: str) -> tuple[StudentRecord, ...]:
     return select_many(
         "Choose Students",
         students,
-        [f"{student_display_name(item)} ({item.student_id})" for item in students],
+        distinguish_equal_labels(
+            tuple(student_display_name(item) for item in students),
+            noun="student choice",
+        ),
         help_text=(
             "Select one or more Core roster students for the same Group context."
         ),

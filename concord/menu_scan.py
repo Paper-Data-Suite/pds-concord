@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from pds_core.module_dispatch import ModuleDispatchError
@@ -95,6 +96,18 @@ def _scan_inbox_sources(
     return inbox, sources
 
 
+def _inbox_file_display(source: Path) -> str:
+    """An OS file-modified timestamp is not evidence receipt or scan chronology."""
+    try:
+        modified = datetime.fromtimestamp(source.stat().st_mtime).astimezone()
+    except (OSError, OverflowError, ValueError):
+        return f"{source.name} - file modified time unavailable"
+    return (
+        f"{source.name} - file modified "
+        f"{modified.strftime('%b %d, %Y at %I:%M %p %Z')}"
+    )
+
+
 def _custom_route_sources() -> tuple[Path, ...]:
     """Collect one or more explicit power-user scan sources."""
     while True:
@@ -144,7 +157,7 @@ def _choose_route_sources() -> tuple[Path, ...]:
             print("Available scans:")
             print()
             for index, source in enumerate(visible, start=1):
-                print(f"{index}. {source.name}")
+                print(f"{index}. {_inbox_file_display(source)}")
         else:
             print("No supported scans were found.")
             print()
@@ -179,6 +192,7 @@ def _choose_route_sources() -> tuple[Path, ...]:
                         "Routing retains the source and lets Core PDS2 determine "
                         "page ownership."
                     ),
+                    "File modified is an OS timestamp, not scan/routing time.",
                     "Browsing and selection do not route or modify scan files.",
                 ),
             )

@@ -12,7 +12,7 @@ import venv
 from pathlib import Path
 
 EXPECTED_CORE_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 )
 
 
@@ -398,8 +398,8 @@ def _smoke_code() -> str:
 
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
-        assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.2"
+        assert metadata.version("pds-core") == "0.6.6"
+        assert metadata.version("pds-concord") == "0.3.3"
         stage("isolated installed provenance")
 
         with tempfile.TemporaryDirectory(
@@ -468,7 +468,7 @@ def _smoke_code() -> str:
             assert len(retained.source_scan_id) <= SOURCE_SCAN_ID_MAX_LENGTH
             assert source.stem not in retained.retained_source_path.name
             assert retained.retained_source_path.is_relative_to(root)
-            stage("Core 0.6.5 bounded retained-source writer")
+            stage("Core 0.6.6 bounded retained-source writer")
 
             routed = route_retained(root, rendered.payloads[0], retained)
             work = ModuleWorkRef("concord", class_id, activity_id)
@@ -645,7 +645,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
     core_sha = _sha256(core_wheel)
     if core_sha != EXPECTED_CORE_SHA256:
         raise RuntimeError(
-            "Issue #124 requires the exact released Core 0.6.5 qualification wheel."
+            "Issue #124 requires the exact released Core 0.6.6 qualification wheel."
         )
 
     print(f"Issue #124 candidate wheel SHA-256: {_sha256(concord_wheel)}", flush=True)

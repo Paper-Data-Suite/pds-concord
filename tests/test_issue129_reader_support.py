@@ -223,8 +223,8 @@ def test_issue129_core_floor_is_065_without_downstream_runtime_coupling() -> Non
     core = [item for item in dependencies if item.name == "pds-core"]
     assert len(core) == 1
     assert str(core[0].specifier) in {
-        ">=0.6.5,<0.7",
-        "<0.7,>=0.6.5",
+        ">=0.6.6,<0.7",
+        "<0.7,>=0.6.6",
     }
 
     dependency_names = {item.name for item in dependencies}

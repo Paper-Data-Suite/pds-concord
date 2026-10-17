@@ -99,8 +99,8 @@ def _smoke_code() -> str:
             create_group_plan,
         )
 
-        assert metadata.version("pds-core") == "0.6.5"
-        assert metadata.version("pds-concord") == "0.3.2"
+        assert metadata.version("pds-core") == "0.6.6"
+        assert metadata.version("pds-concord") == "0.3.3"
 
         env_root = Path(sys.prefix).resolve()
         for package in (concord, pds_core):

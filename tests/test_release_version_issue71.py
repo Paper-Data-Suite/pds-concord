@@ -5,15 +5,15 @@ from pathlib import Path
 from concord import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
-FINAL_VERSION = "0.3.2"
+FINAL_VERSION = "0.3.3"
 DEV_SUFFIX = ".dev0"
 
 
-def test_authoritative_version_is_final_v031() -> None:
+def test_authoritative_version_is_v033_candidate() -> None:
     assert __version__ == FINAL_VERSION
 
 
-def test_active_release_files_name_exact_v031_artifacts() -> None:
+def test_active_release_files_name_exact_v033_candidate_artifacts() -> None:
     release = (ROOT / "scripts" / "verify_release_artifacts.py").read_text(
         encoding="utf-8"
     )
@@ -22,12 +22,12 @@ def test_active_release_files_name_exact_v031_artifacts() -> None:
         ROOT / "scripts" / "verify_release_compatibility.py"
     ).read_text(encoding="utf-8")
 
-    assert 'RELEASE_VERSION = "0.3.2"' in release
-    assert 'EXPECTED_WHEEL = "pds_concord-0.3.2-py3-none-any.whl"' in release
-    assert 'EXPECTED_SDIST = "pds_concord-0.3.2.tar.gz"' in release
-    assert 'EXPECTED_DIST_INFO = "pds_concord-0.3.2.dist-info"' in release
-    assert 'EXPECTED_VERSION = "0.3.2"' in package
-    assert 'RELEASE_VERSION = "0.3.2"' in compatibility
+    assert 'RELEASE_VERSION = "0.3.3"' in release
+    assert 'EXPECTED_WHEEL = "pds_concord-0.3.3-py3-none-any.whl"' in release
+    assert 'EXPECTED_SDIST = "pds_concord-0.3.3.tar.gz"' in release
+    assert 'EXPECTED_DIST_INFO = "pds_concord-0.3.3.dist-info"' in release
+    assert 'EXPECTED_VERSION = "0.3.3"' in package
+    assert 'RELEASE_VERSION = "0.3.3"' in compatibility
 
 
 def test_active_python_qualification_surfaces_have_no_dev_version_literal() -> None:
