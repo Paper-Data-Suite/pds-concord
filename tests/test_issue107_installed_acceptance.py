@@ -11,7 +11,7 @@ PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 def test_issue107_installed_smoke_is_present_and_isolated() -> None:
     text = SMOKE.read_text(encoding="utf-8")
     assert "EXPECTED_CORE_SHA256" in text
-    assert "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18" in text
+    assert "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301" in text
     assert '"-m", "pip", "check"' in text
     assert '"-I"' in text
     assert "site-packages" in text
