@@ -1,4 +1,4 @@
-"""Validate the Concord v0.3.3 release artifacts."""
+"""Validate the Concord v0.3.4 release artifacts."""
 
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-RELEASE_VERSION = "0.3.3"
-EXPECTED_WHEEL = "pds_concord-0.3.3-py3-none-any.whl"
-EXPECTED_SDIST = "pds_concord-0.3.3.tar.gz"
-EXPECTED_DIST_INFO = "pds_concord-0.3.3.dist-info"
+RELEASE_VERSION = "0.3.4"
+EXPECTED_WHEEL = "pds_concord-0.3.4-py3-none-any.whl"
+EXPECTED_SDIST = "pds_concord-0.3.4.tar.gz"
+EXPECTED_DIST_INFO = "pds_concord-0.3.4.dist-info"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_RUNTIME_REQUIREMENTS = (
@@ -56,6 +56,19 @@ REQUIRED_WHEEL_FILES = frozenset(
         "concord/artifact_rendering.py",
         "concord/generated_paths.py",
         "concord/standards_display.py",
+        "concord/class_group_arrangements.py",
+        "concord/class_group_arrangement_storage.py",
+        "concord/workflows/class_group_arrangements.py",
+        "concord/workflows/class_group_arrangement_operational.py",
+        "concord/workflows/class_group_arrangement_revision.py",
+        "concord/workflows/class_group_arrangement_csv.py",
+        "concord/menu_saved_groupings.py",
+        "concord/menu_saved_grouping_revisions.py",
+        "concord/menu_saved_operational_grouping.py",
+        "concord/cli_app/handlers/saved_grouping.py",
+        "concord/cli_app/handlers/saved_grouping_revision.py",
+        "concord/cli_app/handlers/saved_grouping_operational.py",
+        "concord/cli_app/handlers/saved_grouping_csv.py",
         "concord/menu_student_feedback.py",
         "concord/cli_app/handlers/feedback.py",
         "concord/workflows/student_feedback.py",
@@ -299,7 +312,6 @@ def validate_entry_points(text: str, label: str) -> None:
             raise ArtifactValidationError(f"{label} {group} entry points changed")
 
 
-
 def _project_table(data: dict[str, object], label: str) -> dict[str, object]:
     project = data.get("project")
     if not isinstance(project, dict):
@@ -349,9 +361,7 @@ def validate_sdist_project(text: str, label: str = "sdist") -> None:
 
     scripts = project.get("scripts")
     if scripts != EXPECTED_ENTRY_POINTS["console_scripts"]:
-        raise ArtifactValidationError(
-            f"{label} pyproject console script changed"
-        )
+        raise ArtifactValidationError(f"{label} pyproject console script changed")
 
     entry_points = project.get("entry-points")
     if not isinstance(entry_points, dict):
@@ -381,8 +391,7 @@ def validate_sdist_project(text: str, label: str = "sdist") -> None:
         or version.get("attr") != "concord._version.__version__"
     ):
         raise ArtifactValidationError(
-            f"{label} pyproject version must resolve from "
-            "concord._version.__version__"
+            f"{label} pyproject version must resolve from concord._version.__version__"
         )
 
 
@@ -508,11 +517,7 @@ def validate_sdist(path: Path) -> None:
             metadata_file = archive.extractfile(metadata_name)
             pyproject_file = archive.extractfile(pyproject_name)
             version_file = archive.extractfile(version_name)
-            if (
-                metadata_file is None
-                or pyproject_file is None
-                or version_file is None
-            ):
+            if metadata_file is None or pyproject_file is None or version_file is None:
                 raise ArtifactValidationError("sdist release metadata is unreadable")
 
             validate_package_metadata(metadata_file.read().decode("utf-8"), "sdist")

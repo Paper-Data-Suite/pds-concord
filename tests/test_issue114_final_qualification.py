@@ -16,12 +16,8 @@ CLI_DOC = ROOT / "docs" / "cli-contract.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
-CORE_064_SHA256 = (
-    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
-)
-CORE_066_SHA256 = (
-    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
-)
+CORE_064_SHA256 = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_066_SHA256 = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 
 ISSUE114_MODULES = (
     "concord/menu_student_feedback.py",
@@ -50,7 +46,7 @@ def test_issue114_installed_smoke_compiles_and_authenticates_core065() -> None:
         '"pip",',
         '[str(python), "-I", str(smoke_path)]',
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         CORE_066_SHA256,
         "Issue #114 candidate wheel SHA-256:",
         "Issue #114 Core wheel SHA-256:",
@@ -68,7 +64,7 @@ def test_issue114_installed_smoke_covers_required_feedback_boundaries() -> None:
         "commit_record_batch(",
         '"score-student-old"',
         '"score-student-current"',
-        'CorrectionRecord(',
+        "CorrectionRecord(",
         'disposition="absent"',
         '"score-group"',
         '"score-session"',
@@ -190,4 +186,4 @@ def test_issue114_current_release_uses_core065_and_concord031() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
     assert '"pds-core>=0.6.6,<0.7"' in text
     version = (ROOT / "concord" / "_version.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.3.3"' in version
+    assert '__version__ = "0.3.4"' in version

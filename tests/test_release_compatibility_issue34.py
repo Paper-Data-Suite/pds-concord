@@ -67,8 +67,8 @@ def test_live_release_compatibility_audit_passes() -> None:
     ("version", "core", "extra"),
     [
         ("0.2.0", "pds-core>=0.6.6,<0.7", None),
-        ("0.3.3", "pds-core>=0.6.1,<0.7", None),
-        ("0.3.3", "pds-core>=0.6.6,<0.7", "pds-meridian>=0.1"),
+        ("0.3.4", "pds-core>=0.6.1,<0.7", None),
+        ("0.3.4", "pds-core>=0.6.6,<0.7", "pds-meridian>=0.1"),
     ],
 )
 def test_release_metadata_rejects_version_core_and_sibling_drift(
@@ -105,7 +105,7 @@ def test_release_metadata_rejects_direct_runtime_dependency_drift(
         dependencies.pop(index)
 
     with pytest.raises(ReleaseCompatibilityError):
-        validate_release_metadata(project, "0.3.3")
+        validate_release_metadata(project, "0.3.4")
 
 
 @pytest.mark.parametrize(

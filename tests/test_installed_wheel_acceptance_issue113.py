@@ -22,7 +22,7 @@ def test_issue113_installed_smoke_compiles_and_is_isolated() -> None:
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         "Issue #113 candidate wheel SHA-256:",
         "Issue #113 Core wheel SHA-256:",
     )
@@ -71,7 +71,7 @@ def test_issue113_installed_smoke_freezes_relationship_and_route_semantics() -> 
         '"artifact_instance_id"',
         '"artifact_page_id"',
         '"page_number"',
-        'page.page_status for page in returned.artifact_pages',
+        "page.page_status for page in returned.artifact_pages",
         '"returned"',
         'historical_plan.proposed_subject_role == "observed_participant"',
     )

@@ -154,9 +154,7 @@ def validate(
             phase="pip check",
             timings=timings,
         )
-        with tempfile.TemporaryDirectory(
-            prefix="pds-concord-validation-"
-        ) as raw_temp:
+        with tempfile.TemporaryDirectory(prefix="pds-concord-validation-") as raw_temp:
             temp = Path(raw_temp)
             ruff_cache, mypy_cache = _static_cache_directories(
                 temp,
@@ -330,9 +328,7 @@ def validate(
                     wheel,
                     core,
                 ],
-                phase=(
-                    "installed-wheel smoke: issue #123 Activity Score Analysis"
-                ),
+                phase=("installed-wheel smoke: issue #123 Activity Score Analysis"),
                 timings=timings,
             )
             _run(
@@ -364,9 +360,7 @@ def validate(
                     wheel,
                     core,
                 ],
-                phase=(
-                    "installed-wheel smoke: issue #110 Packet generation rendering"
-                ),
+                phase=("installed-wheel smoke: issue #110 Packet generation rendering"),
                 timings=timings,
             )
             _run(
@@ -383,20 +377,20 @@ def validate(
         # The published v0.3.2/Core 0.6.5 acceptance stays frozen as
         # historical evidence. Qualify the new candidate in a separate lane.
         with tempfile.TemporaryDirectory(
-            prefix="pds-concord-issue134-core066-"
-        ) as issue134_work:
+            prefix="pds-concord-issue136-core066-"
+        ) as issue136_work:
             _run(
                 [
                     python,
-                    "scripts/run_issue134_installed_acceptance.py",
+                    "scripts/run_issue136_installed_acceptance.py",
                     "--repository",
                     str(ROOT),
                     "--work",
-                    issue134_work,
+                    issue136_work,
                     "--core-wheel",
                     str(core_wheel),
                 ],
-                phase="installed-wheel smoke: issue #134 Core 0.6.6 reader contract",
+                phase="installed-wheel smoke: issue #136 Core 0.6.6 reader contract",
                 timings=timings,
             )
 

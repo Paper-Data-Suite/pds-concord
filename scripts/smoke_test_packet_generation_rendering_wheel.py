@@ -156,7 +156,7 @@ def _smoke_code() -> str:
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
         assert metadata.version("pds-core") == "0.6.6"
-        assert metadata.version("pds-concord") == "0.3.3"
+        assert metadata.version("pds-concord") == "0.3.4"
         stage("isolated installed provenance")
 
         with tempfile.TemporaryDirectory(
@@ -475,9 +475,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
         flush=True,
     )
 
-    with tempfile.TemporaryDirectory(
-        prefix="concord-issue110-wheel-"
-    ) as raw:
+    with tempfile.TemporaryDirectory(prefix="concord-issue110-wheel-") as raw:
         work = Path(raw)
         env_root = work / "venv"
         venv.EnvBuilder(with_pip=True).create(env_root)
