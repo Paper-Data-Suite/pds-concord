@@ -20,6 +20,7 @@ from concord.cli_app.handlers import (
     review_moderation,
     role,
     saved_grouping,
+    saved_grouping_csv,
     saved_grouping_operational,
     saved_grouping_revision,
     scan,
@@ -1250,6 +1251,58 @@ def _saved_grouping_commands(
                 saved_grouping_revision.handle_change_preview
                 if action == "change-preview"
                 else saved_grouping_revision.handle_change
+            )
+        )
+
+    # Optional teacher-restricted interchange, not required for normal reuse.
+    for action in ("csv-import-preview", "csv-import"):
+        command = actions.add_parser(
+            action, help="Review or create a class-scoped grouping from local CSV."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument("--name", required=True)
+        command.add_argument("--csv-path", required=True)
+        command.add_argument(
+            "--acknowledge-unresolved",
+            action="store_true",
+            help="Acknowledge any roster students omitted by the CSV.",
+        )
+        if action == "csv-import":
+            command.add_argument("--review-digest", required=True)
+        command.set_defaults(
+            handler=(
+                saved_grouping_csv.handle_import_preview
+                if action == "csv-import-preview"
+                else saved_grouping_csv.handle_import
+            )
+        )
+
+    for action in ("csv-export-preview", "csv-export"):
+        command = actions.add_parser(
+            action, help="Review or exclusively write student_id,group CSV."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument("--expected-revision", type=int, required=True)
+        command.add_argument("--expected-sha256", required=True)
+        if action == "csv-export":
+            command.add_argument("--review-digest", required=True)
+            command.add_argument("--output-path", required=True)
+            command.add_argument(
+                "--authorize-roster-export",
+                action="store_true",
+                help="Explicit authorization to export restricted student IDs.",
+            )
+        command.set_defaults(
+            handler=(
+                saved_grouping_csv.handle_export_preview
+                if action == "csv-export-preview"
+                else saved_grouping_csv.handle_export
             )
         )
 
