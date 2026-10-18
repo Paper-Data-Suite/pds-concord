@@ -1,4 +1,3 @@
-
 """In-memory aggregate artifacts for a reviewed student feedback distribution."""
 
 from __future__ import annotations
@@ -7,6 +6,7 @@ import hashlib
 import html
 import io
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final
@@ -163,6 +163,55 @@ def _managed_file(
     )
 
 
+_PDFIUM_CREATION_DATE_RE: Final[re.Pattern[bytes]] = re.compile(
+    rb"/CreationDate\(D:[0-9]{14}\)"
+)
+_PDFIUM_DOCUMENT_ID_RE: Final[re.Pattern[bytes]] = re.compile(
+    rb"/ID\s*\[\s*<([0-9A-Fa-f]{32})>\s*<([0-9A-Fa-f]{32})>\s*\]"
+)
+_CANONICAL_COMBINED_PDF_DATE: Final[bytes] = b"/CreationDate(D:20000101000000)"
+
+
+def _canonicalize_pdfium_merged_pdf(
+    content: bytes,
+    files: tuple[RenderedStudentFeedbackDistributionFile, ...],
+) -> bytes:
+    """Remove PDFium's host-clock and process-specific PDF metadata entropy.
+
+    PDFium's new-document creation time changes across seconds, and its file
+    identifier changes between processes. The only edited fields are the single
+    PDFium-generated document date and the two 16-byte trailer identifiers.
+    Every replacement has the exact original length, preserving PDF xref offsets.
+    Reject changed/ambiguous upstream serialization instead of rewriting blindly.
+    """
+    dates = tuple(_PDFIUM_CREATION_DATE_RE.finditer(content))
+    identifiers = tuple(_PDFIUM_DOCUMENT_ID_RE.finditer(content))
+    if len(dates) != 1 or len(identifiers) != 1:
+        raise ConcordWorkflowValidationError(
+            "Combined feedback PDF uses an unsupported PDFium metadata layout."
+        )
+
+    seed = hashlib.sha256()
+    seed.update(b"pds-concord:student-feedback-merged-pdf:v1\x00")
+    for file in files:
+        seed.update(file.filename.encode("utf-8"))
+        seed.update(b"\x00")
+        seed.update(bytes.fromhex(file.sha256))
+    stable_id = seed.hexdigest()[:32].upper().encode("ascii")
+
+    result = bytearray(content)
+    date = dates[0]
+    identifier = identifiers[0]
+    result[date.start() : date.end()] = _CANONICAL_COMBINED_PDF_DATE
+    result[identifier.start(1) : identifier.end(1)] = stable_id
+    result[identifier.start(2) : identifier.end(2)] = stable_id
+    if len(result) != len(content):
+        raise ConcordWorkflowValidationError(
+            "Combined feedback PDF metadata replacement changed its byte length."
+        )
+    return bytes(result)
+
+
 def _merge_student_pdfs(
     files: tuple[RenderedStudentFeedbackDistributionFile, ...],
 ) -> tuple[bytes, int]:
@@ -197,7 +246,7 @@ def _merge_student_pdfs(
             )
         stream = io.BytesIO()
         combined.save(stream)
-        content = stream.getvalue()
+        content = _canonicalize_pdfium_merged_pdf(stream.getvalue(), files)
     except ConcordWorkflowValidationError:
         raise
     except Exception as error:
@@ -226,10 +275,7 @@ def _index_bytes(
             )
         name = html.escape(planned.student_display_name)
         href = html.escape(rendered.filename, quote=True)
-        rows.append(
-            f'<li><span>{name}</span> '
-            f'<a href="{href}">Open feedback</a></li>'
-        )
+        rows.append(f'<li><span>{name}</span> <a href="{href}">Open feedback</a></li>')
 
     title = html.escape(f"{plan.activity_title} Feedback")
     body = "\n".join(rows)
@@ -294,9 +340,7 @@ def render_student_feedback_distribution_package(
             raise ConcordWorkflowValidationError(
                 "Student feedback rendering order disagrees with the reviewed plan."
             )
-        projection_sha256 = student_feedback_projection_sha256(
-            render_input.projection
-        )
+        projection_sha256 = student_feedback_projection_sha256(render_input.projection)
         rendered = render_student_feedback_pdf(render_input)
         managed = _managed_file(
             filename=rendered.filename,
