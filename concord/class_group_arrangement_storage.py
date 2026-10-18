@@ -574,6 +574,31 @@ def append_arrangement_revision(
     )
 
 
+def list_arrangement_history(
+    workspace_root: str | Path,
+    *,
+    class_id: str,
+    school_year: str,
+    arrangement_id: str,
+    actor_id: str,
+) -> tuple[LoadedArrangement, ...]:
+    """Read immutable revisions after authenticating the complete current chain.
+
+    The current loader verifies owner, class/year, every predecessor SHA and
+    the pointer digest before historical bytes are exposed. No files are written.
+    """
+    root = _root(workspace_root, class_id, school_year)
+    current = _load(root, school_year, class_id, arrangement_id, actor_id)
+    directory = _directory(root, school_year, class_id, arrangement_id)
+    history = []
+    for revision in range(1, current.revision.revision + 1):
+        raw = _read(root, _revision_path(directory, revision))
+        history.append(
+            LoadedArrangement(revision=_revision_from_bytes(raw), sha256=_sha(raw))
+        )
+    return tuple(history)
+
+
 def review_arrangement_roster(
     workspace_root: str | Path,
     *,

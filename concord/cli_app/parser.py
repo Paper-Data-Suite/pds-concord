@@ -20,6 +20,7 @@ from concord.cli_app.handlers import (
     review_moderation,
     role,
     saved_grouping,
+    saved_grouping_revision,
     scan,
     scoring,
     session,
@@ -1179,6 +1180,44 @@ def _saved_grouping_commands(
                 saved_grouping.handle_reuse_preview
                 if action == "reuse-preview"
                 else saved_grouping.handle_reuse
+            )
+        )
+
+    history = actions.add_parser(
+        "history", help="Show immutable revision history for one saved grouping."
+    )
+    _workspace_option(history)
+    history.add_argument("--class-id", required=True)
+    history.add_argument("--arrangement-id", required=True)
+    _actor_options(history)
+    history.set_defaults(handler=saved_grouping_revision.handle_history)
+
+    for action in ("change-preview", "change"):
+        command = actions.add_parser(
+            action, help="Review or append an immutable saved-grouping revision."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument(
+            "--action",
+            required=True,
+            choices=("rename", "replace-from-plan", "retire"),
+        )
+        command.add_argument("--expected-revision", type=int, required=True)
+        command.add_argument("--expected-sha256", required=True)
+        command.add_argument("--new-name")
+        command.add_argument("--source-activity-id")
+        command.add_argument("--source-group-plan-id")
+        command.add_argument("--expected-source-snapshot", type=int)
+        if action == "change":
+            command.add_argument("--review-digest", required=True)
+        command.set_defaults(
+            handler=(
+                saved_grouping_revision.handle_change_preview
+                if action == "change-preview"
+                else saved_grouping_revision.handle_change
             )
         )
 

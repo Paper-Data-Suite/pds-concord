@@ -28,6 +28,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_saved_grouping_revisions import manage_grouping_revision
 from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
@@ -404,8 +405,11 @@ def manage_saved_groupings(
                 f"Status: {selected.revision.status}",
                 f"Revision: {selected.revision.revision}",
                 f"Groups: {len(selected.revision.groups)}",
-                "Rename, revise, retire, and history commands follow in a later slice.",
+                "Review placements, history, or choose a revision action next.",
             ),
+        )
+        manage_grouping_revision(
+            activity, state, selected, show_placements=_show_placements
         )
     except CancelMenuAction:
         return
