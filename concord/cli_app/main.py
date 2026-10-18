@@ -38,6 +38,10 @@ from concord.academic_result_publication import (
 from concord.academic_work_registration import (
     ConcordAcademicWorkRegistrationError,
 )
+from concord.class_group_arrangement_storage import (
+    ArrangementConflictError,
+    ArrangementStorageError,
+)
 from concord.cli_app.parser import build_parser
 from concord.packet_storage import PacketStoragePartialSuccessError
 from concord.routing.rendering import RenderPartialSuccessError
@@ -185,8 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except PacketStoragePartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)
         print(
-            "Current pointer published: "
-            f"{'yes' if error.pointer_published else 'no'}",
+            f"Current pointer published: {'yes' if error.pointer_published else 'no'}",
             file=sys.stderr,
         )
         if error.snapshot_revision is not None:
@@ -214,8 +217,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except TemplateStoragePartialSuccessError as error:
         print(f"Partial success: {error}", file=sys.stderr)
         print(
-            "Current pointer published: "
-            f"{'yes' if error.pointer_published else 'no'}",
+            f"Current pointer published: {'yes' if error.pointer_published else 'no'}",
             file=sys.stderr,
         )
         if error.snapshot_revision is not None:
@@ -232,10 +234,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConcordStoragePartialSuccessError as error:
         _print_partial_success(error)
         return EXIT_PARTIAL_SUCCESS
-    except (ConcordWorkflowConflictError, ConcordStorageConflictError) as error:
+    except (
+        ArrangementConflictError,
+        ConcordWorkflowConflictError,
+        ConcordStorageConflictError,
+    ) as error:
         print(f"Conflict: {error}", file=sys.stderr)
         return EXIT_CONFLICT
-    except (ConcordWorkflowError, ConcordStorageError, WorkspaceRootError) as error:
+    except (
+        ArrangementStorageError,
+        ConcordWorkflowError,
+        ConcordStorageError,
+        WorkspaceRootError,
+    ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return EXIT_ERROR
     except (
