@@ -26,6 +26,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_saved_groupings import launch_saved_groupings_menu
 from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
@@ -550,6 +551,7 @@ def launch_direct_group_menu(
         print("5. Add Members")
         print("6. End a Membership")
         print("7. Reassign a Membership")
+        print("8. Saved class groupings")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -579,6 +581,8 @@ def launch_direct_group_menu(
             _end_member(activity, state)
         elif choice == "7":
             _reassign_member(activity, state)
+        elif choice == "8":
+            launch_saved_groupings_menu(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
@@ -593,6 +597,7 @@ def launch_group_menu(activity: ActivitySummary, state: MenuSessionContext) -> N
         print()
         print("1. Plan groups")
         print("2. Manage Groups and Memberships")
+        print("3. Saved class groupings")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -617,6 +622,8 @@ def launch_group_menu(activity: ActivitySummary, state: MenuSessionContext) -> N
             launch_group_plan_menu(activity, state)
         elif choice == "2":
             launch_direct_group_menu(activity, state)
+        elif choice == "3":
+            launch_saved_groupings_menu(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

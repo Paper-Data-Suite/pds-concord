@@ -28,6 +28,10 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_saved_groupings import (
+    launch_saved_groupings_menu,
+    save_grouping_from_plan,
+)
 from concord.menu_standards_context import (
     standards_for_activity,
     standards_kwargs_for_activity,
@@ -853,6 +857,12 @@ def _open_plan(
             print("9. Cancel")
             if detail.plan.status == "approved":
                 print("10. Apply approved plan")
+        if detail.plan.status in {"draft", "previewed"}:
+            print(
+                "12. Save current grouping"
+                if is_signal_plan
+                else "11. Save current grouping"
+            )
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -903,6 +913,13 @@ def _open_plan(
                     or (not is_signal_plan and choice == "10")
                 ):
                     apply_approved_group_plan_from_menu(detail, state)
+                elif detail.plan.status in {"draft", "previewed"} and (
+                    (is_signal_plan and choice == "12")
+                    or (not is_signal_plan and choice == "11")
+                ):
+                    save_grouping_from_plan(
+                        activity, state, group_plan_id=detail.plan.group_plan_id
+                    )
                 else:
                     print(navigation_hint_with_help())
                     pause_for_user()
@@ -931,6 +948,7 @@ def launch_group_plan_menu(
         print("6. Open a GroupPlan")
         print("7. Create similar-signal plan")
         print("8. Create mixed-signal plan")
+        print("9. Saved class groupings")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -971,6 +989,8 @@ def launch_group_plan_menu(
             create_signal_group_plan_from_menu(current, state, "similar_signal")
         elif choice == "8":
             create_signal_group_plan_from_menu(current, state, "mixed_signal")
+        elif choice == "9":
+            launch_saved_groupings_menu(current, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
