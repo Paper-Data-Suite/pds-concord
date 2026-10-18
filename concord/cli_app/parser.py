@@ -20,6 +20,7 @@ from concord.cli_app.handlers import (
     review_moderation,
     role,
     saved_grouping,
+    saved_grouping_operational,
     saved_grouping_revision,
     scan,
     scoring,
@@ -1180,6 +1181,37 @@ def _saved_grouping_commands(
                 saved_grouping.handle_reuse_preview
                 if action == "reuse-preview"
                 else saved_grouping.handle_reuse
+            )
+        )
+
+    for action in ("save-groups-preview", "save-groups"):
+        cmd = actions.add_parser(
+            action,
+            help="Review or save existing Groups for one exact Session.",
+        )
+        _mutating_options(cmd)
+        _class_activity(cmd)
+        cmd.add_argument("--session-id", required=True)
+        cmd.add_argument("--arrangement-id", required=True)
+        cmd.add_argument("--name", required=True)
+        cmd.add_argument(
+            "--acknowledge-unresolved",
+            action="store_true",
+            help="Acknowledge unassigned current roster students.",
+        )
+        if action == "save-groups-preview":
+            cmd.add_argument(
+                "--show-members",
+                action="store_true",
+                help="Display exact Core student IDs only for local review.",
+            )
+        else:
+            cmd.add_argument("--review-digest", required=True)
+        cmd.set_defaults(
+            handler=(
+                saved_grouping_operational.handle_save_groups_preview
+                if action == "save-groups-preview"
+                else saved_grouping_operational.handle_save_groups
             )
         )
 

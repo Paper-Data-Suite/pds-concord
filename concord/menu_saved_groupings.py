@@ -29,6 +29,9 @@ from concord.menu_prompts import (
     slug_identifier,
 )
 from concord.menu_saved_grouping_revisions import manage_grouping_revision
+from concord.menu_saved_operational_grouping import (
+    save_grouping_from_existing_groups,
+)
 from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
@@ -429,6 +432,7 @@ def launch_saved_groupings_menu(
         print("1. Use saved grouping")
         print("2. Save current grouping")
         print("3. Manage saved groupings")
+        print("4. Save existing Groups")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -438,6 +442,8 @@ def launch_saved_groupings_menu(
                 "Saved groupings help",
                 (
                     "Save an editable Activity GroupPlan for later classroom use.",
+                    "Or capture current Group/Membership placements "
+                    "from an explicit Session.",
                     "Reuse produces a fresh editable GroupPlan for this Activity.",
                     "Review, approve, and apply separately to create real Groups.",
                     "Scores and evidence are never reused with a grouping.",
@@ -451,6 +457,8 @@ def launch_saved_groupings_menu(
             save_grouping_from_plan(activity, state)
         elif choice == "3":
             manage_saved_groupings(activity, state)
+        elif choice == "4":
+            save_grouping_from_existing_groups(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
