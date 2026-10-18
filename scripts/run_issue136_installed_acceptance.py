@@ -662,6 +662,20 @@ def run_acceptance(
             cwd=outside,
         )
 
+        grouping_smoke = (
+            repository / "scripts" / "smoke_test_issue136_grouping_installed.py"
+        )
+        if not grouping_smoke.is_file() or grouping_smoke.is_symlink():
+            raise Issue136InstalledAcceptanceError(
+                "installed grouping smoke source is unavailable or linked"
+            )
+        grouping_path = work / "issue136_grouping_installed.py"
+        grouping_path.write_bytes(grouping_smoke.read_bytes())
+        _run(
+            [str(python), "-I", str(grouping_path), str(repository)],
+            cwd=outside,
+        )
+
         return {
             "concord_version": EXPECTED_CONCORD_VERSION,
             "concord_wheel": str(wheel),
