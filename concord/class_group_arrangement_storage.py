@@ -542,11 +542,22 @@ def append_arrangement_revision(
             raise ArrangementConflictError(
                 "Grouping identity or class scope cannot change."
             )
-        roster = load_required_roster(root, revision.class_id)
-        if set(revision.roster_student_ids) != {s.student_id for s in roster.students}:
-            raise ArrangementConflictError(
-                "Core roster changed; review grouping before revision."
-            )
+        # A metadata-only rename or retirement must remain possible even after
+        # the class roster changes. Member/coverage changes require today's roster.
+        placement_changed = (
+            revision.groups != current.revision.groups
+            or revision.roster_student_ids != current.revision.roster_student_ids
+            or revision.unresolved_student_ids
+            != current.revision.unresolved_student_ids
+        )
+        if placement_changed:
+            roster = load_required_roster(root, revision.class_id)
+            if set(revision.roster_student_ids) != {
+                student.student_id for student in roster.students
+            }:
+                raise ArrangementConflictError(
+                    "Core roster changed; review grouping before revision."
+                )
         raw = _canonical(_revision_to_dict(revision))
         _exclusive(root, _revision_path(directory, revision.revision), raw)
         _publish(
