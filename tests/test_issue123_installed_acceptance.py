@@ -10,12 +10,8 @@ PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 DOC = ROOT / "docs" / "v0.3.1-activity-score-analysis-local-reports.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
-CORE_064_SHA256 = (
-    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
-)
-CORE_066_SHA256 = (
-    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
-)
+CORE_064_SHA256 = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_066_SHA256 = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 
 
 def _source() -> str:
@@ -30,7 +26,7 @@ def test_issue123_installed_smoke_compiles_and_authenticates_core064() -> None:
         '"pip",',
         '[str(python), "-I", str(smoke_path)]',
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         CORE_066_SHA256,
         "Issue #123 candidate wheel SHA-256:",
         "Issue #123 Core wheel SHA-256:",
@@ -95,8 +91,7 @@ def test_issue123_installed_smoke_is_wired_into_validator() -> None:
     tree = ast.parse(source)
     assert any(
         isinstance(node, ast.Constant)
-        and node.value
-        == "installed-wheel smoke: issue #123 Activity Score Analysis"
+        and node.value == "installed-wheel smoke: issue #123 Activity Score Analysis"
         for node in ast.walk(tree)
     )
 

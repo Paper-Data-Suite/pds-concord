@@ -9,9 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "scripts" / "run_issue129_installed_acceptance.py"
 VERSION = ROOT / "concord" / "_version.py"
 
-CORE_065_SHA256 = (
-    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
-)
+CORE_065_SHA256 = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 
 
 def _source() -> str:
@@ -19,9 +17,9 @@ def _source() -> str:
 
 
 def test_issue129_harness_is_frozen_but_candidate_advances() -> None:
+    assert 'EXPECTED_CONCORD_VERSION = "0.3.2"' in _source()
     assert VERSION.read_text(encoding="utf-8") == (
-        '"""Authoritative Concord package version."""\n\n'
-        '__version__ = "0.3.3"\n'
+        '"""Authoritative Concord package version."""\n\n__version__ = "0.3.4"\n'
     )
 
 
@@ -46,8 +44,7 @@ def test_issue129_installed_harness_compiles_and_authenticates_core065() -> None
         assert fragment in source
 
 
-def test_issue129_installed_harness_uses_real_standards_and_publication_flow(
-) -> None:
+def test_issue129_installed_harness_uses_real_standards_and_publication_flow() -> None:
     source = _source()
 
     required = (
@@ -97,5 +94,5 @@ def test_issue134_active_release_validators_follow_core066() -> None:
     source = (ROOT / "scripts" / "verify_release_artifacts.py").read_text(
         encoding="utf-8"
     )
-    assert 'RELEASE_VERSION = "0.3.3"' in source
+    assert 'RELEASE_VERSION = "0.3.4"' in source
     assert 'EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.6,<0.7")' in source

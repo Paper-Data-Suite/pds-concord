@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -155,8 +154,7 @@ def test_combined_pdf_is_valid_and_matches_ordered_student_page_total(
     files = _files(package)
 
     individual_pages = sum(
-        files[item.filename].page_count or 0
-        for item in plan.students
+        files[item.filename].page_count or 0 for item in plan.students
     )
     combined = files[FEEDBACK_PRINT_FILENAME]
 
@@ -202,7 +200,7 @@ def test_manifest_is_versioned_private_and_binds_managed_artifacts(
 
     assert manifest["schema_version"] == STUDENT_FEEDBACK_MANIFEST_SCHEMA_VERSION
     assert manifest["created_at"] == "2026-10-08T04:30:00+00:00"
-    assert manifest["concord_version"] == "0.3.3"
+    assert manifest["concord_version"] == "0.3.4"
     assert manifest["source"] == {
         "class_id": "class-1",
         "activity_id": "activity-1",
@@ -236,9 +234,7 @@ def test_manifest_is_versioned_private_and_binds_managed_artifacts(
             student_feedback_projection_sha256(student.projection)
         )
 
-    assert manifest["combined_pdf"]["sha256"] == (
-        files[FEEDBACK_PRINT_FILENAME].sha256
-    )
+    assert manifest["combined_pdf"]["sha256"] == (files[FEEDBACK_PRINT_FILENAME].sha256)
     assert manifest["feedback_index"]["sha256"] == (
         files[FEEDBACK_INDEX_FILENAME].sha256
     )

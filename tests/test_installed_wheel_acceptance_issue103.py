@@ -31,9 +31,9 @@ def test_issue103_installed_smoke_covers_required_teacher_path() -> None:
     compile(source, "scan_inbox_routing_smoke.py", "exec")
     required = (
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         '"site-packages"',
-        'scans_inbox_dir(root)',
+        "scans_inbox_dir(root)",
         'first = inbox / "alpha.pdf"',
         'selected = inbox / "beta.pdf"',
         'unsupported = inbox / "notes.txt"',
@@ -48,9 +48,9 @@ def test_issue103_installed_smoke_covers_required_teacher_path() -> None:
         'f"Source: {selected}"',
         '"Type ROUTE to confirm"',
         '"Scan Routing Complete" not in rendered',
-        'after == before',
-        'not any(scans_source_dir(root).iterdir())',
-        'not any(routing_review_dir(root).iterdir())',
+        "after == before",
+        "not any(scans_source_dir(root).iterdir())",
+        "not any(routing_review_dir(root).iterdir())",
         "Issue #103 shared installed-wheel scan-inbox acceptance: PASS",
     )
     for fragment in required:
