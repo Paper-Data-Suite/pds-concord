@@ -28,6 +28,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_standards_context import standards_for_activity
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -204,6 +205,7 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
             ),
         ):
             return
+        standards_library = standards_for_activity(current)
         result = create_manual_group_plan(
             CreateManualGroupPlanRequest(
                 class_id=current.class_id,
@@ -211,7 +213,8 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
                 group_plan_id=plan_id,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=state.require_actor(),
-            )
+            ),
+            standards_library=standards_library,
         )
         show_result(
             "GroupPlan Result",
@@ -867,27 +870,21 @@ def _open_plan(
                     _replace_arrangement(detail, state)
                 elif is_signal_plan and choice == "7":
                     resolve_missing_signal_from_menu(detail, state)
-                elif (
-                    (is_signal_plan and choice == "8")
-                    or (not is_signal_plan and choice == "7")
+                elif (is_signal_plan and choice == "8") or (
+                    not is_signal_plan and choice == "7"
                 ):
                     _preview(detail, state)
-                elif (
-                    (is_signal_plan and choice == "9")
-                    or (not is_signal_plan and choice == "8")
+                elif (is_signal_plan and choice == "9") or (
+                    not is_signal_plan and choice == "8"
                 ):
                     _approve(detail, state)
-                elif (
-                    (is_signal_plan and choice == "10")
-                    or (not is_signal_plan and choice == "9")
+                elif (is_signal_plan and choice == "10") or (
+                    not is_signal_plan and choice == "9"
                 ):
                     _cancel(detail, state)
-                elif (
-                    detail.plan.status == "approved"
-                    and (
-                        (is_signal_plan and choice == "11")
-                        or (not is_signal_plan and choice == "10")
-                    )
+                elif detail.plan.status == "approved" and (
+                    (is_signal_plan and choice == "11")
+                    or (not is_signal_plan and choice == "10")
                 ):
                     apply_approved_group_plan_from_menu(detail, state)
                 else:
