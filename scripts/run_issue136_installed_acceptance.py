@@ -103,6 +103,48 @@ def _verify_core_wheel(core_wheel: Path) -> str:
     return digest
 
 
+def _copy_tracked_source(repository: Path, destination: Path) -> None:
+    """Copy only checked-out, Git-tracked files for a clean isolated build.
+
+    Existing developer build roots, untracked data, or symlinks are never copied,
+    modified, or deleted. Run from an ordinary Concord Git checkout.
+    """
+    if destination.exists() or destination.is_symlink():
+        raise Issue136InstalledAcceptanceError("isolated source already exists")
+    result = subprocess.run(
+        ["git", "ls-files", "--cached", "-z"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+    if not result.stdout or not result.stdout.endswith(b"\0"):
+        raise Issue136InstalledAcceptanceError("missing Git-tracked source inventory")
+    paths: list[Path] = []
+    for entry in result.stdout.split(b"\0")[:-1]:
+        relative = Path(os.fsdecode(entry))
+        if (
+            relative.is_absolute()
+            or not relative.parts
+            or ".." in relative.parts
+            or ":" in relative.parts[0]
+            or relative.parts[0] in {".git", ".venv", "build", "dist"}
+        ):
+            raise Issue136InstalledAcceptanceError("unsafe Git-tracked source path")
+        original = repository / relative
+        if not original.is_file() or original.is_symlink():
+            raise Issue136InstalledAcceptanceError(
+                f"tracked source is missing or a link: {relative}"
+            )
+        paths.append(relative)
+    if len(paths) < 2 or len(set(paths)) != len(paths):
+        raise Issue136InstalledAcceptanceError("invalid tracked source inventory")
+    destination.mkdir(parents=True)
+    for relative in paths:
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(repository / relative, target)
+
+
 def _remove_generated_build_roots(repository: Path) -> None:
     for relative in (
         Path("build"),
@@ -568,16 +610,10 @@ def run_acceptance(
     else:
         work.mkdir(parents=True)
 
-    generated_roots = (
-        repository / "build",
-        repository / "pds_concord.egg-info",
-        repository / "concord.egg-info",
-    )
-    if any(path.exists() for path in generated_roots):
-        raise Issue136InstalledAcceptanceError(
-            "refusing to overwrite pre-existing generated build roots"
-        )
-
+    # Candidate wheel builds occur only in Git-tracked isolated source.
+    # Never remove/overwrite a developer's existing build or egg-info roots.
+    source = work / "source"
+    _copy_tracked_source(repository, source)
     core_digest = _verify_core_wheel(core_wheel)
     artifacts = work / "artifacts"
     environment = work / "venv"
@@ -595,7 +631,7 @@ def run_acceptance(
                 "--outdir",
                 str(artifacts),
             ],
-            cwd=repository,
+            cwd=source,
         )
         wheels = tuple(artifacts.glob("*.whl"))
         if len(wheels) != 1:
@@ -686,7 +722,7 @@ def run_acceptance(
             "installed_acceptance": "passed",
         }
     finally:
-        _remove_generated_build_roots(repository)
+        _remove_generated_build_roots(source)
 
 
 def main() -> int:
