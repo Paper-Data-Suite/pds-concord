@@ -90,6 +90,9 @@ def test_menu_previews_before_apply_and_uses_exact_prepared_identity(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     preview = _preview()
+    monkeypatch.setattr(
+        application_menu, "standards_kwargs_for_plan", lambda _detail: {}
+    )
     events: list[str] = []
     captured: list[object] = []
     monkeypatch.setattr(application_menu, "list_sessions", lambda *a, **k: (object(),))

@@ -72,6 +72,7 @@ def test_random_menu_previews_affected_placements_before_write(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     inspection = _inspection()
+    monkeypatch.setattr(missing_menu, "standards_kwargs_for_plan", lambda _detail: {})
     events: list[str] = []
     captured: list[object] = []
 

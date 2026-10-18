@@ -19,6 +19,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -335,7 +336,8 @@ def create_signal_group_plan_from_menu(
                 target_group_count=target_count,
                 expected_roster_student_ids=proposal.roster_student_ids,
                 expected_signal_set_digest=selection.digest,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result("GroupPlan Result", _result_lines(result, target_line))
     except CancelMenuAction:

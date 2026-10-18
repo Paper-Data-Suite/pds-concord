@@ -28,7 +28,11 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
-from concord.menu_standards_context import standards_for_activity
+from concord.menu_standards_context import (
+    standards_for_activity,
+    standards_kwargs_for_activity,
+    standards_kwargs_for_plan,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -310,7 +314,8 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
                 seed=seed,
                 target_group_size=target_group_size,
                 target_group_count=target_group_count,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         mutation = result.mutation
         show_result(
@@ -371,7 +376,8 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
                 csv_path=Path(raw_path),
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=state.require_actor(),
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Arrangement Import Result",
@@ -430,7 +436,8 @@ def _add_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -479,7 +486,8 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -511,7 +519,8 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -593,7 +602,8 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -625,7 +635,8 @@ def _unassign_student(detail: GroupPlanDetail, state: MenuSessionContext) -> Non
             student_id=student.student_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -655,7 +666,8 @@ def _refresh_roster(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -692,7 +704,8 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
             csv_path=Path(raw_path),
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "Arrangement Replacement Result",
@@ -724,7 +737,8 @@ def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Preview",
@@ -758,7 +772,8 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Approval",
@@ -788,7 +803,8 @@ def _cancel(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",

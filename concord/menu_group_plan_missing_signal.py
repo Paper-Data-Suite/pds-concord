@@ -10,6 +10,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_standards_context import standards_kwargs_for_plan
 from concord.menu_ui import clear_screen, pause_for_user, print_menu_header
 from concord.workflows import (
     GroupPlanDetail,
@@ -186,7 +187,8 @@ def resolve_missing_signal_from_menu(
                 random_seed=random_seed,
                 expected_snapshot_revision=inspection.detail.summary.snapshot_revision,
                 actor=state.require_actor(),
-            )
+            ),
+            **standards_kwargs_for_plan(inspection.detail),
         )
         show_result("Missing-Signal Decision Result", _result_lines(result))
     except CancelMenuAction:

@@ -23,6 +23,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -97,7 +98,6 @@ def _responsibility_assignee_label(item: ResponsibilitySummary) -> str:
     return item.assignee_reference.participant_id
 
 
-
 def _choose_existing(
     items: tuple[ResponsibilitySummary, ...],
     title: str,
@@ -154,7 +154,6 @@ def _choose_assignee(
     print(navigation_hint_with_help())
     pause_for_user()
     return _choose_assignee(activity)
-
 
 
 def _choose_responsibility_preset() -> PresetSummary | None:
@@ -242,7 +241,8 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                     actor=actor,
                     group_id=group_id,
                     expected_output=expected_output,
-                )
+                ),
+                **standards_kwargs_for_activity(current),
             )
         else:
             request = ApplyResponsibilityPresetRequest(
@@ -257,7 +257,10 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 actor=actor,
                 group_id=group_id,
             )
-            prepared = prepare_responsibility_preset_application(request)
+            standards_kwargs = standards_kwargs_for_activity(current)
+            prepared = prepare_responsibility_preset_application(
+                request, **standards_kwargs
+            )
             if not confirm_write(
                 "Assign Saved Responsibility",
                 "ADD",
@@ -271,6 +274,7 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
             result = apply_responsibility_preset(
                 request,
                 review_digest=prepared.review_digest,
+                **standards_kwargs,
             )
         show_result(
             "Responsibility Result",
@@ -284,8 +288,6 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         return
     except Exception as error:
         _handle_error(activity, error)
-
-
 
 
 def _save_responsibility_as_preset(
@@ -314,7 +316,10 @@ def _save_responsibility_as_preset(
             expected_snapshot_revision=current.snapshot_revision,
             actor=state.require_actor(),
         )
-        prepared = prepare_responsibility_preset_from_assignment(request)
+        standards_kwargs = standards_kwargs_for_activity(current)
+        prepared = prepare_responsibility_preset_from_assignment(
+            request, **standards_kwargs
+        )
         if not confirm_write(
             "Save Responsibility Preset",
             "SAVE",
@@ -329,6 +334,7 @@ def _save_responsibility_as_preset(
         result = save_responsibility_preset_from_assignment(
             request,
             review_digest=prepared.review_digest,
+            **standards_kwargs,
         )
         show_result(
             "Responsibility Preset Saved",
@@ -373,7 +379,8 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 status=status,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Responsibility Result",
@@ -423,9 +430,7 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
             ReassignResponsibilityRequest(
                 class_id=current.class_id,
                 activity_id=current.activity_id,
-                responsibility_assignment_id=(
-                    predecessor.responsibility_assignment_id
-                ),
+                responsibility_assignment_id=(predecessor.responsibility_assignment_id),
                 successor_responsibility_assignment_id=(
                     f"responsibility-{uuid.uuid4().hex}"
                 ),
@@ -435,7 +440,8 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 group_id=group_id,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Responsibility Result",

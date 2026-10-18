@@ -26,6 +26,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
     clear_screen,
@@ -141,7 +142,8 @@ def _create_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 description=description,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Group Result",
@@ -312,16 +314,17 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
             ):
                 return
             result = update_group(
-                UpdateGroupRequest(**values)  # type: ignore[arg-type]
+                UpdateGroupRequest(**values),  # type: ignore[arg-type]
+                **standards_kwargs_for_activity(current),
             )
             show_result(
                 "Group Result",
                 (
                     (
-                    "Group saved."
-                    if not result.commit.no_op
-                    else "No changes were needed."
-                ),
+                        "Group saved."
+                        if not result.commit.no_op
+                        else "No changes were needed."
+                    ),
                     f"Group: {result.group_id}",
                     f"Snapshot: {result.commit.snapshot_revision}",
                 ),
@@ -352,7 +355,8 @@ def _list_members(activity: ActivitySummary) -> None:
                 f"in {group_labels.get(item.group_id, 'Group not recorded')} "
                 f"- {item.status.replace('_', ' ')}"
                 for item in items
-            ), noun="membership choice",
+            ),
+            noun="membership choice",
         )
         for label in labels:
             print(label)
@@ -396,7 +400,8 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 members=members,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Membership Result",
@@ -452,7 +457,8 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 status=status,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Membership Result",
@@ -511,7 +517,8 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
                 effective_context=context,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Membership Result",

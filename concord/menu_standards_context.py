@@ -7,10 +7,17 @@ change storage validation, cache Standards, or create a missing library.
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from pds_core.standards import StandardsLibrary
 
 from concord.menu_prompts import load_menu_standards_library
-from concord.workflows import ActivitySummary, ConcordWorkflowValidationError
+from concord.workflows import (
+    ActivitySummary,
+    ConcordWorkflowValidationError,
+    GroupPlanDetail,
+    show_activity,
+)
 
 
 def standards_for_activity(activity: ActivitySummary) -> StandardsLibrary | None:
@@ -32,3 +39,28 @@ def standards_for_activity(activity: ActivitySummary) -> StandardsLibrary | None
             "was created."
         )
     return library
+
+
+class StandardsWriteKwargs(TypedDict, total=False):
+    standards_library: StandardsLibrary
+
+
+def standards_kwargs_for_activity(
+    activity: ActivitySummary,
+) -> StandardsWriteKwargs:
+    """Forward required Standards context without burdening neutral Activities."""
+    library = standards_for_activity(activity)
+    return {"standards_library": library} if library is not None else {}
+
+
+def standards_kwargs_for_plan(
+    detail: GroupPlanDetail,
+) -> StandardsWriteKwargs:
+    """Resolve the live Activity before validating a plan mutation.
+
+    GroupPlan details intentionally omit scoring orientation; never infer it
+    from plan strategy, cached IDs, or a prior Activity. The Activity
+    summary reader is standards-neutral; service writes remain strict.
+    """
+    summary = show_activity(detail.summary.class_id, detail.summary.activity_id).summary
+    return standards_kwargs_for_activity(summary)
