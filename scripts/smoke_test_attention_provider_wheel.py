@@ -100,7 +100,7 @@ def _smoke_code() -> str:
         )
 
         assert metadata.version("pds-core") == "0.6.6"
-        assert metadata.version("pds-concord") == "0.3.3"
+        assert metadata.version("pds-concord") == "0.3.4"
 
         env_root = Path(sys.prefix).resolve()
         for package in (concord, pds_core):

@@ -28,6 +28,15 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_saved_groupings import (
+    launch_saved_groupings_menu,
+    save_grouping_from_plan,
+)
+from concord.menu_standards_context import (
+    standards_for_activity,
+    standards_kwargs_for_activity,
+    standards_kwargs_for_plan,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -204,6 +213,7 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
             ),
         ):
             return
+        standards_library = standards_for_activity(current)
         result = create_manual_group_plan(
             CreateManualGroupPlanRequest(
                 class_id=current.class_id,
@@ -211,7 +221,8 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
                 group_plan_id=plan_id,
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=state.require_actor(),
-            )
+            ),
+            standards_library=standards_library,
         )
         show_result(
             "GroupPlan Result",
@@ -307,7 +318,8 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
                 seed=seed,
                 target_group_size=target_group_size,
                 target_group_count=target_group_count,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         mutation = result.mutation
         show_result(
@@ -368,7 +380,8 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
                 csv_path=Path(raw_path),
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=state.require_actor(),
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Arrangement Import Result",
@@ -427,7 +440,8 @@ def _add_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -476,7 +490,8 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -508,7 +523,8 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -590,7 +606,8 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -622,7 +639,8 @@ def _unassign_student(detail: GroupPlanDetail, state: MenuSessionContext) -> Non
             student_id=student.student_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -652,7 +670,8 @@ def _refresh_roster(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -689,7 +708,8 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
             csv_path=Path(raw_path),
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "Arrangement Replacement Result",
@@ -721,7 +741,8 @@ def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Preview",
@@ -755,7 +776,8 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Approval",
@@ -785,7 +807,8 @@ def _cancel(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
             actor=state.require_actor(),
-        )
+        ),
+        **standards_kwargs_for_plan(detail),
     )
     show_result(
         "GroupPlan Result",
@@ -834,6 +857,12 @@ def _open_plan(
             print("9. Cancel")
             if detail.plan.status == "approved":
                 print("10. Apply approved plan")
+        if detail.plan.status in {"draft", "previewed"}:
+            print(
+                "12. Save current grouping"
+                if is_signal_plan
+                else "11. Save current grouping"
+            )
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -867,29 +896,30 @@ def _open_plan(
                     _replace_arrangement(detail, state)
                 elif is_signal_plan and choice == "7":
                     resolve_missing_signal_from_menu(detail, state)
-                elif (
-                    (is_signal_plan and choice == "8")
-                    or (not is_signal_plan and choice == "7")
+                elif (is_signal_plan and choice == "8") or (
+                    not is_signal_plan and choice == "7"
                 ):
                     _preview(detail, state)
-                elif (
-                    (is_signal_plan and choice == "9")
-                    or (not is_signal_plan and choice == "8")
+                elif (is_signal_plan and choice == "9") or (
+                    not is_signal_plan and choice == "8"
                 ):
                     _approve(detail, state)
-                elif (
-                    (is_signal_plan and choice == "10")
-                    or (not is_signal_plan and choice == "9")
+                elif (is_signal_plan and choice == "10") or (
+                    not is_signal_plan and choice == "9"
                 ):
                     _cancel(detail, state)
-                elif (
-                    detail.plan.status == "approved"
-                    and (
-                        (is_signal_plan and choice == "11")
-                        or (not is_signal_plan and choice == "10")
-                    )
+                elif detail.plan.status == "approved" and (
+                    (is_signal_plan and choice == "11")
+                    or (not is_signal_plan and choice == "10")
                 ):
                     apply_approved_group_plan_from_menu(detail, state)
+                elif detail.plan.status in {"draft", "previewed"} and (
+                    (is_signal_plan and choice == "12")
+                    or (not is_signal_plan and choice == "11")
+                ):
+                    save_grouping_from_plan(
+                        activity, state, group_plan_id=detail.plan.group_plan_id
+                    )
                 else:
                     print(navigation_hint_with_help())
                     pause_for_user()
@@ -918,6 +948,7 @@ def launch_group_plan_menu(
         print("6. Open a GroupPlan")
         print("7. Create similar-signal plan")
         print("8. Create mixed-signal plan")
+        print("9. Saved class groupings")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -958,6 +989,8 @@ def launch_group_plan_menu(
             create_signal_group_plan_from_menu(current, state, "similar_signal")
         elif choice == "8":
             create_signal_group_plan_from_menu(current, state, "mixed_signal")
+        elif choice == "9":
+            launch_saved_groupings_menu(current, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

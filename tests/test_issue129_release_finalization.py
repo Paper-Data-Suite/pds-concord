@@ -8,16 +8,14 @@ from pathlib import Path
 from concord import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_066_SHA256 = (
-    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
-)
+CORE_066_SHA256 = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 
 
 def test_issue134_active_candidate_identity_and_core_floor() -> None:
-    assert __version__ == "0.3.3"
-    project = tomllib.loads(
-        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )["project"]
+    assert __version__ == "0.3.4"
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
     assert project["dependencies"][0] == "pds-core>=0.6.6,<0.7"
 
     for relative in (
@@ -26,40 +24,32 @@ def test_issue134_active_candidate_identity_and_core_floor() -> None:
         "scripts/verify_release_compatibility.py",
     ):
         source = (ROOT / relative).read_text(encoding="utf-8")
-        assert "0.3.3" in source
+        assert "0.3.4" in source
         assert "pds-core>=0.6.6,<0.7" in source
 
 
 def test_issue134_exact_core066_is_active_ci_and_repository_baseline() -> None:
-    verifier = (ROOT / "scripts" / "verify_core_wheel.py").read_text(
-        encoding="utf-8"
-    )
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
+    verifier = (ROOT / "scripts" / "verify_core_wheel.py").read_text(encoding="utf-8")
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     validator = (ROOT / "scripts" / "validate_repository.py").read_text(
         encoding="utf-8"
     )
 
     assert 'EXPECTED_CORE_VERSION = "0.6.6"' in verifier
     assert (
-        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.6-py3-none-any.whl"'
-        in verifier
+        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.6-py3-none-any.whl"' in verifier
     )
     assert CORE_066_SHA256 in verifier
     assert "pds_core-0.6.6-py3-none-any.whl" in ci
     assert "/v0.6.6/pds_core-0.6.6-py3-none-any.whl" in ci
-    assert "scripts/run_issue134_installed_acceptance.py" in validator
-    assert (
-        "installed-wheel smoke: issue #134 Core 0.6.6 reader contract"
-        in validator
-    )
+    assert "scripts/run_issue136_installed_acceptance.py" in validator
+    assert "installed-wheel smoke: issue #136 Core 0.6.6 reader contract" in validator
 
 
 def test_issue129_release_compatibility_freezes_reader_support() -> None:
-    source = (
-        ROOT / "scripts" / "verify_release_compatibility.py"
-    ).read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "verify_release_compatibility.py").read_text(
+        encoding="utf-8"
+    )
     for fragment in (
         "CONCORD_ACADEMIC_RESULT_READER_CONTRACT_VERSION",
         "CONCORD_DISTRIBUTION_NAME",
@@ -80,12 +70,8 @@ def test_issue129_required_wheel_content_includes_standards_display() -> None:
 
 
 def test_issue129_historical_v030_release_evidence_is_unchanged() -> None:
-    audit = (ROOT / "docs" / "v0.3.0-release-audit.md").read_text(
-        encoding="utf-8"
-    )
-    checklist = (ROOT / "docs" / "release_checklist.md").read_text(
-        encoding="utf-8"
-    )
+    audit = (ROOT / "docs" / "v0.3.0-release-audit.md").read_text(encoding="utf-8")
+    checklist = (ROOT / "docs" / "release_checklist.md").read_text(encoding="utf-8")
     assert "v0.3.0" in audit
     assert "pds-core>=0.6.3,<0.7" in audit
     assert checklist.startswith("# Concord v0.3.0 release checklist")
@@ -93,9 +79,7 @@ def test_issue129_historical_v030_release_evidence_is_unchanged() -> None:
 
 
 def test_issue129_v031_release_docs_define_contract_and_pending_final_gate() -> None:
-    notes = (ROOT / "RELEASE_NOTES_v0.3.1.md").read_text(
-        encoding="utf-8"
-    )
+    notes = (ROOT / "RELEASE_NOTES_v0.3.1.md").read_text(encoding="utf-8")
     checklist = (ROOT / "docs" / "v0.3.1-release-checklist.md").read_text(
         encoding="utf-8"
     )

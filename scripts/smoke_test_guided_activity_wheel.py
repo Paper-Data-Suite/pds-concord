@@ -65,7 +65,7 @@ def _smoke_code() -> str:
         )
 
         assert metadata.version("pds-core") == "0.6.6"
-        assert metadata.version("pds-concord") == "0.3.3"
+        assert metadata.version("pds-concord") == "0.3.4"
         assert callable(launch_guided_activity_menu)
         assert callable(launch_guided_continue_setup)
 

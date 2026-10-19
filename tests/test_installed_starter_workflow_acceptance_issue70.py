@@ -25,7 +25,7 @@ def test_issue70_slice1_seminar_smoke_covers_required_installed_boundaries() -> 
 
     required_fragments = (
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         "launch_guided_activity_menu(state)",
         'get_starter_template("socratic_seminar")',
         "create_manual_group_plan(",
@@ -59,7 +59,7 @@ def test_issue70_slice1_preserves_participant_and_no_meridian_boundaries() -> No
     source = starter_smoke._smoke_code()
     assert 'audience_kind="participant"' in source
     assert 'target.audience_kind == "participant"' in source
-    assert 'target.group_id in group_ids' in source
+    assert "target.group_id in group_ids" in source
     assert "artifact_by_student" in source
     assert "student-1" in source
     assert "student-4" in source
@@ -84,12 +84,12 @@ def test_issue70_slice1_automated_path_starts_from_rendered_pdfs() -> None:
 def test_issue70_slice2_project_smoke_covers_signal_backed_group_path() -> None:
     source = starter_smoke._smoke_code()
     required_fragments = (
-        'GroupingSignalSet(',
-        'write_grouping_signal(root, signal)',
-        'calculate_grouping_signal_digest(signal)',
-        'CreateSignalGroupPlanRequest(',
+        "GroupingSignalSet(",
+        "write_grouping_signal(root, signal)",
+        "calculate_grouping_signal_digest(signal)",
+        "CreateSignalGroupPlanRequest(",
         'strategy="similar_signal"',
-        'fallback_effective_context=project_context',
+        "fallback_effective_context=project_context",
         'get_starter_template("project_plan")',
         'audience_kind="group"',
         'target.audience_kind == "group"',
@@ -131,52 +131,52 @@ def test_issue70_slice2_enforces_signal_privacy_and_dynamic_page_contracts() -> 
         'private_source_module = "issue70_private_producer"',
         'private_snapshot_id = "issue70-private-snapshot"',
         'private_snapshot_digest = "7" * 64',
-        'private_canonical_digest = calculate_grouping_signal_digest(signal)',
-        'assert_private_absent(project_prepared_generation, private_tokens)',
-        'assert_private_absent(packet.output_path.read_bytes(), private_tokens)',
-        'assert_private_absent(project_generated.content, private_tokens)',
-        'downstream_records = (',
+        "private_canonical_digest = calculate_grouping_signal_digest(signal)",
+        "assert_private_absent(project_prepared_generation, private_tokens)",
+        "assert_private_absent(packet.output_path.read_bytes(), private_tokens)",
+        "assert_private_absent(project_generated.content, private_tokens)",
+        "downstream_records = (",
     )
     for fragment in privacy_fragments:
         assert fragment in source
 
     assert "seminar_page_count = starter.page_count" in source
     assert "project_page_count = project_starter.page_count" in source
-    assert 'starter.page_count == 2' not in source
-    assert 'project_starter.page_count == 1' not in source
+    assert "starter.page_count == 2" not in source
+    assert "project_starter.page_count == 1" not in source
 
 
 def test_issue70_slice3_peer_review_smoke_covers_random_participant_path() -> None:
     source = starter_smoke._smoke_code()
     required_fragments = (
-        'CreateRandomGroupPlanRequest(',
+        "CreateRandomGroupPlanRequest(",
         'seed="issue70-peer-review-seed"',
-        'random_plan.mutation.group_plan_id',
-        'fallback_effective_context=peer_context',
+        "random_plan.mutation.group_plan_id",
+        "fallback_effective_context=peer_context",
         'get_starter_template("peer_review_writing")',
-        'peer_current_version = peer_template_library.current_version',
-        'peer_page_count = len(peer_current_version.page_manifest)',
-        'PacketSubjectBinding(',
+        "peer_current_version = peer_template_library.current_version",
+        "peer_page_count = len(peer_current_version.page_manifest)",
+        "PacketSubjectBinding(",
         'target_key=f"participant:{reviewer_id}"',
-        'subject_bindings=peer_subject_bindings',
+        "subject_bindings=peer_subject_bindings",
         'planned_artifact.proposed_subject_role == "reviewed_subject"',
-        'template_version_id=peer_starter_result.template_version_id',
+        "template_version_id=peer_starter_result.template_version_id",
         'audience_kind="participant"',
-        'target.group_id in peer_group_ids',
+        "target.group_id in peer_group_ids",
         'generation_id="generation-peer-review-issue70"',
         'supported_target_kinds=("core_student",)',
         'criterion_id="criterion-peer-review-quality"',
-        'peer_registration = register_concord_academic_work(',
-        'peer_publication = publish_concord_academic_results(',
+        "peer_registration = register_concord_academic_work(",
+        "peer_publication = publish_concord_academic_results(",
         'peer_stage("peer-review workflow complete")',
     )
     for fragment in required_fragments:
         assert fragment in source
 
     assert 'peer_previewed.plan.strategy == "random"' in source
-    assert 'peer_previewed.plan.source_signal_set_id is None' in source
-    assert 'peer_previewed.plan.source_signal_set_digest is None' in source
-    assert 'peer_previewed.plan.source_signal_dimension_id is None' in source
+    assert "peer_previewed.plan.source_signal_set_id is None" in source
+    assert "peer_previewed.plan.source_signal_set_digest is None" in source
+    assert "peer_previewed.plan.source_signal_dimension_id is None" in source
 
     peer_section = source[
         source.index('peer_starter = get_starter_template("peer_review_writing")') :
@@ -184,18 +184,13 @@ def test_issue70_slice3_peer_review_smoke_covers_random_participant_path() -> No
     normalized_peer_section = " ".join(peer_section.split())
     assert (
         "peer_starter_result.template_version_id "
-        "!= peer_starter.template_version_id"
-        in normalized_peer_section
+        "!= peer_starter.template_version_id" in normalized_peer_section
     )
     assert (
         "peer_current_version.supersedes_template_version_id "
-        "== peer_starter.template_version_id"
-        in normalized_peer_section
+        "== peer_starter.template_version_id" in normalized_peer_section
     )
-    assert (
-        "template_version_id=peer_starter_result.template_version_id"
-        in peer_section
-    )
+    assert "template_version_id=peer_starter_result.template_version_id" in peer_section
     assert "subject_bindings=peer_subject_bindings" in peer_section
     assert "PacketSubjectBinding(" in peer_section
     assert 'proposed_subject_role == "reviewed_subject"' in peer_section
@@ -211,9 +206,7 @@ def test_issue70_slice3_peer_review_smoke_covers_random_participant_path() -> No
     peer_intake = source.index("peer_returned = route_scan_sources(")
     peer_review = source.index('artifact_review_id=f"review-peer-')
     peer_score = source.index('peer_score_id = f"score-peer-')
-    peer_publish = source.index(
-        "peer_publication = publish_concord_academic_results("
-    )
+    peer_publish = source.index("peer_publication = publish_concord_academic_results(")
     assert (
         peer_plan
         < peer_preview

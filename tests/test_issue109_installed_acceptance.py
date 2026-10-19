@@ -9,9 +9,7 @@ VALIDATOR = ROOT / "scripts" / "validate_repository.py"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
-CORE_066_SHA256 = (
-    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
-)
+CORE_066_SHA256 = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 
 
 def _source() -> str:
@@ -26,7 +24,7 @@ def test_issue109_installed_smoke_compiles_and_authenticates_core065() -> None:
         '"pip", "check"',
         '[str(python), "-I", str(smoke_path)]',
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         CORE_066_SHA256,
         "Issue #109 candidate wheel SHA-256:",
         "Issue #109 Core wheel SHA-256:",

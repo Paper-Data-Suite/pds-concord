@@ -14,7 +14,7 @@ from packaging.utils import canonicalize_name
 from concord.starter_templates.catalog import list_starter_templates
 from concord.starter_templates.catalog_lineage import packaged_starter_asset_names
 
-EXPECTED_VERSION = "0.3.3"
+EXPECTED_VERSION = "0.3.4"
 EXPECTED_RUNTIME_REQUIREMENTS = (
     "pds-core>=0.6.6,<0.7",
     "Pillow>=11,<13",
@@ -158,9 +158,12 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(
             "The Concord publication-producer entry point is missing."
         )
-    if entry_points.count(
-        "concord = concord.pds_publication:get_publication_producer_profile"
-    ) != 1:
+    if (
+        entry_points.count(
+            "concord = concord.pds_publication:get_publication_producer_profile"
+        )
+        != 1
+    ):
         raise PackageValidationError(
             "The Concord publication-producer entry point must occur exactly once."
         )
@@ -176,9 +179,12 @@ def validate_wheel(path: str | Path) -> None:
         raise PackageValidationError(
             "The module-operations entry-point group must occur exactly once."
         )
-    if entry_points.count(
-        "concord = concord.pds_operations:get_module_operations_profile"
-    ) != 1:
+    if (
+        entry_points.count(
+            "concord = concord.pds_operations:get_module_operations_profile"
+        )
+        != 1
+    ):
         raise PackageValidationError(
             "The Concord module-operations entry point must occur exactly once."
         )
@@ -213,6 +219,19 @@ def validate_wheel(path: str | Path) -> None:
         "concord/artifact_rendering.py",
         "concord/generated_paths.py",
         "concord/standards_display.py",
+        "concord/class_group_arrangements.py",
+        "concord/class_group_arrangement_storage.py",
+        "concord/workflows/class_group_arrangements.py",
+        "concord/workflows/class_group_arrangement_operational.py",
+        "concord/workflows/class_group_arrangement_revision.py",
+        "concord/workflows/class_group_arrangement_csv.py",
+        "concord/menu_saved_groupings.py",
+        "concord/menu_saved_grouping_revisions.py",
+        "concord/menu_saved_operational_grouping.py",
+        "concord/cli_app/handlers/saved_grouping.py",
+        "concord/cli_app/handlers/saved_grouping_revision.py",
+        "concord/cli_app/handlers/saved_grouping_operational.py",
+        "concord/cli_app/handlers/saved_grouping_csv.py",
         "concord/menu_score_analysis.py",
         "concord/menu_score_analysis_export.py",
         "concord/workflows/_score_lineage.py",

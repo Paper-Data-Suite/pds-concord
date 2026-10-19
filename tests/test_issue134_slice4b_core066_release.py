@@ -24,9 +24,9 @@ CORE_SHA = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
 
 
 def test_current_candidate_identity_is_new_and_requires_core066() -> None:
-    assert __version__ == RELEASE_VERSION == "0.3.3"
-    assert EXPECTED_WHEEL == "pds_concord-0.3.3-py3-none-any.whl"
-    assert EXPECTED_SDIST == "pds_concord-0.3.3.tar.gz"
+    assert __version__ == RELEASE_VERSION == "0.3.4"
+    assert EXPECTED_WHEEL == "pds_concord-0.3.4-py3-none-any.whl"
+    assert EXPECTED_SDIST == "pds_concord-0.3.4.tar.gz"
     assert EXPECTED_CORE_VERSION == "0.6.6"
     assert EXPECTED_CORE_WHEEL_FILENAME == "pds_core-0.6.6-py3-none-any.whl"
     assert EXPECTED_CORE_WHEEL_SHA256 == CORE_SHA
@@ -40,7 +40,7 @@ def test_ci_authenticates_official_core066_on_all_matrix_rows() -> None:
     assert "/v0.6.6/pds_core-0.6.6-py3-none-any.whl" in ci
     assert "pds_core-0.6.5-py3-none-any.whl" not in ci
     assert "python scripts/verify_core_wheel.py --installed" in ci
-    assert "python scripts/verify_core_wheel.py \"$env:PDS_CORE_WHEEL\"" in ci
+    assert 'python scripts/verify_core_wheel.py "$env:PDS_CORE_WHEEL"' in ci
 
 
 def test_installed_wheel_smokes_have_current_version_assertions() -> None:
@@ -76,12 +76,10 @@ def test_historical_issue129_harness_unchanged_and_separate() -> None:
     assert "venv.EnvBuilder(with_pip=True)" in current
     assert '"-m", "pip", "check"' in current
     assert 'environment.pop("PYTHONPATH", None)' in current
-    validator = (ROOT / "scripts/validate_repository.py").read_text(
-        encoding="utf-8"
-    )
-    assert '"scripts/run_issue134_installed_acceptance.py"' in validator
+    validator = (ROOT / "scripts/validate_repository.py").read_text(encoding="utf-8")
+    assert '"scripts/run_issue136_installed_acceptance.py"' in validator
     assert '"scripts/run_issue129_installed_acceptance.py"' not in validator
-    assert "installed-wheel smoke: issue #134 Core 0.6.6 reader contract" in validator
+    assert "installed-wheel smoke: issue #136 Core 0.6.6 reader contract" in validator
 
 
 def test_viewer_protection_remains_in_core_after_evidence_verification() -> None:

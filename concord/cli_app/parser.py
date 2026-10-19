@@ -19,6 +19,10 @@ from concord.cli_app.handlers import (
     reusable_presets,
     review_moderation,
     role,
+    saved_grouping,
+    saved_grouping_csv,
+    saved_grouping_operational,
+    saved_grouping_revision,
     scan,
     scoring,
     session,
@@ -99,7 +103,6 @@ def _context_options(
 def _class_activity(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--class-id", required=True)
     parser.add_argument("--activity-id", required=True)
-
 
 
 def _template_expected_option(parser: argparse.ArgumentParser) -> None:
@@ -270,9 +273,7 @@ def _packet_commands(
         ),
     )
     _packet_instantiation_options(instantiate_preview)
-    instantiate_preview.set_defaults(
-        handler=packet_runtime.handle_instantiate_preview
-    )
+    instantiate_preview.set_defaults(handler=packet_runtime.handle_instantiate_preview)
 
     instantiate = actions.add_parser(
         "instantiate",
@@ -303,9 +304,7 @@ def _packet_commands(
     _workspace_option(instantiate_resume)
     _class_activity(instantiate_resume)
     instantiate_resume.add_argument("--generation-id", required=True)
-    instantiate_resume.set_defaults(
-        handler=packet_runtime.handle_instantiate_resume
-    )
+    instantiate_resume.set_defaults(handler=packet_runtime.handle_instantiate_resume)
 
     instance_list = actions.add_parser(
         "instance-list",
@@ -341,9 +340,7 @@ def _packet_commands(
             "concurrency control."
         ),
     )
-    instance_render.set_defaults(
-        handler=packet_runtime.handle_instance_render
-    )
+    instance_render.set_defaults(handler=packet_runtime.handle_instance_render)
 
     instance_open = actions.add_parser(
         "instance-open",
@@ -373,9 +370,7 @@ def _packet_commands(
     _actor_options(generation_render)
     _class_activity(generation_render)
     generation_render.add_argument("--generation-id", required=True)
-    generation_render.set_defaults(
-        handler=packet_runtime.handle_generation_render
-    )
+    generation_render.set_defaults(handler=packet_runtime.handle_generation_render)
 
 
 def _template_commands(
@@ -412,9 +407,7 @@ def _template_commands(
     _workspace_option(starter_install)
     _actor_options(starter_install)
     starter_install.add_argument("--starter-key", required=True)
-    starter_install.set_defaults(
-        handler=starter_template.handle_starter_install
-    )
+    starter_install.set_defaults(handler=starter_template.handle_starter_install)
 
     starter_install_all = actions.add_parser(
         "starter-install-all",
@@ -1086,6 +1079,234 @@ def _group_plan_commands(
     cancel.set_defaults(handler=group_plan.handle_cancel)
 
 
+def _saved_grouping_commands(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Direct commands use exactly the reviewed #136 save/reuse services."""
+    parent = subparsers.add_parser(
+        "saved-grouping",
+        help="List, inspect, save, and reuse class-scoped teacher groupings.",
+    )
+    actions = parent.add_subparsers(dest="saved_grouping_command", required=True)
+
+    listing = actions.add_parser("list", help="List saved groupings for one class.")
+    _workspace_option(listing)
+    listing.add_argument("--class-id", required=True)
+    _actor_options(listing)
+    listing.set_defaults(handler=saved_grouping.handle_list)
+
+    show = actions.add_parser("show", help="Inspect one saved grouping.")
+    _workspace_option(show)
+    show.add_argument("--class-id", required=True)
+    show.add_argument("--arrangement-id", required=True)
+    _actor_options(show)
+    show.add_argument(
+        "--show-members",
+        action="store_true",
+        help="Show exact Core student IDs only during authorized detailed review.",
+    )
+    show.set_defaults(handler=saved_grouping.handle_show)
+
+    roster_diff = actions.add_parser(
+        "roster-diff",
+        help="Inspect exact roster additions, departures and unresolved students.",
+    )
+    _workspace_option(roster_diff)
+    roster_diff.add_argument("--class-id", required=True)
+    roster_diff.add_argument("--arrangement-id", required=True)
+    _actor_options(roster_diff)
+    roster_diff.set_defaults(handler=saved_grouping.handle_roster_diff)
+
+    for action in ("save-preview", "save"):
+        cmd = actions.add_parser(
+            action,
+            help="Review or save one current editable Activity GroupPlan.",
+        )
+        _mutating_options(cmd)
+        _class_activity(cmd)
+        cmd.add_argument("--group-plan-id", required=True)
+        cmd.add_argument("--arrangement-id", required=True)
+        cmd.add_argument("--name", required=True)
+        if action == "save":
+            cmd.add_argument("--review-digest", required=True)
+        cmd.set_defaults(
+            handler=(
+                saved_grouping.handle_save_preview
+                if action == "save-preview"
+                else saved_grouping.handle_save
+            )
+        )
+
+    for action in ("reuse-preview", "reuse"):
+        cmd = actions.add_parser(
+            action,
+            help="Review or create an Activity-owned draft from a saved grouping.",
+        )
+        _mutating_options(cmd)
+        _class_activity(cmd)
+        cmd.add_argument("--arrangement-id", required=True)
+        cmd.add_argument("--new-group-plan-id", required=True)
+        cmd.add_argument(
+            "--place",
+            action="append",
+            metavar="STUDENT_ID=GROUP_KEY",
+            help="Explicitly place a new/unresolved student; repeat as needed.",
+        )
+        cmd.add_argument(
+            "--leave-unresolved",
+            action="append",
+            metavar="STUDENT_ID",
+            help="Explicitly leave one student unresolved; repeat as needed.",
+        )
+        cmd.add_argument(
+            "--acknowledge-departed",
+            action="append",
+            metavar="STUDENT_ID",
+            help="Acknowledge each departed roster student; repeat as needed.",
+        )
+        cmd.add_argument(
+            "--acknowledge-existing-plans",
+            action="store_true",
+            help="Permit a separate plan when target already has other plans.",
+        )
+        if action == "reuse-preview":
+            cmd.add_argument(
+                "--show-placements",
+                action="store_true",
+                help="Show exact student IDs during authorized placement preview.",
+            )
+        if action == "reuse":
+            cmd.add_argument("--review-digest", required=True)
+        cmd.set_defaults(
+            handler=(
+                saved_grouping.handle_reuse_preview
+                if action == "reuse-preview"
+                else saved_grouping.handle_reuse
+            )
+        )
+
+    for action in ("save-groups-preview", "save-groups"):
+        cmd = actions.add_parser(
+            action,
+            help="Review or save existing Groups for one exact Session.",
+        )
+        _mutating_options(cmd)
+        _class_activity(cmd)
+        cmd.add_argument("--session-id", required=True)
+        cmd.add_argument("--arrangement-id", required=True)
+        cmd.add_argument("--name", required=True)
+        cmd.add_argument(
+            "--acknowledge-unresolved",
+            action="store_true",
+            help="Acknowledge unassigned current roster students.",
+        )
+        if action == "save-groups-preview":
+            cmd.add_argument(
+                "--show-members",
+                action="store_true",
+                help="Display exact Core student IDs only for local review.",
+            )
+        else:
+            cmd.add_argument("--review-digest", required=True)
+        cmd.set_defaults(
+            handler=(
+                saved_grouping_operational.handle_save_groups_preview
+                if action == "save-groups-preview"
+                else saved_grouping_operational.handle_save_groups
+            )
+        )
+
+    history = actions.add_parser(
+        "history", help="Show immutable revision history for one saved grouping."
+    )
+    _workspace_option(history)
+    history.add_argument("--class-id", required=True)
+    history.add_argument("--arrangement-id", required=True)
+    _actor_options(history)
+    history.set_defaults(handler=saved_grouping_revision.handle_history)
+
+    for action in ("change-preview", "change"):
+        command = actions.add_parser(
+            action, help="Review or append an immutable saved-grouping revision."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument(
+            "--action",
+            required=True,
+            choices=("rename", "replace-from-plan", "retire"),
+        )
+        command.add_argument("--expected-revision", type=int, required=True)
+        command.add_argument("--expected-sha256", required=True)
+        command.add_argument("--new-name")
+        command.add_argument("--source-activity-id")
+        command.add_argument("--source-group-plan-id")
+        command.add_argument("--expected-source-snapshot", type=int)
+        if action == "change":
+            command.add_argument("--review-digest", required=True)
+        command.set_defaults(
+            handler=(
+                saved_grouping_revision.handle_change_preview
+                if action == "change-preview"
+                else saved_grouping_revision.handle_change
+            )
+        )
+
+    # Optional teacher-restricted interchange, not required for normal reuse.
+    for action in ("csv-import-preview", "csv-import"):
+        command = actions.add_parser(
+            action, help="Review or create a class-scoped grouping from local CSV."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument("--name", required=True)
+        command.add_argument("--csv-path", required=True)
+        command.add_argument(
+            "--acknowledge-unresolved",
+            action="store_true",
+            help="Acknowledge any roster students omitted by the CSV.",
+        )
+        if action == "csv-import":
+            command.add_argument("--review-digest", required=True)
+        command.set_defaults(
+            handler=(
+                saved_grouping_csv.handle_import_preview
+                if action == "csv-import-preview"
+                else saved_grouping_csv.handle_import
+            )
+        )
+
+    for action in ("csv-export-preview", "csv-export"):
+        command = actions.add_parser(
+            action, help="Review or exclusively write student_id,group CSV."
+        )
+        _workspace_option(command)
+        command.add_argument("--class-id", required=True)
+        command.add_argument("--arrangement-id", required=True)
+        _actor_options(command)
+        command.add_argument("--expected-revision", type=int, required=True)
+        command.add_argument("--expected-sha256", required=True)
+        if action == "csv-export":
+            command.add_argument("--review-digest", required=True)
+            command.add_argument("--output-path", required=True)
+            command.add_argument(
+                "--authorize-roster-export",
+                action="store_true",
+                help="Explicit authorization to export restricted student IDs.",
+            )
+        command.set_defaults(
+            handler=(
+                saved_grouping_csv.handle_export_preview
+                if action == "csv-export-preview"
+                else saved_grouping_csv.handle_export
+            )
+        )
+
+
 def _role_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -1208,7 +1429,6 @@ def _responsibility_commands(
     )
     _context_options(reassign, required=True)
     reassign.set_defaults(handler=responsibility.handle_reassign)
-
 
 
 def _preset_actor_options(parser: argparse.ArgumentParser) -> None:
@@ -1362,9 +1582,7 @@ def _reusable_preset_commands(
     role_save_preview.add_argument("--name", required=True)
     role_save_preview.add_argument("--description")
     role_save_preview.add_argument("--hint", action="append")
-    role_save_preview.set_defaults(
-        handler=reusable_presets.handle_role_save_preview
-    )
+    role_save_preview.set_defaults(handler=reusable_presets.handle_role_save_preview)
 
     role_save = role_actions.add_parser(
         "save",
@@ -1450,9 +1668,7 @@ def _reusable_preset_commands(
         "--source-responsibility-assignment-id", required=True
     )
     responsibility_save_preview.add_argument("--preset-id", required=True)
-    responsibility_save_preview.add_argument(
-        "--preset-revision-id", required=True
-    )
+    responsibility_save_preview.add_argument("--preset-revision-id", required=True)
     responsibility_save_preview.add_argument("--name", required=True)
     responsibility_save_preview.add_argument("--hint", action="append")
     responsibility_save_preview.set_defaults(
@@ -1539,9 +1755,7 @@ def _reusable_preset_commands(
     scale_save_preview.add_argument("--preset-id", required=True)
     scale_save_preview.add_argument("--preset-revision-id", required=True)
     scale_save_preview.add_argument("--name")
-    scale_save_preview.set_defaults(
-        handler=reusable_presets.handle_scale_save_preview
-    )
+    scale_save_preview.set_defaults(handler=reusable_presets.handle_scale_save_preview)
 
     scale_save = scale_actions.add_parser(
         "save",
@@ -1630,9 +1844,7 @@ def _reusable_preset_commands(
     criterion_save.add_argument("--preset-revision-id", required=True)
     criterion_save.add_argument("--name")
     criterion_save.add_argument("--recommended-scoring-scale-preset-id")
-    criterion_save.add_argument(
-        "--recommended-scoring-scale-preset-revision-id"
-    )
+    criterion_save.add_argument("--recommended-scoring-scale-preset-revision-id")
     criterion_save.add_argument("--review-digest", required=True)
     criterion_save.set_defaults(handler=reusable_presets.handle_criterion_save)
 
@@ -2239,7 +2451,6 @@ def _moderation_commands(
     )
 
 
-
 def _definition_file_option(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--definition",
@@ -2425,8 +2636,7 @@ def _score_semantic_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--evidence-links",
         help=(
-            "Narrow JSON array describing the complete initial "
-            "Score Evidence Link set."
+            "Narrow JSON array describing the complete initial Score Evidence Link set."
         ),
     )
     parser.add_argument("--status-reason-note")
@@ -2509,6 +2719,7 @@ def _score_commands(
         handler=scoring.handle_score_replace,
         command_parser=replace,
     )
+
 
 def _scan_commands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
@@ -2705,9 +2916,7 @@ def _publication_commands(
         required=True,
         choices=("planned", "active", "closed", "cancelled"),
     )
-    registration_update.set_defaults(
-        handler=publication.handle_registration_update
-    )
+    registration_update.set_defaults(handler=publication.handle_registration_update)
 
     preview = actions.add_parser(
         "manifest-preview", help="Preview generation without writing a manifest."
@@ -2810,6 +3019,7 @@ def build_parser() -> argparse.ArgumentParser:
     _session_commands(subparsers)
     _group_commands(subparsers)
     _group_plan_commands(subparsers)
+    _saved_grouping_commands(subparsers)
     _grouping_signal_commands(subparsers)
     _role_commands(subparsers)
     _responsibility_commands(subparsers)

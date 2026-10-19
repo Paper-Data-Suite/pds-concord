@@ -208,7 +208,7 @@ def _smoke_code() -> str:
         require_installed(concord, "pds-concord")
         require_installed(pds_core, "pds-core")
         assert metadata.version("pds-core") == "0.6.6"
-        assert metadata.version("pds-concord") == "0.3.3"
+        assert metadata.version("pds-concord") == "0.3.4"
         stage("isolated site-packages provenance and exact Core 0.6.6")
 
         with tempfile.TemporaryDirectory(
@@ -861,8 +861,7 @@ def smoke(concord_wheel: Path, core_wheel: Path) -> None:
     core_sha = _sha256(core_wheel)
     if core_sha != EXPECTED_CORE_SHA256:
         raise RuntimeError(
-            "Issue #114 requires the exact released Core 0.6.6 "
-            "qualification wheel."
+            "Issue #114 requires the exact released Core 0.6.6 qualification wheel."
         )
 
     print(

@@ -31,7 +31,7 @@ def _run(command: list[str], cwd: Path) -> None:
 def _smoke_code() -> str:
     """Return the installed-only representative starter acceptance program."""
     return textwrap.dedent(
-        r'''
+        r"""
         from __future__ import annotations
 
         import os
@@ -179,7 +179,7 @@ def _smoke_code() -> str:
 
 
         assert metadata.version("pds-core") == "0.6.6"
-        assert metadata.version("pds-concord") == "0.3.3"
+        assert metadata.version("pds-concord") == "0.3.4"
         require_installed(pds_core, "pds-core")
         require_installed(concord, "pds-concord")
         requirements = tuple(metadata.requires("pds-concord") or ())
@@ -2110,7 +2110,7 @@ def _smoke_code() -> str:
                 for module_name in tuple(__import__("sys").modules)
             )
             peer_stage("peer-review workflow complete")
-        '''
+        """
     )
 
 

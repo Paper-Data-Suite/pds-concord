@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.4 - 2026-10-18 (candidate)
+
+### Fixed
+
+- #136: teacher-menu standards context on mixed and standards-backed Activities.
+
+### Added
+
+- #136: immutable class-scoped saved groupings, reviewed reuse through fresh Activity GroupPlans,
+  explicit operational Group Session snapshots, teacher menu and CLI, and optional CSV interchange.
+- #136: synthetic six-group/29-student acceptance; group-versus-individual scoring and
+  Core academic-result publication/neutral reader invariants.
+
+### Compatibility
+
+- Requires Core v0.6.6 or later within the supported `pds-core>=0.6.6,<0.7` range.
+
+
 ## 0.3.2 - 2026-10-10
 
 ### Changed

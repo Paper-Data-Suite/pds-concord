@@ -9,6 +9,7 @@ from concord.menu_prompts import (
     confirm_write,
     show_result,
 )
+from concord.menu_standards_context import standards_kwargs_for_plan
 from concord.menu_ui import clear_screen, pause_for_user, print_menu_header
 from concord.models import EffectiveContext
 from concord.workflows import (
@@ -56,9 +57,9 @@ def _show_application_preview(preview: GroupPlanApplicationPreview) -> None:
     print()
     memberships_by_group: dict[str, list[ApplicationMembershipSpec]] = {}
     for preview_membership in preview.memberships:
-        memberships_by_group.setdefault(
-            preview_membership.group_id, []
-        ).append(preview_membership)
+        memberships_by_group.setdefault(preview_membership.group_id, []).append(
+            preview_membership
+        )
     for group in preview.groups:
         print(f"{group.label} ({group.planned_group_key})")
         print(f"  Canonical Group ID: {group.group_id}")
@@ -68,10 +69,7 @@ def _show_application_preview(preview: GroupPlanApplicationPreview) -> None:
             print("  Memberships: none")
         for member in members:
             print(f"  {member.student_id} -> {member.membership_id}")
-            print(
-                "    Membership context: "
-                f"{_context_label(member.effective_context)}"
-            )
+            print(f"    Membership context: {_context_label(member.effective_context)}")
     if preview.unresolved_student_ids:
         print()
         print("These roster students will receive no GroupMembership:")
@@ -97,13 +95,15 @@ def apply_approved_group_plan_from_menu(
         sessions = list_sessions(detail.summary.class_id, detail.summary.activity_id)
         fallback = choose_effective_context(detail.summary.activity_id, sessions)
 
+    standards_kwargs = standards_kwargs_for_plan(detail)
     preview = prepare_group_plan_application(
         PrepareGroupPlanApplicationRequest(
             class_id=detail.summary.class_id,
             activity_id=detail.summary.activity_id,
             group_plan_id=detail.summary.group_plan_id,
             fallback_effective_context=fallback,
-        )
+        ),
+        **standards_kwargs,
     )
     _show_application_preview(preview)
     pause_for_user()
@@ -132,7 +132,8 @@ def apply_approved_group_plan_from_menu(
             expected_snapshot_revision=preview.expected_snapshot_revision,
             actor=state.require_actor(),
             fallback_effective_context=preview.fallback_effective_context,
-        )
+        ),
+        **standards_kwargs,
     )
     show_result(
         "GroupPlan Application Result",

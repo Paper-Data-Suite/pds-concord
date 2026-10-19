@@ -1,13 +1,14 @@
-
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pypdfium2 as pdfium
 import pytest
 
+import concord.workflows.student_feedback_distribution_package as feedback_package
 from concord.workflows import (
     FEEDBACK_AVAILABILITY_DISTRIBUTABLE,
     FEEDBACK_AVAILABILITY_NONE,
@@ -155,8 +156,7 @@ def test_combined_pdf_is_valid_and_matches_ordered_student_page_total(
     files = _files(package)
 
     individual_pages = sum(
-        files[item.filename].page_count or 0
-        for item in plan.students
+        files[item.filename].page_count or 0 for item in plan.students
     )
     combined = files[FEEDBACK_PRINT_FILENAME]
 
@@ -202,7 +202,7 @@ def test_manifest_is_versioned_private_and_binds_managed_artifacts(
 
     assert manifest["schema_version"] == STUDENT_FEEDBACK_MANIFEST_SCHEMA_VERSION
     assert manifest["created_at"] == "2026-10-08T04:30:00+00:00"
-    assert manifest["concord_version"] == "0.3.3"
+    assert manifest["concord_version"] == "0.3.4"
     assert manifest["source"] == {
         "class_id": "class-1",
         "activity_id": "activity-1",
@@ -236,9 +236,7 @@ def test_manifest_is_versioned_private_and_binds_managed_artifacts(
             student_feedback_projection_sha256(student.projection)
         )
 
-    assert manifest["combined_pdf"]["sha256"] == (
-        files[FEEDBACK_PRINT_FILENAME].sha256
-    )
+    assert manifest["combined_pdf"]["sha256"] == (files[FEEDBACK_PRINT_FILENAME].sha256)
     assert manifest["feedback_index"]["sha256"] == (
         files[FEEDBACK_INDEX_FILENAME].sha256
     )
@@ -273,6 +271,48 @@ def test_projection_digest_is_semantic_and_deterministic() -> None:
     assert student_feedback_projection_sha256(first) != (
         student_feedback_projection_sha256(changed)
     )
+
+
+def test_combined_pdf_discards_pdfium_clock_and_document_id_entropy(
+    tmp_path: Path,
+) -> None:
+    plan, package = _render(tmp_path)
+    files = _files(package)
+    combined = files[FEEDBACK_PRINT_FILENAME]
+    student_files = tuple(files[student.filename] for student in plan.students)
+
+    canonical_date = b"/CreationDate(D:20000101000000)"
+    assert combined.content.count(canonical_date) == 1
+    identifiers = re.search(
+        rb"/ID\s*\[\s*<([0-9A-Fa-f]{32})>\s*<([0-9A-Fa-f]{32})>\s*\]",
+        combined.content,
+    )
+    assert identifiers is not None
+
+    # Simulate two forms of native PDFium nondeterminism without sleeping or
+    # depending on a particular CI worker's wall clock or random seed.
+    different = bytearray(combined.content)
+    position = different.index(canonical_date)
+    different[position : position + len(canonical_date)] = (
+        b"/CreationDate(D:20301231235959)"
+    )
+    different[identifiers.start(1) : identifiers.end(1)] = b"A" * 32
+    different[identifiers.start(2) : identifiers.end(2)] = b"B" * 32
+
+    normalized = feedback_package._canonicalize_pdfium_merged_pdf(
+        bytes(different), student_files
+    )
+    assert normalized == combined.content
+    assert hashlib.sha256(normalized).hexdigest() == combined.sha256
+    document = pdfium.PdfDocument(normalized)
+    try:
+        assert len(document) == combined.page_count
+    finally:
+        document.close()
+
+    missing_date = combined.content.replace(canonical_date, b"x" * len(canonical_date))
+    with pytest.raises(ConcordWorkflowValidationError, match="PDFium metadata"):
+        feedback_package._canonicalize_pdfium_merged_pdf(missing_date, student_files)
 
 
 def test_exact_render_is_deterministic_for_same_plan_and_created_at(

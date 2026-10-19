@@ -18,6 +18,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -132,7 +133,8 @@ def _add(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 label=label,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Session Result",
@@ -196,14 +198,13 @@ def _edit_field(
             "Edit Session",
             "UPDATE",
             (
-                f"Session {session.sequence}: "
-                f"{session.label or 'Unlabeled session'}",
+                f"Session {session.sequence}: {session.label or 'Unlabeled session'}",
                 f"Change: {display}",
             ),
         ):
             return
         request = UpdateSessionRequest(**values)  # type: ignore[arg-type]
-        result = update_session(request)
+        result = update_session(request, **standards_kwargs_for_activity(current))
         show_result(
             "Session Result",
             _result_lines(

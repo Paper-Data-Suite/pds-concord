@@ -23,6 +23,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_standards_context import standards_kwargs_for_activity
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -181,7 +182,6 @@ def _choose_optional_group(activity: ActivitySummary) -> str | None:
     return _choose_optional_group(activity)
 
 
-
 def _choose_role_preset() -> PresetSummary | None:
     presets = list_presets("role")
     if not presets:
@@ -259,7 +259,8 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                     expected_snapshot_revision=current.snapshot_revision,
                     actor=actor,
                     group_id=group_id,
-                )
+                ),
+                **standards_kwargs_for_activity(current),
             )
         else:
             request = ApplyRolePresetRequest(
@@ -274,7 +275,8 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 actor=actor,
                 group_id=group_id,
             )
-            prepared = prepare_role_preset_application(request)
+            standards_kwargs = standards_kwargs_for_activity(current)
+            prepared = prepare_role_preset_application(request, **standards_kwargs)
             if not confirm_write(
                 "Assign Saved Role",
                 "ADD",
@@ -288,6 +290,7 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
             result = apply_role_preset(
                 request,
                 review_digest=prepared.review_digest,
+                **standards_kwargs,
             )
         show_result(
             "Role Result",
@@ -301,8 +304,6 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         return
     except Exception as error:
         _handle_error(activity, error)
-
-
 
 
 def _save_role_as_preset(
@@ -338,7 +339,8 @@ def _save_role_as_preset(
             expected_snapshot_revision=current.snapshot_revision,
             actor=state.require_actor(),
         )
-        prepared = prepare_role_preset_from_assignment(request)
+        standards_kwargs = standards_kwargs_for_activity(current)
+        prepared = prepare_role_preset_from_assignment(request, **standards_kwargs)
         if not confirm_write(
             "Save Role Preset",
             "SAVE",
@@ -353,6 +355,7 @@ def _save_role_as_preset(
         result = save_role_preset_from_assignment(
             request,
             review_digest=prepared.review_digest,
+            **standards_kwargs,
         )
         show_result(
             "Role Preset Saved",
@@ -395,7 +398,8 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 status=status,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Role Result",
@@ -453,7 +457,8 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 expected_snapshot_revision=current.snapshot_revision,
                 actor=actor,
                 group_id=group_id,
-            )
+            ),
+            **standards_kwargs_for_activity(current),
         )
         show_result(
             "Role Result",

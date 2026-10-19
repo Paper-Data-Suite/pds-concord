@@ -12,15 +12,9 @@ PYPROJECT = ROOT / "pyproject.toml"
 PACKAGE_CHECK = ROOT / "scripts" / "check_package.py"
 RELEASE_CHECK = ROOT / "scripts" / "verify_release_artifacts.py"
 
-CORE_064_SHA256 = (
-    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
-)
-CORE_066_SHA256 = (
-    "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
-)
-CORE_063_SHA256 = (
-    "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
-)
+CORE_064_SHA256 = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_066_SHA256 = "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301"
+CORE_063_SHA256 = "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
 
 REPINNED_SMOKES = (
     "scripts/smoke_test_artifact_attribution_batch_wheel.py",
@@ -52,7 +46,7 @@ def test_issue124_installed_smoke_compiles_and_authenticates_core064() -> None:
         '[str(python), "-I", str(smoke_path)]',
         "site-packages",
         'metadata.version("pds-core") == "0.6.6"',
-        'metadata.version("pds-concord") == "0.3.3"',
+        'metadata.version("pds-concord") == "0.3.4"',
         CORE_066_SHA256,
         "Issue #124 candidate wheel SHA-256:",
         "Issue #124 Core wheel SHA-256:",
@@ -101,8 +95,7 @@ def test_issue124_active_core_verifier_is_now_core065() -> None:
     verifier = CORE_VERIFY.read_text(encoding="utf-8")
     assert 'EXPECTED_CORE_VERSION = "0.6.6"' in verifier
     assert (
-        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.6-py3-none-any.whl"'
-        in verifier
+        'EXPECTED_CORE_WHEEL_FILENAME = "pds_core-0.6.6-py3-none-any.whl"' in verifier
     )
     assert CORE_066_SHA256 in verifier
     assert CORE_063_SHA256 not in verifier
@@ -125,8 +118,7 @@ def test_issue124_installed_smoke_is_wired_into_authoritative_validator() -> Non
     tree = ast.parse(source)
     assert any(
         isinstance(node, ast.Constant)
-        and node.value
-        == "installed-wheel smoke: issue #124 generated path safety"
+        and node.value == "installed-wheel smoke: issue #124 generated path safety"
         for node in ast.walk(tree)
     )
 
@@ -151,6 +143,7 @@ def test_issue124_docs_freeze_core064_installed_qualification() -> None:
     )
     for fragment in required:
         assert fragment in text
+
 
 def test_issue124_preserves_historical_issue113_acceptance_evidence() -> None:
     issue113_test = (

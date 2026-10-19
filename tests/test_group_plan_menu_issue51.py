@@ -79,7 +79,8 @@ def test_manual_menu_creation_uses_latest_snapshot_and_group_plan_service(
     monkeypatch.setattr(plan_menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(plan_menu, "show_result", lambda *a, **k: None)
 
-    def fake_create(request: object) -> object:
+    def fake_create(request: object, **kwargs: object) -> object:
+        assert kwargs == {"standards_library": None}
         captured.append(request)
         return SimpleNamespace(
             commit=_commit(12),
