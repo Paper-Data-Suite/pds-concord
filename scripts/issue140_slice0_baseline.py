@@ -305,8 +305,14 @@ def _markdown(record: dict[str, Any]) -> str:
         f"- Annotated tag: `{git['tag']}` object `{git['tag_object']}`",
         f"- Tag peels to: `{git['tag_peeled_commit']}`",
         f"- Tracked source clean when captured: `{git['tracked_files_clean']}`",
-        f"- Concord source: `{record['source']['version']}`; Core requirement: `>=0.6.6,<0.7`",
-        f"- Python: `{env['python']}`; platform: `{env['system']}` / `{env['machine_architecture']}`",
+        (
+            f"- Concord source: `{record['source']['version']}`; "
+            "Core requirement: `>=0.6.6,<0.7`"
+        ),
+        (
+            f"- Python: `{env['python']}`; platform: `{env['system']}` "
+            f"/ `{env['machine_architecture']}`"
+        ),
         "",
         "## Published wheel verification",
         "",
@@ -332,8 +338,14 @@ def _markdown(record: dict[str, Any]) -> str:
         "",
         "## Provenance / scope limitations",
         "",
-        "- Remote Git refs must be compared by the runner; this script verifies local commit and tag objects.",
-        "- No live Activity, Core roster, teacher workspace or OneDrive location was opened.",
+        (
+            "- Remote Git refs must be compared by the runner; "
+            "this script verifies local commit and tag objects."
+        ),
+        (
+            "- No live Activity, Core roster, teacher workspace "
+            "or OneDrive location was opened."
+        ),
         "- No installed-wheel smoke tests are claimed by this receipt.",
         "- Windows physical returned-work opening, real print/QR/scan intake and",
         "  actual Meridian ingestion remain **unperformed**; opening a prepared PDF",
@@ -346,7 +358,10 @@ def _markdown(record: dict[str, Any]) -> str:
         "## Reproduction command",
         "",
         "```powershell",
-        "python scripts/issue140_slice0_baseline.py --repo . --output-dir docs/audits/issue140",
+        (
+            "python scripts/issue140_slice0_baseline.py --repo . "
+            "--output-dir docs/audits/issue140"
+        ),
         "```",
         "",
         "Pass `--core-wheel` and `--concord-wheel` for published-byte validation.",
@@ -387,10 +402,12 @@ def main() -> int:
             raise
         print("Slice 0 baseline captured (source-only inventory; no teacher data).")
         print(
-            f"Core wheel: {record['published_artifacts']['core_v0_6_6_wheel']['status']}"
+            "Core wheel: "
+            f"{record['published_artifacts']['core_v0_6_6_wheel']['status']}"
         )
         print(
-            f"Concord wheel: {record['published_artifacts']['concord_v0_3_4_wheel']['status']}"
+            "Concord wheel: "
+            f"{record['published_artifacts']['concord_v0_3_4_wheel']['status']}"
         )
         print(
             "Next: run the prior regression tests using the guarded PowerShell runner."
