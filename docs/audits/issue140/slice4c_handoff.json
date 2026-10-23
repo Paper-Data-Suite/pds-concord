@@ -1,0 +1,273 @@
+{
+  "baseline": {
+    "audit_branch_parent": "5c8e29c889ad88538adb8c13b8fc5d440c32f5d8",
+    "captured_installed_concord_editable": true,
+    "captured_installed_concord_version": "0.3.2",
+    "captured_installed_core_version": "0.6.6",
+    "concord_wheel_status": "not_provided",
+    "core_wheel_sha256": "d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301",
+    "core_wheel_status": "verified_published_bytes_and_metadata",
+    "host_architecture": "AMD64",
+    "host_os": "Windows",
+    "python": "3.11.9",
+    "release_commit": "68ddd804d2733fa900ee396ac7a2ba6bd98aa819",
+    "release_tag": "v0.3.4",
+    "repository": "Paper-Data-Suite/pds-concord",
+    "source_core_requirement": "pds-core>=0.6.6,<0.7",
+    "source_version": "0.3.4"
+  },
+  "coverage": {
+    "ast_calls": 10182,
+    "context_pending_operations": 3685,
+    "matrix_operations": 3685,
+    "other_calls_unclassified": 7466,
+    "surfaces": 67
+  },
+  "evidence_counts": {
+    "context_first_guards": 13,
+    "display_degradations": 2,
+    "positive_paths_unqualified": 3
+  },
+  "gates": [
+    {
+      "gate": "Published Concord v0.3.4 wheel replay",
+      "next_proof": "Authenticate wheel bytes and replay menu witnesses",
+      "owner": "#154/#155",
+      "status": "NOT_PERFORMED"
+    },
+    {
+      "gate": "Full repository test suite on exact audit branch",
+      "next_proof": "Run full pytest/Ruff/mypy and attach exact commit receipt",
+      "owner": "#140/#155",
+      "status": "NOT_RECORDED"
+    },
+    {
+      "gate": "Positive returned/assembled Review and Score lifecycle",
+      "next_proof": "Use truthful synthetic returns and explicit human judgments",
+      "owner": "#142/#151/#155",
+      "status": "NOT_QUALIFIED"
+    },
+    {
+      "gate": "Physical Windows return scan and long-path opening",
+      "next_proof": "Preserve original scans and qualify installed path behavior",
+      "owner": "#159",
+      "status": "NOT_PERFORMED"
+    },
+    {
+      "gate": "Core publication reader and Meridian ingestion",
+      "next_proof": "Authorize source-versioned publication and downstream read",
+      "owner": "#155/#159",
+      "status": "NOT_PERFORMED"
+    },
+    {
+      "gate": "Independent route-level human semantic review",
+      "next_proof": "Review the unsigned operation matrix and all other calls",
+      "owner": "#140/#156/#157",
+      "status": "UNASSIGNED"
+    },
+    {
+      "gate": "Corbeau and Gemini independent attestations",
+      "next_proof": "Obtain separate reviews after implementation",
+      "owner": "#156/#157/#158",
+      "status": "NOT_PERFORMED"
+    }
+  ],
+  "kind": "UNSIGNED_AUDIT_HANDOFF_NOT_RELEASE_CERTIFICATION",
+  "review_protocol": "Keep full matrix and original source census immutable; review every route, other call, authority and exception using operation IDs. Issue a separately reviewed successor ledger with real reviewer/date, exact test and child owner.",
+  "schema": "concord_issue140_slice4c_handoff_v1",
+  "scoped_findings": [
+    {
+      "case": "author",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent Artifact; no write",
+      "service": "add_artifact_author",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3b_menu_guard.py::test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact"
+    },
+    {
+      "case": "update_author",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent association; no write",
+      "service": "update_artifact_author",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "correct_author",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent predecessor; no write",
+      "service": "replace_artifact_author",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "subject",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent Artifact; no write",
+      "service": "add_artifact_subject",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3b_menu_guard.py::test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact"
+    },
+    {
+      "case": "update_subject",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent association; no write",
+      "service": "update_artifact_subject",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "correct_subject",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent predecessor; no write",
+      "service": "replace_artifact_subject",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "multi_author",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent Artifact; no write",
+      "service": "add_artifact_authors",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "multi_subject",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent Artifact; no write",
+      "service": "add_artifact_subjects",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "batch_confirm",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent proposals; no write",
+      "service": "batch_confirm_artifact_attribution",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3c_attribution_guards.py::test_mixed_menu_write_hits_standards_guard_before_missing_relationship"
+    },
+    {
+      "case": "mixed/evidence_only",
+      "disposition": "HUMAN_GATE",
+      "owner": "#142/#151/#155/#159",
+      "scope": "planned Artifact refused; eligible returned write untested",
+      "service": "record_routine_artifact_review",
+      "source": "concord/menu_artifact.py",
+      "status": "BLOCKED_OR_UNTESTED",
+      "test": "tests/test_issue140_slice3d_review_score_boundaries.py::test_planned_unreturned_artifact_blocks_quick_review_and_routine_score"
+    },
+    {
+      "case": "review",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent Artifact; no write",
+      "service": "add_artifact_review",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3b_menu_guard.py::test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact"
+    },
+    {
+      "case": "review",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent predecessor; no write",
+      "service": "replace_artifact_review",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3d_review_score_boundaries.py::test_mixed_successor_menu_guard_precedes_missing_predecessor"
+    },
+    {
+      "case": "moderation",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent evidence; no write",
+      "service": "add_moderation_record",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3b_menu_guard.py::test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact"
+    },
+    {
+      "case": "moderation",
+      "disposition": "FIX_142",
+      "owner": "#142",
+      "scope": "context-first; nonexistent predecessor; no write",
+      "service": "replace_moderation_record",
+      "source": "concord/menu_artifact.py",
+      "status": "SYNTHETIC_MENU_REPRODUCED",
+      "test": "tests/test_issue140_slice3d_review_score_boundaries.py::test_mixed_successor_menu_guard_precedes_missing_predecessor"
+    },
+    {
+      "case": "mixed/evidence_only",
+      "disposition": "HUMAN_GATE",
+      "owner": "#142/#151/#155/#159",
+      "scope": "planned Artifact refused; both eligible Score writes untested",
+      "service": "record_prepared_routine_score",
+      "source": "concord/menu_artifact_scoring.py",
+      "status": "BLOCKED_OR_UNTESTED",
+      "test": "tests/test_issue140_slice3d_review_score_boundaries.py::test_planned_unreturned_artifact_blocks_quick_review_and_routine_score"
+    },
+    {
+      "case": "mixed",
+      "disposition": "FIX_142",
+      "owner": "#142/#152",
+      "scope": "native definitions exist but display labels absent",
+      "service": "list_scoring_scales",
+      "source": "concord/menu_score_teacher_labels.py",
+      "status": "SYNTHETIC_DISPLAY_DEGRADED",
+      "test": "tests/test_issue140_slice3a_triage.py::test_mixed_activity_score_label_reader_silently_loses_native_definitions"
+    },
+    {
+      "case": "mixed",
+      "disposition": "FIX_142",
+      "owner": "#142/#152",
+      "scope": "native definitions exist but display labels absent",
+      "service": "list_criterion_sets",
+      "source": "concord/menu_score_teacher_labels.py",
+      "status": "SYNTHETIC_DISPLAY_DEGRADED",
+      "test": "tests/test_issue140_slice3a_triage.py::test_mixed_activity_score_label_reader_silently_loses_native_definitions"
+    },
+    {
+      "case": "",
+      "disposition": "INVESTIGATE",
+      "owner": "#142/#152",
+      "scope": "nested reader not reached after Criterion Set list failure",
+      "service": "show_criterion_set",
+      "source": "concord/menu_score_teacher_labels.py",
+      "status": "BLOCKED_OR_UNTESTED",
+      "test": ""
+    }
+  ],
+  "source_digests_sha256": {
+    "docs/audits/issue140/baseline.json": "dc451b2e276ff1453fac5aa441a87f643d0c6bfbf98a57477047eb7bf772e3c2",
+    "docs/audits/issue140/slice3e_scoped_dispositions.csv": "16625816026c4dc344d2d2fa21814fe3d9952d89ef1d48bfd68adcb7b388ba03",
+    "docs/audits/issue140/slice4b_surface_review_queue.csv": "ce2e20761f15078e48b4f9dc5dd2139a1cf0034771de5aa12cf9d0acdc36f638",
+    "docs/audits/issue140/surface_inventory.json": "4c6c80007a5c414cc16fefca6ac93f58aa508656de83dc75db8634d57ce6624c",
+    "docs/audits/issue140/teacher_operation_matrix.csv": "dc9b7d003422e58ba965da5fac82d2b11e90c566a7cc360dc74004e9751689b0"
+  },
+  "witnesses": {
+    "activity_edit": "tests/test_issue140_slice2_failing_before.py (source-menu failing-before; owner #141)",
+    "artifact_page": "tests/test_issue140_slice3a_triage.py (internal canonical-context forwarding only)",
+    "criterion_preset": "tests/test_issue140_slice2_failing_before.py (valid dotted Standard rejected; owner #143)",
+    "pre_return": "tests/test_issue140_slice3d_review_score_boundaries.py (planned/unreturned work refused)"
+  }
+}
