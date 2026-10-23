@@ -2,3 +2,8 @@ docs/design/examples/*.md text eol=lf
 tests/fixtures/core_grouping_signals/v1/** text eol=lf
 concord/starter_templates/assets/*.json text eol=lf
 docs/validation/issue134_teacher_surface_inventory.json text eol=lf
+
+# Issue #140 audit receipts use byte-exact, canonical LF output.
+docs/audits/issue140/*.csv text eol=lf
+docs/audits/issue140/*.json text eol=lf
+docs/audits/issue140/*.md text eol=lf
