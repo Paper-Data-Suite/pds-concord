@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pds_core.standards import StandardsLibrary
 from pds_core.workspace import WorkspaceRootError
 
@@ -256,10 +258,16 @@ def _choose_scoring_orientation() -> str:
 
 def _standards_selection(
     orientation: str,
+    *,
+    workspace_root: Path | None = None,
 ) -> tuple[StandardsLibrary | None, str | None, tuple[str, ...]]:
     if orientation not in {"standards_based", "mixed"}:
         return None, None, ()
-    library = load_menu_standards_library()
+    library = (
+        load_menu_standards_library(workspace_root)
+        if workspace_root is not None
+        else load_menu_standards_library()
+    )
     if library is None:
         raise ConcordWorkflowError(
             "A Core standards library is required for this scoring orientation."
@@ -510,8 +518,7 @@ def _confirm_copy(lines: tuple[str, ...]) -> bool:
             print(line)
         print()
         print(
-            "Type COPY exactly to create the independent Activity, "
-            "or Enter to cancel."
+            "Type COPY exactly to create the independent Activity, or Enter to cancel."
         )
         print_navigation()
         print()
@@ -647,8 +654,16 @@ def _update_activity_field(
     state: MenuSessionContext,
     field: str,
 ) -> None:
+    root: Path | None = None
     try:
-        detail = show_activity(activity.class_id, activity.activity_id)
+        root = resolve_read_workspace_root()
+        if root is None:
+            raise ConcordWorkflowError(
+                "The Activity workspace is unavailable. No Activity was updated."
+            )
+        detail = show_activity(
+            activity.class_id, activity.activity_id, workspace_root=root
+        )
         current = detail.summary
         values: dict[str, object] = {
             "class_id": current.class_id,
@@ -691,7 +706,9 @@ def _update_activity_field(
             values["activity_type"] = _choose_activity_type()
         elif field == "scoring_orientation":
             orientation = _choose_scoring_orientation()
-            library, profile_id, focus_ids = _standards_selection(orientation)
+            library, profile_id, focus_ids = _standards_selection(
+                orientation, workspace_root=root
+            )
             values["scoring_orientation"] = orientation
             values["standards_profile_id"] = profile_id
             values["focus_standard_ids"] = focus_ids
@@ -703,8 +720,46 @@ def _update_activity_field(
             (f"Activity: {current.title}", f"Change: {change}"),
         ):
             return
+        # The Activity's orientation is not the whole standards contract:
+        # historical standard-backed Criteria or Scores still need Core authority.
+        # Read the *verified structural* snapshot after confirmation. The
+        # canonical mutator remains responsible for its own CAS/write guards.
+        context = _load_activity_context(
+            current.class_id, current.activity_id, workspace_root=root
+        )
+        if context.root.resolve(strict=True) != root.resolve(strict=True):
+            raise ConcordWorkflowError(
+                "The Activity workspace changed while verifying this edit. "
+                "Reopen it and retry. No Activity was updated."
+            )
+        if context.snapshot_revision != current.snapshot_revision:
+            raise ConcordWorkflowError(
+                "This Activity changed before the edit was saved. "
+                "Reopen it and retry. No Activity was updated."
+            )
+        history_uses_standards = any(
+            item.criterion_kind == "standard_backed" for item in context.graph.criteria
+        ) or any(
+            item.score_kind == "standard_backed" for item in context.graph.score_records
+        )
+        needs_standards = (
+            current.scoring_orientation in {"standards_based", "mixed"}
+            or values.get("scoring_orientation") in {"standards_based", "mixed"}
+            or history_uses_standards
+        )
+        if needs_standards:
+            # The library is loaded from the SAME workspace that supplied the
+            # verified structural snapshot, never guessed from cached labels.
+            library = load_menu_standards_library(root)
+            if library is None:
+                raise ConcordWorkflowError(
+                    "The current Activity requires the Core Standards Library. "
+                    "Restore it in the current workspace and retry. "
+                    "No Activity was updated."
+                )
         result = update_activity(
             UpdateActivityRequest(**values),  # type: ignore[arg-type]
+            workspace_root=root,
             standards_library=library,
         )
         show_result(
@@ -720,7 +775,9 @@ def _update_activity_field(
     except Exception as error:
         handle_write_error(
             error,
-            reload=lambda: show_activity(activity.class_id, activity.activity_id),
+            reload=lambda: show_activity(
+                activity.class_id, activity.activity_id, workspace_root=root
+            ),
             error_title="Activity Error",
         )
 
@@ -943,9 +1000,7 @@ def launch_activity_attention_action(
     elif action_id == "open_activity_share":
         launch_share_menu(activity, state)
     else:
-        raise ConcordWorkflowError(
-            f"Unsupported Concord attention action: {action_id}"
-        )
+        raise ConcordWorkflowError(f"Unsupported Concord attention action: {action_id}")
 
 
 def launch_advanced_open_activity_tools_menu(
@@ -1103,6 +1158,8 @@ def launch_activity_context_menu(
         else:
             print(navigation_hint_with_help())
             pause_for_user()
+
+
 def select_activity() -> ActivitySummary | None:
     """Select one Activity from a paginated compact list."""
     try:
@@ -1219,7 +1276,6 @@ def launch_advanced_activity_tools_menu(
         else:
             print(navigation_hint_with_help())
             pause_for_user()
-
 
 
 def launch_activity_management_menu(

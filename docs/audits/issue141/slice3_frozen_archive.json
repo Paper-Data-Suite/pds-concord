@@ -1,0 +1,26 @@
+{
+  "archive_sha256": "59612205119852b71d3ab732a15dc5c92b852ccd54824a99e73a8f7291f0237a",
+  "audit_git_blobs": {
+    "baseline.json": "290a8753673adc75f17e8bfbf489d12682ab026b",
+    "baseline.md": "68af3f213a343dae18ed95f9c69c84b86de64213",
+    "service_context_catalog.csv": "3d1971e53b19ea7f34e81952bbffb24aca75a482",
+    "slice3a_candidate_boundaries.csv": "4ba8a15db722d2ded9fca09c103028c23ab2cd98",
+    "slice3e_scoped_dispositions.csv": "a6003590bd958d8dd3227dc0ee1790730b54a3f3",
+    "slice4b_surface_review_queue.csv": "3bfc1ad9ced81dfa1cc2bfdd1609cef54945e876",
+    "slice4c_handoff.json": "d1200dfa586ebdf02bcc52f0aecc7f5938223e38",
+    "slice4c_handoff.md": "bbb68534346cdca2726ebc44db8502753fa5f7c4",
+    "surface_inventory.json": "f0bec0972acc63123441c0ea140df06088eadb3a",
+    "teacher_operation_matrix.csv": "8826d9cb5772c1d2cbfaf599d3bf8c584841fc50"
+  },
+  "audited_surfaces": 67,
+  "concord_issue141_head_at_creation": "419f6aa36f9376befe5d45c3ed01b1c9fd8455a7",
+  "files": 155,
+  "notes": [
+    "Original Slice 1 and Slice 4A guard logic remains unchanged",
+    "Current Concord menu edits are evaluated by #141 tests",
+    "Future semantic operation review remains #162"
+  ],
+  "purpose": "immutable source replay only; current-source audit remains #162",
+  "schema": "concord.issue141.frozen140-source/1",
+  "source_commit": "40837d54376f70cffb9ca539d52f7e40453ec1e6"
+}

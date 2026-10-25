@@ -166,9 +166,18 @@ def test_narrow_exception_checks_real_forwarding_and_witness(tmp_path: Path) -> 
         audit._exception_guard(tmp_path)
 
 
-def test_full_repository_guard_uses_existing_audits_without_rewriting() -> None:
+def test_full_repository_guard_uses_existing_audits_without_rewriting(
+    tmp_path: Path,
+) -> None:
+    # #140's source inventory is historical. Run its original drift guard on
+    # authenticated frozen source, not on intentional post-merge #141 edits.
+    # Current-source semantic coverage and changes belong to successor #162.
+    from issue141_frozen_audit import materialize
+
     audit = _module()
-    counts = audit.run(ROOT)
+    frozen = tmp_path / "issue140"
+    materialize(ROOT, frozen)
+    counts = audit.run(frozen)
     assert counts.scoped_families == 18
     assert counts.matrix_rows >= 18
     assert counts.calls >= counts.matrix_rows

@@ -1,0 +1,38 @@
+{
+  "concord_baseline_commit": "40837d54376f70cffb9ca539d52f7e40453ec1e6",
+  "concord_core_requirement": "pds-core>=0.6.6,<0.7",
+  "core_237_main_merge_commit": "a0d5e1a50580bbe025f0cad23c7e8524203a52ec",
+  "core_237_semantics": "merged_to_source_main_not_qualified_as_released_dependency",
+  "future_check_semantics": "revalidate_historical_git_object_hashes_only; does_not_replay_expected_failure_after_141_fix",
+  "graph_requirement": "standards_needed_if_orientation_mixed_or_standards_based_or_criteria_or_score_history_standard_backed",
+  "not_claimed": [
+    "published_concord_0.3.4_wheel_replay",
+    "fixed_after_behavior",
+    "all_five_edit_routes_working",
+    "physical_or_live_teacher_evidence",
+    "core_237_released_or_consumed_by_concord"
+  ],
+  "schema": "pds-concord.issue141.slice0/1",
+  "source_sha256": {
+    "concord/menu_activity.py": "a9a28d51d92dc6caebcedfb22281e028ac4c5dba56b69ff1d70c89d1ad656d16",
+    "concord/menu_standards_context.py": "83ecfe9279a45491d4d9ffcf8673e616305627f5a15019e859a44eae98d0c2cb",
+    "concord/storage.py": "192c77e0bd64bbce2626f417bbacc61a0de0241098d38defb93a88123ebd00ed",
+    "concord/workflows/activity.py": "4f2f8930fecf669ef789e5c07136cf3d834c289e6caaa5905eb841b2d8857d30",
+    "docs/audits/issue140/slice4c_handoff.json": "18e2be7c76989327b83449530a2ab85733301cee941893e2de56584a03d09b87",
+    "pyproject.toml": "ff47e0063c5c28444305ce9bbb554d4daeccfde7f9e7cc3ae25a69347460a985",
+    "tests/issue140_slice2_fixtures.py": "1adbc2d48c31230c4e5547f98fdae42e86602573660e6dbfa06c7d09bc223607",
+    "tests/test_issue140_slice2_failing_before.py": "d23612c70724979c648e07c5d36ea72e134d655df5b0fc5285b9652495fb0e6e"
+  },
+  "synthetic_witness": {
+    "c1_observation": "mixed_status_update_forwards_None_and_fails_before_write",
+    "c2_reference_only": "criterion_preset_failing_before_retained_for_issue_143",
+    "cancellation": "no_write",
+    "expected_test_cases": 5,
+    "neutral_controls": [
+      "evidence_only",
+      "local_criteria_only"
+    ],
+    "replay_status": "five_tests_passed_at_frozen_baseline_on_local_installed_environment",
+    "test_file": "tests/test_issue140_slice2_failing_before.py"
+  }
+}

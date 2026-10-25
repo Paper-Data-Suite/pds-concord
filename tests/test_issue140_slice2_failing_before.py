@@ -1,7 +1,7 @@
-"""Issue #140 Slice 2: two narrowly specified baseline failures, through menus.
+"""Issue #140 Slice 2: C1 post-#141 fix and historical C2 baseline.
 
-Passing tests mean that the expected legacy failure was reproduced, NOT that
-Concord is fixed. Follow-up #141/#143 must convert the assertions to success.
+C1 retains its original test ID for frozen #140 traceability, but now proves
+the successful canonical write. C2 remains a failing-before #143 witness.
 """
 
 from __future__ import annotations
@@ -51,6 +51,24 @@ def _graph(root: Path, standards: Any) -> Any:
     return load_current_record_graph(root, _work(), standards_library=standards).graph
 
 
+def _patch_current_context(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep menu's structural read and real service on one synthetic workspace."""
+    from concord.workflows.activity import _load_activity_context
+
+    monkeypatch.setattr(
+        activity_menu,
+        "resolve_read_workspace_root",
+        lambda: root,
+    )
+    monkeypatch.setattr(
+        activity_menu,
+        "_load_activity_context",
+        lambda class_id, activity_id, *, workspace_root=None: _load_activity_context(
+            class_id, activity_id, workspace_root=workspace_root
+        ),
+    )
+
+
 def test_c1_status_edit_reproduces_missing_standards_at_real_menu_service_boundary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -64,39 +82,47 @@ def test_c1_status_edit_reproduces_missing_standards_at_real_menu_service_bounda
     monkeypatch.setattr(
         activity_menu,
         "show_activity",
-        lambda c, a: show_activity(c, a, workspace_root=root),
+        lambda c, a, *, workspace_root=None: show_activity(
+            c, a, workspace_root=workspace_root
+        ),
     )
+    _patch_current_context(root, monkeypatch)
+    monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
     monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: True)
+    monkeypatch.setattr(activity_menu, "show_result", lambda *a, **k: None)
     monkeypatch.setattr(
-        activity_menu,
-        "show_result",
-        lambda *a, **k: pytest.fail("legacy edit unexpectedly succeeded"),
+        activity_menu, "load_menu_standards_library", lambda _root: standards
     )
     monkeypatch.setattr(
         activity_menu, "handle_write_error", lambda e, **k: errors.append(str(e))
     )
 
-    def actual_service(request: Any, *, standards_library: Any = None) -> Any:
+    def actual_service(
+        request: Any,
+        *,
+        standards_library: Any = None,
+        workspace_root: Path | None = None,
+    ) -> Any:
+        assert workspace_root == root
         forwarded.append(standards_library)
         return update_activity(
-            request, workspace_root=root, standards_library=standards_library
+            request, workspace_root=workspace_root, standards_library=standards_library
         )
 
     monkeypatch.setattr(activity_menu, "update_activity", actual_service)
     activity_menu._update_activity_field(
         activity, MenuSessionContext(actor=ACTOR), "status"
     )
-    assert forwarded == [None], (
-        "Expected the known omitted Standards context, not a setup exception"
-    )
-    assert len(errors) == 1
-    assert errors[0] == "standards_library is required for this Activity."
-    assert _graph(root, standards) == before_graph
-    assert list_work_snapshots(root, _work()) == before_snapshots
+    # Historical C1 test ID is retained to anchor the original #140 witness;
+    # the post-#141 assertions must now prove the successful guarded write.
+    assert forwarded == [standards]
+    assert not errors
+    assert _graph(root, standards) != before_graph
+    assert len(list_work_snapshots(root, _work())) == len(before_snapshots) + 1
     assert (
         show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=root).summary.status
-        == "draft"
+        == "configured"
     )
 
 
@@ -110,9 +136,18 @@ def test_c1_neutral_control_may_edit_without_core_standards(
     errors: list[str] = []
     monkeypatch.setattr(
         activity_menu,
-        "show_activity",
-        lambda c, a: show_activity(c, a, workspace_root=root),
+        "load_menu_standards_library",
+        lambda _root: pytest.fail("neutral mode loaded Core library"),
     )
+    monkeypatch.setattr(
+        activity_menu,
+        "show_activity",
+        lambda c, a, *, workspace_root=None: show_activity(
+            c, a, workspace_root=workspace_root
+        ),
+    )
+    _patch_current_context(root, monkeypatch)
+    monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
     monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(activity_menu, "show_result", lambda *a, **k: None)
@@ -122,8 +157,8 @@ def test_c1_neutral_control_may_edit_without_core_standards(
     monkeypatch.setattr(
         activity_menu,
         "update_activity",
-        lambda request, *, standards_library=None: update_activity(
-            request, workspace_root=root, standards_library=standards_library
+        lambda request, *, standards_library=None, workspace_root=None: update_activity(
+            request, workspace_root=workspace_root, standards_library=standards_library
         ),
     )
     activity_menu._update_activity_field(
@@ -146,8 +181,12 @@ def test_c1_cancellation_must_not_reach_mutation(
     monkeypatch.setattr(
         activity_menu,
         "show_activity",
-        lambda c, a: show_activity(c, a, workspace_root=root),
+        lambda c, a, *, workspace_root=None: show_activity(
+            c, a, workspace_root=workspace_root
+        ),
     )
+    _patch_current_context(root, monkeypatch)
+    monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
     monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: False)
     monkeypatch.setattr(
