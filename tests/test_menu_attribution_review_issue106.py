@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +10,51 @@ from concord.menu_context import MenuSessionContext
 from concord.workflows import ActivitySummary, WorkflowActor
 
 
-def _activity() -> ActivitySummary:
+@pytest.fixture(autouse=True)
+def _historical_attribution_unit_context(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Adapt only historical request-spy tests to the #142 menu contract.
+
+    Native Core authority, stale writes, and actual return evidence are checked
+    separately by the synthetic #142 integration tests. No production patching.
+    """
+    cases = {
+        "test_issue106_confirm_all_uses_one_confirmation_and_one_exact_batch",
+        "test_issue106_cancel_before_confirm_produces_no_batch_mutation",
+        "test_issue106_explicit_subset_confirms_only_selected_relationship",
+        "test_issue106_subset_cancel_before_confirm_produces_no_mutation",
+        "test_issue106_multi_add_authors_uses_one_reviewed_atomic_request",
+        "test_issue106_multi_add_subjects_uses_one_reviewed_atomic_request",
+        "test_issue106_multi_add_cancel_stops_before_service_call",
+    }
+    if request.node.name.split("[", 1)[0] not in cases:
+        return
+
+    monkeypatch.setattr(menu_artifact, "_latest", lambda activity: activity)
+
+    def begin(selected: ActivitySummary, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            root=Path("."),
+            class_id=selected.class_id,
+            activity_id=selected.activity_id,
+            snapshot_revision=selected.snapshot_revision,
+            snapshot_sha256="legacy-unit-stub",
+            standards_library=None,
+            standards_required=False,
+            candidate_standard_backed=False,
+            active_workspace_binding=False,
+        )
+
+    monkeypatch.setattr(menu_artifact, "begin_artifact_write_context", begin)
+    monkeypatch.setattr(
+        menu_artifact,
+        "revalidate_artifact_write_context",
+        lambda preview, **_kwargs: preview,
+    )
+
+
+def _activity(revision: int = 9) -> ActivitySummary:
     return ActivitySummary(
         class_id="class-1",
         activity_id="activity-1",
@@ -18,7 +63,7 @@ def _activity() -> ActivitySummary:
         scoring_orientation="evidence_only",
         session_count=1,
         group_count=0,
-        snapshot_revision=9,
+        snapshot_revision=revision,
     )
 
 
@@ -30,7 +75,10 @@ def _state() -> MenuSessionContext:
 
 def _review() -> SimpleNamespace:
     return SimpleNamespace(
+        class_id="class-1",
+        activity_id="activity-1",
         snapshot_revision=9,
+        snapshot_sha256="legacy-unit-stub",
         candidate_author_ids=("author-1",),
         candidate_subject_ids=("subject-1",),
         candidate_count=2,
@@ -176,7 +224,7 @@ def test_issue106_confirm_all_uses_one_confirmation_and_one_exact_batch(
     monkeypatch.setattr(
         menu_artifact,
         "batch_confirm_artifact_attribution",
-        lambda request: requests.append(request)
+        lambda request, **_kwargs: requests.append(request)
         or SimpleNamespace(
             confirmed_author_count=1,
             confirmed_subject_count=1,
@@ -308,7 +356,7 @@ def test_issue106_explicit_subset_confirms_only_selected_relationship(
     monkeypatch.setattr(
         menu_artifact,
         "batch_confirm_artifact_attribution",
-        lambda request: requests.append(request)
+        lambda request, **_kwargs: requests.append(request)
         or SimpleNamespace(
             confirmed_author_count=0,
             confirmed_subject_count=1,
@@ -494,14 +542,14 @@ def test_issue106_multi_add_authors_uses_one_reviewed_atomic_request(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_authors",
-        lambda request: requests.append(request)
+        lambda request, **_kwargs: requests.append(request)
         or SimpleNamespace(
             artifact_author_ids=("generated-1", "generated-2"),
             commit=SimpleNamespace(snapshot_revision=18),
         ),
     )
 
-    menu_artifact._add_multiple_authors(_activity(), _state())
+    menu_artifact._add_multiple_authors(_activity(17), _state())
 
     assert len(confirmations) == 1
     expected, lines = confirmations[0]
@@ -574,14 +622,14 @@ def test_issue106_multi_add_subjects_uses_one_reviewed_atomic_request(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_subjects",
-        lambda request: requests.append(request)
+        lambda request, **_kwargs: requests.append(request)
         or SimpleNamespace(
             artifact_subject_ids=("generated-1", "generated-2"),
             commit=SimpleNamespace(snapshot_revision=24),
         ),
     )
 
-    menu_artifact._add_multiple_subjects(_activity(), _state())
+    menu_artifact._add_multiple_subjects(_activity(23), _state())
 
     assert len(confirmations) == 1
     expected, lines = confirmations[0]
@@ -644,4 +692,4 @@ def test_issue106_multi_add_cancel_stops_before_service_call(
         ),
     )
 
-    menu_artifact._add_multiple_authors(_activity(), _state())
+    menu_artifact._add_multiple_authors(_activity(17), _state())

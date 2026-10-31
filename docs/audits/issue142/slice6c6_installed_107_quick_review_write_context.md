@@ -1,0 +1,13 @@
+# Concord #142 · Slice 6C6 — #107 installed-wheel Quick Review synthetic authority
+
+## Evidence
+
+The full repository suite (2,725 passed, 18 skipped on the first clean run), static/documentation/package gates, and installed-wheel smoke scenarios up to #106 qualified or were reconciled in earlier slices. Issue #106 passed after its installed smoke explicitly bound the created disposable Core workspace to the real write-context resolver. The next installed-wheel check, issue #107, qualified isolated provenance, assembled/attributed Artifacts, first-Review eligibility, and teacher choice display, but aborted at `_quick_review_selected` because `begin_artifact_write_context` attempted to resolve synthetic `class-issue107-installed` from the default personal workspace. The failure arose before either review was committed.
+
+## Bounded correction
+
+Only `scripts/smoke_test_routine_artifact_review_wheel.py` changes. The synthetic installed smoke delegates its `begin_artifact_write_context` call to the real production resolver with `workspace_root=root` (the exact temporary Core-owned synthetic workspace), rather than supplying a fabricated preview. The existing real `revalidate_artifact_write_context` code remains unpatched; the Review service double accepts the production-supplied pinned workspace keyword arguments, asserts the selected root equals the synthetic root and no Standards Library is supplied for the evidence-only Activity, and forwards them to the real `record_routine_artifact_review` with the existing deterministic clock. All original acceptance assertions remain: two independent REVIEW confirmations, expected teacher-facing prompts, first-Review currentness, exactly two genuine ArtifactReview records, unchanged Author/Subject/Artifact provenance, no moderation or Score writes, Review-next termination, Detailed Review menu reachability, installed site-packages provenance, and isolated `python -I` execution.
+
+## Safety and qualification
+
+Pin both original and detached-disposable roots to exact HEAD `28bda95445fbaff631be362dd1ddf7206645172d` and the untouched historical #107 smoke Git blob `77c94b330ccbc73354451a347eef36368fd79cd8`. Apply only three exact text substitutions and this additive audit. The candidate worktree may stage only its own test-harness source and audit for the independent #136 installed build; the original checkout's Git index remains unchanged. No production source, prior frozen #140 evidence, student data, or school workspace is read or written. Test the historic #107 acceptance, Ruff, mypy, whitespace and isolated #107 installed wheel against Core 0.6.6, then continue the remaining installed-wheel gates.

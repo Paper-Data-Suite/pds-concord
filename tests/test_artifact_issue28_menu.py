@@ -24,6 +24,45 @@ def _activity() -> ActivitySummary:
     )
 
 
+@pytest.fixture(autouse=True)
+def _legacy_menu_unit_authority(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Isolate historical menu-choice tests from the new Core preflight.
+
+    Real workspace authority and native writes are covered separately by
+    #142 synthetic integration tests, not by these legacy request spies.
+    """
+    cases = {
+        "test_author_nested_navigation_unwinds",
+        "test_unknown_author_menu_creates_reference_free_request",
+        "test_subject_menu_adds_group_subject_without_collapsing_identity",
+        "test_coauthor_and_recorder_for_group_menu_flows_are_explicit",
+    }
+    if request.node.name.split("[", 1)[0] not in cases:
+        return
+
+    def begin(selected: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            root=Path("."),
+            class_id=getattr(selected, "class_id"),
+            activity_id=getattr(selected, "activity_id"),
+            snapshot_revision=getattr(selected, "snapshot_revision"),
+            snapshot_sha256="legacy-unit-stub",
+            standards_library=None,
+            standards_required=False,
+            candidate_standard_backed=False,
+            active_workspace_binding=False,
+        )
+
+    monkeypatch.setattr(menu_artifact, "begin_artifact_write_context", begin)
+    monkeypatch.setattr(
+        menu_artifact,
+        "revalidate_artifact_write_context",
+        lambda preview, **_kwargs: preview,
+    )
+
+
 def test_artifact_menu_preserves_issue27_choices_and_adds_issue28_surfaces(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -105,7 +144,7 @@ def test_unknown_author_menu_creates_reference_free_request(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_author",
-        lambda request: captured.append(request) or result,
+        lambda request, **_kwargs: captured.append(request) or result,
     )
     answers = iter(
         (
@@ -187,7 +226,7 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
     monkeypatch.setattr(
         menu_artifact,
         "assemble_returned_artifact",
-        lambda request: captured.append(request) or result,
+        lambda request, **_kwargs: captured.append(request) or result,
     )
     answers = iter(("5", "1", "2", "ASSEMBLE", ""))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
@@ -234,7 +273,7 @@ def test_subject_menu_adds_group_subject_without_collapsing_identity(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_subject",
-        lambda request: captured.append(request) or result,
+        lambda request, **_kwargs: captured.append(request) or result,
     )
     answers = iter(
         (
@@ -318,7 +357,7 @@ def test_coauthor_and_recorder_for_group_menu_flows_are_explicit(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_author",
-        lambda request: captured.append(request) or next(results),
+        lambda request, **_kwargs: captured.append(request) or next(results),
     )
     answers = iter(
         (

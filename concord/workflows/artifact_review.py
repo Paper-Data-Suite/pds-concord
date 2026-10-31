@@ -377,12 +377,15 @@ def list_artifact_reviews(
     artifact_instance_id: str | None = None,
     include_historical: bool = True,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[ArtifactReviewSummary, ...]:
     """List Artifact Reviews without creating workspace state."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root, work_ref(class_id, activity_id), standards_library
+    )
     current_ids = frozenset(item.artifact_review_id for item in _review_heads(graph))
     records = tuple(
         item

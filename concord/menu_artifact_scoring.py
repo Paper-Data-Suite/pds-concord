@@ -6,6 +6,13 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import concord.menu_artifact_write_context as scoring_write_authority
+from concord.menu_artifact_write_context import (
+    ArtifactWriteContext,
+    artifact_write_kwargs,
+    begin_artifact_write_context,
+    revalidate_artifact_write_context,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -68,6 +75,7 @@ from concord.workflows.artifact_routine_scoring_selection import (
     routine_target_options,
 )
 from concord.workflows.context import resolve_read_workspace_root
+from concord.workflows.errors import ConcordWorkflowConflictError
 from concord.workflows.models import ActivitySummary
 from concord.workflows.participants import participant_display_label
 from concord.workflows.score_recording import ScoreMutationResult
@@ -79,10 +87,57 @@ SelectedWorkOpener = Callable[[ActivitySummary, str], bool]
 class _RoutineScoreMenuResult:
     preview: RoutineScorePreview
     mutation: ScoreMutationResult
+    write_context: ArtifactWriteContext | None = None
 
 
 def _current_activity(activity: ActivitySummary) -> ActivitySummary:
     return show_activity(activity.class_id, activity.activity_id).summary
+
+
+def _refresh_score_continuation_authority(
+    previous: ArtifactWriteContext,
+    *,
+    operation: str,
+    snapshot_revision: int | None = None,
+    snapshot_sha256: str | None = None,
+) -> ArtifactWriteContext:
+    """Refresh after a Score without reusing the pre-commit snapshot."""
+    if previous.active_workspace_binding:
+        active_root = scoring_write_authority.resolve_read_workspace_root()
+        if active_root is None or active_root.resolve() != previous.root:
+            raise ConcordWorkflowConflictError(
+                "Routine scoring workspace changed during continuation."
+            )
+    selected = show_activity(
+        previous.class_id,
+        previous.activity_id,
+        workspace_root=previous.root,
+    ).summary
+    refreshed = begin_artifact_write_context(
+        selected,
+        operation=operation,
+        workspace_root=(
+            None if previous.active_workspace_binding else previous.root
+        ),
+    )
+    if (
+        refreshed.root != previous.root
+        or refreshed.class_id != previous.class_id
+        or refreshed.activity_id != previous.activity_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Routine scoring workspace changed during continuation."
+        )
+    if (
+        (snapshot_revision is not None and
+         refreshed.snapshot_revision != snapshot_revision)
+        or (snapshot_sha256 is not None and
+            refreshed.snapshot_sha256 != snapshot_sha256)
+    ):
+        raise ConcordWorkflowConflictError(
+            "Routine scoring continuation snapshot changed. Refresh Score selection."
+        )
+    return refreshed
 
 
 def _launch_advanced_score(
@@ -416,13 +471,35 @@ def _record_selected_artifact_score(
     activity: ActivitySummary,
     artifact_instance_id: str,
     state: MenuSessionContext,
+    *,
+    origin_context: ArtifactWriteContext | None = None,
 ) -> _RoutineScoreMenuResult | None:
     current = _current_activity(activity)
+    write_preview = begin_artifact_write_context(
+        current, operation="Record Routine Artifact Score"
+    )
+    if origin_context is not None and (
+        write_preview.root != origin_context.root
+        or write_preview.active_workspace_binding
+        != origin_context.active_workspace_binding
+    ):
+        raise ConcordWorkflowConflictError(
+            "Routine scoring workspace changed since Artifact selection."
+        )
     context = inspect_artifact_routine_scoring(
         current.class_id,
         current.activity_id,
         artifact_instance_id,
+        workspace_root=write_preview.root,
     )
+    if (
+        context.snapshot_revision != write_preview.snapshot_revision
+        or context.snapshot_sha256 != write_preview.snapshot_sha256
+        or context.artifact.artifact_instance_id != artifact_instance_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Selected routine Score context changed after Activity selection."
+        )
     if not context.eligibility.routine_scoring_eligible:
         reasons = context.eligibility.exception_reasons or (
             "This Artifact is not currently eligible for routine scoring.",
@@ -481,9 +558,23 @@ def _record_selected_artifact_score(
     ):
         return None
 
+    if (
+        preview.snapshot_revision != context.snapshot_revision
+        or preview.snapshot_sha256 != context.snapshot_sha256
+        or preview.artifact_instance_id != artifact_instance_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Routine Score preview does not match the selected Artifact."
+        )
+    write_context = revalidate_artifact_write_context(
+        write_preview,
+        operation="Record Routine Artifact Score",
+        expected_snapshot_revision=preview.snapshot_revision,
+    )
     result = record_prepared_routine_score(
         preview,
         actor=state.require_actor(),
+        **artifact_write_kwargs(write_context),
     )
     show_result(
         "Score Recorded",
@@ -492,7 +583,9 @@ def _record_selected_artifact_score(
             f"Snapshot: {result.commit.snapshot_revision}",
         ),
     )
-    return _RoutineScoreMenuResult(preview=preview, mutation=result)
+    return _RoutineScoreMenuResult(
+        preview=preview, mutation=result, write_context=write_context
+    )
 
 
 def _continuation_criteria(
@@ -509,8 +602,27 @@ def _record_another_criterion(
     activity: ActivitySummary,
     continuation: RoutineScoringContinuation,
     state: MenuSessionContext,
+    *,
+    origin_context: ArtifactWriteContext | None = None,
 ) -> _RoutineScoreMenuResult | None:
+    if origin_context is None:
+        raise ConcordWorkflowConflictError(
+            "Score continuation has no pinned workspace authority."
+        )
     context = continuation.context
+    write_preview = _refresh_score_continuation_authority(
+        origin_context,
+        operation="Score Another Routine Criterion",
+        snapshot_revision=context.snapshot_revision,
+        snapshot_sha256=context.snapshot_sha256,
+    )
+    if (
+        context.class_id != write_preview.class_id
+        or context.activity_id != write_preview.activity_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Score continuation refers to a different Activity."
+        )
     target = continuation.retained_target_reference
     if (
         not context.eligibility.routine_scoring_eligible
@@ -587,9 +699,24 @@ def _record_another_criterion(
     ):
         return None
 
+    if (
+        preview.snapshot_revision != write_preview.snapshot_revision
+        or preview.snapshot_sha256 != write_preview.snapshot_sha256
+        or preview.artifact_instance_id
+        != context.artifact.artifact_instance_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Another-Criterion preview does not match inspected state."
+        )
+    write_context = revalidate_artifact_write_context(
+        write_preview,
+        operation="Score Another Routine Criterion",
+        expected_snapshot_revision=preview.snapshot_revision,
+    )
     result = record_prepared_routine_score(
         preview,
         actor=state.require_actor(),
+        **artifact_write_kwargs(write_context),
     )
     show_result(
         "Score Recorded",
@@ -598,7 +725,9 @@ def _record_another_criterion(
             f"Snapshot: {result.commit.snapshot_revision}",
         ),
     )
-    return _RoutineScoreMenuResult(preview=preview, mutation=result)
+    return _RoutineScoreMenuResult(
+        preview=preview, mutation=result, write_context=write_context
+    )
 
 
 def _post_score_action(
@@ -608,6 +737,10 @@ def _post_score_action(
     result: _RoutineScoreMenuResult,
     state: MenuSessionContext,
 ) -> tuple[str, _RoutineScoreMenuResult | str | None]:
+    if result.write_context is None:
+        raise ConcordWorkflowConflictError(
+            "Completed Score has no pinned workspace authority."
+        )
     while True:
         clear_screen()
         print_menu_header("Score Recorded")
@@ -641,10 +774,17 @@ def _post_score_action(
                     activity,
                     continuation,
                     state,
+                    origin_context=result.write_context,
                 )
                 if additional is not None:
                     return "scored", additional
             elif raw.casefold() == "n":
+                next_authority = _refresh_score_continuation_authority(
+                    result.write_context,
+                    operation="Next Score Ready Artifact",
+                    snapshot_revision=continuation.context.snapshot_revision,
+                    snapshot_sha256=continuation.context.snapshot_sha256,
+                )
                 next_item = inspect_next_score_ready_artifact(
                     activity.class_id,
                     activity.activity_id,
@@ -652,6 +792,7 @@ def _post_score_action(
                     minimum_snapshot_revision=(
                         result.mutation.commit.snapshot_revision
                     ),
+                    workspace_root=next_authority.root,
                 )
                 if next_item is None:
                     show_result(
@@ -682,13 +823,35 @@ def launch_selected_artifact_scoring(
 ) -> None:
     """Score selected reviewed work with fresh post-Score continuation state."""
     current_artifact_id = artifact_instance_id
+    session_authority: ArtifactWriteContext | None = None
     while True:
-        current = _current_activity(activity)
+        if session_authority is None:
+            current = _current_activity(activity)
+            session_authority = begin_artifact_write_context(
+                current, operation="Score this work"
+            )
+        else:
+            session_authority = _refresh_score_continuation_authority(
+                session_authority, operation="Score this work"
+            )
+            current = show_activity(
+                session_authority.class_id,
+                session_authority.activity_id,
+                workspace_root=session_authority.root,
+            ).summary
         context = inspect_artifact_routine_scoring(
             current.class_id,
             current.activity_id,
             current_artifact_id,
+            workspace_root=session_authority.root,
         )
+        if (
+            context.snapshot_revision != session_authority.snapshot_revision
+            or context.snapshot_sha256 != session_authority.snapshot_sha256
+        ):
+            raise ConcordWorkflowConflictError(
+                "Routine scoring selection snapshot changed."
+            )
         clear_screen()
         print_menu_header("Score this work")
         print(f"Activity: {current.title}")
@@ -724,15 +887,34 @@ def launch_selected_artifact_scoring(
                     current,
                     current_artifact_id,
                     state,
+                    origin_context=session_authority,
                 )
                 if scored is None:
                     continue
 
                 while True:
+                    if scored.write_context is None:
+                        raise ConcordWorkflowConflictError(
+                            "Completed Score lost pinned workspace authority."
+                        )
+                    continued_authority = _refresh_score_continuation_authority(
+                        scored.write_context,
+                        operation="Reload Routine Scoring",
+                    )
                     continuation = reload_routine_scoring_after_score(
                         scored.preview,
                         scored.mutation,
+                        workspace_root=continued_authority.root,
                     )
+                    if (
+                        continuation.context.snapshot_revision
+                        != continued_authority.snapshot_revision
+                        or continuation.context.snapshot_sha256
+                        != continued_authority.snapshot_sha256
+                    ):
+                        raise ConcordWorkflowConflictError(
+                            "Reloaded Score continuation snapshot changed."
+                        )
                     action, payload = _post_score_action(
                         current,
                         current_artifact_id,
@@ -750,9 +932,18 @@ def launch_selected_artifact_scoring(
                         break
                     return
             elif raw.casefold() == "o":
-                refreshed = _current_activity(current)
+                session_authority = _refresh_score_continuation_authority(
+                    session_authority, operation="Open Returned Work"
+                )
+                refreshed = show_activity(
+                    current.class_id, current.activity_id,
+                    workspace_root=session_authority.root,
+                ).summary
                 open_selected_work(refreshed, current_artifact_id)
             elif raw.casefold() == "a":
+                _refresh_score_continuation_authority(
+                    session_authority, operation="Advanced Score handoff"
+                )
                 _launch_advanced_score(current, state)
             else:
                 print(navigation_hint_with_help())

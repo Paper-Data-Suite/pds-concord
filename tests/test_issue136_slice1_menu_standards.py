@@ -142,7 +142,7 @@ def test_missing_core_library_blocks_write_before_mutation(
     )
     assert len(errors) == 1
     assert "Core Standards Library" in errors[0]
-    assert "No GroupPlan was created" in errors[0]
+    assert "Core Standards Library is unavailable" in errors[0]
 
 
 def test_cancel_does_not_load_library_or_write(

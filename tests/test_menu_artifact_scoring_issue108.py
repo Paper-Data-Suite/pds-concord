@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -10,6 +11,79 @@ from concord import menu_artifact
 from concord.models import ScoreTargetReference
 from concord.workflows.artifact_routine_scoring_preparation import RoutineScorePreview
 from concord.workflows.models import ActivitySummary, WorkflowActor
+
+
+def _historical_score_authority(activity: ActivitySummary) -> SimpleNamespace:
+    """Synthetic authority for legacy menu-decision tests, never Core validation."""
+    return SimpleNamespace(
+        root=Path("."),
+        class_id=activity.class_id,
+        activity_id=activity.activity_id,
+        snapshot_revision=activity.snapshot_revision,
+        snapshot_sha256="abc123",
+        standards_library=None,
+        standards_required=False,
+        candidate_standard_backed=False,
+        active_workspace_binding=False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _legacy_score_menu_authority(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Adapt only named historical #108 menu tests to the #142 call protocol.
+
+    Tests of real Core workspace loading, authority changes, CAS, and Standards
+    validation remain in separate #142 synthetic integration tests.
+    """
+    legacy_cases = {
+        "test_cancelled_score_confirmation_never_executes",
+        "test_confirmed_score_uses_score_token_then_canonical_execution",
+        "test_existing_current_score_does_not_create_parallel_routine_score",
+        "test_ineligible_routine_context_stops_before_teacher_score_choices",
+        "test_open_returned_work_keeps_exact_selected_artifact",
+        "test_score_another_criterion_requires_fresh_criterion_and_value",
+        "test_post_score_next_uses_latest_commit_revision_and_current_artifact",
+        "test_post_score_next_absence_reports_truthfully_and_returns_cleanly",
+        "test_score_loop_reloads_after_every_successful_score",
+        "test_next_score_ready_work_reenters_with_exact_new_artifact",
+        "test_back_from_another_criterion_returns_to_post_score_menu_without_write",
+    }
+    if request.node.name.split("[", 1)[0] not in legacy_cases:
+        return
+
+    def begin(selected: ActivitySummary, **_kwargs: object) -> SimpleNamespace:
+        return _historical_score_authority(selected)
+
+    def refresh(
+        previous: SimpleNamespace,
+        *,
+        snapshot_revision: int | None = None,
+        snapshot_sha256: str | None = None,
+        **_kwargs: object,
+    ) -> SimpleNamespace:
+        if (
+            snapshot_revision is not None
+            and previous.snapshot_revision != snapshot_revision
+        ):
+            raise AssertionError("Historical Score authority snapshot mismatch")
+        if snapshot_sha256 is not None and previous.snapshot_sha256 != snapshot_sha256:
+            raise AssertionError("Historical Score authority digest mismatch")
+        return previous
+
+    monkeypatch.setattr(scoring_menu, "begin_artifact_write_context", begin)
+    monkeypatch.setattr(
+        scoring_menu, "revalidate_artifact_write_context",
+        lambda context, **_kwargs: context,
+    )
+    monkeypatch.setattr(
+        scoring_menu, "_refresh_score_continuation_authority", refresh
+    )
+    monkeypatch.setattr(
+        scoring_menu, "show_activity",
+        lambda *args, **_kwargs: SimpleNamespace(summary=_activity()),
+    )
 
 
 def _activity(revision: int = 20) -> ActivitySummary:
@@ -30,10 +104,12 @@ def _state() -> object:
     return SimpleNamespace(require_actor=lambda: actor)
 
 
-def _context(*, eligible: bool = True) -> object:
+def _context(*, eligible: bool = True, revision: int = 20) -> object:
     return SimpleNamespace(
         class_id="class-1",
         activity_id="activity-1",
+        snapshot_revision=revision,
+        snapshot_sha256="abc123",
         artifact=SimpleNamespace(
             artifact_instance_id="artifact-1",
             session_id=None,
@@ -65,6 +141,8 @@ def _preview(*, existing: tuple[str, ...] = ()) -> RoutineScorePreview:
             class_id="class-1",
             activity_id="activity-1",
             artifact_instance_id="artifact-1",
+            snapshot_revision=20,
+            snapshot_sha256="abc123",
             target_reference=_target(),
             criterion_id="criterion-1",
             criterion_label="Uses textual evidence",
@@ -190,6 +268,7 @@ def test_confirmed_score_uses_score_token_then_canonical_execution(
         supplied_preview: RoutineScorePreview,
         *,
         actor: WorkflowActor,
+        **_kwargs: object,
     ) -> object:
         captured["preview"] = supplied_preview
         captured["actor"] = actor
@@ -364,11 +443,12 @@ def _menu_result(
     return scoring_menu._RoutineScoreMenuResult(
         preview=supplied_preview,
         mutation=mutation,
+        write_context=_historical_score_authority(_activity(revision)),
     )
 
 
-def _continuation() -> Any:
-    context = _context()
+def _continuation(revision: int = 21) -> Any:
+    context = _context(revision=revision)
     criterion_1 = SimpleNamespace(
         criterion_id="criterion-1",
         label="Uses textual evidence",
@@ -395,7 +475,7 @@ def _continuation() -> Any:
 def test_score_another_criterion_requires_fresh_criterion_and_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    continuation = _continuation()
+    continuation = _continuation(revision=20)
     criterion_2 = continuation.available_criteria[1]
     scale = SimpleNamespace(scoring_scale_id="scale-2")
     level = SimpleNamespace(value=4, label="Sophisticated")
@@ -431,7 +511,9 @@ def test_score_another_criterion_requires_fresh_criterion_and_value(
         lambda: "Returned Artifact evidence for this Score.",
     )
 
-    def fake_prepare(continuation_arg: object, request: object) -> object:
+    def fake_prepare(
+        continuation_arg: object, request: object, **_kwargs: object
+    ) -> object:
         captured["continuation"] = continuation_arg
         captured["request"] = request
         return preview
@@ -446,7 +528,7 @@ def test_score_another_criterion_requires_fresh_criterion_and_value(
     monkeypatch.setattr(
         scoring_menu,
         "record_prepared_routine_score",
-        lambda supplied_preview, *, actor: mutation,
+        lambda supplied_preview, *, actor, **_kwargs: mutation,
     )
     monkeypatch.setattr(scoring_menu, "show_result", lambda *args: None)
 
@@ -454,6 +536,7 @@ def test_score_another_criterion_requires_fresh_criterion_and_value(
         _activity(),
         cast(object, continuation),
         cast(object, _state()),
+        origin_context=_historical_score_authority(_activity()),
     )
 
     assert outcome is not None
@@ -470,7 +553,7 @@ def test_post_score_next_uses_latest_commit_revision_and_current_artifact(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     outcome = cast(object, _menu_result(revision=23))
-    continuation = cast(object, _continuation())
+    continuation = cast(object, _continuation(revision=23))
     captured: dict[str, object] = {}
     monkeypatch.setattr("builtins.input", lambda _prompt="": "N")
     monkeypatch.setattr(scoring_menu, "clear_screen", lambda: None)
@@ -585,9 +668,9 @@ def test_score_loop_reloads_after_every_successful_score(
         lambda *args, **kwargs: first,
     )
 
-    def fake_reload(preview: object, mutation: Any) -> object:
+    def fake_reload(preview: object, mutation: Any, **_kwargs: object) -> object:
         reloads.append(mutation.score_record_id)
-        return _continuation()
+        return _continuation(revision=mutation.commit.snapshot_revision)
 
     monkeypatch.setattr(
         scoring_menu,
@@ -626,6 +709,7 @@ def test_next_score_ready_work_reenters_with_exact_new_artifact(
         class_id: str,
         activity_id: str,
         artifact_id: str,
+        **_kwargs: object,
     ) -> object:
         inspected.append(artifact_id)
         return _context()

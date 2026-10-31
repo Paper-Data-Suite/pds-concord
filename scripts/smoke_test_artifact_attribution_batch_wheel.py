@@ -285,6 +285,21 @@ def _smoke_code() -> str:
 
             real_inspect = inspect_artifact_attribution_review
             real_batch = batch_confirm_artifact_attribution
+            real_begin = artifact_menu.begin_artifact_write_context
+
+            def latest_bound(selected: object) -> object:
+                return show_activity(
+                    selected.class_id,
+                    selected.activity_id,
+                    workspace_root=root,
+                ).summary
+
+            def begin_bound(selected: object, *, operation: str) -> object:
+                return real_begin(
+                    selected,
+                    operation=operation,
+                    workspace_root=root,
+                )
 
             def inspect_bound(class_id: str, activity_id: str) -> object:
                 return real_inspect(
@@ -293,8 +308,10 @@ def _smoke_code() -> str:
                     workspace_root=root,
                 )
 
-            def batch_bound(request: object) -> object:
-                return real_batch(request, workspace_root=root)
+            def batch_bound(request: object, **kwargs: object) -> object:
+                assert kwargs.get("workspace_root") == root
+                assert "standards_library" not in kwargs
+                return real_batch(request, **kwargs)
 
             def show_result(title: str, lines: object) -> None:
                 print(title)
@@ -309,6 +326,12 @@ def _smoke_code() -> str:
                     side_effect=lambda _prompt="": next(responses),
                 ),
                 patch.object(artifact_menu, "clear_screen", lambda: None),
+                patch.object(artifact_menu, "_latest", latest_bound),
+                patch.object(
+                    artifact_menu,
+                    "begin_artifact_write_context",
+                    begin_bound,
+                ),
                 patch.object(
                     artifact_menu,
                     "inspect_artifact_attribution_review",
@@ -408,8 +431,10 @@ def _smoke_code() -> str:
             add_tokens = []
             real_multi_subject = add_artifact_subjects
 
-            def multi_subject_bound(request: object) -> object:
-                return real_multi_subject(request, workspace_root=root)
+            def multi_subject_bound(request: object, **kwargs: object) -> object:
+                assert kwargs.get("workspace_root") == root
+                assert "standards_library" not in kwargs
+                return real_multi_subject(request, **kwargs)
 
             def confirm_add(
                 _title: str,
@@ -424,6 +449,11 @@ def _smoke_code() -> str:
                     artifact_menu,
                     "_latest",
                     lambda _selected: current_activity,
+                ),
+                patch.object(
+                    artifact_menu,
+                    "begin_artifact_write_context",
+                    begin_bound,
                 ),
                 patch.object(
                     artifact_menu,

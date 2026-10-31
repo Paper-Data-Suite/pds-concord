@@ -10,12 +10,14 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from pds_core.standards import StandardsLibrary
+
 from concord.model_validation import ConcordRecordGraph
-from concord.workflows._collaboration import load_graph, work_ref
 from concord.workflows.artifact import (
     ArtifactSummary,
     _current_author_ids,
     _current_subject_ids,
+    _load_artifact_graph,
 )
 from concord.workflows.context import resolve_read_workspace_root
 from concord.workflows.errors import ConcordWorkflowConflictError
@@ -159,12 +161,15 @@ def list_teacher_artifact_choices(
     *,
     expected_snapshot_revision: int | None = None,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[TeacherArtifactChoice, ...]:
     """Read the Activity graph once, then construct selection-safe labels."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = _load_artifact_graph(
+        root, class_id, activity_id, standards_library=standards_library
+    )
     if (
         expected_snapshot_revision is not None
         and expected_snapshot_revision != revision

@@ -123,13 +123,12 @@ def test_projection_reads_only_one_graph(monkeypatch: pytest.MonkeyPatch) -> Non
     calls: list[object] = []
     graph = _graph(*(_artifact(f"artifact-{n}") for n in range(40)))
     monkeypatch.setattr(display, "resolve_read_workspace_root", lambda _: Path("."))
-    monkeypatch.setattr(display, "work_ref", lambda *_: "work-ref")
 
-    def load_once(*args: object) -> tuple[Any, int, str]:
+    def load_once(*args: object, **kwargs: object) -> tuple[Any, int, str]:
         calls.append(args)
         return graph, 4, "digest"
 
-    monkeypatch.setattr(display, "load_graph", load_once)
+    monkeypatch.setattr(display, "_load_artifact_graph", load_once)
     result = display.list_teacher_artifact_choices(
         "english-ten", "activity-one", expected_snapshot_revision=4
     )
@@ -142,8 +141,9 @@ def test_stale_snapshot_is_not_silently_accepted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(display, "resolve_read_workspace_root", lambda _: Path("."))
-    monkeypatch.setattr(display, "work_ref", lambda *_: "work-ref")
-    monkeypatch.setattr(display, "load_graph", lambda *_: (_graph(), 5, "digest"))
+    monkeypatch.setattr(
+        display, "_load_artifact_graph", lambda *args, **kwargs: (_graph(), 5, "digest")
+    )
     with pytest.raises(ConcordWorkflowConflictError, match="changed"):
         display.list_teacher_artifact_choices(
             "english-ten", "activity-one", expected_snapshot_revision=4
