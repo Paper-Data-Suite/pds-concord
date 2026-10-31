@@ -35,8 +35,8 @@ def standards_for_activity(activity: ActivitySummary) -> StandardsLibrary | None
             "This Activity uses Focus Standards, but the Core Standards "
             "Library is unavailable in the current Paper Data Suite "
             "workspace. Configure or restore the canonical Core Standards "
-            "Library, then reopen this Activity and retry. No GroupPlan "
-            "was created."
+            "Library, then reopen this Activity and retry. No changes "
+            "were saved."
         )
     return library
 

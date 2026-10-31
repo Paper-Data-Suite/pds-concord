@@ -6,6 +6,7 @@ Do not treat source-level omitted arguments as verified behavioral failures.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 from pathlib import Path
 from typing import Any
@@ -56,7 +57,28 @@ def test_source_boundary_inventory_preserves_named_p02_sites() -> None:
     assert all(row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in rows)
     assert all(row["calls"].isdecimal() and int(row["calls"]) >= 1 for row in rows)
     assert all(row["qualification_owner"].startswith("#") for row in rows)
-    assert (ROOT / module.OUTPUT).read_bytes() == payload
+    # #140 is a frozen source census from the original qualification baseline.
+    # Its contents must not be silently rewritten as #142 changes call lines.
+    frozen = (ROOT / module.OUTPUT).read_bytes()
+    frozen_header = f"blob {len(frozen)}\0".encode("ascii")
+    assert hashlib.sha1(frozen_header + frozen).hexdigest() == (
+        "4ba8a15db722d2ded9fca09c103028c23ab2cd98"
+    )
+    frozen_rows = tuple(csv.DictReader(io.StringIO(frozen.decode("utf-8"))))
+    assert len(frozen_rows) == 18
+    assert {row["service_name"] for row in frozen_rows} == {
+        row["service_name"] for row in rows
+    }
+    assert all(
+        row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in frozen_rows
+    )
+    # A separate #142 successor inventory must track the CURRENT source exactly.
+    # Do not label source-only candidate status as runtime verification.
+    successor = ROOT / (
+        "docs/audits/issue142/slice6c4_current_boundary_inventory.csv"
+    )
+    assert successor.read_bytes() == payload
+    assert successor.read_bytes() != frozen
 
 
 def test_mixed_activity_score_label_reader_silently_loses_native_definitions(

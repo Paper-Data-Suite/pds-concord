@@ -1,6 +1,6 @@
 """#140 Slice 3B: genuine Artifact menu/service Standards guards, no writes.
 
-This is a context-first baseline probe, not returned-evidence acceptance.
+This retrospective baseline tests repaired and pending context boundaries.
 No actual teacher judgments, attribution, Score, or paper scans are created.
 """
 
@@ -14,8 +14,10 @@ from typing import Any
 import pytest
 from issue140_slice2_fixtures import ACTIVITY_ID, ACTOR, SOURCE_CLASS, build_workspace
 from pds_core.routing_models import ModuleWorkRef
+from pds_core.standards import write_workspace_standards_library
 
 import concord.menu_artifact as menu
+import concord.menu_artifact_write_context as authority
 from concord.models import EvidenceReference, PrivacyPolicy, SubjectReference
 from concord.storage import list_work_snapshots, load_current_record_graph
 from concord.workflows import (
@@ -37,6 +39,7 @@ def _menu_scaffold(monkeypatch: pytest.MonkeyPatch, *, current: Any) -> SimpleNa
     """Replace only menu prompting/choice; never replace guarded services."""
     artifact = SimpleNamespace(
         artifact_instance_id=ARTIFACT_ID,
+        snapshot_revision=current.snapshot_revision,
         artifact_status="planned",
         returned_required_page_count=0,
         required_return_page_count=1,
@@ -59,6 +62,13 @@ def _exercise(
     captured: list[Any],
 ) -> None:
     """Invoke the existing handler; adapt only its workspace-root boundary."""
+    monkeypatch.setattr(
+        authority,
+        "resolve_read_workspace_root",
+        lambda explicit_root=None: (
+            root if explicit_root is None else Path(explicit_root)
+        ),
+    )
     artifact = _menu_scaffold(monkeypatch, current=activity)
     state = menu.MenuSessionContext(actor=ACTOR)
     if kind == "author":
@@ -159,9 +169,15 @@ def _exercise(
     else:
         raise AssertionError("Unsupported witness")
 
-    def actual_service(request: Any) -> Any:
+    def actual_service(request: Any, **kwargs: Any) -> Any:
         captured.append(request)
-        return real(request, workspace_root=root)
+        if (
+            "workspace_root" in kwargs
+            and Path(kwargs["workspace_root"]).resolve() != root.resolve()
+        ):
+            raise AssertionError("Menu passed a different Core workspace")
+        kwargs.setdefault("workspace_root", root)
+        return real(request, **kwargs)
 
     monkeypatch.setattr(menu, menu_name, actual_service)
     handler()
@@ -172,6 +188,7 @@ def test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -181,10 +198,10 @@ def test_mixed_teacher_menu_reaches_real_guard_before_missing_artifact(
     snapshots = list_work_snapshots(fixture.root, _work())
     captured: list[Any] = []
     # The handler is invoked with a real selected Activity and the real service;
-    # its selected Artifact is deliberately absent to isolate context-first guard.
-    with pytest.raises(
-        Exception, match="standards_library is required for this Activity"
-    ):
+    # its selected Artifact is absent to verify valid context reaches identity refusal.
+    # All four reviewed menu operations now forward canonical authority.
+    expected_failure = "Artifact is not available:"
+    with pytest.raises(Exception, match=expected_failure):
         _exercise(kind, activity, fixture.root, monkeypatch, captured)
     assert len(captured) == 1
     service = {
@@ -218,6 +235,7 @@ def test_neutral_activity_missing_artifact_fails_for_identity_not_standards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="evidence_only")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -240,6 +258,7 @@ def test_routine_review_read_does_not_require_standards_to_report_absent_artifac
     )
 
     fixture = build_workspace(tmp_path, orientation=orientation)
+    write_workspace_standards_library(fixture.root, fixture.standards)
     before = list_work_snapshots(fixture.root, _work())
     with pytest.raises(Exception) as error:
         inspect_artifact_routine_review(

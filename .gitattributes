@@ -8,3 +8,4 @@ docs/audits/issue140/*.csv text eol=lf
 docs/audits/issue140/*.json text eol=lf
 docs/audits/issue140/*.md text eol=lf
 docs/audits/issue141/*.json text eol=lf
+docs/audits/issue142/slice6c4_current_boundary_inventory.csv text eol=lf

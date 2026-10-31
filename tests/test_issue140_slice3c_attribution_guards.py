@@ -14,10 +14,16 @@ from typing import Any
 import pytest
 from issue140_slice2_fixtures import ACTIVITY_ID, ACTOR, SOURCE_CLASS, build_workspace
 from pds_core.routing_models import ModuleWorkRef
+from pds_core.standards import write_workspace_standards_library
 
 import concord.menu_artifact as menu
+import concord.menu_artifact_write_context as authority
 from concord.models import SubjectReference
-from concord.storage import list_work_snapshots, load_current_record_graph
+from concord.storage import (
+    list_work_snapshots,
+    load_current_record_graph,
+    load_current_snapshot_graph,
+)
 from concord.workflows import (
     add_artifact_authors,
     add_artifact_subjects,
@@ -70,6 +76,13 @@ def _exercise(
     approve: bool = True,
 ) -> None:
     """Invoke the actual menu handler, adapting only its local I/O boundary."""
+    monkeypatch.setattr(
+        authority,
+        "resolve_read_workspace_root",
+        lambda explicit_root=None: (
+            root if explicit_root is None else Path(explicit_root)
+        ),
+    )
     state = menu.MenuSessionContext(actor=ACTOR)
     reference = SubjectReference(
         subject_kind="core_student", owning_system="core", subject_id=students[0]
@@ -150,7 +163,13 @@ def _exercise(
             menu._commit_attribution_confirmation,
             activity,
             SimpleNamespace(
-                snapshot_revision=activity.snapshot_revision, exception_count=0
+                class_id=activity.class_id,
+                activity_id=activity.activity_id,
+                snapshot_revision=activity.snapshot_revision,
+                snapshot_sha256=load_current_snapshot_graph(
+                    root, _work()
+                ).snapshot_sha256,
+                exception_count=0,
             ),
             state,
             artifact_author_ids=(ASSOCIATION_ID,),
@@ -160,9 +179,15 @@ def _exercise(
     }
     service_name, service = SERVICES[kind]
 
-    def real_service(request: Any) -> Any:
+    def real_service(request: Any, **kwargs: Any) -> Any:
         captured.append(request)
-        return service(request, workspace_root=root)
+        if (
+            "workspace_root" in kwargs
+            and Path(kwargs["workspace_root"]).resolve() != root.resolve()
+        ):
+            raise AssertionError("Menu passed a different Core workspace")
+        kwargs.setdefault("workspace_root", root)
+        return service(request, **kwargs)
 
     monkeypatch.setattr(menu, service_name, real_service)
     handlers[kind]()
@@ -173,6 +198,7 @@ def test_mixed_menu_write_hits_standards_guard_before_missing_relationship(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -182,9 +208,9 @@ def test_mixed_menu_write_hits_standards_guard_before_missing_relationship(
     before_snapshots = list_work_snapshots(fixture.root, _work())
     captured: list[Any] = []
 
-    with pytest.raises(
-        Exception, match="standards_library is required for this Activity"
-    ):
+    # All seven attribution menu families now pass the Core authority gate.
+    expected_failure = "is not available:"
+    with pytest.raises(Exception, match=expected_failure):
         _exercise(
             kind=kind,
             activity=activity,
@@ -223,6 +249,7 @@ def test_neutral_mode_reaches_missing_target_without_standards_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="evidence_only")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -247,6 +274,7 @@ def test_cancel_before_attribution_commit_does_not_call_service(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary

@@ -354,6 +354,14 @@ def _smoke_code() -> str:
             real_inspect_next = inspect_next_artifact_review
             real_inspect_routine = inspect_artifact_routine_review
             real_record_routine = record_routine_artifact_review
+            real_begin = artifact_menu.begin_artifact_write_context
+
+            def begin_bound(selected: object, *, operation: str) -> object:
+                return real_begin(
+                    selected,
+                    operation=operation,
+                    workspace_root=root,
+                )
 
             def latest_bound(_activity: object) -> object:
                 return real_show_activity(
@@ -393,7 +401,10 @@ def _smoke_code() -> str:
                 class_id: str,
                 activity_id: str,
                 artifact_id: str,
+                *,
+                workspace_root: object = None,
             ) -> object:
+                assert workspace_root is None or workspace_root == root
                 return real_inspect_routine(
                     class_id,
                     activity_id,
@@ -406,13 +417,16 @@ def _smoke_code() -> str:
                 values: object,
                 *,
                 actor: object,
+                **kwargs: object,
             ) -> object:
+                assert kwargs.get("workspace_root") == root
+                assert "standards_library" not in kwargs
                 return real_record_routine(
                     context,
                     values,
                     actor=actor,
-                    workspace_root=root,
                     clock=clock,
+                    **kwargs,
                 )
 
             def choose(
@@ -482,6 +496,11 @@ def _smoke_code() -> str:
             stage("snapshot-scoped teacher Artifact choice projection")
             with (
                 patch.object(artifact_menu, "_latest", latest_bound),
+                patch.object(
+                    artifact_menu,
+                    "begin_artifact_write_context",
+                    begin_bound,
+                ),
                 patch.object(artifact_menu, "list_artifacts", list_bound),
                 patch.object(
                     artifact_menu,

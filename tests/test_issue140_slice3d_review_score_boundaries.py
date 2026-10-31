@@ -13,9 +13,11 @@ from typing import Any
 import pytest
 from issue140_slice2_fixtures import ACTIVITY_ID, ACTOR, SOURCE_CLASS, build_workspace
 from pds_core.routing_models import ModuleWorkRef
+from pds_core.standards import write_workspace_standards_library
 
 import concord.menu_artifact as artifact_menu
 import concord.menu_artifact_scoring as score_menu
+import concord.menu_artifact_write_context as authority
 from concord.models import EvidenceReference, PrivacyPolicy
 from concord.storage import list_work_snapshots, load_current_record_graph
 from concord.workflows import show_activity
@@ -56,13 +58,22 @@ def _replacement_witness(
         owning_system="concord",
         record_id="issue140-3d-absent-evidence",
     )
-    selected_review = SimpleNamespace(artifact_review_id=MISSING_REVIEW)
+    selected_review = SimpleNamespace(
+        artifact_review_id=MISSING_REVIEW,
+        snapshot_revision=activity.snapshot_revision,
+    )
     selected_moderation = SimpleNamespace(
         moderation_record_id=MISSING_MODERATION,
+        snapshot_revision=activity.snapshot_revision,
         evidence_reference=evidence,
         target_subject_references=(),
     )
     monkeypatch.setattr(artifact_menu, "_latest", lambda _activity: activity)
+    monkeypatch.setattr(
+        authority,
+        "resolve_read_workspace_root",
+        lambda explicit=None: root if explicit is None else Path(explicit),
+    )
     monkeypatch.setattr(artifact_menu, "_review_label", lambda _item: "Absent Review")
     monkeypatch.setattr(
         artifact_menu, "_moderation_label", lambda _item: "Absent Moderation"
@@ -134,9 +145,15 @@ def _replacement_witness(
     else:
         raise AssertionError(f"Unknown replacement kind: {kind}")
 
-    def actual_service(request: Any) -> Any:
+    def actual_service(
+        request: Any, *, workspace_root: Path, standards_library: Any = None
+    ) -> Any:
+        assert Path(workspace_root).resolve() == root.resolve()
         captured.append(request)
-        return service(request, workspace_root=root)
+        return service(
+            request, workspace_root=workspace_root,
+            standards_library=standards_library,
+        )
 
     monkeypatch.setattr(artifact_menu, service_name, actual_service)
     handler(activity, state)
@@ -147,6 +164,7 @@ def test_mixed_successor_menu_guard_precedes_missing_predecessor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -155,9 +173,7 @@ def test_mixed_successor_menu_guard_precedes_missing_predecessor(
     ).graph
     snapshots_before = list_work_snapshots(fixture.root, _work())
     captured: list[Any] = []
-    with pytest.raises(
-        Exception, match="standards_library is required for this Activity"
-    ):
+    with pytest.raises(ConcordWorkflowNotFoundError, match="is not available"):
         _replacement_witness(kind, activity, fixture.root, monkeypatch, captured)
     assert len(captured) == 1
     assert captured[0].class_id == SOURCE_CLASS
@@ -210,6 +226,7 @@ def test_cancel_successor_menu_never_calls_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
+    write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -227,6 +244,8 @@ def test_planned_unreturned_artifact_blocks_quick_review_and_routine_score(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, orientation: str
 ) -> None:
     fixture = build_workspace(tmp_path, orientation=orientation)
+    if orientation == "mixed":
+        write_workspace_standards_library(fixture.root, fixture.standards)
     activity = show_activity(
         SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root
     ).summary
@@ -289,8 +308,8 @@ def test_planned_unreturned_artifact_blocks_quick_review_and_routine_score(
     monkeypatch.setattr(
         artifact_menu,
         "inspect_artifact_routine_review",
-        lambda c, a, i: inspect_artifact_routine_review(
-            c, a, i, workspace_root=fixture.root
+        lambda c, a, i, *, workspace_root: inspect_artifact_routine_review(
+            c, a, i, workspace_root=workspace_root
         ),
     )
     monkeypatch.setattr(
@@ -308,9 +327,19 @@ def test_planned_unreturned_artifact_blocks_quick_review_and_routine_score(
         "record_routine_artifact_review",
         lambda *a, **kw: pytest.fail("No quick Review on planned evidence"),
     )
+    monkeypatch.setattr(
+        authority,
+        "resolve_read_workspace_root",
+        lambda explicit=None: (
+            fixture.root if explicit is None else Path(explicit)
+        ),
+    )
     outcome = artifact_menu._quick_review_selected(
         latest,
-        SimpleNamespace(artifact_instance_id=PLANNED_ARTIFACT),
+        SimpleNamespace(
+            artifact_instance_id=PLANNED_ARTIFACT,
+            snapshot_revision=latest.snapshot_revision,
+        ),
         artifact_menu.MenuSessionContext(actor=ACTOR),
     )
     assert outcome is False
@@ -324,8 +353,8 @@ def test_planned_unreturned_artifact_blocks_quick_review_and_routine_score(
     monkeypatch.setattr(
         score_menu,
         "inspect_artifact_routine_scoring",
-        lambda c, a, i: inspect_artifact_routine_scoring(
-            c, a, i, workspace_root=fixture.root
+        lambda c, a, i, *, workspace_root: inspect_artifact_routine_scoring(
+            c, a, i, workspace_root=workspace_root
         ),
     )
     monkeypatch.setattr(

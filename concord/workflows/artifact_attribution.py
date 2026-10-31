@@ -1452,12 +1452,15 @@ def list_artifact_authors(
     artifact_instance_id: str | None = None,
     include_historical: bool = False,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[ArtifactAuthorSummary, ...]:
     """List current Authors by default, preserving explicit historical access."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root, work_ref(class_id, activity_id), standards_library
+    )
     current_ids = {item.artifact_author_id for item in _current_authors(graph)}
     summaries: list[ArtifactAuthorSummary] = []
     for author in graph.artifact_authors:
@@ -1538,12 +1541,15 @@ def list_artifact_subjects(
     artifact_instance_id: str | None = None,
     include_historical: bool = False,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> tuple[ArtifactSubjectSummary, ...]:
     """List current Subjects by default, preserving explicit historical access."""
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = load_graph(
+        root, work_ref(class_id, activity_id), standards_library
+    )
     current_ids = {item.artifact_subject_id for item in _current_subjects(graph)}
     summaries: list[ArtifactSubjectSummary] = []
     for subject in graph.artifact_subjects:

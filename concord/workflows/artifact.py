@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from pds_core.standards import StandardsLibrary, load_workspace_standards_library
+
 from concord.model_validation import ConcordRecordGraph
 from concord.models import ArtifactInstance
 from concord.workflows._collaboration import load_graph, work_ref
@@ -48,6 +50,26 @@ class ArtifactScanOccurrenceSummary:
     source_page_number: int
     snapshot_revision: int
     routed_at: str | None = None
+
+
+def _load_artifact_graph(
+    root: Path,
+    class_id: str,
+    activity_id: str,
+    *,
+    standards_library: StandardsLibrary | None = None,
+) -> tuple[ConcordRecordGraph, int, str]:
+    """Read validated Artifact state with explicit or canonical Core Standards."""
+    if standards_library is None:
+        try:
+            standards_library = load_workspace_standards_library(root)
+        except FileNotFoundError:
+            pass
+    return load_graph(
+        root,
+        work_ref(class_id, activity_id),
+        standards_library=standards_library,
+    )
 
 
 def _current_author_ids(graph: ConcordRecordGraph) -> frozenset[str]:
@@ -132,7 +154,7 @@ def list_artifacts(
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = _load_artifact_graph(root, class_id, activity_id)
     return tuple(
         _summary(class_id, activity_id, artifact, graph, revision)
         for artifact in sorted(
@@ -148,6 +170,7 @@ def show_artifact(
     artifact_instance_id: str,
     *,
     workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
 ) -> ArtifactDetail:
     """Show one exact Artifact Instance without exposing the raw record graph."""
     root = resolve_read_workspace_root(workspace_root)
@@ -155,7 +178,9 @@ def show_artifact(
         raise ConcordWorkflowNotFoundError(
             f"Artifact is not available: {artifact_instance_id}"
         )
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = _load_artifact_graph(
+        root, class_id, activity_id, standards_library=standards_library
+    )
     artifact = next(
         (
             item
@@ -189,7 +214,7 @@ def list_artifact_scan_occurrences(
     root = resolve_read_workspace_root(workspace_root)
     if root is None:
         return ()
-    graph, revision, _ = load_graph(root, work_ref(class_id, activity_id))
+    graph, revision, _ = _load_artifact_graph(root, class_id, activity_id)
     artifact = next(
         (
             item

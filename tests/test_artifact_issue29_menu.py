@@ -33,6 +33,39 @@ def _state() -> MenuSessionContext:
     return MenuSessionContext(actor=WorkflowActor(actor_id="teacher-1"))
 
 
+@pytest.fixture(autouse=True)
+def _legacy_menu_unit_authority(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Stub only historical request-spy tests, not canonical validation."""
+    cases = {
+        "test_record_review_uses_explicit_context_and_review_confirmation",
+        "test_moderation_revision_preserves_exact_predecessor_scope",
+    }
+    if request.node.name.split("[", 1)[0] not in cases:
+        return
+
+    def begin(selected: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            root=Path("."),
+            class_id=getattr(selected, "class_id"),
+            activity_id=getattr(selected, "activity_id"),
+            snapshot_revision=getattr(selected, "snapshot_revision"),
+            snapshot_sha256="legacy-unit-stub",
+            standards_library=None,
+            standards_required=False,
+            candidate_standard_backed=False,
+            active_workspace_binding=False,
+        )
+
+    monkeypatch.setattr(menu_artifact, "begin_artifact_write_context", begin)
+    monkeypatch.setattr(
+        menu_artifact,
+        "revalidate_artifact_write_context",
+        lambda preview, **_kwargs: preview,
+    )
+
+
 def test_artifact_menu_adds_review_and_moderation_without_renumbering(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -76,6 +109,7 @@ def test_record_review_uses_explicit_context_and_review_confirmation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     artifact = SimpleNamespace(
+        snapshot_revision=9,
         artifact_instance_id="artifact-1",
         artifact_status="partially_returned",
         returned_required_page_count=1,
@@ -135,7 +169,7 @@ def test_record_review_uses_explicit_context_and_review_confirmation(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_review",
-        lambda request: captured.append(request) or result,
+        lambda request, **_kwargs: captured.append(request) or result,
     )
 
     menu_artifact._record_review(_activity(), _state())
@@ -165,6 +199,7 @@ def test_moderation_revision_preserves_exact_predecessor_scope(
         subject_id="student-1",
     )
     predecessor = SimpleNamespace(
+        snapshot_revision=9,
         moderation_record_id="moderation-before",
         moderated_at="2026-10-12T19:58:00-04:00",
         evidence_reference=evidence,
@@ -223,7 +258,7 @@ def test_moderation_revision_preserves_exact_predecessor_scope(
     monkeypatch.setattr(
         menu_artifact,
         "replace_moderation_record",
-        lambda request: captured.append(request) or result,
+        lambda request, **_kwargs: captured.append(request) or result,
     )
     monkeypatch.setattr(menu_artifact, "show_result", lambda *_args, **_kwargs: None)
 

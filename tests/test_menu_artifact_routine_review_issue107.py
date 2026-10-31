@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -15,6 +16,47 @@ from concord.workflows.artifact_routine_review_profiles import (
     ArtifactRoutineReviewValues,
 )
 from concord.workflows.models import ActivitySummary, WorkflowActor
+
+
+@pytest.fixture(autouse=True)
+def _historical_quick_review_authority(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Use synthetic pinned context only in legacy menu-decision unit tests.
+
+    Actual Core workspace authority and no-write refusals remain exercised
+    by the separate #142 integration tests; never patch a production guard.
+    """
+    cases = {
+        "test_quick_ready_review_uses_selected_artifact_and_review_confirmation",
+        "test_quick_qualified_review_requires_note_and_previews_it",
+        "test_ineligible_quick_review_surfaces_reasons_without_write",
+        "test_cancelled_quick_review_does_not_write",
+        "test_quick_review_open_failure_fails_closed_before_projection_or_write",
+        "test_quick_review_open_success_keeps_same_artifact_for_projection",
+    }
+    if request.node.name.split("[", 1)[0] not in cases:
+        return
+
+    def begin(selected: ActivitySummary, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            root=Path("."),
+            class_id=selected.class_id,
+            activity_id=selected.activity_id,
+            snapshot_revision=selected.snapshot_revision,
+            snapshot_sha256="abc123",
+            standards_library=None,
+            standards_required=False,
+            candidate_standard_backed=False,
+            active_workspace_binding=False,
+        )
+
+    monkeypatch.setattr(menu_artifact, "begin_artifact_write_context", begin)
+    monkeypatch.setattr(
+        menu_artifact,
+        "revalidate_artifact_write_context",
+        lambda preview, **_kwargs: preview,
+    )
 
 
 def _activity() -> ActivitySummary:
@@ -38,7 +80,7 @@ def _state() -> object:
 
 
 def _artifact() -> object:
-    return SimpleNamespace(artifact_instance_id="artifact-1")
+    return SimpleNamespace(artifact_instance_id="artifact-1", snapshot_revision=12)
 
 
 def _context(*, eligible: bool = True) -> ArtifactRoutineReviewContext:
@@ -51,7 +93,7 @@ def _context(*, eligible: bool = True) -> ArtifactRoutineReviewContext:
             artifact=SimpleNamespace(artifact_instance_id="artifact-1"),
             current_review=None,
             first_review_pending=True,
-            snapshot_revision=17,
+            snapshot_revision=12,
             snapshot_sha256="abc123",
             eligibility=ArtifactRoutineReviewEligibility(
                 quick_review_eligible=eligible,
@@ -109,7 +151,7 @@ def test_quick_ready_review_uses_selected_artifact_and_review_confirmation(
     monkeypatch.setattr(
         menu_artifact,
         "inspect_artifact_routine_review",
-        lambda class_id, activity_id, artifact_id: context,
+        lambda class_id, activity_id, artifact_id, **_kwargs: context,
     )
     choices = iter(("continue", "ready"))
     monkeypatch.setattr(
@@ -133,6 +175,7 @@ def test_quick_ready_review_uses_selected_artifact_and_review_confirmation(
         values: ArtifactRoutineReviewValues,
         *,
         actor: WorkflowActor,
+        **_kwargs: object,
     ) -> object:
         captured["context"] = supplied_context
         captured["values"] = values
@@ -164,7 +207,7 @@ def test_quick_ready_review_uses_selected_artifact_and_review_confirmation(
     assert title == "Quick Artifact Review"
     assert token == "REVIEW"
     assert "Artifact: artifact-1" in lines
-    assert "Inspected snapshot: 17" in lines
+    assert "Inspected snapshot: 12" in lines
     assert "Snapshot SHA-256: abc123" in lines
     assert "Readability: readable" in lines
     assert "Review privacy: teacher_restricted" in lines
@@ -186,7 +229,7 @@ def test_quick_qualified_review_requires_note_and_previews_it(
     monkeypatch.setattr(
         menu_artifact,
         "inspect_artifact_routine_review",
-        lambda *args: context,
+        lambda *args, **_kwargs: context,
     )
     choices = iter(("continue", "ready_with_qualification"))
     monkeypatch.setattr(
@@ -215,6 +258,7 @@ def test_quick_qualified_review_requires_note_and_previews_it(
         values: ArtifactRoutineReviewValues,
         *,
         actor: WorkflowActor,
+        **_kwargs: object,
     ) -> object:
         captured["values"] = values
         return SimpleNamespace(
@@ -248,7 +292,7 @@ def test_ineligible_quick_review_surfaces_reasons_without_write(
     monkeypatch.setattr(
         menu_artifact,
         "inspect_artifact_routine_review",
-        lambda *args: context,
+        lambda *args, **_kwargs: context,
     )
     monkeypatch.setattr(
         menu_artifact,
@@ -300,7 +344,7 @@ def test_cancelled_quick_review_does_not_write(
     monkeypatch.setattr(
         menu_artifact,
         "inspect_artifact_routine_review",
-        lambda *args: context,
+        lambda *args, **_kwargs: context,
     )
     choices = iter(("continue", "ready"))
     monkeypatch.setattr(
@@ -428,6 +472,7 @@ def test_quick_review_open_success_keeps_same_artifact_for_projection(
         class_id: str,
         activity_id: str,
         artifact_instance_id: str,
+        **_kwargs: object,
     ) -> ArtifactRoutineReviewContext:
         seen["projected_artifact_id"] = artifact_instance_id
         return context
