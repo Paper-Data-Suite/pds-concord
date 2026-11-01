@@ -13,10 +13,11 @@ from concord.models.common import (
     controlled_key,
     identifier,
     optional_identifier,
+    optional_standards_identity,
     optional_text,
     positive_int,
     require_text,
-    tuple_of_identifiers,
+    tuple_of_standards_identities,
     tuple_of_values,
 )
 from concord.models.scoring import ScoringScaleLevel
@@ -225,12 +226,16 @@ class CriterionPresetSpec:
         object.__setattr__(
             self,
             "alignment_standard_ids",
-            tuple_of_identifiers(
+            tuple_of_standards_identities(
                 self.alignment_standard_ids,
                 "alignment_standard_ids",
             ),
         )
-        optional_identifier(self.standard_id, "standard_id")
+        object.__setattr__(
+            self,
+            "standard_id",
+            optional_standards_identity(self.standard_id, "standard_id"),
+        )
         controlled(
             self.status,
             "status",
@@ -305,7 +310,13 @@ class CriterionSetPresetRevision:
                 "Criterion Set preset may recommend at most one Scoring Scale preset."
             )
         controlled(self.status, "status", PRESET_STATUSES)
-        optional_identifier(self.standards_profile_id, "standards_profile_id")
+        object.__setattr__(
+            self,
+            "standards_profile_id",
+            optional_standards_identity(
+                self.standards_profile_id, "standards_profile_id"
+            ),
+        )
         optional_identifier(
             self.supersedes_preset_revision_id,
             "supersedes_preset_revision_id",

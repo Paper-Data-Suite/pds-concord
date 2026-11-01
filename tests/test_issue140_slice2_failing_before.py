@@ -1,7 +1,8 @@
 """Issue #140 Slice 2: C1 post-#141 fix and historical C2 baseline.
 
 C1 retains its original test ID for frozen #140 traceability, but now proves
-the successful canonical write. C2 remains a failing-before #143 witness.
+the successful canonical write.
+C2 retains its historical test ID but verifies the #143 fixed-after menu save.
 """
 
 from __future__ import annotations
@@ -274,6 +275,11 @@ def _create_native_mixed_criterion_set(root: Path, standards: Any) -> None:
 def test_c2_native_standards_identity_survives_but_menu_preset_save_rejects_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Retain the #140 C2 test ID; assert #143's reviewed fixed-after path."""
+    from concord.workflows.reusable_presets import (
+        save_criterion_set_preset_from_activity,
+    )
+
     fixture = build_workspace(tmp_path)
     root, standards = fixture.root, fixture.standards
     _create_native_mixed_criterion_set(root, standards)
@@ -282,11 +288,14 @@ def test_c2_native_standards_identity_survives_but_menu_preset_save_rejects_it(
     assert any(c.standard_id == STANDARD_ID for c in before_graph.criteria)
     before_snapshots = list_work_snapshots(root, _work())
     current = show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=root).summary
-    error_messages: list[str] = []
-    entered_preview: list[bool] = []
+    errors: list[str] = []
+    preview_digests: list[str] = []
+    commit_digests: list[str] = []
+    confirmations: list[tuple[str, str]] = []
+    displayed: list[str] = []
     fake_uuid = "0" * 32
+    preset_id = f"criterion-preset-{fake_uuid}"
     monkeypatch.setattr(scoring_menu, "uuid4", lambda: SimpleNamespace(hex=fake_uuid))
-
     monkeypatch.setattr(scoring_menu, "_latest", lambda _activity: current)
     monkeypatch.setattr(scoring_menu, "_library", lambda: standards)
     monkeypatch.setattr(
@@ -303,43 +312,79 @@ def test_c2_native_standards_identity_survives_but_menu_preset_save_rejects_it(
         scoring_menu, "select_one", lambda _title, items, labels, **k: items[0]
     )
     monkeypatch.setattr(
-        scoring_menu, "_recommended_scale_for_native_set", lambda _set: (None, None)
+        scoring_menu,
+        "_recommended_scale_for_native_set",
+        lambda _set: (None, None),
     )
     monkeypatch.setattr(
         scoring_menu,
         "_handle_error",
-        lambda _activity, err: error_messages.append(str(err)),
+        lambda _activity, error: errors.append(str(error)),
     )
-    monkeypatch.setattr(
-        scoring_menu,
-        "confirm_write",
-        lambda *a, **k: pytest.fail("legacy preview unexpectedly succeeded"),
-    )
-    monkeypatch.setattr(
-        scoring_menu,
-        "save_criterion_set_preset_from_activity",
-        lambda *a, **k: pytest.fail("save should never follow failed preview"),
-    )
+
+    def reviewed_confirmation(title: str, expected: str, *args: Any) -> bool:
+        confirmations.append((title, expected))
+        assert args
+        return True
 
     def real_preview(request: Any, *, standards_library: Any = None) -> Any:
-        entered_preview.append(True)
-        return prepare_criterion_set_preset_from_activity(
+        prepared = prepare_criterion_set_preset_from_activity(
             request, workspace_root=root, standards_library=standards_library
         )
+        preview_digests.append(prepared.review_digest)
+        return prepared
 
+    def real_save(
+        request: Any, *, review_digest: str, standards_library: Any = None
+    ) -> Any:
+        commit_digests.append(review_digest)
+        return save_criterion_set_preset_from_activity(
+            request,
+            review_digest=review_digest,
+            workspace_root=root,
+            standards_library=standards_library,
+        )
+
+    monkeypatch.setattr(scoring_menu, "confirm_write", reviewed_confirmation)
     monkeypatch.setattr(
         scoring_menu, "prepare_criterion_set_preset_from_activity", real_preview
     )
+    monkeypatch.setattr(
+        scoring_menu, "save_criterion_set_preset_from_activity", real_save
+    )
+    monkeypatch.setattr(
+        scoring_menu, "show_result", lambda title, lines: displayed.append(title)
+    )
     scoring_menu._save_criterion_set_as_preset(current, MenuSessionContext(actor=ACTOR))
 
-    assert entered_preview == [True], (
-        "Only the actual menu-to-preset contract is a witness"
+    assert not errors
+    assert confirmations == [("Save Criterion Set Preset", "SAVE")]
+    assert len(preview_digests) == 1
+    assert commit_digests == preview_digests
+    assert displayed == ["Criterion Set Preset Saved"]
+    saved = load_current_preset(root, "criterion_set", preset_id).current
+    assert saved.preset_id == preset_id
+    assert saved.preset_revision_id == f"{preset_id}-v1"
+    assert saved.revision == 1
+    assert saved.standards_profile_id == PROFILE_ID
+    assert saved.criterion_set_kind == "mixed"
+    assert tuple(item.key for item in saved.criteria) == (
+        "discussion_participation",
+        "collaborative_textual_analysis",
     )
-    assert len(error_messages) == 1
-    assert error_messages[0] == (
-        "standard_id must contain only letters, numbers, underscores, and hyphens."
+    individual, group = saved.criteria
+    assert (individual.criterion_kind, individual.supported_target_kinds) == (
+        "standard_backed",
+        ("core_student",),
+    )
+    assert individual.standard_id == STANDARD_ID
+    assert (group.criterion_kind, group.supported_target_kinds) == (
+        "local",
+        ("concord_group",),
+    )
+    assert group.standard_id is None
+    assert all(
+        item.default_scoring_scale_preset_id is None for item in saved.criteria
     )
     assert _graph(root, standards) == before_graph
     assert list_work_snapshots(root, _work()) == before_snapshots
-    with pytest.raises(Exception):
-        load_current_preset(root, "criterion_set", f"criterion-preset-{fake_uuid}")
