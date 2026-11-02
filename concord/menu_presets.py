@@ -28,6 +28,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_scale_guidance import draft_from_existing, guide_scale_levels
 from concord.menu_teacher_history import distinguish_equal_labels
 from concord.menu_ui import (
     clear_screen,
@@ -43,6 +44,7 @@ from concord.reusable_presets import (
     RolePresetRevision,
     ScoringScalePresetRevision,
 )
+from concord.scale_guidance import describe_draft, validate_draft
 from concord.workflows import (
     CreateCriterionSetPresetRequest,
     CreateResponsibilityPresetRequest,
@@ -65,6 +67,7 @@ from concord.workflows import (
     revise_role_preset,
     revise_scoring_scale_preset,
 )
+from concord.workflows.context import provenance
 from concord.workflows.errors import ConcordWorkflowError
 
 _ROLE_KEYS = (
@@ -76,7 +79,6 @@ _ROLE_KEYS = (
     "builder",
     "presenter",
 )
-_SCALE_TYPES = ("numeric", "ordinal", "categorical", "binary", "teacher_defined")
 _TARGET_KINDS = (
     "core_student",
     "concord_group",
@@ -362,85 +364,39 @@ def _json_scalar(raw: str) -> str | int | float | bool:
     return value
 
 
-def _build_scale_levels(
-    scale_type: str,
-    defaults: tuple[ScoringScaleLevel, ...] = (),
-) -> tuple[ScoringScaleLevel, ...]:
-    count = prompt_positive_int(
-        "Scoring Scale Preset",
-        "Number of levels",
-        help_text="Every level and exact value is preserved in the saved preset.",
-        default=len(defaults) or (2 if scale_type == "binary" else 4),
-    )
-    if scale_type == "binary" and count != 2:
-        raise ValueError("A binary Scale requires exactly two levels.")
-    result: list[ScoringScaleLevel] = []
-    for index in range(count):
-        previous = defaults[index] if index < len(defaults) else None
-        raw = prompt_text(
-            f"Scale Level {index + 1}",
-            "Exact JSON value",
-            help_text='Examples: 1, 1.0, "1", and true remain distinct.',
-            default=None if previous is None else json.dumps(previous.value),
-        )
-        assert raw is not None
-        value = _json_scalar(raw)
-        label = prompt_text(
-            f"Scale Level {index + 1}",
-            "Label",
-            help_text="Teacher-facing label for this exact value.",
-            default=None if previous is None else previous.label,
-        )
-        meaning = prompt_text(
-            f"Scale Level {index + 1}",
-            "Meaning",
-            help_text="Describe what this exact level means.",
-            default=None if previous is None else previous.meaning,
-        )
-        assert label is not None and meaning is not None
-        description = _optional_text(
-            f"Scale Level {index + 1}",
-            "Description",
-            default=None if previous is None else previous.description,
-        )
-        result.append(
-            ScoringScaleLevel(
-                value=value,
-                label=label,
-                meaning=meaning,
-                position=index + 1 if scale_type == "ordinal" else None,
-                description=description,
-            )
-        )
-    return tuple(result)
-
-
-def _scale_type(default: str | None = None) -> str:
-    if default in _SCALE_TYPES:
-        labels = tuple(
-            f"{item.replace('_', ' ').title()}{' (current)' if item == default else ''}"
-            for item in _SCALE_TYPES
-        )
-    else:
-        labels = tuple(item.replace("_", " ").title() for item in _SCALE_TYPES)
-    return select_one(
-        "Scoring Scale Preset",
-        _SCALE_TYPES,
-        labels,
-        help_text="Choose the exact native value semantics for this saved Scale.",
-    )
-
-
 def _create_scale(state: MenuSessionContext) -> None:
     name, preset_id, revision_id = _preset_identity("Create Scoring Scale Preset")
-    scale_type = _scale_type()
-    levels = _build_scale_levels(scale_type)
+    guided = guide_scale_levels(
+        title="Create Reusable Scoring Scale — Choose Levels",
+        validator=lambda draft: validate_draft(
+            draft,
+            name=name,
+            created_provenance=provenance(state.require_actor()),
+        ),
+    )
     intended_use = _optional_text("Create Scoring Scale Preset", "Intended use")
     aggregation = _optional_text("Create Scoring Scale Preset", "Aggregation guidance")
+    validate_draft(
+        guided.draft,
+        name=name,
+        created_provenance=provenance(state.require_actor()),
+        intended_use=intended_use,
+        aggregation_guidance=aggregation,
+    )
     if not confirm_write(
         "Create Scoring Scale Preset",
         "CREATE",
-        (f"Name: {name}", f"Type: {scale_type}", f"Levels: {len(levels)}"),
+        (
+            f"Reusable preset: {name}",
+            f"Preset ID: {preset_id}",
+            f"First immutable revision ID: {revision_id}",
+            *describe_draft(guided.draft),
+            *guided.precision_notices,
+            f"Intended use: {intended_use or '(none)'}",
+            f"Aggregation guidance: {aggregation or '(none)'}",
+            "No Scores, Grades, evidence, or publication are created.",
+            "This saves a reusable definition; no Activity Scale is materialized.",
+        ),
     ):
         return
     result = create_scoring_scale_preset(
@@ -448,14 +404,21 @@ def _create_scale(state: MenuSessionContext) -> None:
             preset_id=preset_id,
             preset_revision_id=revision_id,
             name=name,
-            scale_type=scale_type,
-            levels=levels,
+            scale_type=guided.draft.scale_type,
+            levels=guided.draft.levels,
             intended_use=intended_use,
             aggregation_guidance=aggregation,
             actor=state.require_actor(),
         )
     )
-    show_result("Scoring Scale Preset Created", (f"Preset: {result.preset_id}",))
+    show_result(
+        "Scoring Scale Preset Created",
+        (
+            f"Reusable preset: {name} ({result.preset_id})",
+            f"Saved revision ID: {revision_id}",
+            "No native Activity Scale or Score was created.",
+        ),
+    )
 
 
 def _profile_id() -> str | None:
@@ -731,39 +694,98 @@ def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> N
     )
 
 
+def _edit_optional_preset_scale_field(
+    title: str, label: str, previous: str | None
+) -> str | None:
+    """Preserve existing optional metadata unless explicitly changed or cleared."""
+    if previous is None:
+        return _optional_text(title, label)
+    action = select_one(
+        title,
+        ("keep", "change", "clear"),
+        (f"Keep current {label}: {previous}", f"Change {label}", f"Clear {label}"),
+        help_text="Historical saved revisions retain their original guidance.",
+    )
+    if action == "keep":
+        return previous
+    if action == "clear":
+        return None
+    return _optional_text(title, label)
+
+
+def _same_exact_scale_levels(
+    old: tuple[ScoringScaleLevel, ...], new: tuple[ScoringScaleLevel, ...]
+) -> bool:
+    """Recognize no-op edits without equating int/float/bool Scale values."""
+    if len(old) != len(new):
+        return False
+    for before, after in zip(old, new):
+        if type(before.value) is not type(after.value) or before != after:
+            return False
+    return True
+
+
 def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
     current = get_preset("scoring_scale", summary.preset_id)
     assert isinstance(current, ScoringScalePresetRevision)
     name = prompt_text(
         "Edit Scoring Scale Preset",
         "Name",
-        help_text="Teacher-facing name.",
+        help_text="Teacher-facing name for the successor saved version.",
         default=current.name,
     )
     assert name is not None
-    scale_type = _scale_type(current.scale_type)
-    keep = select_one(
-        "Edit Scoring Scale Preset",
-        (True, False),
-        ("Keep the current exact levels", "Revise the levels"),
-        help_text="A revision never mutates the old saved Scale version.",
+    guided = guide_scale_levels(
+        title="Revise Reusable Scoring Scale — Choose Levels",
+        existing=draft_from_existing(current.scale_type, current.levels),
+        validator=lambda draft: validate_draft(
+            draft,
+            name=name,
+            created_provenance=provenance(state.require_actor()),
+        ),
     )
-    levels = current.levels if keep else _build_scale_levels(scale_type, current.levels)
-    intended = _optional_text(
-        "Edit Scoring Scale Preset",
-        "Intended use",
-        default=current.intended_use,
+    intended = _edit_optional_preset_scale_field(
+        "Edit Scoring Scale Preset", "Intended use", current.intended_use,
     )
-    aggregation = _optional_text(
-        "Edit Scoring Scale Preset",
-        "Aggregation guidance",
-        default=current.aggregation_guidance,
+    aggregation = _edit_optional_preset_scale_field(
+        "Edit Scoring Scale Preset", "Aggregation guidance",
+        current.aggregation_guidance,
     )
+    validate_draft(
+        guided.draft,
+        name=name,
+        created_provenance=provenance(state.require_actor()),
+        intended_use=intended,
+        aggregation_guidance=aggregation,
+    )
+    if (
+        name == current.name
+        and guided.draft.scale_type == current.scale_type
+        and _same_exact_scale_levels(current.levels, guided.draft.levels)
+        and intended == current.intended_use
+        and aggregation == current.aggregation_guidance
+    ):
+        show_result(
+            "Scoring Scale Preset Unchanged",
+            ("No changes to save; the existing revision remains current.",),
+        )
+        return
     revision_id = _successor_id(current.preset_id, current.revision)
     if not confirm_write(
         "Edit Scoring Scale Preset",
         "REVISE",
-        (f"Preset: {current.name}", f"New version: {current.revision + 1}"),
+        (
+            f"Reusable preset: {current.name} ({current.preset_id})",
+            f"Current saved revision: {current.revision}",
+            f"Proposed immutable revision: {current.revision + 1}",
+            f"New saved revision ID: {revision_id}",
+            *describe_draft(guided.draft),
+            *guided.precision_notices,
+            f"Intended use: {intended or '(none)'}",
+            f"Aggregation guidance: {aggregation or '(none)'}",
+            "Old saved revisions and existing Activity Scales remain unchanged.",
+            "No Scores, Grades, evidence, or publication are created.",
+        ),
     ):
         return
     revise_scoring_scale_preset(
@@ -772,12 +794,20 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
             preset_revision_id=revision_id,
             expected_revision=current.revision,
             name=name,
-            scale_type=scale_type,
-            levels=levels,
+            scale_type=guided.draft.scale_type,
+            levels=guided.draft.levels,
             intended_use=intended,
             aggregation_guidance=aggregation,
             actor=state.require_actor(),
         )
+    )
+    show_result(
+        "Scoring Scale Preset Revised",
+        (
+            f"Preset: {name} ({current.preset_id})",
+            f"Saved revision: {current.revision + 1} ({revision_id})",
+            "Historical versions and existing Activity Scales remain unchanged.",
+        ),
     )
 
 
@@ -847,7 +877,10 @@ def _edit(kind: str, state: MenuSessionContext) -> None:
     elif kind == "criterion_set":
         _edit_criterion(selected, state)
     else:
+        # The Scale editor issues its own receipt only after a successful write.
+        # Cancellation, no-op and stale conflicts cannot claim "Preset Updated".
         _edit_scale(selected, state)
+        return
     show_result("Preset Updated", ("Saved as a new immutable version.",))
 
 

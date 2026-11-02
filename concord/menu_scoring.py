@@ -34,6 +34,7 @@ from concord.menu_prompts import (
     show_result,
     slug_identifier,
 )
+from concord.menu_scale_guidance import draft_from_existing, guide_scale_levels
 from concord.menu_score_analysis import launch_score_analysis_menu
 from concord.menu_score_teacher_labels import (
     ScoreTeacherLabels,
@@ -55,7 +56,6 @@ from concord.models import (
     EvidenceReference,
     PrivacyPolicy,
     ScoreTargetReference,
-    ScoringScaleLevel,
     StatusReason,
     SubjectReference,
 )
@@ -63,6 +63,7 @@ from concord.reusable_presets import (
     CriterionSetPresetRevision,
     ScoringScalePresetRevision,
 )
+from concord.scale_guidance import describe_draft, validate_draft
 from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
@@ -111,7 +112,7 @@ from concord.workflows import (
     show_score,
     show_scoring_scale,
 )
-from concord.workflows.context import actor_reference
+from concord.workflows.context import actor_reference, provenance
 from concord.workflows.moderation import list_applicable_moderation_records
 from concord.workflows.teacher_artifact_choices import (
     list_teacher_artifact_choices,
@@ -134,7 +135,6 @@ _DISPOSITIONS = (
     "deferred",
 )
 _BASES = ("linked_evidence", "professional_judgment", "mixed_basis")
-_SCALE_TYPES = ("numeric", "ordinal", "categorical", "binary", "teacher_defined")
 _SIGNIFICANCE = (
     "primary",
     "corroborating",
@@ -201,25 +201,6 @@ def _parse_json_scalar(raw: str) -> str | int | float | bool:
     raise ValueError("Enter a non-null JSON string, number, or boolean.")
 
 
-def _prompt_json_scalar(
-    title: str,
-    label: str,
-    *,
-    help_text: str,
-) -> str | int | float | bool:
-    while True:
-        raw = prompt_text(
-            title,
-            label,
-            help_text=help_text,
-        )
-        assert raw is not None
-        try:
-            return _parse_json_scalar(raw)
-        except ValueError as error:
-            show_result(title, (str(error),))
-
-
 def _optional_text(
     title: str,
     label: str,
@@ -256,57 +237,30 @@ def _choose_scale(activity: ActivitySummary) -> ScoringScaleSummary:
     )
 
 
-def _build_levels(scale_type: str) -> tuple[ScoringScaleLevel, ...]:
-    count = prompt_positive_int(
-        "Scoring Scale",
-        "Number of levels",
-        help_text="Every native Scale level is recorded exactly.",
-        default=2 if scale_type == "binary" else 4,
+def _edit_optional_scale_field(
+    title: str, label: str, previous: str | None
+) -> str | None:
+    if previous is None:
+        return _optional_text(
+            title, label, "Optional teacher-facing guidance."
+        )
+    action = select_one(
+        title,
+        ("keep", "change", "clear"),
+        (f"Keep current {label}: {previous}", f"Change {label}", f"Clear {label}"),
+        help_text="The historical Scale retains its original guidance.",
     )
-    if scale_type == "binary" and count != 2:
-        raise ValueError("A binary Scale requires exactly two levels.")
-    levels: list[ScoringScaleLevel] = []
-    for index in range(1, count + 1):
-        value = _prompt_json_scalar(
-            f"Scale Level {index}",
-            "Exact JSON value",
-            help_text=(
-                "Examples: 1, 1.0, \"1\", and true are distinct native values."
-            ),
-        )
-        label = prompt_text(
-            f"Scale Level {index}",
-            "Label",
-            help_text="Teacher-facing label for this exact native value.",
-        )
-        meaning = prompt_text(
-            f"Scale Level {index}",
-            "Meaning",
-            help_text="Describe what this level means in this Scale.",
-        )
-        assert label is not None and meaning is not None
-        position = index if scale_type == "ordinal" else None
-        description = _optional_text(
-            f"Scale Level {index}",
-            "Description",
-            "Optional additional description.",
-        )
-        levels.append(
-            ScoringScaleLevel(
-                value=value,
-                label=label,
-                meaning=meaning,
-                position=position,
-                description=description,
-            )
-        )
-    return tuple(levels)
+    if action == "keep":
+        return previous
+    if action == "clear":
+        return None
+    return _optional_text(title, label, "Enter replacement guidance.")
 
 
 def _create_scale(
     activity: ActivitySummary,
     state: MenuSessionContext,
-) -> None:
+) -> str | None:
     try:
         current = _latest(activity)
         name = prompt_text(
@@ -325,12 +279,16 @@ def _create_scale(
             "Lineage ID",
             f"{scale_id}-lineage",
         )
-        scale_type = _choose_enum(
-            "Scale Type",
-            _SCALE_TYPES,
-            "Choose the Scale's native value semantics.",
+        guided = guide_scale_levels(
+            title="Create Scoring Scale — Choose Levels",
+            validator=lambda draft: validate_draft(
+                draft,
+                name=name,
+                created_provenance=provenance(state.require_actor()),
+            ),
         )
-        levels = _build_levels(scale_type)
+        scale_type = guided.draft.scale_type
+        levels = guided.draft.levels
         intended_use = _optional_text(
             "Create Scoring Scale",
             "Intended use",
@@ -341,19 +299,30 @@ def _create_scale(
             "Aggregation guidance",
             "Optional descriptive guidance only; Concord does not aggregate Grades.",
         )
+        validate_draft(
+            guided.draft,
+            name=name,
+            created_provenance=provenance(state.require_actor()),
+            intended_use=intended_use,
+            aggregation_guidance=aggregation,
+        )
         if not confirm_write(
             "Create Scoring Scale",
             "CREATE",
             (
                 f"Activity: {current.title}",
                 f"Scale: {name}",
-                f"ID: {scale_id}",
-                f"Type: {scale_type}",
-                f"Levels: {len(levels)}",
-                "No Grade calculation or cross-scale normalization will occur.",
+                f"New native ID: {scale_id}",
+                "Revision: 1 (new lineage)",
+                *describe_draft(guided.draft),
+                *guided.precision_notices,
+                f"Intended use: {intended_use or '(none)'}",
+                f"Aggregation guidance: {aggregation or '(none)'}",
+                "No Scores, Grades, evidence, or publication are created.",
+                "Native Scale only; this does not link a Criterion or save a preset.",
             ),
         ):
-            return
+            return None
         result = create_scoring_scale(
             CreateScoringScaleRequest(
                 class_id=current.class_id,
@@ -375,14 +344,19 @@ def _create_scale(
         show_result(
             "Scoring Scale Created",
             (
-                f"Scale: {result.scoring_scale_id}",
+                f"Scale: {name} ({result.scoring_scale_id})",
                 f"Snapshot: {result.commit.snapshot_revision}",
+                "Scale created; not yet linked to a Criterion.",
+                "Continue to Assessment Setup > Criteria to use this Scale.",
+                "Save as Preset remains a separately reviewed operation.",
             ),
         )
+        return result.scoring_scale_id
     except CancelMenuAction:
-        return
+        return None
     except Exception as error:
         _handle_error(activity, error)
+        return None
 
 
 def _revise_scale(
@@ -424,31 +398,44 @@ def _revise_scale(
             "Replacement Scoring Scale ID",
             f"{predecessor.scoring_scale_id}-r{predecessor.revision + 1}",
         )
-        scale_type = _choose_enum(
-            "Scale Type",
-            _SCALE_TYPES,
-            "Choose the successor Scale's exact native semantics.",
+        guided = guide_scale_levels(
+            title="Revise Scoring Scale — Choose Levels",
+            existing=draft_from_existing(detail.summary.scale_type, detail.levels),
+            validator=lambda draft: validate_draft(
+                draft,
+                name=name,
+                created_provenance=provenance(state.require_actor()),
+            ),
         )
-        levels = _build_levels(scale_type)
-        intended_use = _optional_text(
-            "Revise Scoring Scale",
-            "Intended use",
-            "Optional successor intended-use guidance.",
+        scale_type = guided.draft.scale_type
+        levels = guided.draft.levels
+        intended_use = _edit_optional_scale_field(
+            "Revise Scoring Scale", "Intended use", detail.summary.intended_use
         )
-        aggregation = _optional_text(
-            "Revise Scoring Scale",
-            "Aggregation guidance",
-            "Optional descriptive guidance; Concord does not calculate Grades.",
+        aggregation = _edit_optional_scale_field(
+            "Revise Scoring Scale", "Aggregation guidance",
+            detail.aggregation_guidance,
+        )
+        validate_draft(
+            guided.draft,
+            name=name,
+            created_provenance=provenance(state.require_actor()),
+            intended_use=intended_use,
+            aggregation_guidance=aggregation,
         )
         if not confirm_write(
             "Revise Scoring Scale",
             "REVISE",
             (
+                f"Activity: {current.title}",
                 f"Current: {detail.summary.scoring_scale_id}",
-                f"Replacement: {replacement_id}",
+                f"Successor native ID: {replacement_id}",
                 f"Revision: {predecessor.revision + 1}",
-                f"Type: {scale_type}",
-                f"Levels: {len(levels)}",
+                *describe_draft(guided.draft),
+                *guided.precision_notices,
+                f"Intended use: {intended_use or '(none)'}",
+                f"Aggregation guidance: {aggregation or '(none)'}",
+                "Historical Scale and Scores remain unchanged.",
             ),
         ):
             return
@@ -473,8 +460,10 @@ def _revise_scale(
         show_result(
             "Scoring Scale Revised",
             (
-                f"Replacement: {result.scoring_scale_id}",
+                f"Successor Scale: {name} ({result.scoring_scale_id})",
+                f"Prior revision: {predecessor.scoring_scale_id}",
                 f"Snapshot: {result.commit.snapshot_revision}",
+                "Existing Scores remain bound to their exact prior Scale revision.",
             ),
         )
     except CancelMenuAction:
@@ -1684,6 +1673,51 @@ def _preset_save_lines(prepared: PreparedPresetSave) -> tuple[str, ...]:
     )
 
 
+def _save_scale_id_as_preset(
+    current: ActivitySummary,
+    state: MenuSessionContext,
+    scale_id: str,
+) -> str | None:
+    """Separately review and commit a native Scale definition for reuse.
+
+    A declined approval writes nothing; a successful return is the exact saved
+    preset ID. This operation never changes the native Scale or any Scores.
+    """
+    preset_id = f"scale-preset-{uuid4().hex}"
+    request = SaveScoringScalePresetFromActivityRequest(
+        class_id=current.class_id,
+        activity_id=current.activity_id,
+        scoring_scale_id=scale_id,
+        preset_id=preset_id,
+        preset_revision_id=f"{preset_id}-v1",
+        expected_snapshot_revision=current.snapshot_revision,
+        actor=state.require_actor(),
+    )
+    prepared = prepare_scoring_scale_preset_from_activity(
+        request,
+        standards_library=_library(),
+    )
+    if not confirm_write(
+        "Save Scoring Scale Preset",
+        "SAVE",
+        (
+            f"Source Activity: {current.title} ({current.activity_id})",
+            f"Source native Scale ID: {scale_id}",
+            f"Current Activity snapshot: {current.snapshot_revision}",
+            *_preset_save_lines(prepared),
+            "This is a second, independently reviewed write.",
+            "No Scores, student/Group data, or evidence will be copied.",
+        ),
+    ):
+        return None
+    saved = save_scoring_scale_preset_from_activity(
+        request,
+        review_digest=prepared.review_digest,
+        standards_library=_library(),
+    )
+    return saved.preset_id
+
+
 def _save_scale_as_preset(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -1702,34 +1736,18 @@ def _save_scale_as_preset(
             tuple(f"{item.name} ({item.scoring_scale_id})" for item in scales),
             help_text="Choose the native Scale whose reusable definition to save.",
         )
-        preset_id = f"scale-preset-{uuid4().hex}"
-        request = SaveScoringScalePresetFromActivityRequest(
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            scoring_scale_id=selected.scoring_scale_id,
-            preset_id=preset_id,
-            preset_revision_id=f"{preset_id}-v1",
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+        saved_id = _save_scale_id_as_preset(
+            current, state, selected.scoring_scale_id
         )
-        prepared = prepare_scoring_scale_preset_from_activity(
-            request,
-            standards_library=_library(),
-        )
-        if not confirm_write(
-            "Save Scoring Scale Preset",
-            "SAVE",
-            _preset_save_lines(prepared),
-        ):
+        if saved_id is None:
             return
-        result = save_scoring_scale_preset_from_activity(
-            request,
-            review_digest=prepared.review_digest,
-            standards_library=_library(),
-        )
         show_result(
             "Scoring Scale Preset Saved",
-            (f"Preset: {result.preset_id}", "Scores and native IDs were not copied."),
+            (
+                f"Native Scale: {selected.scoring_scale_id}",
+                f"Reusable preset: {saved_id}",
+                "Scores and native IDs were not copied.",
+            ),
         )
     except CancelMenuAction:
         return
@@ -2037,6 +2055,100 @@ def _use_saved_scoring_setup(
         _handle_error(activity, error)
 
 
+def _continue_created_scale(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    scale_id: str,
+) -> None:
+    """Offer optional next steps without claiming a Criterion is linked."""
+    try:
+        choice = select_one(
+            "Scoring Scale Created — Next Step",
+            ("back", "criteria", "reuse"),
+            (
+                "Back to Scoring Scales (created but not linked)",
+                "Open Criteria setup (choose this Scale explicitly)",
+                "Save this Scale for another class (separate approval)",
+            ),
+            help_text=(
+                "The native Scale already exists. Criteria and saved presets "
+                "are separate operations. Back does not undo creation."
+            ),
+        )
+    except CancelMenuAction:
+        return
+    if choice == "back":
+        return
+    if choice == "criteria":
+        show_result(
+            "Configure Criteria — Native Scale Available",
+            (
+                f"Native Scale already created: {scale_id}",
+                "No Criterion is linked yet.",
+                "The existing Criteria setup will let you choose an exact "
+                "native Scale for each applicable Criterion.",
+                "A link exists only after a separate successful Criterion write.",
+                "This continuation creates no Scores or Grades.",
+            ),
+        )
+        try:
+            _criterion_set_menu(_latest(activity), state)
+        except CancelMenuAction:
+            return
+        except Exception as error:
+            show_result(
+                "Native Scale Saved — Criteria Not Confirmed",
+                (
+                    f"Native Scale remains created: {scale_id}",
+                    f"Criteria setup error: {error}",
+                    "Inspect the current Criterion Sets before retrying.",
+                    "No Criterion link is claimed by this continuation.",
+                ),
+            )
+        return
+    if choice != "reuse":
+        raise ValueError("Unknown native Scale continuation action")
+    try:
+        # Refresh snapshot AFTER native Scale creation. The separate preset
+        # prepare/review/commit service owns its own currentness checks.
+        saved_id = _save_scale_id_as_preset(
+            _latest(activity), state, scale_id
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        show_result(
+            "Native Scale Saved — Preset Outcome Not Confirmed",
+            (
+                f"Native Scale remains created: {scale_id}",
+                f"Preset operation error: {error}",
+                "Do not assume the preset write was rolled back.",
+                "Inspect Reusable Presets before trying again.",
+                "No Scores, Grades, or student records were created here.",
+            ),
+        )
+        return
+    if saved_id is None:
+        show_result(
+            "Native Scale Saved — Reuse Declined",
+            (
+                f"Native Scale remains created: {scale_id}",
+                "Reusable preset was not saved; approval was declined.",
+            ),
+        )
+        return
+    show_result(
+        "Native Scale and Reusable Preset Saved Separately",
+        (
+            f"Native Scale: {scale_id}",
+            f"Reusable preset: {saved_id}",
+            "Both writes succeeded independently.",
+            "No Criterion is linked by saving a preset.",
+            "No Scores, Grades, evidence, or student records were copied.",
+        ),
+    )
+
+
 def _scale_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -2064,7 +2176,9 @@ def _scale_menu(
         elif navigation is NavigationChoice.BACK:
             return
         elif choice == "1":
-            _create_scale(activity, state)
+            created_id = _create_scale(activity, state)
+            if created_id is not None:
+                _continue_created_scale(activity, state, created_id)
         elif choice == "2":
             _browse_scales(activity)
         elif choice == "3":

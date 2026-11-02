@@ -1,0 +1,33 @@
+# Concord #144 — Slice 0 baseline and Slice 1 pure typed-Scale guidance
+
+## Verified baseline (2026-11-01)
+
+- Issue [#144](https://github.com/Paper-Data-Suite/pds-concord/issues/144) was refreshed after the user updated its full implementation ticket. The issue remained **open** and its intended implementation branch existed at `144-guided-type-safe-scale-creation-and-editing`.
+- GitHub `main` and the development branch both resolved to `e47c88654b239ccc4ee7d305e95ce822d67a9d0f`, the #143 squash merge, with expected Git tree `8fd05b00acbb397dc0bf57cde561deaf7211b84b`. This is a fixed guard for **this slice**, not authority to ignore a newer upstream commit in later work.
+- Published stable artifacts at review: Concord v0.3.4, Core v0.6.6. Concord `pyproject.toml` declares `pds-core>=0.6.6,<0.7`, Python `>=3.11`. Local Core wheel expected SHA-256 is `d6d21e426092b0329bcfd69b6fbee44c345edc46794a914d847d5ea73a2b7301`. An installed wheel and a post-release source commit are not interchangeable release evidence.
+- Current native teacher menu: `concord/menu_scoring.py::_create_scale`, `_revise_scale`, `_build_levels`, `_prompt_json_scalar` request `Exact JSON value`. Current preset teacher menu: `concord/menu_presets.py::_create_scale`, `_edit_scale`, `_build_scale_levels`, `_json_scalar` independently request the same. The actual write authority remains existing native/preset workflow services, not the new helper.
+- Existing canonical type authority: `ScoringScaleLevel.value: JsonScalar`, `ScoringScale`, and `scalar_key` in `concord/models`. Valid value types are `int`, finite `float`, `str`, and `bool` with type-sensitive identity; exactly two levels for binary; complete ordered positions for ordinal. Direct Advanced CLI JSON definitions remain unchanged.
+- Frozen #140 teacher-operation matrix is retained intact; #162 independent semantic dispositions are **not** provided or implied. Sibling open issues retain ownership: Concord #145/#146/#152/#153; Core #238–#244; Suite #49/#51–#54; Meridian #128. No open Core/Suite PR was found at this source review, but that is not a durable synchronization guarantee.
+
+## Slice 1 exact addition
+
+1. Add `concord/scale_guidance.py` as a **Concord-local, pure, importable** typed-value/draft module. It performs **no prompting, disk writes, record commits, Core/Suite imports, Score operations, or API/schema migrations**. No existing files are modified.
+2. `four_level_proficiency()` provides exact integer 1–4 / ordinal positions 1–4 with editable example meanings. `yes_no_scale()` provides real booleans `False`, `True` and exactly two levels. `scale_type_for_choice` maps teacher-facing starter choices to the **five existing** canonical Scale types; it does not add new enum values.
+3. `parse_typed_value` receives explicit input kind. Integer and decimal parsing distinguish exact `int` vs binary64 `float`; Text and Category are literal strings; Yes–No is genuine `bool`. Nonfinite, underflow-to-zero, ambiguous formats, too-long numbers, invalid bool values, empty required text and invalid category code spacing refuse. A decimal such as `0.1` cannot be represented exactly in binary64 and must be **explicitly accepted** by a later menu before passing `accept_float_approximation=True`; acceptance yields a visible precision notice, never a claim of arbitrary-precision storage.
+4. `format_typed_value` and `describe_draft` show value **and type**, label, meaning, position and optional description, with an explicit warning that preparing a Scale does not create Score, Grade, evidence, student/Group record or publication. The draft manipulation functions replace/move/remove only **in memory**; ordinal renumbering happens only on an explicit move/removal, not on an unchanged historical definition.
+5. `validate_draft` invokes the **actual native `ScoringScale` constructor** against a synthetic model identity and caller-supplied provenance to enforce the existing Scale constraints; there is no competing structural schema or weaker validation path. Its constructed object is not committed and its IDs are never handed to a workflow service.
+6. Add `tests/test_issue144_slice1_scale_guidance.py`: starter/type/precision/invalid/Unicode/typed-uniqueness/selected-edit/order/validation tests. Old menu and CLI files are **not** changed in this slice; they remain raw JSON until Slices 2–3 and are covered by existing tests in the focused regression gate.
+
+## Canonical behavior and negative cases to preserve
+
+- An integer 1, float 1.0, text `"1"`, and boolean `true` stay four distinct typed values. A malformed decimal is not coerced to a string; a text `true` is not made boolean.
+- Binary64 decimal input requires an exact representable value **or** a deliberate visible approximation-approval step. The future menu must not bypass this and must not treat a precision notice as implicit consent.
+- Category code and display label remain distinct. No invented grade mapping, percentage, threshold, state proficiency policy, or Meridian aggregation is introduced by the starter meanings.
+- A changed or canceled draft has no durable state. Full approval, native/preset revisions, materialization, and optional Save-for-reuse belong to the subsequent slices.
+- Existing saved presets, historical native Scales, exact Advanced CLI typed JSON, #143 mixed Standards Criterion reuse, Score history and installed release metadata are unchanged.
+
+## Qualification method (Windows runner evidence required)
+
+The guarded runner checks branch, exact HEAD and Git tree, clean index/worktree, expected origin and remote `main`/branch refs, exact official Core 0.6.6 wheel checksum, source archive membership and per-member SHA-256 manifest, and the frozen #140 matrix digest. It creates a detached candidate worktree in a disposable `C:\Dev\q144s1_*` location, adds exactly these **three** files and stages them **only within the candidate**. It executes Core wheel verification, focused new and selected historical tests, Ruff and strict mypy on the new module. On successful qualification only, it mirrors the three additive files into the original repository and verifies its Git index stayed empty. On any failure, the original checkout stays unchanged and the worktree/logs remain for inspection.
+
+**At documentation time:** focused Windows tests, mypy, installed-wheel Core verification and final Git tree remain **pending** until the user executes the runner. Do not infer a passing state or perform commit/push from this source-only preparation. One full canonical repository/build/installed-wheel gate is reserved for the final integrated #144 candidate, not repeated for every slice.
