@@ -35,11 +35,13 @@ from concord.workflows import (
     create_criterion_set,
     create_scoring_scale,
     list_criterion_sets,
+    read_activity_criterion_set_selection,
     show_activity,
     show_criterion_set,
     update_activity,
 )
 from concord.workflows.reusable_presets import (
+    get_preset_revision,
     prepare_criterion_set_preset_from_activity,
 )
 
@@ -309,6 +311,20 @@ def test_c2_native_standards_identity_survives_but_menu_preset_save_rejects_it(
         lambda c, a, s, **k: show_criterion_set(c, a, s, workspace_root=root, **k),
     )
     monkeypatch.setattr(
+        scoring_menu,
+        "read_activity_criterion_set_selection",
+        lambda c, a, **k: read_activity_criterion_set_selection(
+            c, a, workspace_root=root, **k
+        ),
+    )
+    monkeypatch.setattr(
+        scoring_menu,
+        "get_preset_revision",
+        lambda kind, preset, revision: get_preset_revision(
+            kind, preset, revision, workspace_root=root
+        ),
+    )
+    monkeypatch.setattr(
         scoring_menu, "select_one", lambda _title, items, labels, **k: items[0]
     )
     monkeypatch.setattr(
@@ -358,10 +374,10 @@ def test_c2_native_standards_identity_survives_but_menu_preset_save_rejects_it(
     scoring_menu._save_criterion_set_as_preset(current, MenuSessionContext(actor=ACTOR))
 
     assert not errors
-    assert confirmations == [("Save Criterion Set Preset", "SAVE")]
+    assert confirmations == [("Save this assessment for another class", "SAVE")]
     assert len(preview_digests) == 1
     assert commit_digests == preview_digests
-    assert displayed == ["Criterion Set Preset Saved"]
+    assert displayed == ["Assessment Saved for Another Class"]
     saved = load_current_preset(root, "criterion_set", preset_id).current
     assert saved.preset_id == preset_id
     assert saved.preset_revision_id == f"{preset_id}-v1"
