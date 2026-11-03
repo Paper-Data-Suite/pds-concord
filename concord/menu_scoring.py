@@ -18,6 +18,10 @@ from concord.criterion_guidance import (
 from concord.criterion_guidance import (
     validate_draft as validate_criterion_draft,
 )
+from concord.criterion_revision_guidance import (
+    describe_native_criterion_set,
+    project_native_criterion_set,
+)
 from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
@@ -989,7 +993,7 @@ def _create_and_use_guided_criterion_set(
     _create_guided_criterion_set(activity, state, use_after_create=True)
 
 
-def _revise_criterion_set(
+def _revise_criterion_set_advanced(
     activity: ActivitySummary,
     state: MenuSessionContext,
 ) -> None:
@@ -1094,7 +1098,7 @@ def _revise_criterion_set(
         _handle_error(activity, error)
 
 
-def _select_criterion_sets(
+def _select_criterion_sets_advanced(
     activity: ActivitySummary,
     state: MenuSessionContext,
 ) -> None:
@@ -1154,42 +1158,70 @@ def _select_criterion_sets(
 
 
 def _browse_criterion_sets(activity: ActivitySummary) -> None:
+    """Inspect an exact current/historical native rubric without writing."""
     try:
+        current = _latest(activity)
+        library = _library()
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError(
+                "Activity changed before rubric review. Reopen this Activity."
+            )
         sets = list_criterion_sets(
-            activity.class_id,
-            activity.activity_id,
-            standards_library=_library(),
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
             current_only=False,
         )
+        if not sets:
+            show_result(
+                "No Rubrics Yet",
+                (
+                    "This Activity has no native Criterion Sets yet.",
+                    "Choose 'Create and use a rubric (guided)' to begin.",
+                    "No Activity selection, Scores, or saved presets changed.",
+                ),
+            )
+            return
         selected = select_one(
-            "Criterion Sets",
+            "Review an existing rubric",
             sets,
             tuple(
-                f"{item.name} ({item.criterion_set_id}, rev {item.revision}) "
-                f"[{'selected' if item.is_selected else 'not selected'}]"
+                f"{item.name} (revision {item.revision}; "
+                f"{'current' if item.is_current else 'historical'}; "
+                f"{'selected' if item.is_selected else 'not selected'})"
                 for item in sets
             ),
-            help_text="Choose an exact Criterion Set revision for detail.",
+            help_text=(
+                "Review the exact native revision. Historical definitions remain "
+                "unchanged and may still be selected for previous Scores."
+            ),
         )
         detail = show_criterion_set(
-            activity.class_id,
-            activity.activity_id,
+            current.class_id,
+            current.activity_id,
             selected.criterion_set_id,
-            standards_library=_library(),
+            standards_library=library,
         )
-        lines = [
-            f"Criterion Set: {selected.criterion_set_id}",
-            f"Revision: {selected.revision}",
-            f"Kind: {selected.criterion_set_kind}",
-            f"Scope: {selected.scope}",
-            f"Selected: {'yes' if selected.is_selected else 'no'}",
-            f"Purpose: {detail.purpose}",
-        ]
-        lines.extend(
-            f"{item.key} - {item.label} [{item.criterion_kind}]"
-            for item in detail.criteria
+        review = project_native_criterion_set(detail, selection)
+        scales = list_scoring_scales(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
         )
-        show_result("Criterion Set Detail", tuple(lines))
+        scale_names = {item.scoring_scale_id: item.name for item in scales}
+        show_result(
+            "Existing Rubric — Read Only",
+            describe_native_criterion_set(
+                review,
+                standards_library=library,
+                native_scale_names=scale_names,
+            ),
+        )
     except CancelMenuAction:
         return
     except Exception as error:
@@ -2104,6 +2136,393 @@ def _save_criterion_set_as_preset(
         _handle_error(activity, error)
 
 
+def _use_existing_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Select an exact existing rubric revision with a verified Activity receipt."""
+    try:
+        current = _latest(activity)
+        library = _library()
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed before rubric selection. Reload.")
+        sets = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=False,
+        )
+        if not sets:
+            show_result(
+                "No Existing Rubrics",
+                ("Create a rubric before trying to select one.",),
+            )
+            return
+        chosen = select_one(
+            "Use an existing rubric",
+            sets,
+            tuple(
+                f"{item.name} (revision {item.revision}; "
+                f"{'current' if item.is_current else 'historical'}; "
+                f"{'selected' if item.is_selected else 'not selected'})"
+                for item in sets
+            ),
+            help_text=(
+                "Choose the exact native revision. Historical Scores "
+                "are never rewritten or copied."
+            ),
+        )
+        detail = show_criterion_set(
+            current.class_id,
+            current.activity_id,
+            chosen.criterion_set_id,
+            standards_library=library,
+        )
+        review = project_native_criterion_set(detail, selection)
+        if not confirm_write(
+            "Use Existing Rubric",
+            "USE",
+            (
+                f"Activity: {current.title}",
+                *describe_native_criterion_set(
+                    review, standards_library=library
+                ),
+                "This adds the exact Set revision to Activity selection.",
+                "Any existing selections keep their original order.",
+                "No Scores, Grades, evidence, or presets are created.",
+            ),
+        ):
+            return
+        fresh = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if fresh != selection or (
+            _latest(activity).snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError(
+                "Activity changed since rubric review. Reload before selecting."
+            )
+        selected_id = review.criterion_set_id
+        if selected_id in selection.criterion_set_ids:
+            show_result(
+                "Rubric Already Selected — No Change",
+                (
+                    f"Exact Criterion Set revision: {selected_id}",
+                    "No Activity write was needed; the existing order is intact.",
+                ),
+            )
+            return
+        proposed = (*selection.criterion_set_ids, selected_id)
+        actor = state.require_actor()
+        try:
+            result = select_activity_criterion_sets(
+                SelectActivityCriterionSetsRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    criterion_set_ids=proposed,
+                    expected_snapshot_revision=selection.snapshot_revision,
+                    actor=actor,
+                ),
+                standards_library=library,
+            )
+            observed = read_activity_criterion_set_selection(
+                current.class_id,
+                current.activity_id,
+                standards_library=library,
+            )
+            if (
+                observed.criterion_set_ids != proposed
+                or observed.snapshot_revision != result.commit.snapshot_revision
+            ):
+                raise ValueError("Canonical selection verification did not match.")
+        except Exception as error:
+            try:
+                observed = read_activity_criterion_set_selection(
+                    current.class_id,
+                    current.activity_id,
+                    standards_library=library,
+                )
+            except Exception:
+                show_result(
+                    "Rubric Selection Outcome Unknown",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Selection error: {error}",
+                        "Do not repeat or assume failure; inspect this Activity.",
+                    ),
+                )
+                return
+            if observed.criterion_set_ids == proposed:
+                show_result(
+                    "Existing Rubric Selection Verified After Error",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Activity snapshot: {observed.snapshot_revision}",
+                        "The exact intended selection is present.",
+                    ),
+                )
+            else:
+                show_result(
+                    "Existing Rubric Selection Not Verified",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Activity snapshot: {observed.snapshot_revision}",
+                        f"Selection error: {error}",
+                        "Reload and review before attempting another selection.",
+                    ),
+                )
+            return
+        show_result(
+            "Existing Rubric Selected",
+            (
+                f"Exact Criterion Set: {selected_id}",
+                f"Activity snapshot: {observed.snapshot_revision}",
+                "Previously selected Sets retained: "
+                f"{len(selection.criterion_set_ids)}",
+                "No Score, Grade, evidence, or preset was created.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _revise_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Create a guarded immutable native successor; never silently select it."""
+    try:
+        current = _latest(activity)
+        library = _library()
+        activity_detail = show_activity(current.class_id, current.activity_id)
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed before rubric revision. Reload.")
+        heads = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=True,
+        )
+        if not heads:
+            show_result(
+                "No Current Rubrics",
+                ("Create a rubric before revising one.",),
+            )
+            return
+        predecessor = select_one(
+            "Revise a current rubric",
+            heads,
+            tuple(
+                f"{item.name} (revision {item.revision})"
+                for item in heads
+            ),
+            help_text=(
+                "Historical revisions cannot be edited in place. "
+                "A revision creates a new native Criterion Set."
+            ),
+        )
+        detail = show_criterion_set(
+            current.class_id,
+            current.activity_id,
+            predecessor.criterion_set_id,
+            standards_library=library,
+        )
+        review = project_native_criterion_set(detail, selection)
+        if not review.is_current:
+            raise ValueError("A historical rubric cannot be revised as a head.")
+        draft, focus_choices = guide_native_criterion_set(
+            orientation=current.scoring_orientation,
+            standards_library=library,
+            standards_profile_id=activity_detail.standards_profile_id,
+            focus_standard_ids=tuple(activity_detail.focus_standard_ids),
+            choose_scale=lambda: _default_scale(current),
+            existing=review.draft,
+        )
+        if draft == review.draft:
+            show_result(
+                "Rubric Unchanged — No Revision Created",
+                (
+                    f"Exact original revision: {review.criterion_set_id}",
+                    "The draft matches the original; no record was written.",
+                ),
+            )
+            return
+        actor = state.require_actor()
+        validate_criterion_draft(
+            draft,
+            activity_scoring_orientation=current.scoring_orientation,
+            standards_profile_id=activity_detail.standards_profile_id,
+            focus_standard_ids=tuple(activity_detail.focus_standard_ids),
+            standards_library=library,
+            created_provenance=provenance(actor),
+        )
+        replacement_id = f"criterion-set-{uuid4().hex}"
+        criterion_ids = tuple(
+            f"criterion-{uuid4().hex}" for _ in draft.criteria
+        )
+        new_specs = criterion_specs(draft, criterion_ids)
+        if not confirm_write(
+            "Revise Native Rubric",
+            "REVISE",
+            (
+                f"Activity: {current.title}",
+                f"Original: {review.criterion_set_id} "
+                f"(revision {review.revision}, lineage {review.lineage_id})",
+                *describe_criterion_draft(draft, focus_choices=focus_choices),
+                f"Successor Set ID: {replacement_id}",
+                f"Successor revision: {review.revision + 1}",
+                "All successor Criteria receive new native identities.",
+                "The original revision and historical Scores are preserved.",
+                "No Activity selection is changed by this revision.",
+                "Use the new revision separately after it is created.",
+            ),
+        ):
+            return
+        fresh = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if fresh != selection or (
+            _latest(activity).snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError("Activity changed since review. Reopen the revision.")
+        fresh_heads = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=True,
+        )
+        if review.criterion_set_id not in {
+            item.criterion_set_id for item in fresh_heads
+        }:
+            raise ValueError(
+                "The original is no longer a current head. Reload to revise."
+            )
+        try:
+            result = revise_criterion_set(
+                ReviseCriterionSetRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    criterion_set_id=review.criterion_set_id,
+                    replacement_criterion_set_id=replacement_id,
+                    name=draft.name,
+                    purpose=draft.purpose,
+                    revision=review.revision + 1,
+                    scope=draft.scope,
+                    criterion_set_kind=draft.criterion_set_kind,
+                    criteria=new_specs,
+                    status="active",
+                    standards_profile_id=(
+                        activity_detail.standards_profile_id
+                        if draft.criterion_set_kind in {"standard_backed", "mixed"}
+                        else None
+                    ),
+                    expected_snapshot_revision=selection.snapshot_revision,
+                    actor=actor,
+                ),
+                standards_library=library,
+            )
+            verified = show_criterion_set(
+                current.class_id,
+                current.activity_id,
+                replacement_id,
+                standards_library=library,
+            )
+            selected_after = read_activity_criterion_set_selection(
+                current.class_id,
+                current.activity_id,
+                standards_library=library,
+            )
+            if (
+                verified.summary.lineage_id != review.lineage_id
+                or verified.summary.revision != review.revision + 1
+                or verified.summary.supersedes_criterion_set_id
+                != review.criterion_set_id
+                or verified.summary.snapshot_revision
+                != result.commit.snapshot_revision
+                or selected_after.snapshot_revision
+                != result.commit.snapshot_revision
+                or selected_after.criterion_set_ids
+                != selection.criterion_set_ids
+                or not verified.summary.is_current
+            ):
+                raise ValueError("Successor/selection verification mismatch.")
+        except Exception as error:
+            try:
+                observed = show_criterion_set(
+                    current.class_id,
+                    current.activity_id,
+                    replacement_id,
+                    standards_library=library,
+                )
+            except Exception:
+                show_result(
+                    "Rubric Revision Outcome Unknown",
+                    (
+                        f"Proposed successor: {replacement_id}",
+                        f"Revision error: {error}",
+                        "Do not retry blindly. Inspect lineage before revising.",
+                    ),
+                )
+                return
+            if (
+                observed.summary.lineage_id == review.lineage_id
+                and observed.summary.supersedes_criterion_set_id
+                == review.criterion_set_id
+                and observed.summary.revision == review.revision + 1
+            ):
+                show_result(
+                    "Rubric Revision Verified After Error",
+                    (
+                        f"Native successor: {replacement_id}",
+                        "Immutable predecessor retained.",
+                        "Activity selection was not automatically changed.",
+                    ),
+                )
+            else:
+                show_result(
+                    "Rubric Revision Requires Review",
+                    (
+                        f"Proposed successor: {replacement_id}",
+                        f"Revision error: {error}",
+                        "Inspect lineage and selection before any retry.",
+                    ),
+                )
+            return
+        show_result(
+            "Rubric Revised — Successor Not Yet Selected",
+            (
+                f"Original revision: {review.criterion_set_id}",
+                f"New revision: {replacement_id}",
+                f"Lineage: {review.lineage_id}",
+                f"Snapshot: {verified.summary.snapshot_revision}",
+                "Historical Scores and original Criterion IDs remain intact.",
+                "Previously selected rubric revisions remain selected.",
+                "Use 'Use an existing rubric' to select this successor.",
+                "No Scores, Grades, evidence, or presets were created.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
 def _criterion_set_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -2113,11 +2532,13 @@ def _criterion_set_menu(
         print_menu_header("Criterion Sets")
         print("1. Create and use a rubric (guided)")
         print("2. Browse Criterion Sets")
-        print("3. Revise Criterion Set")
-        print("4. Select Activity Criterion Sets")
+        print("3. Revise an existing rubric (guided)")
+        print("4. Use an existing rubric (guided)")
         print("5. Save Criterion Set as Preset")
         print("6. Advanced: create native Criterion Set")
         print("7. Create a rubric definition only (guided)")
+        print("8. Advanced: revise a native Criterion Set")
+        print("9. Advanced: select Activity Criterion Sets")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2140,13 +2561,17 @@ def _criterion_set_menu(
         elif choice == "3":
             _revise_criterion_set(activity, state)
         elif choice == "4":
-            _select_criterion_sets(activity, state)
+            _use_existing_criterion_set(activity, state)
         elif choice == "5":
             _save_criterion_set_as_preset(activity, state)
         elif choice == "6":
             _create_criterion_set(activity, state)
         elif choice == "7":
             _create_guided_criterion_set(activity, state)
+        elif choice == "8":
+            _revise_criterion_set_advanced(activity, state)
+        elif choice == "9":
+            _select_criterion_sets_advanced(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

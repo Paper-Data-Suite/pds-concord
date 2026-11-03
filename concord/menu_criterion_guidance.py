@@ -168,6 +168,7 @@ def guide_native_criterion_set(
     standards_profile_id: str | None,
     focus_standard_ids: tuple[str, ...],
     choose_scale: Callable[[], str | None],
+    existing: CriterionSetDraft | None = None,
 ) -> tuple[CriterionSetDraft, tuple[FocusStandardChoice, ...]]:
     """Edit a Criterion Set solely in memory; caller still validates and approves.
 
@@ -181,13 +182,18 @@ def guide_native_criterion_set(
         choices = focus_standard_choices(
             standards_library, standards_profile_id, focus_standard_ids
         )
+    title = "Revise a rubric" if existing is not None else "Create a rubric"
     name = prompt_text(
-        "Create a rubric", "Assessment/rubric name",
-        help_text="Give this Activity-owned rubric a recognizable classroom name.",
+        title,
+        "Assessment/rubric name",
+        help_text="Name this Activity-owned rubric definition.",
+        default=existing.name if existing is not None else None,
     )
     purpose = prompt_text(
-        "Create a rubric", "Purpose",
+        title,
+        "Purpose",
         help_text="Explain what the complete rubric is intended to assess.",
+        default=existing.purpose if existing is not None else None,
     )
     assert name is not None and purpose is not None
     scope = select_one(
@@ -198,8 +204,13 @@ def guide_native_criterion_set(
         "Saving for another class is a separate reviewed action.",
     )
     draft = CriterionSetDraft(
-        name=name, purpose=purpose, criterion_set_kind=kinds[0],
-        criteria=(), scope=scope,
+        name=name,
+        purpose=purpose,
+        criterion_set_kind=(
+            existing.criterion_set_kind if existing is not None else kinds[0]
+        ),
+        criteria=existing.criteria if existing is not None else (),
+        scope=scope,
     )
     while True:
         clear_screen()
@@ -231,6 +242,14 @@ def guide_native_criterion_set(
                 "mixed" if len(kinds_present) == 2
                 else next(iter(kinds_present))
             )
+            # Unmodified Criterion membership does not silently alter a
+            # historical Set-kind declaration, even if only metadata changed.
+            if existing is not None and draft.criteria == existing.criteria:
+                if draft == existing:
+                    return existing, choices
+                return replace(
+                    draft, criterion_set_kind=existing.criterion_set_kind
+                ), choices
             return replace(draft, criterion_set_kind=set_kind), choices
         if action == "add":
             draft = add_criterion(
