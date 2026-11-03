@@ -9,11 +9,21 @@ from uuid import uuid4
 
 from pds_core.standards import StandardsLibrary
 
+from concord.criterion_guidance import (
+    criterion_specs,
+)
+from concord.criterion_guidance import (
+    describe_draft as describe_criterion_draft,
+)
+from concord.criterion_guidance import (
+    validate_draft as validate_criterion_draft,
+)
 from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
 )
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_criterion_guidance import guide_native_criterion_set
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -84,6 +94,7 @@ from concord.workflows import (
     ScoreSummary,
     ScoringScaleSummary,
     SelectActivityCriterionSetsRequest,
+    WorkflowActor,
     add_score,
     create_criterion_set,
     create_scoring_scale,
@@ -100,6 +111,7 @@ from concord.workflows import (
     prepare_criterion_set_preset_from_activity,
     prepare_scoring_scale_preset_from_activity,
     prepare_scoring_setup,
+    read_activity_criterion_set_selection,
     replace_score,
     resolve_read_workspace_root,
     revise_criterion_set,
@@ -736,6 +748,245 @@ def _create_criterion_set(
         return
     except Exception as error:
         _handle_error(activity, error)
+
+
+def _create_guided_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    *,
+    use_after_create: bool = False,
+) -> None:
+    """Guarded native Create only or Create & Use; no cross-store atomicity."""
+    try:
+        current = _latest(activity)
+        detail = show_activity(current.class_id, current.activity_id)
+        library = _library()
+        draft, focus_choices = guide_native_criterion_set(
+            orientation=current.scoring_orientation,
+            standards_library=library,
+            standards_profile_id=detail.standards_profile_id,
+            focus_standard_ids=tuple(detail.focus_standard_ids),
+            choose_scale=lambda: _default_scale(current),
+        )
+        actor = state.require_actor()
+        validate_criterion_draft(
+            draft,
+            activity_scoring_orientation=current.scoring_orientation,
+            standards_profile_id=detail.standards_profile_id,
+            focus_standard_ids=tuple(detail.focus_standard_ids),
+            standards_library=library,
+            created_provenance=provenance(actor),
+        )
+        criterion_set_id = f"criterion-set-{uuid4().hex}"
+        lineage_id = f"{criterion_set_id}-lineage"
+        criterion_ids = tuple(f"criterion-{uuid4().hex}" for _ in draft.criteria)
+        specs = criterion_specs(draft, criterion_ids)
+        before_selection = (
+            read_activity_criterion_set_selection(
+                current.class_id, current.activity_id, standards_library=library
+            )
+            if use_after_create
+            else None
+        )
+        if (
+            before_selection is not None
+            and before_selection.snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError(
+                "Activity selection changed during review. Reopen the rubric."
+            )
+        if not confirm_write(
+            (
+                "Create and Use Rubric"
+                if use_after_create
+                else "Create Rubric (Definition Only)"
+            ),
+            "CREATE & USE" if use_after_create else "CREATE",
+            (
+                f"Class: {current.class_id}",
+                f"Activity: {current.title} ({current.activity_id})",
+                f"Scoring orientation: {current.scoring_orientation}",
+                f"Current snapshot: {current.snapshot_revision}",
+                f"Core Standards profile: {detail.standards_profile_id or 'none'}",
+                *describe_criterion_draft(draft, focus_choices=focus_choices),
+                f"New native Criterion Set ID: {criterion_set_id}",
+                (
+                    "CREATE & USE: create the Set, then select the exact revision."
+                    if use_after_create
+                    else "CREATE ONLY: the Set will NOT be selected for scoring."
+                ),
+                (
+                    "Existing selected Sets and their order will be retained."
+                    if use_after_create
+                    else "Select the Set separately when you want to use it."
+                ),
+                "Creation and Activity selection are separately guarded "
+                "durable writes.",
+                "Saving a reusable preset requires separate explicit authorization.",
+            ),
+        ):
+            return
+        if _latest(activity).snapshot_revision != current.snapshot_revision:
+            raise ValueError(
+                "Activity changed after rubric review. "
+                "Reopen and review before creating."
+            )
+        result = create_criterion_set(
+            CreateCriterionSetRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                criterion_set_id=criterion_set_id,
+                lineage_id=lineage_id,
+                name=draft.name,
+                purpose=draft.purpose,
+                revision=1,
+                scope=draft.scope,
+                criterion_set_kind=draft.criterion_set_kind,
+                criteria=specs,
+                status="active",
+                standards_profile_id=(
+                    detail.standards_profile_id
+                    if draft.criterion_set_kind in {"standard_backed", "mixed"}
+                    else None
+                ),
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+            ),
+            standards_library=_library(),
+        )
+        if use_after_create:
+            assert before_selection is not None
+            _complete_guided_criterion_selection(
+                current, actor, result.criterion_set_id,
+                created_snapshot=result.commit.snapshot_revision,
+                original_selection=before_selection.criterion_set_ids,
+            )
+            return
+        show_result(
+            "Rubric Created — Not Yet Selected",
+            (
+                f"Native Criterion Set: {result.criterion_set_id}",
+                f"Snapshot: {result.commit.snapshot_revision}",
+                "This definition has been saved but is not automatically selected.",
+                "Use 'Select Activity Criterion Sets' to use it in this Activity.",
+                "No Score, Grade, evidence, Group/student record "
+                "or publication was created.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _complete_guided_criterion_selection(
+    activity: ActivitySummary,
+    actor: WorkflowActor,
+    criterion_set_id: str,
+    *,
+    created_snapshot: int,
+    original_selection: tuple[str, ...],
+) -> None:
+    """Select after native creation with one approval, truthful partial receipts.
+
+    No automatic replay: if this stage fails, the native Set remains durable.
+    A later teacher action may explicitly select that existing Set instead.
+    """
+    selected = (*original_selection, criterion_set_id)
+    try:
+        prior = read_activity_criterion_set_selection(
+            activity.class_id, activity.activity_id, standards_library=_library()
+        )
+        if (
+            prior.snapshot_revision != created_snapshot
+            or prior.criterion_set_ids != original_selection
+        ):
+            raise ValueError(
+                "Activity selection changed after rubric creation; no automatic "
+                "overwrite was attempted."
+            )
+        result = select_activity_criterion_sets(
+            SelectActivityCriterionSetsRequest(
+                class_id=activity.class_id,
+                activity_id=activity.activity_id,
+                criterion_set_ids=selected,
+                expected_snapshot_revision=created_snapshot,
+                actor=actor,
+            ),
+            standards_library=_library(),
+        )
+        verified = read_activity_criterion_set_selection(
+            activity.class_id, activity.activity_id, standards_library=_library()
+        )
+        if (
+            verified.criterion_set_ids != selected
+            or verified.snapshot_revision != result.commit.snapshot_revision
+        ):
+            raise ValueError(
+                "Selection result does not match the authoritative Activity state."
+            )
+    except Exception as error:
+        # A service exception can occur after durable storage succeeds. Re-read
+        # canonical state; never present a guessed rollback or blindly retry.
+        try:
+            observed = read_activity_criterion_set_selection(
+                activity.class_id, activity.activity_id,
+                standards_library=_library(),
+            )
+        except Exception as inspection_error:
+            show_result(
+                "Rubric Created — Selection Outcome Unknown",
+                (
+                    f"Created native Criterion Set: {criterion_set_id}",
+                    f"Selection/review error: {error}",
+                    f"Current-state inspection also failed: {inspection_error}",
+                    "Do not create another rubric or assume selection failed.",
+                    "Reopen this Activity and inspect its selected Criteria.",
+                ),
+            )
+            return
+        if observed.criterion_set_ids == selected:
+            show_result(
+                "Rubric Created — Selection Verified After Error",
+                (
+                    f"Native Criterion Set: {criterion_set_id}",
+                    f"Verified Activity snapshot: {observed.snapshot_revision}",
+                    f"A service/verification error occurred: {error}",
+                    "The exact intended selection is present in canonical state.",
+                    "No Scores, Grades, evidence, or publication were created.",
+                ),
+            )
+        else:
+            show_result(
+                "Rubric Created — Selection Requires Review",
+                (
+                    f"Native Criterion Set: {criterion_set_id}",
+                    f"Current Activity snapshot: {observed.snapshot_revision}",
+                    f"Selection error: {error}",
+                    "The intended Create & Use selection is NOT verified.",
+                    "Use 'Select Activity Criterion Sets' on the EXISTING rubric;",
+                    "do not repeat creation. No automatic retry was attempted.",
+                ),
+            )
+        return
+    show_result(
+        "Rubric Created and Selected",
+        (
+            f"Native Criterion Set: {criterion_set_id}",
+            f"Selected Activity snapshot: {verified.snapshot_revision}",
+            f"Existing selected Sets preserved: {len(original_selection)}",
+            "This rubric is now selected for future Activity Scores.",
+            "No Score, Grade, evidence, or publication was created.",
+            "Saving for another class is a separate reviewed action.",
+        ),
+    )
+
+
+def _create_and_use_guided_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    _create_guided_criterion_set(activity, state, use_after_create=True)
 
 
 def _revise_criterion_set(
@@ -1860,11 +2111,13 @@ def _criterion_set_menu(
     while True:
         clear_screen()
         print_menu_header("Criterion Sets")
-        print("1. Create Criterion Set")
+        print("1. Create and use a rubric (guided)")
         print("2. Browse Criterion Sets")
         print("3. Revise Criterion Set")
         print("4. Select Activity Criterion Sets")
         print("5. Save Criterion Set as Preset")
+        print("6. Advanced: create native Criterion Set")
+        print("7. Create a rubric definition only (guided)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1881,7 +2134,7 @@ def _criterion_set_menu(
         elif navigation is NavigationChoice.BACK:
             return
         elif choice == "1":
-            _create_criterion_set(activity, state)
+            _create_and_use_guided_criterion_set(activity, state)
         elif choice == "2":
             _browse_criterion_sets(activity)
         elif choice == "3":
@@ -1890,6 +2143,10 @@ def _criterion_set_menu(
             _select_criterion_sets(activity, state)
         elif choice == "5":
             _save_criterion_set_as_preset(activity, state)
+        elif choice == "6":
+            _create_criterion_set(activity, state)
+        elif choice == "7":
+            _create_guided_criterion_set(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

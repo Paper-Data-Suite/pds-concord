@@ -225,6 +225,7 @@ from concord.workflows.context import (
     resolve_read_workspace_root,
 )
 from concord.workflows.criterion_sets import (
+    ActivityCriterionSetSelectionSnapshot,
     CreateCriterionSetRequest,
     CriterionSetDetail,
     CriterionSetMutationResult,
@@ -236,6 +237,7 @@ from concord.workflows.criterion_sets import (
     create_criterion_set,
     list_criterion_sets,
     list_current_criterion_set_heads,
+    read_activity_criterion_set_selection,
     revise_criterion_set,
     select_activity_criterion_sets,
     show_criterion_set,
@@ -1049,6 +1051,7 @@ __all__ = [
     "update_session",
     "validate_concord_route_registration",
     "validate_participant_reference",
+    "ActivityCriterionSetSelectionSnapshot",
     "CreateCriterionSetRequest",
     "CriterionSetDetail",
     "CriterionSetMutationResult",
@@ -1060,6 +1063,7 @@ __all__ = [
     "create_criterion_set",
     "list_criterion_sets",
     "list_current_criterion_set_heads",
+    "read_activity_criterion_set_selection",
     "revise_criterion_set",
     "select_activity_criterion_sets",
     "show_criterion_set",
