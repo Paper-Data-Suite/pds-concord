@@ -555,5 +555,14 @@ def test_actual_teacher_menu_materializes_or_cancels_with_zero_writes(
         assert any(title == "Scoring Setup Added" for title, _ in outcomes)
     else:
         _no_target_write(root, library, before, target_graph_before)
-        assert not outcomes
+        # The #145 teacher-first menu now shows an exact, read-only preset
+        # preview even when the subsequent USE confirmation is declined.
+        assert [title for title, _ in outcomes] == [
+            "Saved Assessment — Read-only Preview",
+        ]
+        assert any(
+            "No Activity configuration, Scores, or evidence changed." in lines
+            for title, lines in outcomes
+            if title == "Saved Assessment — Read-only Preview"
+        )
     assert tuple(list_work_snapshots(root, _work())) == source_before
