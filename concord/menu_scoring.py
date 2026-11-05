@@ -290,16 +290,10 @@ def _create_scale(
             help_text="Name this exact native scoring Scale.",
         )
         assert name is not None
-        scale_id = _identifier(
-            "Create Scoring Scale",
-            "Scoring Scale ID",
-            slug_identifier(name, f"scale-{uuid4().hex[:8]}"),
-        )
-        lineage_id = _identifier(
-            "Create Scoring Scale",
-            "Lineage ID",
-            f"{scale_id}-lineage",
-        )
+        # Native identities are implementation details, never teacher-facing prompts.
+        # Fresh UUIDs also avoid collisions between Scales with identical names.
+        scale_id = f"scale-{uuid4().hex}"
+        lineage_id = f"scale-lineage-{uuid4().hex}"
         guided = guide_scale_levels(
             title="Create Scoring Scale — Choose Levels",
             validator=lambda draft: validate_draft(
@@ -333,7 +327,7 @@ def _create_scale(
             (
                 f"Activity: {current.title}",
                 f"Scale: {name}",
-                f"New native ID: {scale_id}",
+                "New native Scale identity and lineage generated automatically.",
                 "Revision: 1 (new lineage)",
                 *describe_draft(guided.draft),
                 *guided.precision_notices,
