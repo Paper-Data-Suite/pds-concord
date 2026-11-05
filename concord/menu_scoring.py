@@ -2296,6 +2296,42 @@ def _save_criterion_set_as_preset(
         _handle_error(activity, error)
 
 
+def _plan_existing_rubric_selection(
+    selected_ids: tuple[str, ...],
+    chosen_id: str,
+    lineage_ids: frozenset[str],
+    *,
+    replace_prior_revisions: bool,
+) -> tuple[str, ...]:
+    """Preserve selection order; replace only this lineage when authorized."""
+    if not replace_prior_revisions:
+        return selected_ids if chosen_id in selected_ids else (*selected_ids, chosen_id)
+    result: list[str] = []
+    inserted = False
+    for selected_id in selected_ids:
+        if selected_id in lineage_ids:
+            if not inserted:
+                result.append(chosen_id)
+                inserted = True
+        else:
+            result.append(selected_id)
+    if not inserted:
+        result.append(chosen_id)
+    return tuple(result)
+
+
+def _describe_selected_rubric_revisions(
+    selected_ids: tuple[str, ...],
+    descriptions: dict[str, str],
+) -> tuple[str, ...]:
+    if not selected_ids:
+        return ("  (none)",)
+    return tuple(
+        f"  {position}. {descriptions.get(item, item)} [exact ID: {item}]"
+        for position, item in enumerate(selected_ids, 1)
+    )
+
+
 def _use_existing_criterion_set(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -2344,6 +2380,46 @@ def _use_existing_criterion_set(
             standards_library=library,
         )
         review = project_native_criterion_set(detail, selection)
+        selected_id = review.criterion_set_id
+        descriptions = {
+            item.criterion_set_id: f"{item.name} (revision {item.revision})"
+            for item in sets
+        }
+        lineage_ids = frozenset(
+            item.criterion_set_id
+            for item in sets
+            if item.lineage_id == chosen.lineage_id
+        )
+        prior_same_lineage = tuple(
+            item for item in selection.criterion_set_ids
+            if item in lineage_ids and item != selected_id
+        )
+        replace_prior = False
+        if prior_same_lineage:
+            action = select_one(
+                "Using a revised rubric — Selection choice",
+                ("replace", "retain"),
+                (
+                    "Replace earlier selected revisions of this rubric lineage",
+                    "Keep earlier revisions selected alongside this revision",
+                ),
+                help_text=(
+                    "Replacing changes only future Activity selection, never "
+                    "historical definitions or Scores. Concord refuses "
+                    "deselection when earlier revisions have Score references. "
+                    "Keeping both may show both revisions during Score entry."
+                ),
+            )
+            replace_prior = action == "replace"
+        proposed = _plan_existing_rubric_selection(
+            selection.criterion_set_ids,
+            selected_id,
+            lineage_ids,
+            replace_prior_revisions=replace_prior,
+        )
+        displaced = tuple(
+            item for item in selection.criterion_set_ids if item not in proposed
+        )
         if not confirm_write(
             "Use Existing Rubric",
             "USE",
@@ -2352,8 +2428,21 @@ def _use_existing_criterion_set(
                 *describe_native_criterion_set(
                     review, standards_library=library
                 ),
-                "This adds the exact Set revision to Activity selection.",
-                "Any existing selections keep their original order.",
+                "Current selections (ordered):",
+                *_describe_selected_rubric_revisions(
+                    selection.criterion_set_ids, descriptions
+                ),
+                "Proposed selections (ordered):",
+                *_describe_selected_rubric_revisions(proposed, descriptions),
+                (
+                    "Action: replace earlier selected revisions of this lineage."
+                    if replace_prior else
+                    "Action: retain existing selected revisions."
+                ),
+                f"Earlier selections to deselect: {len(displaced)}",
+                "Existing rubric definitions and historical Scores are preserved.",
+                "If a deselected revision has Scores, the canonical service "
+                "refuses replacement; no selection write is made.",
                 "No Scores, Grades, evidence, or presets are created.",
             ),
         ):
@@ -2369,8 +2458,7 @@ def _use_existing_criterion_set(
             raise ValueError(
                 "Activity changed since rubric review. Reload before selecting."
             )
-        selected_id = review.criterion_set_id
-        if selected_id in selection.criterion_set_ids:
+        if proposed == selection.criterion_set_ids:
             show_result(
                 "Rubric Already Selected — No Change",
                 (
@@ -2381,7 +2469,6 @@ def _use_existing_criterion_set(
                 ),
             )
             return
-        proposed = (*selection.criterion_set_ids, selected_id)
         actor = state.require_actor()
         try:
             result = select_activity_criterion_sets(
@@ -2446,8 +2533,11 @@ def _use_existing_criterion_set(
             (
                 f"Exact Criterion Set: {selected_id}",
                 f"Activity snapshot: {observed.snapshot_revision}",
-                "Previously selected Sets retained: "
-                f"{len(selection.criterion_set_ids)}",
+                f"Selected rubric revisions now: {len(proposed)}",
+                f"Earlier selections deselected: {len(displaced)}",
+                "Selected revisions (ordered):",
+                *_describe_selected_rubric_revisions(proposed, descriptions),
+                "Historical definitions and Scores remain unchanged.",
                 "No Score, Grade, evidence, or preset was created.",
                 "Next: Criterion Sets > Save this assessment "
                 "for another class.",
@@ -2552,7 +2642,8 @@ def _revise_criterion_set(
                 "All successor Criteria receive new native identities.",
                 "The original revision and historical Scores are preserved.",
                 "No Activity selection is changed by this revision.",
-                "Use the new revision separately after it is created.",
+                "After creation, use 'Use an existing rubric' to choose whether "
+                "to replace an earlier selected revision or keep both.",
             ),
         ):
             return
@@ -2677,7 +2768,8 @@ def _revise_criterion_set(
                 f"Snapshot: {verified.summary.snapshot_revision}",
                 "Historical Scores and original Criterion IDs remain intact.",
                 "Previously selected rubric revisions remain selected.",
-                "Use 'Use an existing rubric' to select this successor.",
+                "Use 'Use an existing rubric' to choose replacement or retention "
+                "of earlier selected revisions of this lineage.",
                 "No Scores, Grades, evidence, or presets were created.",
                 "Next: choose Save this assessment for another class.",
             ),
