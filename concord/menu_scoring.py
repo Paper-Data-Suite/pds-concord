@@ -2816,6 +2816,59 @@ def _choose_saved_scale_for_preset(
         pause_for_user()
 
 
+def _saved_criteria_menu_labels(
+    presets: tuple[CriterionSetPresetRevision, ...],
+) -> tuple[str, ...]:
+    """Show verified distinctions; use a stable ID only for true label collisions."""
+    base = tuple(
+        f"{value.name} | {len(value.criteria)} Criteria | "
+        f"{value.criterion_set_kind.replace('_', ' ')} | "
+        f"saved revision {value.revision}"
+        for value in presets
+    )
+    return tuple(
+        f"{label} | Preset ID: {value.preset_id}"
+        if base.count(label) > 1 else label
+        for label, value in zip(base, presets)
+    )
+
+
+def _saved_criteria_preview(
+    value: CriterionSetPresetRevision,
+) -> tuple[str, ...]:
+    """Describe the exact immutable definition before creating Activity records."""
+    lines = [
+        f"Assessment: {value.name}",
+        f"Preset ID: {value.preset_id}",
+        f"Saved revision: {value.revision} ({value.preset_revision_id})",
+        f"Purpose: {value.purpose}",
+        f"Assessment kind: {value.criterion_set_kind.replace('_', ' ')}",
+        f"Standards profile: {value.standards_profile_id or '-'}",
+        f"Criteria: {len(value.criteria)}",
+    ]
+    for index, criterion in enumerate(value.criteria, start=1):
+        lines.extend(
+            (
+                f"{index}. {criterion.label} [{criterion.criterion_kind}]",
+                f"   What is assessed: {criterion.definition}",
+                "   Targets: " + ", ".join(
+                    kind.replace('_', ' ') for kind in criterion.supported_target_kinds
+                ),
+                f"   Governing Standard: {criterion.standard_id or '-'}",
+                "   Alignment Standards: "
+                + (", ".join(criterion.alignment_standard_ids) or "-"),
+                "   Recommended Scale preset: "
+                + (
+                    f"{criterion.default_scoring_scale_preset_id} "
+                    f"({criterion.default_scoring_scale_preset_revision_id})"
+                    if criterion.default_scoring_scale_preset_id is not None
+                    else "none"
+                ),
+            )
+        )
+    return tuple(lines)
+
+
 def _use_saved_scoring_setup(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -2829,15 +2882,34 @@ def _use_saved_scoring_setup(
                 ("No saved Criterion Set presets are available.",),
             )
             return
-        summary = select_one(
-            "Choose Saved Criteria",
-            summaries,
-            tuple(item.name for item in summaries),
-            help_text="Choose reusable criteria; fresh Activity records are created.",
+        # Resolve exact immutable revisions before displaying options. Do not
+        # silently replace a selected preset with a later library head.
+        available: list[CriterionSetPresetRevision] = []
+        for summary in summaries:
+            exact = get_preset_revision(
+                "criterion_set", summary.preset_id, summary.preset_revision_id
+            )
+            if not isinstance(exact, CriterionSetPresetRevision):
+                raise ValueError("Saved Criterion Set preset has the wrong type.")
+            if exact.revision != summary.revision or exact.status != "active":
+                raise ValueError("Saved assessment changed; reopen the selection.")
+            available.append(exact)
+        value = select_one(
+            "Choose Saved Assessment",
+            available,
+            _saved_criteria_menu_labels(tuple(available)),
+            help_text=(
+                "Choose the exact saved assessment. Read its full definition "
+                "before deciding whether to use it."
+            ),
         )
-        value = get_preset("criterion_set", summary.preset_id)
-        if not isinstance(value, CriterionSetPresetRevision):
-            raise ValueError("Selected Criterion Set preset has the wrong type.")
+        show_result(
+            "Saved Assessment — Read-only Preview",
+            (
+                *_saved_criteria_preview(value),
+                "No Activity configuration, Scores, or evidence changed.",
+            ),
+        )
         scale = _choose_saved_scale_for_preset(value)
         criterion_set_id = f"criterion-set-{uuid4().hex}"
         request = MaterializeScoringSetupRequest(
@@ -2873,11 +2945,17 @@ def _use_saved_scoring_setup(
             "Use Saved Scoring Setup",
             "USE",
             (
-                f"Criteria: {prepared.criterion_preset_name}",
-                f"Criteria count: {prepared.criterion_count}",
-                f"Scale: {prepared.scoring_scale_preset_name or 'none'}",
-                f"Standards profile: {prepared.standards_profile_id or '-'}",
-                "No Scores will be created.",
+                *_saved_criteria_preview(value),
+                f"Verified Criteria count: {prepared.criterion_count}",
+                f"Selected Scale: {prepared.scoring_scale_preset_name or 'none'}",
+                (
+                    f"Saved Scale revision: {scale.revision} "
+                    f"({scale.preset_revision_id}); Preset ID: {scale.preset_id}"
+                    if scale is not None else "Saved Scale revision: none"
+                ),
+                f"Verified Standards profile: {prepared.standards_profile_id or '-'}",
+                "This creates fresh Activity configuration only.",
+                "No Scores, Groups, student data, or evidence will be copied.",
             ),
         ):
             return
