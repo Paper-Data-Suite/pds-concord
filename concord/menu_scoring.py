@@ -532,6 +532,197 @@ def _browse_scales(activity: ActivitySummary) -> None:
         show_result("Scoring Scale Error", (str(error),))
 
 
+def _saved_scale_menu_labels(
+    presets: tuple[ScoringScalePresetRevision, ...],
+) -> tuple[str, ...]:
+    """Distinguish reusable definitions with grounded, exact revision details."""
+    base = tuple(
+        f"{item.name} | {item.scale_type} | {len(item.levels)} levels | "
+        f"saved revision {item.revision}"
+        for item in presets
+    )
+    return tuple(
+        f"{label} | Preset ID: {item.preset_id}"
+        if base.count(label) > 1 else label
+        for label, item in zip(base, presets, strict=True)
+    )
+
+
+def _saved_scale_preview(value: ScoringScalePresetRevision) -> tuple[str, ...]:
+    """Display the exact saved, typed Scale definition without a write."""
+    lines = [
+        f"Saved Scale: {value.name}",
+        f"Preset ID: {value.preset_id}",
+        f"Saved revision: {value.revision} ({value.preset_revision_id})",
+        f"Status: {value.status}",
+        f"Scale type: {value.scale_type}",
+        f"Levels: {len(value.levels)} (exact typed values)",
+        f"Intended use: {value.intended_use or '-'}",
+        "Notes on combining assessment results: "
+        f"{value.aggregation_guidance or '-'}",
+    ]
+    lines.extend(
+        f"  {json.dumps(level.value, ensure_ascii=False)} "
+        f"[{type(level.value).__name__}] - {level.label}: {level.meaning}"
+        for level in value.levels
+    )
+    return tuple(lines)
+
+
+def _import_saved_scale(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Create only a fresh native Scale from an exact, reviewed saved revision."""
+    try:
+        current = _latest(activity)
+        summaries = list_presets("scoring_scale")
+        if not summaries:
+            show_result(
+                "No Saved Scoring Scales",
+                ("Save or create a reusable Scoring Scale preset first.",),
+            )
+            return
+        available: list[ScoringScalePresetRevision] = []
+        for summary in summaries:
+            exact = get_preset_revision(
+                "scoring_scale", summary.preset_id, summary.preset_revision_id
+            )
+            if not isinstance(exact, ScoringScalePresetRevision):
+                raise ValueError("Saved Scoring Scale has an unexpected type.")
+            if exact.revision != summary.revision or exact.status != "active":
+                raise ValueError("Saved Scale changed. Reopen the selection.")
+            available.append(exact)
+        chosen = select_one(
+            "Choose a Saved Scoring Scale",
+            available,
+            _saved_scale_menu_labels(tuple(available)),
+            help_text=(
+                "Choose one exact saved definition. A separate review and "
+                "confirmation creates only a fresh native Activity Scale."
+            ),
+        )
+        show_result(
+            "Saved Scoring Scale — Read-only Preview",
+            (*_saved_scale_preview(chosen), "No Activity records were changed."),
+        )
+        new_scale_id = f"scale-{uuid4().hex}"
+        new_lineage_id = f"scale-lineage-{uuid4().hex}"
+        if not confirm_write(
+            "Use Saved Scoring Scale",
+            "USE",
+            (
+                f"Activity: {current.title}",
+                *_saved_scale_preview(chosen),
+                "A new native Scale identity and lineage will be generated.",
+                "One native Scoring Scale will be created in this Activity.",
+                "No Criteria, Criterion Sets, Scores, Grades, student/Group "
+                "data, evidence, or presets will be created or copied.",
+                "The new Scale must be chosen separately when configuring Criteria.",
+            ),
+        ):
+            return
+        # A concurrent Activity change or preset revision must fail before writing.
+        if _latest(activity).snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed during review. Reopen the Activity.")
+        head = get_preset("scoring_scale", chosen.preset_id)
+        if (
+            not isinstance(head, ScoringScalePresetRevision)
+            or head != chosen
+            or head.status != "active"
+        ):
+            raise ValueError("Saved Scoring Scale changed during review. Reopen it.")
+        request = CreateScoringScaleRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            scoring_scale_id=new_scale_id,
+            lineage_id=new_lineage_id,
+            name=chosen.name,
+            revision=1,
+            scale_type=chosen.scale_type,
+            levels=chosen.levels,
+            status="active",
+            intended_use=chosen.intended_use,
+            aggregation_guidance=chosen.aggregation_guidance,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+        try:
+            result = create_scoring_scale(
+                request, standards_library=_library()
+            )
+        except Exception as error:
+            show_result(
+                "Saved Scoring Scale Import — Outcome Unconfirmed",
+                (
+                    f"Proposed native Scale ID: {new_scale_id}",
+                    f"Service error: {error}",
+                    "Do not retry blindly. Browse native Scoring Scales first.",
+                ),
+            )
+            return
+        try:
+            observed = show_scoring_scale(
+                current.class_id, current.activity_id, new_scale_id,
+                standards_library=_library(),
+            )
+        except Exception as error:
+            show_result(
+                "Saved Scoring Scale Imported — Verification Unavailable",
+                (
+                    f"Native Scale: {result.scoring_scale_id}",
+                    f"Activity snapshot: {result.commit.snapshot_revision}",
+                    f"Read-back error: {error}",
+                    "Do not retry; inspect the created native Scale first.",
+                ),
+            )
+            return
+        exact_levels = (
+            len(observed.levels) == len(chosen.levels)
+            and all(
+                type(left.value) is type(right.value) and left == right
+                for left, right in zip(observed.levels, chosen.levels, strict=True)
+            )
+        )
+        if not (
+            observed.summary.scoring_scale_id == new_scale_id
+            and observed.summary.lineage_id == new_lineage_id
+            and observed.summary.revision == 1
+            and observed.summary.scale_type == chosen.scale_type
+            and observed.summary.name == chosen.name
+            and observed.summary.status == "active"
+            and observed.summary.intended_use == chosen.intended_use
+            and observed.aggregation_guidance == chosen.aggregation_guidance
+            and observed.summary.snapshot_revision == result.commit.snapshot_revision
+            and exact_levels
+        ):
+            show_result(
+                "Saved Scoring Scale Imported — Verification Mismatch",
+                (
+                    f"Native Scale: {new_scale_id}",
+                    "The write receipt exists, but read-back did not match.",
+                    "Inspect the Scale and Activity before any retry.",
+                ),
+            )
+            return
+        show_result(
+            "Saved Scoring Scale Imported",
+            (
+                f"Saved preset: {chosen.preset_id} ({chosen.preset_revision_id})",
+                f"New native Scale: {new_scale_id}",
+                f"New lineage: {new_lineage_id}",
+                f"Activity snapshot: {result.commit.snapshot_revision}",
+                "Exact typed levels and guidance verified after creation.",
+                "No Criterion, Criterion Set, Score, Grade, or evidence was created.",
+                "Use Assessment Setup > Criteria to select this new native Scale.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
 def _criterion_kind(set_kind: str) -> str:
     if set_kind == "standard_backed":
         return "standard_backed"
@@ -3177,6 +3368,7 @@ def _scale_menu(
         print("2. Browse Scoring Scales")
         print("3. Revise Scoring Scale")
         print("4. Save Scoring Scale as Preset")
+        print("5. Use a saved Scoring Scale")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3202,6 +3394,8 @@ def _scale_menu(
             _revise_scale(activity, state)
         elif choice == "4":
             _save_scale_as_preset(activity, state)
+        elif choice == "5":
+            _import_saved_scale(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
