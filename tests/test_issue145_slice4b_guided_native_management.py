@@ -68,6 +68,7 @@ def _selected(*ids: str, snap: int = 14):
 def _head():
     return SimpleNamespace(
         criterion_set_id="set-old",
+        lineage_id="lineage-discussion",
         name="Discussion assessment",
         revision=3,
         is_current=True,
@@ -217,7 +218,11 @@ def test_use_existing_preserves_selection_order_and_exact_id(
     assert requests[0].criterion_set_ids == ("historical-old", "set-old")
     assert requests[0].expected_snapshot_revision == 14
     assert messages[-1][0] == "Existing Rubric Selected"
-    assert "Previously selected Sets retained: 1" in messages[-1][1]
+    assert "Selected rubric revisions now: 2" in messages[-1][1]
+    assert "Earlier selections deselected: 0" in messages[-1][1]
+    assert "Selected revisions (ordered):" in messages[-1][1]
+    assert any("exact ID: historical-old" in line for line in messages[-1][1])
+    assert any("exact ID: set-old" in line for line in messages[-1][1])
 
 
 def test_already_selected_is_no_op_without_write(
