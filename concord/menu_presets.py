@@ -22,6 +22,7 @@ from concord.menu_prompts import (
     confirm_write,
     load_menu_standards_library,
     prompt_positive_int,
+    prompt_scale_combining_notes,
     prompt_text,
     select_many,
     select_one,
@@ -202,6 +203,8 @@ def _detail_lines(kind: str, preset_id: str) -> tuple[str, ...]:
                 f"Scale type: {value.scale_type}",
                 f"Levels: {len(value.levels)}",
                 f"Intended use: {value.intended_use or '-'}",
+                "Notes on combining assessment results: "
+                f"{value.aggregation_guidance or '-'}",
             )
         )
         lines.extend(
@@ -375,7 +378,7 @@ def _create_scale(state: MenuSessionContext) -> None:
         ),
     )
     intended_use = _optional_text("Create Scoring Scale Preset", "Intended use")
-    aggregation = _optional_text("Create Scoring Scale Preset", "Aggregation guidance")
+    aggregation = prompt_scale_combining_notes("Create Scoring Scale Preset")
     validate_draft(
         guided.draft,
         name=name,
@@ -393,7 +396,7 @@ def _create_scale(state: MenuSessionContext) -> None:
             *describe_draft(guided.draft),
             *guided.precision_notices,
             f"Intended use: {intended_use or '(none)'}",
-            f"Aggregation guidance: {aggregation or '(none)'}",
+            f"Notes on combining assessment results: {aggregation or '(none)'}",
             "No Scores, Grades, evidence, or publication are created.",
             "This saves a reusable definition; no Activity Scale is materialized.",
         ),
@@ -695,10 +698,13 @@ def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> N
 
 
 def _edit_optional_preset_scale_field(
-    title: str, label: str, previous: str | None
+    title: str, label: str, previous: str | None, *,
+    combining_notes: bool = False,
 ) -> str | None:
     """Preserve existing optional metadata unless explicitly changed or cleared."""
     if previous is None:
+        if combining_notes:
+            return prompt_scale_combining_notes(title)
         return _optional_text(title, label)
     action = select_one(
         title,
@@ -710,6 +716,8 @@ def _edit_optional_preset_scale_field(
         return previous
     if action == "clear":
         return None
+    if combining_notes:
+        return prompt_scale_combining_notes(title)
     return _optional_text(title, label)
 
 
@@ -748,8 +756,8 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
         "Edit Scoring Scale Preset", "Intended use", current.intended_use,
     )
     aggregation = _edit_optional_preset_scale_field(
-        "Edit Scoring Scale Preset", "Aggregation guidance",
-        current.aggregation_guidance,
+        "Edit Scoring Scale Preset", "Notes on combining assessment results",
+        current.aggregation_guidance, combining_notes=True,
     )
     validate_draft(
         guided.draft,
@@ -782,7 +790,7 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
             *describe_draft(guided.draft),
             *guided.precision_notices,
             f"Intended use: {intended or '(none)'}",
-            f"Aggregation guidance: {aggregation or '(none)'}",
+            f"Notes on combining assessment results: {aggregation or '(none)'}",
             "Old saved revisions and existing Activity Scales remain unchanged.",
             "No Scores, Grades, evidence, or publication are created.",
         ),
@@ -917,6 +925,8 @@ def _kind_menu(kind: str, state: MenuSessionContext) -> None:
         print("2. Create a preset")
         print("3. Edit a preset")
         print("4. Retire a preset")
+        if kind == "scoring_scale":
+            print("5. View a preset's details")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -935,6 +945,8 @@ def _kind_menu(kind: str, state: MenuSessionContext) -> None:
                     _edit(kind, state)
                 elif raw == "4":
                     _retire(kind, state)
+                elif raw == "5" and kind == "scoring_scale":
+                    _show(kind)
                 else:
                     print(navigation_hint_with_help())
                     pause_for_user()

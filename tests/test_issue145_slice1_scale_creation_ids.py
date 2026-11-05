@@ -31,6 +31,9 @@ def test_guided_create_scale_generates_ids_without_identity_prompts(
 
     monkeypatch.setattr(scoring, "prompt_text", name_prompt)
     monkeypatch.setattr(scoring, "_optional_text", lambda *args: None)
+    monkeypatch.setattr(
+        scoring, "prompt_scale_combining_notes", lambda *args: None
+    )
     draft = SimpleNamespace(scale_type="ordinal", levels=())
     guided = SimpleNamespace(draft=draft, precision_notices=())
     monkeypatch.setattr(scoring, "guide_scale_levels", lambda **kwargs: guided)

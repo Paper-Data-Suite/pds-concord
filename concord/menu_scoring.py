@@ -47,6 +47,7 @@ from concord.menu_prompts import (
     handle_write_error,
     load_menu_standards_library,
     prompt_positive_int,
+    prompt_scale_combining_notes,
     prompt_text,
     select_many,
     select_one,
@@ -259,12 +260,13 @@ def _choose_scale(activity: ActivitySummary) -> ScoringScaleSummary:
 
 
 def _edit_optional_scale_field(
-    title: str, label: str, previous: str | None
+    title: str, label: str, previous: str | None, *,
+    combining_notes: bool = False,
 ) -> str | None:
     if previous is None:
-        return _optional_text(
-            title, label, "Optional teacher-facing guidance."
-        )
+        if combining_notes:
+            return prompt_scale_combining_notes(title)
+        return _optional_text(title, label, "Optional teacher-facing guidance.")
     action = select_one(
         title,
         ("keep", "change", "clear"),
@@ -275,6 +277,8 @@ def _edit_optional_scale_field(
         return previous
     if action == "clear":
         return None
+    if combining_notes:
+        return prompt_scale_combining_notes(title)
     return _optional_text(title, label, "Enter replacement guidance.")
 
 
@@ -309,11 +313,7 @@ def _create_scale(
             "Intended use",
             "Optional teacher-facing intended-use guidance.",
         )
-        aggregation = _optional_text(
-            "Create Scoring Scale",
-            "Aggregation guidance",
-            "Optional descriptive guidance only; Concord does not aggregate Grades.",
-        )
+        aggregation = prompt_scale_combining_notes("Create Scoring Scale")
         validate_draft(
             guided.draft,
             name=name,
@@ -332,7 +332,7 @@ def _create_scale(
                 *describe_draft(guided.draft),
                 *guided.precision_notices,
                 f"Intended use: {intended_use or '(none)'}",
-                f"Aggregation guidance: {aggregation or '(none)'}",
+                f"Notes on combining assessment results: {aggregation or '(none)'}",
                 "No Scores, Grades, evidence, or publication are created.",
                 "Native Scale only; this does not link a Criterion or save a preset.",
             ),
@@ -428,8 +428,8 @@ def _revise_scale(
             "Revise Scoring Scale", "Intended use", detail.summary.intended_use
         )
         aggregation = _edit_optional_scale_field(
-            "Revise Scoring Scale", "Aggregation guidance",
-            detail.aggregation_guidance,
+            "Revise Scoring Scale", "Notes on combining assessment results",
+            detail.aggregation_guidance, combining_notes=True,
         )
         validate_draft(
             guided.draft,
@@ -449,7 +449,7 @@ def _revise_scale(
                 *describe_draft(guided.draft),
                 *guided.precision_notices,
                 f"Intended use: {intended_use or '(none)'}",
-                f"Aggregation guidance: {aggregation or '(none)'}",
+                f"Notes on combining assessment results: {aggregation or '(none)'}",
                 "Historical Scale and Scores remain unchanged.",
             ),
         ):
@@ -517,6 +517,9 @@ def _browse_scales(activity: ActivitySummary) -> None:
             f"Revision: {selected.revision}",
             f"Type: {selected.scale_type}",
             f"Status: {selected.status}",
+            f"Intended use: {detail.summary.intended_use or '-'}",
+            f"Notes on combining assessment results: "
+            f"{detail.aggregation_guidance or '-'}",
         ]
         lines.extend(
             f"{json.dumps(level.value)} - {level.label}: {level.meaning}"
