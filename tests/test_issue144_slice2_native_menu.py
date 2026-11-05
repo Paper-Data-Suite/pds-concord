@@ -140,8 +140,9 @@ def _native_mocks(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     calls: list[Any] = []
     monkeypatch.setattr(scoring_menu, "_latest", lambda _current: _activity())
     monkeypatch.setattr(scoring_menu, "_library", lambda: None)
+    # Slice 2 native creation now displays a distinct descriptive-notes prompt.
     monkeypatch.setattr(
-        scoring_menu, "_identifier", lambda _title, _label, default: default
+        scoring_menu, "prompt_scale_combining_notes", lambda _title: None
     )
     monkeypatch.setattr(
         scoring_menu, "show_result",
@@ -247,7 +248,7 @@ def test_native_revision_preserves_existing_values_and_metadata(
     )
     monkeypatch.setattr(
         scoring_menu, "_edit_optional_scale_field",
-        lambda _title, _label, previous: previous,
+        lambda _title, _label, previous, **_kwargs: previous,
     )
     monkeypatch.setattr(
         scoring_menu, "confirm_write",
@@ -288,7 +289,9 @@ def test_revision_stale_conflict_receipt_does_not_claim_success(
     monkeypatch.setattr(
         scoring_menu, "prompt_text", lambda *a, **kw: kw.get("default") or "Name"
     )
-    monkeypatch.setattr(scoring_menu, "_edit_optional_scale_field", lambda *a: None)
+    monkeypatch.setattr(
+        scoring_menu, "_edit_optional_scale_field", lambda *a, **kw: None
+    )
     monkeypatch.setattr(
         scoring_menu, "guide_scale_levels",
         lambda **kw: guided_menu.GuidedScaleMenuResult(kw["existing"]),

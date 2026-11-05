@@ -62,6 +62,8 @@ def test_preset_create_reviews_four_integer_levels_before_one_write(
         ),
     )
     monkeypatch.setattr(presets, "_optional_text", lambda *_args: None)
+    # The descriptive combining-notes prompt is separate from Intended Use.
+    monkeypatch.setattr(presets, "prompt_scale_combining_notes", lambda _title: None)
     monkeypatch.setattr(
         presets, "guide_scale_levels",
         lambda **_kwargs: GuidedScaleMenuResult(four_level_proficiency()),
@@ -110,6 +112,8 @@ def test_preset_create_yes_no_saves_real_booleans(
         lambda *_args: ("Yes No", "bool-preset", "bool-v1"),
     )
     monkeypatch.setattr(presets, "_optional_text", lambda *_args: None)
+    # The descriptive combining-notes prompt is separate from Intended Use.
+    monkeypatch.setattr(presets, "prompt_scale_combining_notes", lambda _title: None)
     monkeypatch.setattr(
         presets, "guide_scale_levels",
         lambda **_kwargs: GuidedScaleMenuResult(yes_no_scale()),
@@ -138,6 +142,8 @@ def test_preset_create_cancel_before_approval_never_writes(
         presets, "_preset_identity", lambda *_args: ("Scale", "scale", "scale-v1"),
     )
     monkeypatch.setattr(presets, "_optional_text", lambda *_args: None)
+    # The descriptive combining-notes prompt is separate from Intended Use.
+    monkeypatch.setattr(presets, "prompt_scale_combining_notes", lambda _title: None)
     monkeypatch.setattr(
         presets, "guide_scale_levels",
         lambda **_kwargs: GuidedScaleMenuResult(four_level_proficiency()),
@@ -181,7 +187,7 @@ def test_preset_revision_preserves_exact_types_metadata_and_revision_guard(
     monkeypatch.setattr(presets, "prompt_text", lambda *_args, **_kw: "Revised Scale")
     monkeypatch.setattr(
         presets, "_edit_optional_preset_scale_field",
-        lambda _title, _label, previous: previous,
+        lambda _title, _label, previous, **_kwargs: previous,
     )
     incoming: list[GuidedScaleDraft] = []
 
@@ -236,7 +242,7 @@ def test_preset_revision_canceled_confirmation_never_writes_or_claims_success(
     )
     monkeypatch.setattr(
         presets, "_edit_optional_preset_scale_field",
-        lambda _title, _label, previous: previous,
+        lambda _title, _label, previous, **_kwargs: previous,
     )
     monkeypatch.setattr(presets, "confirm_write", lambda *_args: False)
     monkeypatch.setattr(
@@ -259,7 +265,7 @@ def test_preset_revision_noop_is_read_only_even_for_type_sensitive_values(
     )
     monkeypatch.setattr(
         presets, "_edit_optional_preset_scale_field",
-        lambda _title, _label, previous: previous,
+        lambda _title, _label, previous, **_kwargs: previous,
     )
     monkeypatch.setattr(
         presets, "revise_scoring_scale_preset",
@@ -296,7 +302,7 @@ def test_preset_stale_revision_does_not_show_success(
     )
     monkeypatch.setattr(
         presets, "_edit_optional_preset_scale_field",
-        lambda _title, _label, previous: previous,
+        lambda _title, _label, previous, **_kwargs: previous,
     )
     monkeypatch.setattr(presets, "confirm_write", lambda *_args: True)
 
