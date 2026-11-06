@@ -256,6 +256,52 @@ def _choose_scoring_orientation() -> str:
     )
 
 
+_ACTIVITY_STATUS_CHOICES = (
+    "draft",
+    "configured",
+    "active",
+    "completed",
+    "cancelled",
+    "archived",
+)
+_ACTIVITY_STATUS_EXPLANATIONS = (
+    "Draft - still being planned; not yet declared ready",
+    "Configured - teacher declares setup ready; packets need not be returned",
+    "Active - teacher marks classroom work as underway",
+    "Completed - teacher marks the Activity complete; no Scores are created",
+    "Cancelled - teacher explicitly ends the planned Activity",
+    "Archived - teacher marks the Activity archived; history is retained",
+)
+
+
+def _choose_activity_status(current: ActivitySummary) -> str:
+    """Choose a native Activity status; no new lifecycle graph is invented."""
+    labels = tuple(
+        f"{description}{' [current]' if value == current.status else ''}"
+        for value, description in zip(
+            _ACTIVITY_STATUS_CHOICES, _ACTIVITY_STATUS_EXPLANATIONS, strict=True
+        )
+    )
+    return select_one(
+        (
+            "Edit Activity Status\n"
+            f"Activity: {current.title}\n"
+            f"Class: {current.class_id}\n"
+            f"Activity ID: {current.activity_id}\n"
+            f"Current status: {current.status}\n"
+            f"Snapshot: {current.snapshot_revision}"
+        ),
+        _ACTIVITY_STATUS_CHOICES,
+        labels,
+        help_text=(
+            "These are exact Concord Activity statuses, not a new transition "
+            "policy. Configured is a teacher decision: preparing packets or "
+            "GroupPlans does not change the Activity lifecycle. Status alone "
+            "never proves returned evidence, Scores, Grades, or publication."
+        ),
+    )
+
+
 def _standards_selection(
     orientation: str,
     *,
@@ -691,16 +737,18 @@ def _update_activity_field(
                 optional=True,
             )
         elif field == "status":
-            value = prompt_text(
-                "Edit Activity",
-                "Status",
-                help_text=(
-                    "Valid statuses include draft, configured, active, completed, "
-                    "cancelled, and archived."
-                ),
-                default=current.status,
-            )
-            assert value is not None
+            value = _choose_activity_status(current)
+            if value == current.status:
+                show_result(
+                    "Activity Result",
+                    (
+                        "No changes were needed.",
+                        f"Activity: {current.activity_id}",
+                        f"Status remains: {current.status}",
+                        f"Snapshot: {current.snapshot_revision}",
+                    ),
+                )
+                return
             values["status"] = value
         elif field == "activity_type":
             values["activity_type"] = _choose_activity_type()
@@ -714,11 +762,22 @@ def _update_activity_field(
             values["focus_standard_ids"] = focus_ids
         else:
             raise ConcordWorkflowError(f"Unsupported Activity edit field: {field}")
-        if not confirm_write(
-            "Edit Activity",
-            "UPDATE",
-            (f"Activity: {current.title}", f"Change: {change}"),
-        ):
+        review_lines = [
+            f"Activity: {current.title} ({current.activity_id})",
+            f"Class: {current.class_id}",
+            f"Snapshot: {current.snapshot_revision}",
+            f"Change: {change}",
+        ]
+        if field == "status":
+            review_lines.extend(
+                (
+                    f"Current status: {current.status}",
+                    f"Requested status: {values['status']}",
+                    "No packets, returned evidence, Scores, Grades, or "
+                    "publications are created by this status change.",
+                )
+            )
+        if not confirm_write("Edit Activity", "UPDATE", tuple(review_lines)):
             return
         # The Activity's orientation is not the whole standards contract:
         # historical standard-backed Criteria or Scores still need Core authority.
@@ -762,14 +821,16 @@ def _update_activity_field(
             workspace_root=root,
             standards_library=library,
         )
-        show_result(
-            "Activity Result",
-            (
-                "No changes were needed." if result.commit.no_op else "Activity saved.",
-                f"Activity: {result.activity_id}",
-                f"Snapshot: {result.commit.snapshot_revision}",
-            ),
-        )
+        receipt_lines = [
+            "No changes were needed." if result.commit.no_op else "Activity saved.",
+            f"Activity: {result.activity_id}",
+            f"Snapshot: {result.commit.snapshot_revision}",
+        ]
+        if field == "status":
+            receipt_lines.append(
+                f"Status: {current.status} -> {values['status']}"
+            )
+        show_result("Activity Result", tuple(receipt_lines))
     except CancelMenuAction:
         return
     except Exception as error:

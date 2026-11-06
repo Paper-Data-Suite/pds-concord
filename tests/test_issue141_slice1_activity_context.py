@@ -47,7 +47,9 @@ def test_missing_canonical_library_refuses_mixed_status_edit_before_service(
         ),
     )
     monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        activity_menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(
         activity_menu, "load_menu_standards_library", lambda _root: None
@@ -88,7 +90,9 @@ def test_cancellation_does_not_load_standards_or_commit(
         ),
     )
     monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        activity_menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: False)
     monkeypatch.setattr(
         activity_menu,
