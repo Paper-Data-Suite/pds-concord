@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -91,6 +93,7 @@ from concord.workflows import (
     CreateCriterionSetRequest,
     CreateScoringScaleRequest,
     CriterionSetDetail,
+    CriterionSetSummary,
     CriterionSpec,
     CriterionTargetIdentity,
     MaterializeScoringSetupRequest,
@@ -1351,6 +1354,39 @@ def _select_criterion_sets_advanced(
         _handle_error(activity, error)
 
 
+def _native_rubric_choice_labels(
+    sets: Sequence[CriterionSetSummary],
+) -> tuple[str, ...]:
+    """Distinguish exact native rubrics before a teacher selects a revision.
+
+    The production summaries have kind/count/status fields. Sparse synthetic
+    test doubles may omit some metadata; never invent missing descriptions.
+    """
+    labels: list[str] = []
+    for item in sets:
+        details = [f"revision {item.revision}"]
+        kind = getattr(item, "criterion_set_kind", None)
+        if kind is not None:
+            details.append(kind.replace("_", " "))
+        count = getattr(item, "criterion_count", None)
+        if count is not None:
+            details.append(f"{count} {'Criterion' if count == 1 else 'Criteria'}")
+        current = getattr(item, "is_current", None)
+        if current is not None:
+            details.append("current" if current else "historical")
+        selected = getattr(item, "is_selected", None)
+        if selected is not None:
+            details.append("selected" if selected else "not selected")
+        labels.append(f"{item.name} ({'; '.join(details)})")
+
+    counts = Counter(labels)
+    return tuple(
+        f"{label} [exact ID: {item.criterion_set_id}]"
+        if counts[label] > 1 else label
+        for item, label in zip(sets, labels, strict=True)
+    )
+
+
 def _browse_criterion_sets(activity: ActivitySummary) -> None:
     """Inspect an exact current/historical native rubric without writing."""
     try:
@@ -1384,12 +1420,7 @@ def _browse_criterion_sets(activity: ActivitySummary) -> None:
         selected = select_one(
             "Review an existing rubric",
             sets,
-            tuple(
-                f"{item.name} (revision {item.revision}; "
-                f"{'current' if item.is_current else 'historical'}; "
-                f"{'selected' if item.is_selected else 'not selected'})"
-                for item in sets
-            ),
+            _native_rubric_choice_labels(sets),
             help_text=(
                 "Review the exact native revision. Historical definitions remain "
                 "unchanged and may still be selected for previous Scores."
@@ -2331,12 +2362,7 @@ def _save_criterion_set_as_preset(
             selected = select_one(
                 "Save an existing assessment for another class",
                 sets,
-                tuple(
-                    f"{item.name} (revision {item.revision}; "
-                    f"{'current' if item.is_current else 'historical'}; "
-                    f"{'selected' if item.is_selected else 'not selected'})"
-                    for item in sets
-                ),
+                _native_rubric_choice_labels(sets),
                 help_text=(
                     "Choose the exact native rubric revision to reuse. "
                     "Saving a preset does not select or Score anything."
@@ -2553,12 +2579,7 @@ def _use_existing_criterion_set(
         chosen = select_one(
             "Use an existing rubric",
             sets,
-            tuple(
-                f"{item.name} (revision {item.revision}; "
-                f"{'current' if item.is_current else 'historical'}; "
-                f"{'selected' if item.is_selected else 'not selected'})"
-                for item in sets
-            ),
+            _native_rubric_choice_labels(sets),
             help_text=(
                 "Choose the exact native revision. Historical Scores "
                 "are never rewritten or copied."
@@ -2771,10 +2792,7 @@ def _revise_criterion_set(
         predecessor = select_one(
             "Revise a current rubric",
             heads,
-            tuple(
-                f"{item.name} (revision {item.revision})"
-                for item in heads
-            ),
+            _native_rubric_choice_labels(heads),
             help_text=(
                 "Historical revisions cannot be edited in place. "
                 "A revision creates a new native Criterion Set."
