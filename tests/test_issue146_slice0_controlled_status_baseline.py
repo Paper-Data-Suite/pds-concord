@@ -16,8 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Exact source-verified ordinary menu sites. Group status is the sixth audit gap.
 FREE_TEXT_SITES = (
-    # Activity status was replaced in Slice 1; passing witnesses live there.
-    ("concord/menu_session.py", "_edit_field", "Status"),
+    # Activity and Session statuses are now qualified by Slices 1 and 2.
     ("concord/menu_group.py", "_end_member", "End status"),
     ("concord/menu_role.py", "_end", "End status"),
     ("concord/menu_responsibility.py", "_end", "End status"),
