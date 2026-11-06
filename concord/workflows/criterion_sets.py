@@ -104,6 +104,14 @@ class CriterionSetSelectionResult:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ActivityCriterionSetSelectionSnapshot:
+    """Authoritative ordered selection, NOT alphabetical Criterion Set summaries."""
+
+    criterion_set_ids: tuple[str, ...]
+    snapshot_revision: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class CriterionSetSummary:
     class_id: str
     activity_id: str
@@ -518,6 +526,33 @@ def select_activity_criterion_sets(
         ),
         activity_id=activity.activity_id,
         criterion_set_ids=selected_ids,
+    )
+
+
+def read_activity_criterion_set_selection(
+    class_id: str,
+    activity_id: str,
+    *,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+) -> ActivityCriterionSetSelectionSnapshot:
+    """Read exact Activity selection order and guarded snapshot without writing.
+
+    Reuse the same validated graph loading as Criterion Set selection. Never
+    infer selection order from list_criterion_sets(), which sorts by lineage.
+    """
+    root = resolve_read_workspace_root(workspace_root)
+    if root is None:
+        raise ConcordWorkflowNotFoundError(
+            "Paper Data Suite workspace does not exist."
+        )
+    graph, snapshot, _ = load_graph(
+        root, work_ref(class_id, activity_id), standards_library
+    )
+    activity = require_activity(graph, activity_id)
+    return ActivityCriterionSetSelectionSnapshot(
+        criterion_set_ids=activity.criterion_set_ids,
+        snapshot_revision=snapshot,
     )
 
 

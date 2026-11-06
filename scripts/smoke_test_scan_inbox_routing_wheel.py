@@ -129,12 +129,14 @@ def _smoke_code() -> str:
                 **os.environ,
                 "PDS_WORKSPACE_ROOT": str(root),
                 "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTHONIOENCODING": "utf-8",
             }
             completed = subprocess.run(
                 [str(console)],
                 cwd=Path(raw),
                 input="4\n1\n2\n\nb\nq\n",
                 text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=True,
                 env=env,

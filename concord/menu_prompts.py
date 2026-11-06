@@ -57,11 +57,16 @@ def prompt_text(
     help_text: str,
     default: str | None = None,
     optional: bool = False,
+    intro_lines: Sequence[str] = (),
 ) -> str | None:
     """Prompt for one text value while honoring H/B/M/Q navigation."""
     while True:
         clear_screen()
         print_menu_header(title)
+        for line in intro_lines:
+            print(line)
+        if intro_lines:
+            print()
         if default is not None:
             print(f"Current/default: {default}")
         elif optional:
@@ -85,6 +90,29 @@ def prompt_text(
             return default
         if optional:
             return None
+
+
+def prompt_scale_combining_notes(title: str) -> str | None:
+    """Describe optional Scale metadata before prompting, not only in H help."""
+    return prompt_text(
+        title,
+        "Notes",
+        help_text=(
+            "Reference notes only. Concord does not automatically combine Scores "
+            "or calculate Grades. Leave blank when not applicable."
+        ),
+        optional=True,
+        intro_lines=(
+            "Optional notes on combining assessment results",
+            "",
+            "Describe how you intend to interpret multiple assessment results,",
+            "if applicable. These notes are for reference only.",
+            "Concord does not automatically combine Scores or calculate Grades.",
+            "",
+            "Example: Use the most recent consistent evidence of proficiency",
+            "rather than averaging all prior ratings.",
+        ),
+    )
 
 
 def prompt_exact_text(

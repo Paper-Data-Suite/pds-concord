@@ -3,17 +3,38 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from pds_core.standards import StandardsLibrary
 
+from concord.criterion_guidance import (
+    criterion_specs,
+)
+from concord.criterion_guidance import (
+    describe_draft as describe_criterion_draft,
+)
+from concord.criterion_guidance import (
+    validate_draft as validate_criterion_draft,
+)
+from concord.criterion_preset_guidance import (
+    assess_native_defaults,
+    matches_native_scale,
+    scale_mapping_receipt,
+)
+from concord.criterion_revision_guidance import (
+    describe_native_criterion_set,
+    project_native_criterion_set,
+)
 from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
 )
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_criterion_guidance import guide_native_criterion_set
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -28,6 +49,7 @@ from concord.menu_prompts import (
     handle_write_error,
     load_menu_standards_library,
     prompt_positive_int,
+    prompt_scale_combining_notes,
     prompt_text,
     select_many,
     select_one,
@@ -71,6 +93,7 @@ from concord.workflows import (
     CreateCriterionSetRequest,
     CreateScoringScaleRequest,
     CriterionSetDetail,
+    CriterionSetSummary,
     CriterionSpec,
     CriterionTargetIdentity,
     MaterializeScoringSetupRequest,
@@ -84,6 +107,7 @@ from concord.workflows import (
     ScoreSummary,
     ScoringScaleSummary,
     SelectActivityCriterionSetsRequest,
+    WorkflowActor,
     add_score,
     create_criterion_set,
     create_scoring_scale,
@@ -100,6 +124,7 @@ from concord.workflows import (
     prepare_criterion_set_preset_from_activity,
     prepare_scoring_scale_preset_from_activity,
     prepare_scoring_setup,
+    read_activity_criterion_set_selection,
     replace_score,
     resolve_read_workspace_root,
     revise_criterion_set,
@@ -238,12 +263,13 @@ def _choose_scale(activity: ActivitySummary) -> ScoringScaleSummary:
 
 
 def _edit_optional_scale_field(
-    title: str, label: str, previous: str | None
+    title: str, label: str, previous: str | None, *,
+    combining_notes: bool = False,
 ) -> str | None:
     if previous is None:
-        return _optional_text(
-            title, label, "Optional teacher-facing guidance."
-        )
+        if combining_notes:
+            return prompt_scale_combining_notes(title)
+        return _optional_text(title, label, "Optional teacher-facing guidance.")
     action = select_one(
         title,
         ("keep", "change", "clear"),
@@ -254,6 +280,8 @@ def _edit_optional_scale_field(
         return previous
     if action == "clear":
         return None
+    if combining_notes:
+        return prompt_scale_combining_notes(title)
     return _optional_text(title, label, "Enter replacement guidance.")
 
 
@@ -269,16 +297,10 @@ def _create_scale(
             help_text="Name this exact native scoring Scale.",
         )
         assert name is not None
-        scale_id = _identifier(
-            "Create Scoring Scale",
-            "Scoring Scale ID",
-            slug_identifier(name, f"scale-{uuid4().hex[:8]}"),
-        )
-        lineage_id = _identifier(
-            "Create Scoring Scale",
-            "Lineage ID",
-            f"{scale_id}-lineage",
-        )
+        # Native identities are implementation details, never teacher-facing prompts.
+        # Fresh UUIDs also avoid collisions between Scales with identical names.
+        scale_id = f"scale-{uuid4().hex}"
+        lineage_id = f"scale-lineage-{uuid4().hex}"
         guided = guide_scale_levels(
             title="Create Scoring Scale — Choose Levels",
             validator=lambda draft: validate_draft(
@@ -294,11 +316,7 @@ def _create_scale(
             "Intended use",
             "Optional teacher-facing intended-use guidance.",
         )
-        aggregation = _optional_text(
-            "Create Scoring Scale",
-            "Aggregation guidance",
-            "Optional descriptive guidance only; Concord does not aggregate Grades.",
-        )
+        aggregation = prompt_scale_combining_notes("Create Scoring Scale")
         validate_draft(
             guided.draft,
             name=name,
@@ -312,12 +330,12 @@ def _create_scale(
             (
                 f"Activity: {current.title}",
                 f"Scale: {name}",
-                f"New native ID: {scale_id}",
+                "New native Scale identity and lineage generated automatically.",
                 "Revision: 1 (new lineage)",
                 *describe_draft(guided.draft),
                 *guided.precision_notices,
                 f"Intended use: {intended_use or '(none)'}",
-                f"Aggregation guidance: {aggregation or '(none)'}",
+                f"Notes on combining assessment results: {aggregation or '(none)'}",
                 "No Scores, Grades, evidence, or publication are created.",
                 "Native Scale only; this does not link a Criterion or save a preset.",
             ),
@@ -413,8 +431,8 @@ def _revise_scale(
             "Revise Scoring Scale", "Intended use", detail.summary.intended_use
         )
         aggregation = _edit_optional_scale_field(
-            "Revise Scoring Scale", "Aggregation guidance",
-            detail.aggregation_guidance,
+            "Revise Scoring Scale", "Notes on combining assessment results",
+            detail.aggregation_guidance, combining_notes=True,
         )
         validate_draft(
             guided.draft,
@@ -434,7 +452,7 @@ def _revise_scale(
                 *describe_draft(guided.draft),
                 *guided.precision_notices,
                 f"Intended use: {intended_use or '(none)'}",
-                f"Aggregation guidance: {aggregation or '(none)'}",
+                f"Notes on combining assessment results: {aggregation or '(none)'}",
                 "Historical Scale and Scores remain unchanged.",
             ),
         ):
@@ -502,6 +520,9 @@ def _browse_scales(activity: ActivitySummary) -> None:
             f"Revision: {selected.revision}",
             f"Type: {selected.scale_type}",
             f"Status: {selected.status}",
+            f"Intended use: {detail.summary.intended_use or '-'}",
+            f"Notes on combining assessment results: "
+            f"{detail.aggregation_guidance or '-'}",
         ]
         lines.extend(
             f"{json.dumps(level.value)} - {level.label}: {level.meaning}"
@@ -512,6 +533,197 @@ def _browse_scales(activity: ActivitySummary) -> None:
         return
     except Exception as error:
         show_result("Scoring Scale Error", (str(error),))
+
+
+def _saved_scale_menu_labels(
+    presets: tuple[ScoringScalePresetRevision, ...],
+) -> tuple[str, ...]:
+    """Distinguish reusable definitions with grounded, exact revision details."""
+    base = tuple(
+        f"{item.name} | {item.scale_type} | {len(item.levels)} levels | "
+        f"saved revision {item.revision}"
+        for item in presets
+    )
+    return tuple(
+        f"{label} | Preset ID: {item.preset_id}"
+        if base.count(label) > 1 else label
+        for label, item in zip(base, presets, strict=True)
+    )
+
+
+def _saved_scale_preview(value: ScoringScalePresetRevision) -> tuple[str, ...]:
+    """Display the exact saved, typed Scale definition without a write."""
+    lines = [
+        f"Saved Scale: {value.name}",
+        f"Preset ID: {value.preset_id}",
+        f"Saved revision: {value.revision} ({value.preset_revision_id})",
+        f"Status: {value.status}",
+        f"Scale type: {value.scale_type}",
+        f"Levels: {len(value.levels)} (exact typed values)",
+        f"Intended use: {value.intended_use or '-'}",
+        "Notes on combining assessment results: "
+        f"{value.aggregation_guidance or '-'}",
+    ]
+    lines.extend(
+        f"  {json.dumps(level.value, ensure_ascii=False)} "
+        f"[{type(level.value).__name__}] - {level.label}: {level.meaning}"
+        for level in value.levels
+    )
+    return tuple(lines)
+
+
+def _import_saved_scale(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Create only a fresh native Scale from an exact, reviewed saved revision."""
+    try:
+        current = _latest(activity)
+        summaries = list_presets("scoring_scale")
+        if not summaries:
+            show_result(
+                "No Saved Scoring Scales",
+                ("Save or create a reusable Scoring Scale preset first.",),
+            )
+            return
+        available: list[ScoringScalePresetRevision] = []
+        for summary in summaries:
+            exact = get_preset_revision(
+                "scoring_scale", summary.preset_id, summary.preset_revision_id
+            )
+            if not isinstance(exact, ScoringScalePresetRevision):
+                raise ValueError("Saved Scoring Scale has an unexpected type.")
+            if exact.revision != summary.revision or exact.status != "active":
+                raise ValueError("Saved Scale changed. Reopen the selection.")
+            available.append(exact)
+        chosen = select_one(
+            "Choose a Saved Scoring Scale",
+            available,
+            _saved_scale_menu_labels(tuple(available)),
+            help_text=(
+                "Choose one exact saved definition. A separate review and "
+                "confirmation creates only a fresh native Activity Scale."
+            ),
+        )
+        show_result(
+            "Saved Scoring Scale — Read-only Preview",
+            (*_saved_scale_preview(chosen), "No Activity records were changed."),
+        )
+        new_scale_id = f"scale-{uuid4().hex}"
+        new_lineage_id = f"scale-lineage-{uuid4().hex}"
+        if not confirm_write(
+            "Use Saved Scoring Scale",
+            "USE",
+            (
+                f"Activity: {current.title}",
+                *_saved_scale_preview(chosen),
+                "A new native Scale identity and lineage will be generated.",
+                "One native Scoring Scale will be created in this Activity.",
+                "No Criteria, Criterion Sets, Scores, Grades, student/Group "
+                "data, evidence, or presets will be created or copied.",
+                "The new Scale must be chosen separately when configuring Criteria.",
+            ),
+        ):
+            return
+        # A concurrent Activity change or preset revision must fail before writing.
+        if _latest(activity).snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed during review. Reopen the Activity.")
+        head = get_preset("scoring_scale", chosen.preset_id)
+        if (
+            not isinstance(head, ScoringScalePresetRevision)
+            or head != chosen
+            or head.status != "active"
+        ):
+            raise ValueError("Saved Scoring Scale changed during review. Reopen it.")
+        request = CreateScoringScaleRequest(
+            class_id=current.class_id,
+            activity_id=current.activity_id,
+            scoring_scale_id=new_scale_id,
+            lineage_id=new_lineage_id,
+            name=chosen.name,
+            revision=1,
+            scale_type=chosen.scale_type,
+            levels=chosen.levels,
+            status="active",
+            intended_use=chosen.intended_use,
+            aggregation_guidance=chosen.aggregation_guidance,
+            expected_snapshot_revision=current.snapshot_revision,
+            actor=state.require_actor(),
+        )
+        try:
+            result = create_scoring_scale(
+                request, standards_library=_library()
+            )
+        except Exception as error:
+            show_result(
+                "Saved Scoring Scale Import — Outcome Unconfirmed",
+                (
+                    f"Proposed native Scale ID: {new_scale_id}",
+                    f"Service error: {error}",
+                    "Do not retry blindly. Browse native Scoring Scales first.",
+                ),
+            )
+            return
+        try:
+            observed = show_scoring_scale(
+                current.class_id, current.activity_id, new_scale_id,
+                standards_library=_library(),
+            )
+        except Exception as error:
+            show_result(
+                "Saved Scoring Scale Imported — Verification Unavailable",
+                (
+                    f"Native Scale: {result.scoring_scale_id}",
+                    f"Activity snapshot: {result.commit.snapshot_revision}",
+                    f"Read-back error: {error}",
+                    "Do not retry; inspect the created native Scale first.",
+                ),
+            )
+            return
+        exact_levels = (
+            len(observed.levels) == len(chosen.levels)
+            and all(
+                type(left.value) is type(right.value) and left == right
+                for left, right in zip(observed.levels, chosen.levels, strict=True)
+            )
+        )
+        if not (
+            observed.summary.scoring_scale_id == new_scale_id
+            and observed.summary.lineage_id == new_lineage_id
+            and observed.summary.revision == 1
+            and observed.summary.scale_type == chosen.scale_type
+            and observed.summary.name == chosen.name
+            and observed.summary.status == "active"
+            and observed.summary.intended_use == chosen.intended_use
+            and observed.aggregation_guidance == chosen.aggregation_guidance
+            and observed.summary.snapshot_revision == result.commit.snapshot_revision
+            and exact_levels
+        ):
+            show_result(
+                "Saved Scoring Scale Imported — Verification Mismatch",
+                (
+                    f"Native Scale: {new_scale_id}",
+                    "The write receipt exists, but read-back did not match.",
+                    "Inspect the Scale and Activity before any retry.",
+                ),
+            )
+            return
+        show_result(
+            "Saved Scoring Scale Imported",
+            (
+                f"Saved preset: {chosen.preset_id} ({chosen.preset_revision_id})",
+                f"New native Scale: {new_scale_id}",
+                f"New lineage: {new_lineage_id}",
+                f"Activity snapshot: {result.commit.snapshot_revision}",
+                "Exact typed levels and guidance verified after creation.",
+                "No Criterion, Criterion Set, Score, Grade, or evidence was created.",
+                "Use Assessment Setup > Criteria to select this new native Scale.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
 
 
 def _criterion_kind(set_kind: str) -> str:
@@ -738,7 +950,247 @@ def _create_criterion_set(
         _handle_error(activity, error)
 
 
-def _revise_criterion_set(
+def _create_guided_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+    *,
+    use_after_create: bool = False,
+) -> None:
+    """Guarded native Create only or Create & Use; no cross-store atomicity."""
+    try:
+        current = _latest(activity)
+        detail = show_activity(current.class_id, current.activity_id)
+        library = _library()
+        draft, focus_choices = guide_native_criterion_set(
+            orientation=current.scoring_orientation,
+            standards_library=library,
+            standards_profile_id=detail.standards_profile_id,
+            focus_standard_ids=tuple(detail.focus_standard_ids),
+            choose_scale=lambda: _default_scale(current),
+        )
+        actor = state.require_actor()
+        validate_criterion_draft(
+            draft,
+            activity_scoring_orientation=current.scoring_orientation,
+            standards_profile_id=detail.standards_profile_id,
+            focus_standard_ids=tuple(detail.focus_standard_ids),
+            standards_library=library,
+            created_provenance=provenance(actor),
+        )
+        criterion_set_id = f"criterion-set-{uuid4().hex}"
+        lineage_id = f"{criterion_set_id}-lineage"
+        criterion_ids = tuple(f"criterion-{uuid4().hex}" for _ in draft.criteria)
+        specs = criterion_specs(draft, criterion_ids)
+        before_selection = (
+            read_activity_criterion_set_selection(
+                current.class_id, current.activity_id, standards_library=library
+            )
+            if use_after_create
+            else None
+        )
+        if (
+            before_selection is not None
+            and before_selection.snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError(
+                "Activity selection changed during review. Reopen the rubric."
+            )
+        if not confirm_write(
+            (
+                "Create and Use Rubric"
+                if use_after_create
+                else "Create Rubric (Definition Only)"
+            ),
+            "CREATE & USE" if use_after_create else "CREATE",
+            (
+                f"Class: {current.class_id}",
+                f"Activity: {current.title} ({current.activity_id})",
+                f"Scoring orientation: {current.scoring_orientation}",
+                f"Current snapshot: {current.snapshot_revision}",
+                f"Core Standards profile: {detail.standards_profile_id or 'none'}",
+                *describe_criterion_draft(draft, focus_choices=focus_choices),
+                f"New native Criterion Set ID: {criterion_set_id}",
+                (
+                    "CREATE & USE: create the Set, then select the exact revision."
+                    if use_after_create
+                    else "CREATE ONLY: the Set will NOT be selected for scoring."
+                ),
+                (
+                    "Existing selected Sets and their order will be retained."
+                    if use_after_create
+                    else "Select the Set separately when you want to use it."
+                ),
+                "Creation and Activity selection are separately guarded "
+                "durable writes.",
+                "Saving a reusable preset requires separate explicit authorization.",
+            ),
+        ):
+            return
+        if _latest(activity).snapshot_revision != current.snapshot_revision:
+            raise ValueError(
+                "Activity changed after rubric review. "
+                "Reopen and review before creating."
+            )
+        result = create_criterion_set(
+            CreateCriterionSetRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                criterion_set_id=criterion_set_id,
+                lineage_id=lineage_id,
+                name=draft.name,
+                purpose=draft.purpose,
+                revision=1,
+                scope=draft.scope,
+                criterion_set_kind=draft.criterion_set_kind,
+                criteria=specs,
+                status="active",
+                standards_profile_id=(
+                    detail.standards_profile_id
+                    if draft.criterion_set_kind in {"standard_backed", "mixed"}
+                    else None
+                ),
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+            ),
+            standards_library=_library(),
+        )
+        if use_after_create:
+            assert before_selection is not None
+            _complete_guided_criterion_selection(
+                current, actor, result.criterion_set_id,
+                created_snapshot=result.commit.snapshot_revision,
+                original_selection=before_selection.criterion_set_ids,
+            )
+            return
+        show_result(
+            "Rubric Created — Not Yet Selected",
+            (
+                f"Native Criterion Set: {result.criterion_set_id}",
+                f"Snapshot: {result.commit.snapshot_revision}",
+                "This definition has been saved but is not automatically selected.",
+                "Use 'Use an existing rubric' to select it, then choose "
+                "Save this assessment for another class.",
+                "No Score, Grade, evidence, Group/student record "
+                "or publication was created.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _complete_guided_criterion_selection(
+    activity: ActivitySummary,
+    actor: WorkflowActor,
+    criterion_set_id: str,
+    *,
+    created_snapshot: int,
+    original_selection: tuple[str, ...],
+) -> None:
+    """Select after native creation with one approval, truthful partial receipts.
+
+    No automatic replay: if this stage fails, the native Set remains durable.
+    A later teacher action may explicitly select that existing Set instead.
+    """
+    selected = (*original_selection, criterion_set_id)
+    try:
+        prior = read_activity_criterion_set_selection(
+            activity.class_id, activity.activity_id, standards_library=_library()
+        )
+        if (
+            prior.snapshot_revision != created_snapshot
+            or prior.criterion_set_ids != original_selection
+        ):
+            raise ValueError(
+                "Activity selection changed after rubric creation; no automatic "
+                "overwrite was attempted."
+            )
+        result = select_activity_criterion_sets(
+            SelectActivityCriterionSetsRequest(
+                class_id=activity.class_id,
+                activity_id=activity.activity_id,
+                criterion_set_ids=selected,
+                expected_snapshot_revision=created_snapshot,
+                actor=actor,
+            ),
+            standards_library=_library(),
+        )
+        verified = read_activity_criterion_set_selection(
+            activity.class_id, activity.activity_id, standards_library=_library()
+        )
+        if (
+            verified.criterion_set_ids != selected
+            or verified.snapshot_revision != result.commit.snapshot_revision
+        ):
+            raise ValueError(
+                "Selection result does not match the authoritative Activity state."
+            )
+    except Exception as error:
+        # A service exception can occur after durable storage succeeds. Re-read
+        # canonical state; never present a guessed rollback or blindly retry.
+        try:
+            observed = read_activity_criterion_set_selection(
+                activity.class_id, activity.activity_id,
+                standards_library=_library(),
+            )
+        except Exception as inspection_error:
+            show_result(
+                "Rubric Created — Selection Outcome Unknown",
+                (
+                    f"Created native Criterion Set: {criterion_set_id}",
+                    f"Selection/review error: {error}",
+                    f"Current-state inspection also failed: {inspection_error}",
+                    "Do not create another rubric or assume selection failed.",
+                    "Reopen this Activity and inspect its selected Criteria.",
+                ),
+            )
+            return
+        if observed.criterion_set_ids == selected:
+            show_result(
+                "Rubric Created — Selection Verified After Error",
+                (
+                    f"Native Criterion Set: {criterion_set_id}",
+                    f"Verified Activity snapshot: {observed.snapshot_revision}",
+                    f"A service/verification error occurred: {error}",
+                    "The exact intended selection is present in canonical state.",
+                    "No Scores, Grades, evidence, or publication were created.",
+                ),
+            )
+        else:
+            show_result(
+                "Rubric Created — Selection Requires Review",
+                (
+                    f"Native Criterion Set: {criterion_set_id}",
+                    f"Current Activity snapshot: {observed.snapshot_revision}",
+                    f"Selection error: {error}",
+                    "The intended Create & Use selection is NOT verified.",
+                    "Use 'Select Activity Criterion Sets' on the EXISTING rubric;",
+                    "do not repeat creation. No automatic retry was attempted.",
+                ),
+            )
+        return
+    show_result(
+        "Rubric Created and Selected",
+        (
+            f"Native Criterion Set: {criterion_set_id}",
+            f"Selected Activity snapshot: {verified.snapshot_revision}",
+            f"Existing selected Sets preserved: {len(original_selection)}",
+            "This rubric is now selected for future Activity Scores.",
+            "No Score, Grade, evidence, or publication was created.",
+            "Next: Criterion Sets > Save this assessment for another class.",
+        ),
+    )
+
+
+def _create_and_use_guided_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    _create_guided_criterion_set(activity, state, use_after_create=True)
+
+
+def _revise_criterion_set_advanced(
     activity: ActivitySummary,
     state: MenuSessionContext,
 ) -> None:
@@ -843,7 +1295,7 @@ def _revise_criterion_set(
         _handle_error(activity, error)
 
 
-def _select_criterion_sets(
+def _select_criterion_sets_advanced(
     activity: ActivitySummary,
     state: MenuSessionContext,
 ) -> None:
@@ -902,43 +1354,99 @@ def _select_criterion_sets(
         _handle_error(activity, error)
 
 
+def _native_rubric_choice_labels(
+    sets: Sequence[CriterionSetSummary],
+) -> tuple[str, ...]:
+    """Distinguish exact native rubrics before a teacher selects a revision.
+
+    The production summaries have kind/count/status fields. Sparse synthetic
+    test doubles may omit some metadata; never invent missing descriptions.
+    """
+    labels: list[str] = []
+    for item in sets:
+        details = [f"revision {item.revision}"]
+        kind = getattr(item, "criterion_set_kind", None)
+        if kind is not None:
+            details.append(kind.replace("_", " "))
+        count = getattr(item, "criterion_count", None)
+        if count is not None:
+            details.append(f"{count} {'Criterion' if count == 1 else 'Criteria'}")
+        current = getattr(item, "is_current", None)
+        if current is not None:
+            details.append("current" if current else "historical")
+        selected = getattr(item, "is_selected", None)
+        if selected is not None:
+            details.append("selected" if selected else "not selected")
+        labels.append(f"{item.name} ({'; '.join(details)})")
+
+    counts = Counter(labels)
+    return tuple(
+        f"{label} [exact ID: {item.criterion_set_id}]"
+        if counts[label] > 1 else label
+        for item, label in zip(sets, labels, strict=True)
+    )
+
+
 def _browse_criterion_sets(activity: ActivitySummary) -> None:
+    """Inspect an exact current/historical native rubric without writing."""
     try:
+        current = _latest(activity)
+        library = _library()
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError(
+                "Activity changed before rubric review. Reopen this Activity."
+            )
         sets = list_criterion_sets(
-            activity.class_id,
-            activity.activity_id,
-            standards_library=_library(),
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
             current_only=False,
         )
+        if not sets:
+            show_result(
+                "No Rubrics Yet",
+                (
+                    "This Activity has no native Criterion Sets yet.",
+                    "Choose 'Create and use a rubric (guided)' to begin.",
+                    "No Activity selection, Scores, or saved presets changed.",
+                ),
+            )
+            return
         selected = select_one(
-            "Criterion Sets",
+            "Review an existing rubric",
             sets,
-            tuple(
-                f"{item.name} ({item.criterion_set_id}, rev {item.revision}) "
-                f"[{'selected' if item.is_selected else 'not selected'}]"
-                for item in sets
+            _native_rubric_choice_labels(sets),
+            help_text=(
+                "Review the exact native revision. Historical definitions remain "
+                "unchanged and may still be selected for previous Scores."
             ),
-            help_text="Choose an exact Criterion Set revision for detail.",
         )
         detail = show_criterion_set(
-            activity.class_id,
-            activity.activity_id,
+            current.class_id,
+            current.activity_id,
             selected.criterion_set_id,
-            standards_library=_library(),
+            standards_library=library,
         )
-        lines = [
-            f"Criterion Set: {selected.criterion_set_id}",
-            f"Revision: {selected.revision}",
-            f"Kind: {selected.criterion_set_kind}",
-            f"Scope: {selected.scope}",
-            f"Selected: {'yes' if selected.is_selected else 'no'}",
-            f"Purpose: {detail.purpose}",
-        ]
-        lines.extend(
-            f"{item.key} - {item.label} [{item.criterion_kind}]"
-            for item in detail.criteria
+        review = project_native_criterion_set(detail, selection)
+        scales = list_scoring_scales(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
         )
-        show_result("Criterion Set Detail", tuple(lines))
+        scale_names = {item.scoring_scale_id: item.name for item in scales}
+        show_result(
+            "Existing Rubric — Read Only",
+            describe_native_criterion_set(
+                review,
+                standards_library=library,
+                native_scale_names=scale_names,
+            ),
+        )
     except CancelMenuAction:
         return
     except Exception as error:
@@ -1758,28 +2266,60 @@ def _save_scale_as_preset(
 def _recommended_scale_for_native_set(
     detail: CriterionSetDetail,
 ) -> tuple[str | None, str | None]:
-    native_defaults = {
-        item.default_scoring_scale_id
-        for item in detail.criteria
-        if item.default_scoring_scale_id is not None
-    }
-    if not native_defaults:
+    """Offer only exact typed, separately saved native Scale definitions.
+
+    The source preset service supports one recommended Scale only. Multiple
+    native defaults, no default, or no exact saved match mean explicit omission.
+    """
+    assessment = assess_native_defaults(detail.criteria)
+    if assessment.native_scale_id is None:
+        if assessment.default_ids:
+            show_result("Scale Recommendation Excluded", (assessment.notice,))
         return None, None
-    saved = list_presets("scoring_scale")
-    if not saved:
-        return None, None
-    values = (None, *saved)
-    labels = (
-        "Do not carry a default Scale recommendation",
-        *tuple(f"{item.name} ({item.preset_id})" for item in saved),
+    native = show_scoring_scale(
+        detail.summary.class_id,
+        detail.summary.activity_id,
+        assessment.native_scale_id,
+        standards_library=_library(),
     )
+    matches: list[ScoringScalePresetRevision] = []
+    for summary in list_presets("scoring_scale"):
+        exact = get_preset_revision(
+            "scoring_scale", summary.preset_id, summary.preset_revision_id
+        )
+        if not isinstance(exact, ScoringScalePresetRevision):
+            raise ValueError("Saved Scale has an unexpected preset record type.")
+        if matches_native_scale(native, exact):
+            matches.append(exact)
+    if not matches:
+        show_result(
+            "No Exact Reusable Scale Match",
+            (
+                f"Native Scale ID: {assessment.native_scale_id}",
+                "No active Scale preset has exactly matching typed levels,",
+                "labels, meanings, ordering, type, and scoring guidance.",
+                "You may save this rubric without a default Scale recommendation.",
+                "To retain one, first save the native Scale as its own preset",
+                "through Scoring Scales, then return to save this rubric.",
+                "A different Scale will never be silently substituted.",
+            ),
+        )
+        return None, None
     selected = select_one(
-        "Reusable Scale Recommendation",
-        values,
-        labels,
+        "Exact Scoring Scale for Another Class",
+        (None, *matches),
+        (
+            "Omit native default Scale reference from the saved rubric",
+            *(
+                f"{item.name} — saved revision {item.revision} "
+                f"({item.preset_id} / {item.preset_revision_id})"
+                for item in matches
+            ),
+        ),
         help_text=(
-            "Native Scale IDs cannot become cross-Activity authority. "
-            "Choose a saved Scale only when it represents the intended default."
+            "Every listed Scale matches the native definition exactly, "
+            "including typed level values. This is a new, separate preset "
+            "reference, not a copied Activity-native Scale ID."
         ),
     )
     if selected is None:
@@ -1790,62 +2330,658 @@ def _recommended_scale_for_native_set(
 def _save_criterion_set_as_preset(
     activity: ActivitySummary,
     state: MenuSessionContext,
+    *,
+    criterion_set_id: str | None = None,
 ) -> None:
+    """Save any exact existing native revision via the #143 reviewed contract.
+
+    A reusable preset is distinct from a native 'reusable' scope and does not
+    carry Scores, class/Group/student identity, or native Scale record IDs.
+    """
     try:
         current = _latest(activity)
+        library = _library()
+        selection = read_activity_criterion_set_selection(
+            current.class_id, current.activity_id, standards_library=library
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed before saved-rubric review. Reload.")
         sets = list_criterion_sets(
             current.class_id,
             current.activity_id,
-            standards_library=_library(),
-            current_only=True,
+            standards_library=library,
+            current_only=False,
         )
-        selected = select_one(
-            "Save Criterion Set as Preset",
-            sets,
-            tuple(f"{item.name} ({item.criterion_set_id})" for item in sets),
-            help_text=(
-                "Choose the native Criterion Set whose reusable definition to save."
-            ),
-        )
+        if not sets:
+            show_result(
+                "No Native Rubric to Save",
+                ("Create a rubric first; no reusable preset was written.",),
+            )
+            return
+        if criterion_set_id is None:
+            selected = select_one(
+                "Save an existing assessment for another class",
+                sets,
+                _native_rubric_choice_labels(sets),
+                help_text=(
+                    "Choose the exact native rubric revision to reuse. "
+                    "Saving a preset does not select or Score anything."
+                ),
+            )
+        else:
+            found = next(
+                (item for item in sets if item.criterion_set_id == criterion_set_id),
+                None,
+            )
+            if found is None:
+                raise ValueError("The requested native rubric is not in this Activity.")
+            selected = found
         detail = show_criterion_set(
             current.class_id,
             current.activity_id,
             selected.criterion_set_id,
-            standards_library=_library(),
+            standards_library=library,
         )
+        if (
+            selected.snapshot_revision != current.snapshot_revision
+            or detail.summary.snapshot_revision != current.snapshot_revision
+            or detail.summary.criterion_set_id != selected.criterion_set_id
+        ):
+            raise ValueError("Native rubric changed before reusable review. Reload.")
         recommended_id, recommended_revision_id = _recommended_scale_for_native_set(
             detail
         )
+        assessment = assess_native_defaults(detail.criteria)
+        scale_lines = scale_mapping_receipt(
+            assessment,
+            preset_id=recommended_id,
+            preset_revision_id=recommended_revision_id,
+        )
         preset_id = f"criterion-preset-{uuid4().hex}"
+        revision_id = f"{preset_id}-v1"
         request = SaveCriterionSetPresetFromActivityRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
             criterion_set_id=selected.criterion_set_id,
             preset_id=preset_id,
-            preset_revision_id=f"{preset_id}-v1",
+            preset_revision_id=revision_id,
             expected_snapshot_revision=current.snapshot_revision,
             actor=state.require_actor(),
             recommended_scoring_scale_preset_id=recommended_id,
             recommended_scoring_scale_preset_revision_id=recommended_revision_id,
         )
         prepared = prepare_criterion_set_preset_from_activity(
-            request,
-            standards_library=_library(),
+            request, standards_library=library
         )
         if not confirm_write(
-            "Save Criterion Set Preset",
+            "Save this assessment for another class",
             "SAVE",
-            _preset_save_lines(prepared),
+            (
+                f"Source Activity: {current.title} ({current.activity_id})",
+                f"Exact native Set: {selected.criterion_set_id}",
+                f"Native revision: {selected.revision}",
+                f"Current or historical: "
+                f"{'current' if selected.is_current else 'historical'}",
+                f"Selected for this Activity: "
+                f"{'yes' if selected.is_selected else 'no'}",
+                f"Source Activity snapshot: {current.snapshot_revision}",
+                *scale_lines,
+                *_preset_save_lines(prepared),
+                "SAVE is one separate reusable-preset write; it will not",
+                "change this Activity or configure any other class yet.",
+                "No Scores, Grades, student/Group IDs, evidence, or publication",
+                "are copied. The target Activity must later be reviewed.",
+            ),
         ):
             return
-        result = save_criterion_set_preset_from_activity(
-            request,
-            review_digest=prepared.review_digest,
-            standards_library=_library(),
+        fresh = read_activity_criterion_set_selection(
+            current.class_id, current.activity_id, standards_library=library
         )
+        if (
+            fresh != selection
+            or _latest(activity).snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError("Activity changed since preset review. Reopen to save.")
+        # The service rechecks the reviewed source fields and Scale-preset
+        # revision through its digest; do not implement a second preset writer.
+        try:
+            result = save_criterion_set_preset_from_activity(
+                request,
+                review_digest=prepared.review_digest,
+                standards_library=library,
+            )
+        except Exception as error:
+            # A failed call does not prove a failed durable write. Do not offer
+            # a blind retry with a fresh ID after an uncertain receipt.
+            try:
+                existing = get_preset_revision(
+                    "criterion_set", preset_id, revision_id
+                )
+            except Exception:
+                show_result(
+                    "Reusable Assessment Save Outcome Unknown",
+                    (
+                        f"Proposed preset: {preset_id} / {revision_id}",
+                        f"Service error: {error}",
+                        "Do not create a duplicate. Inspect saved assessments",
+                        "before deciding whether another save is necessary.",
+                    ),
+                )
+                return
+            if not isinstance(existing, CriterionSetPresetRevision):
+                raise ValueError("Saved assessment has an unexpected preset type.")
+            show_result(
+                "Reusable Assessment Verified After Error",
+                (
+                    f"Exact saved preset: {preset_id} / {revision_id}",
+                    f"Service error: {error}",
+                    "A reusable definition exists; no automatic retry occurred.",
+                ),
+            )
+            return
+        try:
+            existing = get_preset_revision(
+                "criterion_set", result.preset_id, result.preset_revision_id
+            )
+            if not isinstance(existing, CriterionSetPresetRevision):
+                raise ValueError("Saved assessment has an unexpected preset type.")
+        except Exception as inspection_error:
+            show_result(
+                "Reusable Assessment Saved — Verification Unavailable",
+                (
+                    "Service receipt: "
+                    f"{result.preset_id} / {result.preset_revision_id}",
+                    f"Verification error: {inspection_error}",
+                    "Do not retry blindly; inspect the reusable-preset library.",
+                ),
+            )
+            return
         show_result(
-            "Criterion Set Preset Saved",
-            (f"Preset: {result.preset_id}", "Scores and native IDs were not copied."),
+            "Assessment Saved for Another Class",
+            (
+                f"Saved preset: {result.preset_id} / {result.preset_revision_id}",
+                f"Source native rubric: {selected.criterion_set_id}",
+                *scale_lines,
+                "Only the reusable definition was saved; no target Activity",
+                "was configured, and no Scores or evidence were copied.",
+                "Use 'Use saved assessment setup' in the other class later.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _plan_existing_rubric_selection(
+    selected_ids: tuple[str, ...],
+    chosen_id: str,
+    lineage_ids: frozenset[str],
+    *,
+    replace_prior_revisions: bool,
+) -> tuple[str, ...]:
+    """Preserve selection order; replace only this lineage when authorized."""
+    if not replace_prior_revisions:
+        return selected_ids if chosen_id in selected_ids else (*selected_ids, chosen_id)
+    result: list[str] = []
+    inserted = False
+    for selected_id in selected_ids:
+        if selected_id in lineage_ids:
+            if not inserted:
+                result.append(chosen_id)
+                inserted = True
+        else:
+            result.append(selected_id)
+    if not inserted:
+        result.append(chosen_id)
+    return tuple(result)
+
+
+def _describe_selected_rubric_revisions(
+    selected_ids: tuple[str, ...],
+    descriptions: dict[str, str],
+) -> tuple[str, ...]:
+    if not selected_ids:
+        return ("  (none)",)
+    return tuple(
+        f"  {position}. {descriptions.get(item, item)} [exact ID: {item}]"
+        for position, item in enumerate(selected_ids, 1)
+    )
+
+
+def _use_existing_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Select an exact existing rubric revision with a verified Activity receipt."""
+    try:
+        current = _latest(activity)
+        library = _library()
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed before rubric selection. Reload.")
+        sets = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=False,
+        )
+        if not sets:
+            show_result(
+                "No Existing Rubrics",
+                ("Create a rubric before trying to select one.",),
+            )
+            return
+        chosen = select_one(
+            "Use an existing rubric",
+            sets,
+            _native_rubric_choice_labels(sets),
+            help_text=(
+                "Choose the exact native revision. Historical Scores "
+                "are never rewritten or copied."
+            ),
+        )
+        detail = show_criterion_set(
+            current.class_id,
+            current.activity_id,
+            chosen.criterion_set_id,
+            standards_library=library,
+        )
+        review = project_native_criterion_set(detail, selection)
+        selected_id = review.criterion_set_id
+        descriptions = {
+            item.criterion_set_id: f"{item.name} (revision {item.revision})"
+            for item in sets
+        }
+        lineage_ids = frozenset(
+            item.criterion_set_id
+            for item in sets
+            if item.lineage_id == chosen.lineage_id
+        )
+        prior_same_lineage = tuple(
+            item for item in selection.criterion_set_ids
+            if item in lineage_ids and item != selected_id
+        )
+        replace_prior = False
+        if prior_same_lineage:
+            action = select_one(
+                "Using a revised rubric — Selection choice",
+                ("replace", "retain"),
+                (
+                    "Replace earlier selected revisions of this rubric lineage",
+                    "Keep earlier revisions selected alongside this revision",
+                ),
+                help_text=(
+                    "Replacing changes only future Activity selection, never "
+                    "historical definitions or Scores. Concord refuses "
+                    "deselection when earlier revisions have Score references. "
+                    "Keeping both may show both revisions during Score entry."
+                ),
+            )
+            replace_prior = action == "replace"
+        proposed = _plan_existing_rubric_selection(
+            selection.criterion_set_ids,
+            selected_id,
+            lineage_ids,
+            replace_prior_revisions=replace_prior,
+        )
+        displaced = tuple(
+            item for item in selection.criterion_set_ids if item not in proposed
+        )
+        if not confirm_write(
+            "Use Existing Rubric",
+            "USE",
+            (
+                f"Activity: {current.title}",
+                *describe_native_criterion_set(
+                    review, standards_library=library
+                ),
+                "Current selections (ordered):",
+                *_describe_selected_rubric_revisions(
+                    selection.criterion_set_ids, descriptions
+                ),
+                "Proposed selections (ordered):",
+                *_describe_selected_rubric_revisions(proposed, descriptions),
+                (
+                    "Action: replace earlier selected revisions of this lineage."
+                    if replace_prior else
+                    "Action: retain existing selected revisions."
+                ),
+                f"Earlier selections to deselect: {len(displaced)}",
+                "Existing rubric definitions and historical Scores are preserved.",
+                "If a deselected revision has Scores, the canonical service "
+                "refuses replacement; no selection write is made.",
+                "No Scores, Grades, evidence, or presets are created.",
+            ),
+        ):
+            return
+        fresh = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if fresh != selection or (
+            _latest(activity).snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError(
+                "Activity changed since rubric review. Reload before selecting."
+            )
+        if proposed == selection.criterion_set_ids:
+            show_result(
+                "Rubric Already Selected — No Change",
+                (
+                    f"Exact Criterion Set revision: {selected_id}",
+                    "No Activity write was needed; the existing order is intact.",
+                    "To reuse it elsewhere, choose "
+                    "Save this assessment for another class.",
+                ),
+            )
+            return
+        actor = state.require_actor()
+        try:
+            result = select_activity_criterion_sets(
+                SelectActivityCriterionSetsRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    criterion_set_ids=proposed,
+                    expected_snapshot_revision=selection.snapshot_revision,
+                    actor=actor,
+                ),
+                standards_library=library,
+            )
+            observed = read_activity_criterion_set_selection(
+                current.class_id,
+                current.activity_id,
+                standards_library=library,
+            )
+            if (
+                observed.criterion_set_ids != proposed
+                or observed.snapshot_revision != result.commit.snapshot_revision
+            ):
+                raise ValueError("Canonical selection verification did not match.")
+        except Exception as error:
+            try:
+                observed = read_activity_criterion_set_selection(
+                    current.class_id,
+                    current.activity_id,
+                    standards_library=library,
+                )
+            except Exception:
+                show_result(
+                    "Rubric Selection Outcome Unknown",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Selection error: {error}",
+                        "Do not repeat or assume failure; inspect this Activity.",
+                    ),
+                )
+                return
+            if observed.criterion_set_ids == proposed:
+                show_result(
+                    "Existing Rubric Selection Verified After Error",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Activity snapshot: {observed.snapshot_revision}",
+                        "The exact intended selection is present.",
+                    ),
+                )
+            else:
+                show_result(
+                    "Existing Rubric Selection Not Verified",
+                    (
+                        f"Exact Criterion Set: {selected_id}",
+                        f"Activity snapshot: {observed.snapshot_revision}",
+                        f"Selection error: {error}",
+                        "Reload and review before attempting another selection.",
+                    ),
+                )
+            return
+        show_result(
+            "Existing Rubric Selected",
+            (
+                f"Exact Criterion Set: {selected_id}",
+                f"Activity snapshot: {observed.snapshot_revision}",
+                f"Selected rubric revisions now: {len(proposed)}",
+                f"Earlier selections deselected: {len(displaced)}",
+                "Selected revisions (ordered):",
+                *_describe_selected_rubric_revisions(proposed, descriptions),
+                "Historical definitions and Scores remain unchanged.",
+                "No Score, Grade, evidence, or preset was created.",
+                "Next: Criterion Sets > Save this assessment "
+                "for another class.",
+            ),
+        )
+    except CancelMenuAction:
+        return
+    except Exception as error:
+        _handle_error(activity, error)
+
+
+def _revise_criterion_set(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Create a guarded immutable native successor; never silently select it."""
+    try:
+        current = _latest(activity)
+        library = _library()
+        activity_detail = show_activity(current.class_id, current.activity_id)
+        selection = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if selection.snapshot_revision != current.snapshot_revision:
+            raise ValueError("Activity changed before rubric revision. Reload.")
+        heads = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=True,
+        )
+        if not heads:
+            show_result(
+                "No Current Rubrics",
+                ("Create a rubric before revising one.",),
+            )
+            return
+        predecessor = select_one(
+            "Revise a current rubric",
+            heads,
+            _native_rubric_choice_labels(heads),
+            help_text=(
+                "Historical revisions cannot be edited in place. "
+                "A revision creates a new native Criterion Set."
+            ),
+        )
+        detail = show_criterion_set(
+            current.class_id,
+            current.activity_id,
+            predecessor.criterion_set_id,
+            standards_library=library,
+        )
+        review = project_native_criterion_set(detail, selection)
+        if not review.is_current:
+            raise ValueError("A historical rubric cannot be revised as a head.")
+        draft, focus_choices = guide_native_criterion_set(
+            orientation=current.scoring_orientation,
+            standards_library=library,
+            standards_profile_id=activity_detail.standards_profile_id,
+            focus_standard_ids=tuple(activity_detail.focus_standard_ids),
+            choose_scale=lambda: _default_scale(current),
+            existing=review.draft,
+        )
+        if draft == review.draft:
+            show_result(
+                "Rubric Unchanged — No Revision Created",
+                (
+                    f"Exact original revision: {review.criterion_set_id}",
+                    "The draft matches the original; no record was written.",
+                ),
+            )
+            return
+        actor = state.require_actor()
+        validate_criterion_draft(
+            draft,
+            activity_scoring_orientation=current.scoring_orientation,
+            standards_profile_id=activity_detail.standards_profile_id,
+            focus_standard_ids=tuple(activity_detail.focus_standard_ids),
+            standards_library=library,
+            created_provenance=provenance(actor),
+        )
+        replacement_id = f"criterion-set-{uuid4().hex}"
+        criterion_ids = tuple(
+            f"criterion-{uuid4().hex}" for _ in draft.criteria
+        )
+        new_specs = criterion_specs(draft, criterion_ids)
+        if not confirm_write(
+            "Revise Native Rubric",
+            "REVISE",
+            (
+                f"Activity: {current.title}",
+                f"Original: {review.criterion_set_id} "
+                f"(revision {review.revision}, lineage {review.lineage_id})",
+                *describe_criterion_draft(draft, focus_choices=focus_choices),
+                f"Successor Set ID: {replacement_id}",
+                f"Successor revision: {review.revision + 1}",
+                "All successor Criteria receive new native identities.",
+                "The original revision and historical Scores are preserved.",
+                "No Activity selection is changed by this revision.",
+                "After creation, use 'Use an existing rubric' to choose whether "
+                "to replace an earlier selected revision or keep both.",
+            ),
+        ):
+            return
+        fresh = read_activity_criterion_set_selection(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+        )
+        if fresh != selection or (
+            _latest(activity).snapshot_revision != current.snapshot_revision
+        ):
+            raise ValueError("Activity changed since review. Reopen the revision.")
+        fresh_heads = list_criterion_sets(
+            current.class_id,
+            current.activity_id,
+            standards_library=library,
+            current_only=True,
+        )
+        if review.criterion_set_id not in {
+            item.criterion_set_id for item in fresh_heads
+        }:
+            raise ValueError(
+                "The original is no longer a current head. Reload to revise."
+            )
+        try:
+            result = revise_criterion_set(
+                ReviseCriterionSetRequest(
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    criterion_set_id=review.criterion_set_id,
+                    replacement_criterion_set_id=replacement_id,
+                    name=draft.name,
+                    purpose=draft.purpose,
+                    revision=review.revision + 1,
+                    scope=draft.scope,
+                    criterion_set_kind=draft.criterion_set_kind,
+                    criteria=new_specs,
+                    status="active",
+                    standards_profile_id=(
+                        activity_detail.standards_profile_id
+                        if draft.criterion_set_kind in {"standard_backed", "mixed"}
+                        else None
+                    ),
+                    expected_snapshot_revision=selection.snapshot_revision,
+                    actor=actor,
+                ),
+                standards_library=library,
+            )
+            verified = show_criterion_set(
+                current.class_id,
+                current.activity_id,
+                replacement_id,
+                standards_library=library,
+            )
+            selected_after = read_activity_criterion_set_selection(
+                current.class_id,
+                current.activity_id,
+                standards_library=library,
+            )
+            if (
+                verified.summary.lineage_id != review.lineage_id
+                or verified.summary.revision != review.revision + 1
+                or verified.summary.supersedes_criterion_set_id
+                != review.criterion_set_id
+                or verified.summary.snapshot_revision
+                != result.commit.snapshot_revision
+                or selected_after.snapshot_revision
+                != result.commit.snapshot_revision
+                or selected_after.criterion_set_ids
+                != selection.criterion_set_ids
+                or not verified.summary.is_current
+            ):
+                raise ValueError("Successor/selection verification mismatch.")
+        except Exception as error:
+            try:
+                observed = show_criterion_set(
+                    current.class_id,
+                    current.activity_id,
+                    replacement_id,
+                    standards_library=library,
+                )
+            except Exception:
+                show_result(
+                    "Rubric Revision Outcome Unknown",
+                    (
+                        f"Proposed successor: {replacement_id}",
+                        f"Revision error: {error}",
+                        "Do not retry blindly. Inspect lineage before revising.",
+                    ),
+                )
+                return
+            if (
+                observed.summary.lineage_id == review.lineage_id
+                and observed.summary.supersedes_criterion_set_id
+                == review.criterion_set_id
+                and observed.summary.revision == review.revision + 1
+            ):
+                show_result(
+                    "Rubric Revision Verified After Error",
+                    (
+                        f"Native successor: {replacement_id}",
+                        "Immutable predecessor retained.",
+                        "Activity selection was not automatically changed.",
+                    ),
+                )
+            else:
+                show_result(
+                    "Rubric Revision Requires Review",
+                    (
+                        f"Proposed successor: {replacement_id}",
+                        f"Revision error: {error}",
+                        "Inspect lineage and selection before any retry.",
+                    ),
+                )
+            return
+        show_result(
+            "Rubric Revised — Successor Not Yet Selected",
+            (
+                f"Original revision: {review.criterion_set_id}",
+                f"New revision: {replacement_id}",
+                f"Lineage: {review.lineage_id}",
+                f"Snapshot: {verified.summary.snapshot_revision}",
+                "Historical Scores and original Criterion IDs remain intact.",
+                "Previously selected rubric revisions remain selected.",
+                "Use 'Use an existing rubric' to choose replacement or retention "
+                "of earlier selected revisions of this lineage.",
+                "No Scores, Grades, evidence, or presets were created.",
+                "Next: choose Save this assessment for another class.",
+            ),
         )
     except CancelMenuAction:
         return
@@ -1860,11 +2996,15 @@ def _criterion_set_menu(
     while True:
         clear_screen()
         print_menu_header("Criterion Sets")
-        print("1. Create Criterion Set")
+        print("1. Create and use a rubric (guided)")
         print("2. Browse Criterion Sets")
-        print("3. Revise Criterion Set")
-        print("4. Select Activity Criterion Sets")
-        print("5. Save Criterion Set as Preset")
+        print("3. Revise an existing rubric (guided)")
+        print("4. Use an existing rubric (guided)")
+        print("5. Save this assessment for another class")
+        print("6. Advanced: create native Criterion Set")
+        print("7. Create a rubric definition only (guided)")
+        print("8. Advanced: revise a native Criterion Set")
+        print("9. Advanced: select Activity Criterion Sets")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -1881,15 +3021,23 @@ def _criterion_set_menu(
         elif navigation is NavigationChoice.BACK:
             return
         elif choice == "1":
-            _create_criterion_set(activity, state)
+            _create_and_use_guided_criterion_set(activity, state)
         elif choice == "2":
             _browse_criterion_sets(activity)
         elif choice == "3":
             _revise_criterion_set(activity, state)
         elif choice == "4":
-            _select_criterion_sets(activity, state)
+            _use_existing_criterion_set(activity, state)
         elif choice == "5":
             _save_criterion_set_as_preset(activity, state)
+        elif choice == "6":
+            _create_criterion_set(activity, state)
+        elif choice == "7":
+            _create_guided_criterion_set(activity, state)
+        elif choice == "8":
+            _revise_criterion_set_advanced(activity, state)
+        elif choice == "9":
+            _select_criterion_sets_advanced(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()
@@ -1969,6 +3117,59 @@ def _choose_saved_scale_for_preset(
         pause_for_user()
 
 
+def _saved_criteria_menu_labels(
+    presets: tuple[CriterionSetPresetRevision, ...],
+) -> tuple[str, ...]:
+    """Show verified distinctions; use a stable ID only for true label collisions."""
+    base = tuple(
+        f"{value.name} | {len(value.criteria)} Criteria | "
+        f"{value.criterion_set_kind.replace('_', ' ')} | "
+        f"saved revision {value.revision}"
+        for value in presets
+    )
+    return tuple(
+        f"{label} | Preset ID: {value.preset_id}"
+        if base.count(label) > 1 else label
+        for label, value in zip(base, presets)
+    )
+
+
+def _saved_criteria_preview(
+    value: CriterionSetPresetRevision,
+) -> tuple[str, ...]:
+    """Describe the exact immutable definition before creating Activity records."""
+    lines = [
+        f"Assessment: {value.name}",
+        f"Preset ID: {value.preset_id}",
+        f"Saved revision: {value.revision} ({value.preset_revision_id})",
+        f"Purpose: {value.purpose}",
+        f"Assessment kind: {value.criterion_set_kind.replace('_', ' ')}",
+        f"Standards profile: {value.standards_profile_id or '-'}",
+        f"Criteria: {len(value.criteria)}",
+    ]
+    for index, criterion in enumerate(value.criteria, start=1):
+        lines.extend(
+            (
+                f"{index}. {criterion.label} [{criterion.criterion_kind}]",
+                f"   What is assessed: {criterion.definition}",
+                "   Targets: " + ", ".join(
+                    kind.replace('_', ' ') for kind in criterion.supported_target_kinds
+                ),
+                f"   Governing Standard: {criterion.standard_id or '-'}",
+                "   Alignment Standards: "
+                + (", ".join(criterion.alignment_standard_ids) or "-"),
+                "   Recommended Scale preset: "
+                + (
+                    f"{criterion.default_scoring_scale_preset_id} "
+                    f"({criterion.default_scoring_scale_preset_revision_id})"
+                    if criterion.default_scoring_scale_preset_id is not None
+                    else "none"
+                ),
+            )
+        )
+    return tuple(lines)
+
+
 def _use_saved_scoring_setup(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -1982,15 +3183,34 @@ def _use_saved_scoring_setup(
                 ("No saved Criterion Set presets are available.",),
             )
             return
-        summary = select_one(
-            "Choose Saved Criteria",
-            summaries,
-            tuple(item.name for item in summaries),
-            help_text="Choose reusable criteria; fresh Activity records are created.",
+        # Resolve exact immutable revisions before displaying options. Do not
+        # silently replace a selected preset with a later library head.
+        available: list[CriterionSetPresetRevision] = []
+        for summary in summaries:
+            exact = get_preset_revision(
+                "criterion_set", summary.preset_id, summary.preset_revision_id
+            )
+            if not isinstance(exact, CriterionSetPresetRevision):
+                raise ValueError("Saved Criterion Set preset has the wrong type.")
+            if exact.revision != summary.revision or exact.status != "active":
+                raise ValueError("Saved assessment changed; reopen the selection.")
+            available.append(exact)
+        value = select_one(
+            "Choose Saved Assessment",
+            available,
+            _saved_criteria_menu_labels(tuple(available)),
+            help_text=(
+                "Choose the exact saved assessment. Read its full definition "
+                "before deciding whether to use it."
+            ),
         )
-        value = get_preset("criterion_set", summary.preset_id)
-        if not isinstance(value, CriterionSetPresetRevision):
-            raise ValueError("Selected Criterion Set preset has the wrong type.")
+        show_result(
+            "Saved Assessment — Read-only Preview",
+            (
+                *_saved_criteria_preview(value),
+                "No Activity configuration, Scores, or evidence changed.",
+            ),
+        )
         scale = _choose_saved_scale_for_preset(value)
         criterion_set_id = f"criterion-set-{uuid4().hex}"
         request = MaterializeScoringSetupRequest(
@@ -2026,11 +3246,17 @@ def _use_saved_scoring_setup(
             "Use Saved Scoring Setup",
             "USE",
             (
-                f"Criteria: {prepared.criterion_preset_name}",
-                f"Criteria count: {prepared.criterion_count}",
-                f"Scale: {prepared.scoring_scale_preset_name or 'none'}",
-                f"Standards profile: {prepared.standards_profile_id or '-'}",
-                "No Scores will be created.",
+                *_saved_criteria_preview(value),
+                f"Verified Criteria count: {prepared.criterion_count}",
+                f"Selected Scale: {prepared.scoring_scale_preset_name or 'none'}",
+                (
+                    f"Saved Scale revision: {scale.revision} "
+                    f"({scale.preset_revision_id}); Preset ID: {scale.preset_id}"
+                    if scale is not None else "Saved Scale revision: none"
+                ),
+                f"Verified Standards profile: {prepared.standards_profile_id or '-'}",
+                "This creates fresh Activity configuration only.",
+                "No Scores, Groups, student data, or evidence will be copied.",
             ),
         ):
             return
@@ -2160,6 +3386,7 @@ def _scale_menu(
         print("2. Browse Scoring Scales")
         print("3. Revise Scoring Scale")
         print("4. Save Scoring Scale as Preset")
+        print("5. Use a saved Scoring Scale")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -2185,6 +3412,8 @@ def _scale_menu(
             _revise_scale(activity, state)
         elif choice == "4":
             _save_scale_as_preset(activity, state)
+        elif choice == "5":
+            _import_saved_scale(activity, state)
         else:
             print(navigation_hint_with_help())
             pause_for_user()

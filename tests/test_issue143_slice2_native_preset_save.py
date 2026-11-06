@@ -35,6 +35,7 @@ from concord.workflows.criterion_sets import (
     CriterionSpec,
     create_criterion_set,
     list_criterion_sets,
+    read_activity_criterion_set_selection,
     show_criterion_set,
 )
 from concord.workflows.errors import (
@@ -46,6 +47,7 @@ from concord.workflows.reusable_presets import (
     SaveCriterionSetPresetFromActivityRequest,
     SaveScoringScalePresetFromActivityRequest,
     get_preset,
+    get_preset_revision,
     list_presets,
     prepare_criterion_set_preset_from_activity,
     prepare_scoring_scale_preset_from_activity,
@@ -56,6 +58,7 @@ from concord.workflows.reusable_presets import (
 from concord.workflows.scoring_scales import (
     CreateScoringScaleRequest,
     create_scoring_scale,
+    show_scoring_scale,
 )
 
 STANDARD = "SL.PE.11-12.1"
@@ -460,6 +463,14 @@ def _wire_menu_to_synthetic_workspace(
     )
     monkeypatch.setattr(menu_scoring, "_library", lambda: library)
     monkeypatch.setattr(
+        menu_scoring, "read_activity_criterion_set_selection",
+        lambda class_id, activity_id, **kwargs: (
+            read_activity_criterion_set_selection(
+                class_id, activity_id, workspace_root=root, **kwargs
+            )
+        ),
+    )
+    monkeypatch.setattr(
         menu_scoring, "list_criterion_sets",
         lambda class_id, activity_id, **kwargs: list_criterion_sets(
             class_id, activity_id, workspace_root=root, **kwargs
@@ -472,8 +483,23 @@ def _wire_menu_to_synthetic_workspace(
         ),
     )
     monkeypatch.setattr(
+        menu_scoring, "show_scoring_scale",
+        lambda class_id, activity_id, scoring_scale_id, **kwargs: (
+            show_scoring_scale(
+                class_id, activity_id, scoring_scale_id,
+                workspace_root=root, **kwargs
+            )
+        ),
+    )
+    monkeypatch.setattr(
         menu_scoring, "list_presets",
         lambda kind, **kwargs: list_presets(kind, workspace_root=root, **kwargs),
+    )
+    monkeypatch.setattr(
+        menu_scoring, "get_preset_revision",
+        lambda kind, preset_id, revision_id: get_preset_revision(
+            kind, preset_id, revision_id, workspace_root=root
+        ),
     )
     monkeypatch.setattr(
         menu_scoring, "prepare_criterion_set_preset_from_activity",
@@ -532,7 +558,10 @@ def test_real_teacher_menu_save_uses_live_service_or_cancels_cleanly(
         item = load_current_preset(root, "criterion_set", saved[0].preset_id).current
         assert isinstance(item, CriterionSetPresetRevision)
         _assert_preset(item, True)
-        assert any(title == "Criterion Set Preset Saved" for title, _ in results)
+        assert any(
+            title == "Assessment Saved for Another Class"
+            for title, _ in results
+        )
     else:
         assert saved == ()
         assert not results

@@ -99,8 +99,10 @@ def test_activity_menus_expose_save_as_preset_without_replacing_native_workflows
     _disable_clear(monkeypatch, "concord.menu_scoring")
     _criterion_set_menu(activity, state)
     criterion_output = capsys.readouterr().out
-    assert "1. Create Criterion Set" in criterion_output
-    assert "5. Save Criterion Set as Preset" in criterion_output
+    assert "1. Create and use a rubric (guided)" in criterion_output
+    assert "5. Save this assessment for another class" in criterion_output
+    assert "6. Advanced: create native Criterion Set" in criterion_output
+    assert "9. Advanced: select Activity Criterion Sets" in criterion_output
 
     _inputs(monkeypatch, ["b"])
     _scale_menu(activity, state)
