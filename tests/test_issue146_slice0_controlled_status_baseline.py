@@ -1,6 +1,6 @@
 """#146 Slice 0: source-confirmed prompt witnesses and protected contracts.
 
-The six xfails are *expected failing-before evidence*, not implementation tests.
+The remaining Group-status xfail is *expected failing-before evidence*.
 They remain visible until the numbered-choice implementation makes them pass.
 All assertions are read-only: these tests do not open a PDS workspace.
 """
@@ -17,9 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Exact source-verified ordinary menu sites. Group status is the sixth audit gap.
 FREE_TEXT_SITES = (
     # Activity and Session statuses are now qualified by Slices 1 and 2.
-    ("concord/menu_group.py", "_end_member", "End status"),
-    ("concord/menu_role.py", "_end", "End status"),
-    ("concord/menu_responsibility.py", "_end", "End status"),
+    # End Membership/Role/Responsibility now use one contract-bound chooser.
     ("concord/menu_group.py", "_edit_group", "Status"),
 )
 

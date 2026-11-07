@@ -6,6 +6,10 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_assignment_end import (
+    assignment_end_review,
+    choose_assignment_end_status,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group_plan import launch_group_plan_menu
 from concord.menu_navigation import (
@@ -425,32 +429,49 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         active = tuple(
             item for item in memberships if item.status in {"planned", "active"}
         )
+        if not active:
+            show_result(
+                "Membership Result",
+                ("No planned or active Memberships are available to end.",),
+            )
+            return
         membership = choose_membership(active, title="End a Membership")
-        status = prompt_text(
-            "End Membership",
-            "End status",
-            help_text="Use completed, withdrawn, or cancelled.",
-            default="completed",
+        if membership.snapshot_revision != current.snapshot_revision:
+            raise ConcordWorkflowError(
+                "The Membership selection is stale. Reopen this Activity and retry."
+            )
+        group_labels = {
+            item.group_id: item.label
+            for item in list_groups(current.class_id, current.activity_id)
+        }
+        participant = (
+            membership.participant_display_label
+            or membership.participant_reference.participant_id
         )
-        assert status is not None
+        group = group_labels.get(membership.group_id, membership.group_id)
+        display = f"{participant} / Group: {group}"
+        status = choose_assignment_end_status(
+            current,
+            record_kind="Membership",
+            record_id=membership.membership_id,
+            display_label=display,
+            current_status=membership.status,
+        )
         actor = state.require_actor()
         if not confirm_write(
             "End Membership",
             "END",
-            (
-                "Selected group membership",
-                (
-                    "Student: "
-                    + (
-                        membership.participant_display_label
-                        or "Participant name unavailable"
-                    )
-                ),
-                f"Status: {status}",
+            assignment_end_review(
+                current,
+                record_kind="Membership",
+                record_id=membership.membership_id,
+                display_label=display,
+                previous_status=membership.status,
+                requested_status=status,
             ),
         ):
             return
-        end_membership(
+        result = end_membership(
             EndMembershipRequest(
                 class_id=current.class_id,
                 activity_id=current.activity_id,
@@ -464,8 +485,10 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         show_result(
             "Membership Result",
             (
-                "Membership ended.",
-                "The selected membership was ended.",
+                "Membership ended; prior revisions retained.",
+                f"Membership: {result.membership_id}",
+                f"Status: {membership.status} -> {status}",
+                f"Snapshot: {result.commit.snapshot_revision}",
             ),
         )
     except CancelMenuAction:
