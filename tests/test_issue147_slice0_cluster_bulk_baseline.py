@@ -20,11 +20,6 @@ from concord.cli import build_parser
 from concord.menu_context import MenuSessionContext
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#147 baseline: planned-Cluster menu has no bulk student action",
-)
 def test_cluster_first_menu_exposes_bulk_action(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -54,11 +49,6 @@ def test_bulk_prepare_and_commit_service_is_not_yet_exposed() -> None:
     assert callable(getattr(manual, "commit_bulk_planned_group_edit", None))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#147 baseline: no Cluster-local page/all scoped bulk selector",
-)
 def test_bulk_selector_with_distinct_page_and_all_scope_is_missing() -> None:
     # Slice 2 may implement this as a narrow module; DO NOT reinterpret
     # menu_prompts.select_many(A), which already means every eligible item.

@@ -8,12 +8,15 @@ from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group_plan_application import apply_approved_group_plan_from_menu
+from concord.menu_group_plan_bulk import launch_cluster_bulk_editor
 from concord.menu_group_plan_missing_signal import resolve_missing_signal_from_menu
 from concord.menu_group_plan_signal import create_signal_group_plan_from_menu
 from concord.menu_grouping_signal import launch_grouping_signal_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -536,6 +539,13 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     )
 
 
+def _manage_cluster_bulk(
+    detail: GroupPlanDetail, state: MenuSessionContext
+) -> None:
+    """Orchestrate one reviewed, proposal-only planned-Cluster edit."""
+    launch_cluster_bulk_editor(detail, state)
+
+
 def _planned_group_menu(
     activity: ActivitySummary,
     plan_id: str,
@@ -551,6 +561,7 @@ def _planned_group_menu(
         print("1. Add a planned group")
         print("2. Edit a planned group")
         print("3. Remove a planned group")
+        print("4. Manage students in this planned Cluster (bulk)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -574,11 +585,15 @@ def _planned_group_menu(
                     _edit_group(detail, state)
                 elif choice == "3":
                     _remove_group(detail, state)
+                elif choice == "4":
+                    _manage_cluster_bulk(detail, state)
                 else:
                     print(navigation_hint_with_help())
                     pause_for_user()
             except CancelMenuAction:
                 continue
+            except (ReturnToMainMenu, QuitPDS):
+                raise
             except Exception as error:
                 _handle_error(activity, "GroupPlan Error", error)
 
@@ -925,6 +940,8 @@ def _open_plan(
                     pause_for_user()
             except CancelMenuAction:
                 continue
+            except (ReturnToMainMenu, QuitPDS):
+                raise
             except Exception as error:
                 _handle_error(activity, "GroupPlan Error", error)
 
@@ -983,6 +1000,8 @@ def launch_group_plan_menu(
                 _open_plan(current, selected, state)
             except CancelMenuAction:
                 continue
+            except (ReturnToMainMenu, QuitPDS):
+                raise
             except Exception as error:
                 show_result("GroupPlan Error", (str(error),))
         elif choice == "7":
