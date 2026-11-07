@@ -66,7 +66,9 @@ def _prepare(
         ),
     )
     monkeypatch.setattr(menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(menu, "show_result", lambda *a, **k: None)
     return show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=root).summary
