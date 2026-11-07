@@ -55,11 +55,6 @@ def test_bulk_selector_with_distinct_page_and_all_scope_is_missing() -> None:
     assert importlib.util.find_spec("concord.menu_group_plan_bulk") is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#147 baseline: no direct CLI batch-preview/batch-commit commands",
-)
 def test_direct_cli_batch_review_and_commit_are_not_registered() -> None:
     parser = build_parser()
     for command in ("batch-place-preview", "batch-place"):

@@ -56,6 +56,12 @@ from concord.workflows import (
     show_group_plan,
     unassign_student_from_plan,
 )
+from concord.workflows.group_plan_manual import (
+    BulkPlannedGroupEditPreview,
+    BulkPlannedGroupEditRequest,
+    commit_bulk_planned_group_edit,
+    prepare_bulk_planned_group_edit,
+)
 
 
 def _print_summary(item: GroupPlanSummary) -> None:
@@ -117,6 +123,79 @@ def _print_edit(result: GroupPlanEditResult) -> None:
     print(f"Status: {result.detail.summary.status}")
     print(f"Unresolved students: {result.detail.summary.unresolved_student_count}")
     print(f"Snapshot revision: {result.detail.summary.snapshot_revision}")
+
+
+def _bulk_request(args: argparse.Namespace) -> BulkPlannedGroupEditRequest:
+    """Preserve the exact script-supplied actor and student identifiers."""
+    return BulkPlannedGroupEditRequest(
+        class_id=args.class_id,
+        activity_id=args.activity_id,
+        group_plan_id=args.group_plan_id,
+        planned_group_key=args.planned_group_key,
+        operation=args.operation,
+        student_ids=tuple(args.student_id),
+        expected_snapshot_revision=args.expected_snapshot,
+        expected_record_revision=args.expected_record_revision,
+        actor=workflow_actor(args),
+    )
+
+
+def _print_bulk_review(preview: BulkPlannedGroupEditPreview) -> None:
+    """Deterministic script-readable review; never imply a stored preview."""
+    print(f"Class: {preview.class_id}")
+    print(f"Activity: {preview.activity_id}")
+    print(f"GroupPlan: {preview.group_plan_id}")
+    print(f"Planned Cluster: {preview.planned_group_key}")
+    print(f"Operation: {preview.operation}")
+    print(f"Status: {preview.original_status}")
+    print(f"Snapshot revision: {preview.snapshot_revision}")
+    print(f"Record revision: {preview.record_revision}")
+    print(f"Core roster students: {len(preview.roster_student_ids)}")
+    print(f"Selected students: {len(preview.selected_student_ids)}")
+    print(f"Changed students: {len(preview.changes)}")
+    print(f"Unchanged students: {preview.unchanged_count}")
+    print(f"No proposed changes: {'yes' if preview.no_op else 'no'}")
+    before = dict(preview.before_sizes)
+    for group_key, count in preview.after_sizes:
+        print(f"Planned Cluster {group_key}: {before[group_key]} -> {count}")
+    print(f"Unresolved: {preview.unresolved_before} -> {preview.unresolved_after}")
+    for item in preview.changes:
+        origin = item.from_group_key or "unresolved"
+        target = item.to_group_key or "unresolved"
+        print(f"{item.student_id}: {origin} -> {target}")
+    if preview.original_status == "previewed" and not preview.no_op:
+        print("A saved batch returns this GroupPlan to draft.")
+    print(f"Review digest: {preview.review_digest}")
+    print("No changes have been written.")
+    print("Canonical Groups created: no")
+    print("Use group-plan batch-place with the same parameters and --review-digest.")
+
+
+def handle_batch_place_preview(args: argparse.Namespace) -> int:
+    """Inspect the complete batch without persisting any plan revision."""
+    preview = prepare_bulk_planned_group_edit(
+        _bulk_request(args),
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    _print_bulk_review(preview)
+    return 0
+
+
+def handle_batch_place(args: argparse.Namespace) -> int:
+    """Commit only the exact currently valid, previously reviewed batch."""
+    result = commit_bulk_planned_group_edit(
+        _bulk_request(args),
+        review_digest=args.review_digest,
+        workspace_root=workspace_arg(args),
+        standards_library=load_command_standards_library(args),
+    )
+    _print_edit(result)
+    print(f"Record revision: {result.detail.record_revision}")
+    print("Canonical Groups created: no")
+    print("Core roster modified: no")
+    print("GroupPlan approved or applied: no")
+    return 0
 
 
 def handle_list(args: argparse.Namespace) -> int:
