@@ -216,6 +216,7 @@ def _replace_preserving_origin(
     standards_library: StandardsLibrary | None,
     clock: Clock | None,
     clear_missing_signal_disposition: bool = False,
+    expected_roster_student_ids: tuple[str, ...] | None = None,
 ) -> GroupPlanEditResult:
     plan = detail.plan
     result = replace_group_plan_proposal(
@@ -234,6 +235,7 @@ def _replace_preserving_origin(
             source_signal_set_digest=plan.source_signal_set_digest,
             source_signal_dimension_id=plan.source_signal_dimension_id,
             clear_missing_signal_disposition=clear_missing_signal_disposition,
+            expected_roster_student_ids=expected_roster_student_ids,
         ),
         workspace_root=root,
         standards_library=standards_library,
@@ -669,3 +671,285 @@ def replace_group_plan_from_arrangement(
         clock=clock,
     )
     return _import_result(mutation, parsed)
+
+
+# #147: canonical Cluster-first batch preparation and one-write proposal mutation.
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkPlannedGroupEditRequest:
+    """One reviewed proposal edit, never a Core roster or operational Group edit."""
+
+    class_id: str
+    activity_id: str
+    group_plan_id: str
+    planned_group_key: str
+    operation: str  # place_or_move | unassign_from_target
+    student_ids: tuple[str, ...]
+    expected_snapshot_revision: int
+    expected_record_revision: int
+    actor: WorkflowActor
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkPlannedGroupStudentChange:
+    student_id: str
+    from_group_key: str | None
+    to_group_key: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkPlannedGroupEditPreview:
+    class_id: str
+    activity_id: str
+    group_plan_id: str
+    planned_group_key: str
+    operation: str
+    snapshot_revision: int
+    record_revision: int
+    original_status: str
+    roster_student_ids: tuple[str, ...]
+    selected_student_ids: tuple[str, ...]
+    changes: tuple[BulkPlannedGroupStudentChange, ...]
+    unchanged_count: int
+    before_sizes: tuple[tuple[str, int], ...]
+    after_sizes: tuple[tuple[str, int], ...]
+    unresolved_before: int
+    unresolved_after: int
+    proposed_groups: tuple[PlannedGroup, ...]
+    review_digest: str
+    no_op: bool
+
+
+def _bulk_identifiers(request: BulkPlannedGroupEditRequest) -> tuple[str, ...]:
+    if not isinstance(request, BulkPlannedGroupEditRequest):
+        raise ConcordWorkflowValidationError("Bulk request must be typed.")
+    if not isinstance(request.actor, WorkflowActor):
+        raise ConcordWorkflowValidationError("A valid workflow actor is required.")
+    if request.operation not in {"place_or_move", "unassign_from_target"}:
+        raise ConcordWorkflowValidationError("Unsupported bulk placement operation.")
+    _require_identifier(request.planned_group_key, "planned_group_key")
+    if not isinstance(request.student_ids, tuple):
+        raise ConcordWorkflowValidationError("student_ids must be a tuple.")
+    values = tuple(
+        _require_identifier(student_id, "student_id")
+        for student_id in request.student_ids
+    )
+    if len(values) != len(set(values)):
+        raise ConcordWorkflowValidationError(
+            "Bulk student selection contains duplicate IDs."
+        )
+    return tuple(sorted(values))
+
+
+def _bulk_review_digest(
+    request: BulkPlannedGroupEditRequest,
+    detail: GroupPlanDetail,
+    *,
+    root: Path,
+    selected: tuple[str, ...],
+    groups: tuple[PlannedGroup, ...],
+    changes: tuple[BulkPlannedGroupStudentChange, ...],
+) -> str:
+    """Non-secret integrity binding: review is *not* authorization."""
+    import hashlib
+    import json
+
+    payload = {
+        "contract": "concord.group_plan_manual.bulk.v1",
+        "workspace": str(root.resolve()),
+        "class_id": request.class_id,
+        "activity_id": request.activity_id,
+        "group_plan_id": request.group_plan_id,
+        "planned_group_key": request.planned_group_key,
+        "operation": request.operation,
+        "snapshot": detail.summary.snapshot_revision,
+        "record_revision": detail.record_revision,
+        "actor": repr(request.actor),
+        "original_plan": repr(detail.plan),
+        "selected": selected,
+        "candidate_groups": tuple(repr(group) for group in groups),
+        "changes": tuple(
+            (item.student_id, item.from_group_key, item.to_group_key)
+            for item in changes
+        ),
+    }
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def prepare_bulk_planned_group_edit(
+    request: BulkPlannedGroupEditRequest,
+    *,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+) -> BulkPlannedGroupEditPreview:
+    """Compute a complete read-only candidate from one live manual GroupPlan.
+
+    Does not save a GroupPlan preview, change a snapshot or write Core state.
+    The canonical service remains authoritative at the separate commit gate.
+    """
+    from dataclasses import replace
+
+    selected = _bulk_identifiers(request)
+    root, detail, roster = _load_targeted_edit(
+        request.class_id,
+        request.activity_id,
+        request.group_plan_id,
+        request.expected_snapshot_revision,
+        workspace_root=workspace_root,
+    )
+    if detail.record_revision != request.expected_record_revision:
+        raise ConcordWorkflowConflictError(
+            "GroupPlan revision changed since the reviewed selection."
+        )
+    plan = detail.plan
+    if plan.strategy != "manual":
+        raise ConcordWorkflowConflictError(
+            "Cluster-first bulk placement edits only manual GroupPlans."
+        )
+    groups_by_key = {
+        group.planned_group_key: group for group in plan.proposed_groups
+    }
+    target = groups_by_key.get(request.planned_group_key)
+    if target is None:
+        raise ConcordWorkflowNotFoundError(
+            f"PlannedGroup is not available: {request.planned_group_key}"
+        )
+    roster_set = set(roster)
+    unknown = set(selected) - roster_set
+    if unknown:
+        raise ConcordWorkflowValidationError(
+            f"Selected student is not in the current Core roster: {min(unknown)}"
+        )
+    assigned: dict[str, str] = {}
+    for group in plan.proposed_groups:
+        for student_id in group.student_ids:
+            if student_id in assigned:
+                raise ConcordWorkflowValidationError(
+                    f"Student is assigned to more than one PlannedGroup: {student_id}"
+                )
+            assigned[student_id] = group.planned_group_key
+    if request.operation == "unassign_from_target":
+        outside = tuple(
+            student_id for student_id in selected
+            if assigned.get(student_id) != request.planned_group_key
+        )
+        if outside:
+            raise ConcordWorkflowValidationError(
+                f"Selected student is not in the chosen PlannedGroup: {outside[0]}"
+            )
+    destination = (
+        request.planned_group_key
+        if request.operation == "place_or_move" else None
+    )
+    changes = tuple(
+        BulkPlannedGroupStudentChange(
+            student_id=student_id,
+            from_group_key=assigned.get(student_id),
+            to_group_key=destination,
+        )
+        for student_id in selected
+        if assigned.get(student_id) != destination
+    )
+    changed_ids = {change.student_id for change in changes}
+    updated_groups = tuple(
+        replace(
+            group,
+            student_ids=tuple(
+                sorted(
+                    (
+                        set(group.student_ids) - changed_ids
+                    ) | (
+                        changed_ids
+                        if (destination == group.planned_group_key) else set()
+                    )
+                )
+            ),
+        )
+        for group in plan.proposed_groups
+    ) if changes else plan.proposed_groups
+    assigned_after = {
+        student_id
+        for group in updated_groups for student_id in group.student_ids
+    }
+    unresolved_after = roster_set - assigned_after
+    digest = _bulk_review_digest(
+        request, detail, root=root, selected=selected,
+        groups=updated_groups, changes=changes,
+    )
+    return BulkPlannedGroupEditPreview(
+        class_id=request.class_id,
+        activity_id=request.activity_id,
+        group_plan_id=request.group_plan_id,
+        planned_group_key=request.planned_group_key,
+        operation=request.operation,
+        snapshot_revision=detail.summary.snapshot_revision,
+        record_revision=detail.record_revision,
+        original_status=plan.status,
+        roster_student_ids=roster,
+        selected_student_ids=selected,
+        changes=changes,
+        unchanged_count=len(selected) - len(changes),
+        before_sizes=tuple(
+            (g.planned_group_key, len(g.student_ids)) for g in plan.proposed_groups
+        ),
+        after_sizes=tuple(
+            (g.planned_group_key, len(g.student_ids)) for g in updated_groups
+        ),
+        unresolved_before=len(plan.unresolved_student_ids),
+        unresolved_after=len(unresolved_after),
+        proposed_groups=updated_groups,
+        review_digest=digest,
+        no_op=not changes,
+    )
+
+
+def commit_bulk_planned_group_edit(
+    request: BulkPlannedGroupEditRequest,
+    *,
+    review_digest: str,
+    workspace_root: str | Path | None = None,
+    standards_library: StandardsLibrary | None = None,
+    clock: Clock | None = None,
+) -> GroupPlanEditResult:
+    """Recheck reviewed candidate then make at most one canonical plan write."""
+    import hmac
+
+    if (
+        not isinstance(review_digest, str)
+        or len(review_digest) != 64
+        or any(char not in "0123456789abcdef" for char in review_digest)
+    ):
+        raise ConcordWorkflowValidationError("Valid batch review digest required.")
+    reviewed = prepare_bulk_planned_group_edit(
+        request,
+        workspace_root=workspace_root,
+        standards_library=standards_library,
+    )
+    if not hmac.compare_digest(reviewed.review_digest, review_digest):
+        raise ConcordWorkflowConflictError(
+            "Batch review is no longer valid for this exact selection; review again."
+        )
+    root, detail, roster = _load_targeted_edit(
+        request.class_id,
+        request.activity_id,
+        request.group_plan_id,
+        request.expected_snapshot_revision,
+        workspace_root=workspace_root,
+    )
+    if detail.record_revision != reviewed.record_revision:
+        raise ConcordWorkflowConflictError("GroupPlan revision changed before save.")
+    if not reviewed.changes:
+        return _no_change(detail)
+    # This recheck also ensures the proposed candidate has not changed between
+    # review and commit. The canonical service checks CAS again under its lock.
+    return _replace_preserving_origin(
+        detail,
+        reviewed.proposed_groups,
+        request.actor,
+        root=root,
+        standards_library=standards_library,
+        clock=clock,
+        expected_roster_student_ids=roster,
+    )

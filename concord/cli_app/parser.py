@@ -998,6 +998,48 @@ def _group_plan_commands(
     unassign.add_argument("--student-id", required=True)
     unassign.set_defaults(handler=group_plan.handle_unassign_student)
 
+    for command, handler, description in (
+        (
+            "batch-place-preview",
+            group_plan.handle_batch_place_preview,
+            "Review exact manual GroupPlan bulk edits without writing.",
+        ),
+        (
+            "batch-place",
+            group_plan.handle_batch_place,
+            "Commit one already reviewed manual GroupPlan bulk edit.",
+        ),
+    ):
+        batch = actions.add_parser(command, help=description)
+        _mutating_options(batch)
+        _class_activity(batch)
+        batch.add_argument("--group-plan-id", required=True)
+        batch.add_argument("--planned-group-key", required=True)
+        batch.add_argument(
+            "--operation",
+            choices=("place_or_move", "unassign_from_target"),
+            required=True,
+        )
+        batch.add_argument(
+            "--student-id",
+            action="append",
+            required=True,
+            help="Exact Core roster student ID; repeat for each selected student.",
+        )
+        batch.add_argument(
+            "--expected-record-revision",
+            type=int,
+            required=True,
+            help="Exact current GroupPlan record revision.",
+        )
+        if command == "batch-place":
+            batch.add_argument(
+                "--review-digest",
+                required=True,
+                help="Digest from the same exact batch-place-preview request.",
+            )
+        batch.set_defaults(handler=handler)
+
     refresh = actions.add_parser(
         "refresh-roster",
         help="Explicitly reconcile an editable GroupPlan to the current Core roster.",
