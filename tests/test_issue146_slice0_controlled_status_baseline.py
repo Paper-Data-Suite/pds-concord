@@ -1,8 +1,7 @@
-"""#146 Slice 0: source-confirmed prompt witnesses and protected contracts.
+"""#146 controlled-status audit: all six text prompts are now eliminated.
 
-The remaining Group-status xfail is *expected failing-before evidence*.
-They remain visible until the numbered-choice implementation makes them pass.
-All assertions are read-only: these tests do not open a PDS workspace.
+Source-level contract guards are read-only; Slice 1-4 tests separately prove
+teacher-menu behavior and canonical service writes in synthetic workspaces.
 """
 
 from __future__ import annotations
@@ -14,10 +13,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Exact source-verified ordinary menu sites. Group status is the sixth audit gap.
-FREE_TEXT_SITES = (
-    # Activity and Session statuses are now qualified by Slices 1 and 2.
-    # End Membership/Role/Responsibility now use one contract-bound chooser.
+# The six original controlled-field defect sites, retained as regression scope.
+CONTROLLED_STATUS_SITES = (
+    ("concord/menu_activity.py", "_update_activity_field", "Status"),
+    ("concord/menu_session.py", "_edit_field", "Status"),
+    ("concord/menu_group.py", "_end_member", "End status"),
+    ("concord/menu_role.py", "_end", "End status"),
+    ("concord/menu_responsibility.py", "_end", "End status"),
     ("concord/menu_group.py", "_edit_group", "Status"),
 )
 
@@ -69,17 +71,13 @@ def _controlled_prompt_sites(path: str, function: str, label: str) -> tuple[int,
     )
 
 
-@pytest.mark.xfail(
-    reason="Confirmed #146 baseline: routine controlled status is free text",
-    strict=False,
-)
-@pytest.mark.parametrize(("path", "function", "label"), FREE_TEXT_SITES)
+@pytest.mark.parametrize(("path", "function", "label"), CONTROLLED_STATUS_SITES)
 def test_routine_status_uses_a_bounded_choice_not_free_text(
     path: str,
     function: str,
     label: str,
 ) -> None:
-    """Expected xfail until each menu is converted, never a status write."""
+    """All six controlled status prompts must have a numbered chooser."""
     lines = _controlled_prompt_sites(path, function, label)
     assert not lines, f"Free-text status remains at {path}:{lines}"
 
