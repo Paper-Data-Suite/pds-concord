@@ -69,6 +69,7 @@ def _setup(
     )
     monkeypatch.setattr(menu, "resolve_read_workspace_root", lambda: root)
     monkeypatch.setattr(menu, "prompt_text", lambda *a, **k: value)
+    monkeypatch.setattr(menu, "_choose_activity_status", lambda _current: value)
     monkeypatch.setattr(menu, "_choose_activity_type", lambda: "laboratory")
     monkeypatch.setattr(menu, "_choose_scoring_orientation", lambda: chosen_orientation)
     monkeypatch.setattr(

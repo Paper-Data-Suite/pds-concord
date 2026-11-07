@@ -15,6 +15,7 @@ from concord.menu_prompts import (
     handle_write_error,
     prompt_positive_int,
     prompt_text,
+    select_one,
     show_result,
     slug_identifier,
 )
@@ -36,6 +37,54 @@ from concord.workflows import (
     show_activity,
     update_session,
 )
+
+_SESSION_STATUS_CHOICES = (
+    "planned",
+    "active",
+    "completed",
+    "cancelled",
+    "interrupted",
+    "archived",
+)
+_SESSION_STATUS_EXPLANATIONS = (
+    "Planned - Session is scheduled or being prepared",
+    "Active - teacher identifies this Session as underway",
+    "Completed - Session has concluded; no Scores are created",
+    "Cancelled - Session will not proceed as planned",
+    "Interrupted - Session stopped before normal completion",
+    "Archived - Session is retained as history",
+)
+
+
+def _choose_session_status(
+    activity: ActivitySummary, session: SessionSummary
+) -> str:
+    """Choose an exact native Session status, without inventing transitions."""
+    labels = tuple(
+        f"{explanation}{' [current]' if status == session.status else ''}"
+        for status, explanation in zip(
+            _SESSION_STATUS_CHOICES, _SESSION_STATUS_EXPLANATIONS, strict=True
+        )
+    )
+    return select_one(
+        (
+            "Edit Session Status\n"
+            f"Activity: {activity.title} ({activity.activity_id})\n"
+            f"Class: {activity.class_id}\n"
+            f"Session: {session.sequence}: {session.label or 'Unlabeled session'}\n"
+            f"Session ID: {session.session_id}\n"
+            f"Current status: {session.status}\n"
+            f"Snapshot: {activity.snapshot_revision}"
+        ),
+        _SESSION_STATUS_CHOICES,
+        labels,
+        help_text=(
+            "Select a Concord Session status, not an Activity status. "
+            "This does not set actual/scheduled timestamps, create an evidence "
+            "record, Score, Grade or publication. The canonical service still "
+            "checks the candidate and Activity snapshot before writing."
+        ),
+    )
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -174,16 +223,27 @@ def _edit_field(
                 default=session.sequence,
             )
         elif field == "status":
-            status = prompt_text(
-                "Edit Session",
-                "Status",
-                help_text=(
-                    "Valid statuses include planned, active, completed, cancelled, "
-                    "interrupted, and archived."
-                ),
-                default=session.status,
-            )
-            assert status is not None
+            if (
+                session.class_id != current.class_id
+                or session.activity_id != current.activity_id
+                or session.snapshot_revision != current.snapshot_revision
+            ):
+                raise ConcordWorkflowError(
+                    "The selected Session or Activity changed before status "
+                    "selection. Reopen the Session and retry. No Session was updated."
+                )
+            status = _choose_session_status(current, session)
+            if status == session.status:
+                show_result(
+                    "Session Result",
+                    (
+                        "No Session changes were needed.",
+                        f"Session: {session.session_id}",
+                        f"Status remains: {session.status}",
+                        f"Snapshot: {current.snapshot_revision}",
+                    ),
+                )
+                return
             values[field] = status
         else:
             current_value = getattr(session, field, None)
@@ -194,25 +254,43 @@ def _edit_field(
                 default=current_value if isinstance(current_value, str) else None,
                 optional=True,
             )
-        if not confirm_write(
-            "Edit Session",
-            "UPDATE",
-            (
-                f"Session {session.sequence}: {session.label or 'Unlabeled session'}",
-                f"Change: {display}",
-            ),
-        ):
+        review_lines = [
+            f"Activity: {current.title} ({current.activity_id})",
+            f"Class: {current.class_id}",
+            f"Session {session.sequence}: {session.label or 'Unlabeled session'}",
+            f"Session ID: {session.session_id}",
+            f"Snapshot: {current.snapshot_revision}",
+            f"Change: {display}",
+        ]
+        if field == "status":
+            review_lines.extend(
+                (
+                    f"Current status: {session.status}",
+                    f"Requested status: {values['status']}",
+                    "This does not create timestamps, evidence, Scores, "
+                    "Grades or publications.",
+                )
+            )
+        if not confirm_write("Edit Session", "UPDATE", tuple(review_lines)):
             return
         request = UpdateSessionRequest(**values)  # type: ignore[arg-type]
         result = update_session(request, **standards_kwargs_for_activity(current))
-        show_result(
-            "Session Result",
+        receipt_lines = list(
             _result_lines(
                 result.commit.snapshot_revision,
                 result.session_id,
                 no_op=result.commit.no_op,
-            ),
+            )
         )
+        if field == "status":
+            receipt_lines.extend(
+                (
+                    f"Session: {result.session_id}",
+                    f"Status: {session.status} -> {values['status']}",
+                    f"Snapshot: {result.commit.snapshot_revision}",
+                )
+            )
+        show_result("Session Result", tuple(receipt_lines))
     except CancelMenuAction:
         return
     except Exception as error:

@@ -6,6 +6,10 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_assignment_end import (
+    assignment_end_review,
+    choose_assignment_end_status,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group_plan import launch_group_plan_menu
 from concord.menu_navigation import (
@@ -39,7 +43,9 @@ from concord.models import EffectiveContext
 from concord.workflows import (
     ActivitySummary,
     AddMembershipsRequest,
+    ConcordWorkflowConflictError,
     ConcordWorkflowError,
+    ConcordWorkflowValidationError,
     CreateGroupRequest,
     EndMembershipRequest,
     GroupMemberSpec,
@@ -57,6 +63,66 @@ from concord.workflows import (
     show_group,
     update_group,
 )
+
+_GROUP_STATUS_CHOICES = (
+    "planned",
+    "active",
+    "inactive",
+    "completed",
+    "cancelled",
+    "archived",
+    "superseded",
+)
+_GROUP_STATUS_LABELS = (
+    "Planned - the Group is being prepared",
+    "Active - the Group is currently in use",
+    "Inactive - the Group is not presently in use",
+    "Completed - the Group's classroom work has concluded",
+    "Cancelled - the planned Group arrangement was cancelled",
+    "Archived - the Group remains available as historical context",
+    "Superseded - the Group is marked superseded; no successor is created",
+)
+
+
+def _choose_group_status(activity: ActivitySummary, group: GroupSummary) -> str:
+    """Select a native Group status; do not invent a Group successor or link."""
+    if group.status not in _GROUP_STATUS_CHOICES:
+        raise ConcordWorkflowValidationError(
+            "The Group has an unrecognized status. Reopen the Group; nothing changed."
+        )
+    labels = tuple(
+        label + (" [current]" if status == group.status else "")
+        for status, label in zip(
+            _GROUP_STATUS_CHOICES, _GROUP_STATUS_LABELS, strict=True
+        )
+    )
+    choice = select_one(
+        "\n".join(
+            (
+                "Edit Group Status",
+                f"Activity: {activity.title}",
+                f"Class: {activity.class_id}",
+                f"Group: {group.label}",
+                f"Group ID: {group.group_id}",
+                f"Current status: {group.status}",
+                f"Snapshot: {activity.snapshot_revision}",
+            )
+        ),
+        _GROUP_STATUS_CHOICES,
+        labels,
+        help_text=(
+            "These are the exact native Group statuses; they are not a new "
+            "transition policy. Selecting Superseded only sets this Group's "
+            "status: it does not create another Group, record a successor link, "
+            "move students, or establish evidence, Scores, or Grades. "
+            "Use the dedicated Group and Membership workflows for those actions."
+        ),
+    )
+    if choice not in _GROUP_STATUS_CHOICES:
+        raise ConcordWorkflowValidationError(
+            "Invalid Group status choice. No changes were saved."
+        )
+    return choice
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -284,16 +350,30 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 )
                 change_label = "Description"
             elif choice == "3":
-                value = prompt_text(
-                    "Edit Group",
-                    "Status",
-                    help_text=(
-                        "Valid statuses include planned, active, inactive, completed, "
-                        "cancelled, archived, and superseded."
-                    ),
-                    default=selected.status,
-                )
-                assert value is not None
+                live = show_group(
+                    current.class_id, current.activity_id, selected.group_id
+                ).summary
+                if (
+                    selected.snapshot_revision != current.snapshot_revision
+                    or live.snapshot_revision != current.snapshot_revision
+                    or live.status != selected.status
+                ):
+                    raise ConcordWorkflowConflictError(
+                        "The Group changed since it was selected. Reopen the "
+                        "Group and retry. No changes were saved."
+                    )
+                value = _choose_group_status(current, live)
+                if value == live.status:
+                    show_result(
+                        "Group Result",
+                        (
+                            "No Group changes were needed.",
+                            f"Group: {live.label}",
+                            f"Status remains: {live.status}",
+                            f"Snapshot: {current.snapshot_revision}",
+                        ),
+                    )
+                    return
                 values["status"] = value
                 change_label = "Status"
             elif choice == "4":
@@ -308,28 +388,41 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 print(navigation_hint_with_help())
                 pause_for_user()
                 continue
-            if not confirm_write(
-                "Edit Group",
-                "UPDATE",
-                (f"Group: {selected.label}", f"Change: {change_label}"),
-            ):
+            review_lines: tuple[str, ...] = (
+                f"Group: {selected.label}",
+                f"Change: {change_label}",
+            )
+            if choice == "3":
+                review_lines += (
+                    f"Class: {current.class_id}",
+                    f"Activity: {current.title}",
+                    f"Group ID: {selected.group_id}",
+                    f"Current status: {selected.status}",
+                    f"Requested status: {values['status']}",
+                    f"Snapshot: {current.snapshot_revision}",
+                    "No Group successor, Membership, evidence, Score, or Grade "
+                    "is created by changing the status.",
+                )
+            if not confirm_write("Edit Group", "UPDATE", review_lines):
                 return
             result = update_group(
                 UpdateGroupRequest(**values),  # type: ignore[arg-type]
                 **standards_kwargs_for_activity(current),
             )
-            show_result(
-                "Group Result",
+            result_lines: tuple[str, ...] = (
                 (
-                    (
-                        "Group saved."
-                        if not result.commit.no_op
-                        else "No changes were needed."
-                    ),
-                    f"Group: {result.group_id}",
-                    f"Snapshot: {result.commit.snapshot_revision}",
+                    "Group saved."
+                    if not result.commit.no_op
+                    else "No changes were needed."
                 ),
+                f"Group: {result.group_id}",
+                f"Snapshot: {result.commit.snapshot_revision}",
             )
+            if choice == "3":
+                result_lines += (
+                    f"Status: {selected.status} -> {values['status']}",
+                )
+            show_result("Group Result", result_lines)
             return
         except CancelMenuAction:
             return
@@ -425,32 +518,49 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         active = tuple(
             item for item in memberships if item.status in {"planned", "active"}
         )
+        if not active:
+            show_result(
+                "Membership Result",
+                ("No planned or active Memberships are available to end.",),
+            )
+            return
         membership = choose_membership(active, title="End a Membership")
-        status = prompt_text(
-            "End Membership",
-            "End status",
-            help_text="Use completed, withdrawn, or cancelled.",
-            default="completed",
+        if membership.snapshot_revision != current.snapshot_revision:
+            raise ConcordWorkflowError(
+                "The Membership selection is stale. Reopen this Activity and retry."
+            )
+        group_labels = {
+            item.group_id: item.label
+            for item in list_groups(current.class_id, current.activity_id)
+        }
+        participant = (
+            membership.participant_display_label
+            or membership.participant_reference.participant_id
         )
-        assert status is not None
+        group = group_labels.get(membership.group_id, membership.group_id)
+        display = f"{participant} / Group: {group}"
+        status = choose_assignment_end_status(
+            current,
+            record_kind="Membership",
+            record_id=membership.membership_id,
+            display_label=display,
+            current_status=membership.status,
+        )
         actor = state.require_actor()
         if not confirm_write(
             "End Membership",
             "END",
-            (
-                "Selected group membership",
-                (
-                    "Student: "
-                    + (
-                        membership.participant_display_label
-                        or "Participant name unavailable"
-                    )
-                ),
-                f"Status: {status}",
+            assignment_end_review(
+                current,
+                record_kind="Membership",
+                record_id=membership.membership_id,
+                display_label=display,
+                previous_status=membership.status,
+                requested_status=status,
             ),
         ):
             return
-        end_membership(
+        result = end_membership(
             EndMembershipRequest(
                 class_id=current.class_id,
                 activity_id=current.activity_id,
@@ -464,8 +574,10 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         show_result(
             "Membership Result",
             (
-                "Membership ended.",
-                "The selected membership was ended.",
+                "Membership ended; prior revisions retained.",
+                f"Membership: {result.membership_id}",
+                f"Status: {membership.status} -> {status}",
+                f"Snapshot: {result.commit.snapshot_revision}",
             ),
         )
     except CancelMenuAction:

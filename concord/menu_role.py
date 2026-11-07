@@ -6,6 +6,10 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_assignment_end import (
+    assignment_end_review,
+    choose_assignment_end_status,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -375,19 +379,41 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
             for item in list_roles(current.class_id, current.activity_id)
             if item.status in {"planned", "active"}
         )
+        if not items:
+            show_result(
+                "Role Result", ("No planned or active Roles are available to end.",)
+            )
+            return
         role = _choose_existing(items, "End a Role")
-        status = prompt_text(
-            "End Role",
-            "End status",
-            help_text="Use completed, withdrawn, or cancelled.",
-            default="completed",
+        if role.snapshot_revision != current.snapshot_revision:
+            raise ConcordWorkflowError(
+                "The Role selection is stale. Reopen this Activity and retry."
+            )
+        participant = (
+            role.participant_display_label or role.participant_reference.participant_id
         )
-        assert status is not None
+        display = f"{participant}: {role.role_key}"
+        if role.group_id:
+            display += f" / Group ID: {role.group_id}"
+        status = choose_assignment_end_status(
+            current,
+            record_kind="Role",
+            record_id=role.role_assignment_id,
+            display_label=display,
+            current_status=role.status,
+        )
         actor = state.require_actor()
         if not confirm_write(
             "End Role",
             "END",
-            (f"Role: {role.role_key}", f"Status: {status}"),
+            assignment_end_review(
+                current,
+                record_kind="Role",
+                record_id=role.role_assignment_id,
+                display_label=display,
+                previous_status=role.status,
+                requested_status=status,
+            ),
         ):
             return
         result = end_role(
@@ -404,8 +430,9 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
         show_result(
             "Role Result",
             (
-                "Role ended.",
+                "Role ended; prior revisions retained.",
                 f"Role Assignment: {result.role_assignment_id}",
+                f"Status: {role.status} -> {status}",
                 f"Snapshot: {result.commit.snapshot_revision}",
             ),
         )

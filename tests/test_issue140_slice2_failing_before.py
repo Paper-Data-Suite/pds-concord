@@ -91,7 +91,9 @@ def test_c1_status_edit_reproduces_missing_standards_at_real_menu_service_bounda
     )
     _patch_current_context(root, monkeypatch)
     monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        activity_menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(activity_menu, "show_result", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -151,7 +153,9 @@ def test_c1_neutral_control_may_edit_without_core_standards(
     )
     _patch_current_context(root, monkeypatch)
     monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        activity_menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: True)
     monkeypatch.setattr(activity_menu, "show_result", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -190,7 +194,9 @@ def test_c1_cancellation_must_not_reach_mutation(
     )
     _patch_current_context(root, monkeypatch)
     monkeypatch.setattr(activity_menu, "resolve_read_workspace_root", lambda: root)
-    monkeypatch.setattr(activity_menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        activity_menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(activity_menu, "confirm_write", lambda *a, **k: False)
     monkeypatch.setattr(
         activity_menu,

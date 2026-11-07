@@ -38,7 +38,9 @@ def _rooted_menu_read(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
             class_id, activity_id, workspace_root=workspace_root
         ),
     )
-    monkeypatch.setattr(menu, "prompt_text", lambda *a, **k: "configured")
+    monkeypatch.setattr(
+        menu, "_choose_activity_status", lambda _current: "configured"
+    )
     monkeypatch.setattr(menu, "confirm_write", lambda *a, **k: True)
 
 
