@@ -80,6 +80,7 @@ class ReplaceGroupPlanProposalRequest:
     source_signal_set_digest: str | None = None
     source_signal_dimension_id: str | None = None
     clear_missing_signal_disposition: bool = False
+    expected_roster_student_ids: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -474,6 +475,13 @@ def replace_group_plan_proposal(
             "Only draft or previewed GroupPlans may replace proposal content."
         )
     roster_student_ids = _roster_student_ids(root, request.class_id)
+    if (
+        request.expected_roster_student_ids is not None
+        and roster_student_ids != request.expected_roster_student_ids
+    ):
+        raise ConcordWorkflowConflictError(
+            "Core roster changed during the reviewed GroupPlan edit."
+        )
     unresolved = _validate_proposed_students(
         request.proposed_groups,
         roster_student_ids,

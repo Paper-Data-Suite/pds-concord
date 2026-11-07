@@ -49,11 +49,6 @@ def test_cluster_first_menu_exposes_bulk_action(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#147 baseline: no zero-write prepare plus one-write bulk commit API",
-)
 def test_bulk_prepare_and_commit_service_is_not_yet_exposed() -> None:
     assert callable(getattr(manual, "prepare_bulk_planned_group_edit", None))
     assert callable(getattr(manual, "commit_bulk_planned_group_edit", None))
