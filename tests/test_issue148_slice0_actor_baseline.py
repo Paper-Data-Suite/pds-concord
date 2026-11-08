@@ -20,12 +20,7 @@ from concord.menu_navigation import QuitPDS, ReturnToMainMenu
 from concord.workflows import WorkflowActor
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#148 baseline: no Concord-local durable attribution store/provider",
-)
-def test_concord_scoped_teacher_attribution_provider_is_not_yet_present() -> None:
+def test_concord_scoped_teacher_attribution_provider_is_available() -> None:
     """Slice 1 owns the read-only store/provider, not Meridian or Core Notes."""
     assert importlib.util.find_spec("concord.teacher_attribution") is not None
 
