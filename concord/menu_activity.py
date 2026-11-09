@@ -16,7 +16,11 @@ from concord.menu_attention import (
     launch_activity_attention_discovery,
     print_activity_attention_summary,
 )
-from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_context import (
+    CancelMenuAction,
+    MenuSessionContext,
+    new_menu_session,
+)
 from concord.menu_group import launch_group_menu
 from concord.menu_guided_activity import (
     launch_classroom_materials_menu,
@@ -827,9 +831,7 @@ def _update_activity_field(
             f"Snapshot: {result.commit.snapshot_revision}",
         ]
         if field == "status":
-            receipt_lines.append(
-                f"Status: {current.status} -> {values['status']}"
-            )
+            receipt_lines.append(f"Status: {current.status} -> {values['status']}")
         show_result("Activity Result", tuple(receipt_lines))
     except CancelMenuAction:
         return
@@ -1134,7 +1136,7 @@ def launch_activity_context_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Open one Activity around teacher tasks instead of record families."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         read_context = None
         try:
@@ -1306,7 +1308,7 @@ def launch_advanced_activity_tools_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Run Activity creation, listing, and open-Activity workflows."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         clear_screen()
         print_menu_header("Activity Management")
@@ -1343,7 +1345,7 @@ def launch_activity_management_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Offer the guided teacher path before exact Activity tools."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         clear_screen()
         print_menu_header("Activity Management")

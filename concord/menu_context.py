@@ -10,6 +10,11 @@ from concord.menu_navigation import (
     parse_menu_navigation,
 )
 from concord.menu_ui import clear_screen, pause_for_user, print_menu_header
+from concord.teacher_attribution import (
+    ConcordTeacherAttributionProvider,
+    ConcordTeacherAttributionStore,
+    TeacherAttributionError,
+)
 from concord.workflows import WorkflowActor
 
 
@@ -19,12 +24,50 @@ class CancelMenuAction(Exception):
 
 @dataclass(slots=True)
 class MenuSessionContext:
-    """Ephemeral teacher-menu state; nothing here is persisted as credentials."""
+    """Ephemeral menu state, optionally backed by local *attribution*, not login."""
 
     actor: WorkflowActor | None = None
+    attribution_provider: ConcordTeacherAttributionProvider | None = None
+    actor_fingerprint: str | None = None
+
+    def invalidate_actor(self) -> None:
+        """Drop a cached default after Settings/workspace changes, not history."""
+        self.actor = None
+        self.actor_fingerprint = None
 
     def require_actor(self) -> WorkflowActor:
-        """Collect one authorized actor identity and reuse it for this process."""
+        """Resolve a concrete actor without treating it as authorization.
+
+        An injected provider makes normal menu writes use the explicitly saved
+        local preference. Without one, preserve the legacy *test/explicit*
+        session and standalone caller semantics until those callers adopt the
+        provider via ``new_menu_session``.
+        """
+        if self.attribution_provider is not None:
+            try:
+                identity, fingerprint = (
+                    self.attribution_provider.resolve_with_fingerprint()
+                )
+            except TeacherAttributionError as error:
+                self.invalidate_actor()
+                raise CancelMenuAction(
+                    f"Concord teacher attribution is unavailable: {error} "
+                    "Open Teacher Settings to inspect or configure it. "
+                    "No actor-attributed action was recorded."
+                ) from error
+            if self.actor is not None:
+                if self.actor_fingerprint != fingerprint:
+                    self.invalidate_actor()
+                    raise CancelMenuAction(
+                        "Teacher attribution changed since it was selected. "
+                        "Review the current profile and the intended action "
+                        "before trying again; no new action was recorded."
+                    )
+                return self.actor
+            self.actor = identity.workflow_actor()
+            self.actor_fingerprint = fingerprint
+            return self.actor
+
         if self.actor is not None:
             return self.actor
         while True:
@@ -65,3 +108,12 @@ class MenuSessionContext:
                 continue
             self.actor = actor
             return actor
+
+
+def new_menu_session() -> MenuSessionContext:
+    """Create a fresh provider-backed *interactive* session, without I/O."""
+    return MenuSessionContext(
+        attribution_provider=ConcordTeacherAttributionProvider(
+            ConcordTeacherAttributionStore()
+        )
+    )

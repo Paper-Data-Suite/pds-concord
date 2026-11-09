@@ -33,7 +33,11 @@ from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
 )
-from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_context import (
+    CancelMenuAction,
+    MenuSessionContext,
+    new_menu_session,
+)
 from concord.menu_criterion_guidance import guide_native_criterion_set
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -263,7 +267,10 @@ def _choose_scale(activity: ActivitySummary) -> ScoringScaleSummary:
 
 
 def _edit_optional_scale_field(
-    title: str, label: str, previous: str | None, *,
+    title: str,
+    label: str,
+    previous: str | None,
+    *,
     combining_notes: bool = False,
 ) -> str | None:
     if previous is None:
@@ -431,8 +438,10 @@ def _revise_scale(
             "Revise Scoring Scale", "Intended use", detail.summary.intended_use
         )
         aggregation = _edit_optional_scale_field(
-            "Revise Scoring Scale", "Notes on combining assessment results",
-            detail.aggregation_guidance, combining_notes=True,
+            "Revise Scoring Scale",
+            "Notes on combining assessment results",
+            detail.aggregation_guidance,
+            combining_notes=True,
         )
         validate_draft(
             guided.draft,
@@ -545,8 +554,7 @@ def _saved_scale_menu_labels(
         for item in presets
     )
     return tuple(
-        f"{label} | Preset ID: {item.preset_id}"
-        if base.count(label) > 1 else label
+        f"{label} | Preset ID: {item.preset_id}" if base.count(label) > 1 else label
         for label, item in zip(base, presets, strict=True)
     )
 
@@ -561,8 +569,7 @@ def _saved_scale_preview(value: ScoringScalePresetRevision) -> tuple[str, ...]:
         f"Scale type: {value.scale_type}",
         f"Levels: {len(value.levels)} (exact typed values)",
         f"Intended use: {value.intended_use or '-'}",
-        "Notes on combining assessment results: "
-        f"{value.aggregation_guidance or '-'}",
+        f"Notes on combining assessment results: {value.aggregation_guidance or '-'}",
     ]
     lines.extend(
         f"  {json.dumps(level.value, ensure_ascii=False)} "
@@ -651,9 +658,7 @@ def _import_saved_scale(
             actor=state.require_actor(),
         )
         try:
-            result = create_scoring_scale(
-                request, standards_library=_library()
-            )
+            result = create_scoring_scale(request, standards_library=_library())
         except Exception as error:
             show_result(
                 "Saved Scoring Scale Import — Outcome Unconfirmed",
@@ -666,7 +671,9 @@ def _import_saved_scale(
             return
         try:
             observed = show_scoring_scale(
-                current.class_id, current.activity_id, new_scale_id,
+                current.class_id,
+                current.activity_id,
+                new_scale_id,
                 standards_library=_library(),
             )
         except Exception as error:
@@ -680,12 +687,9 @@ def _import_saved_scale(
                 ),
             )
             return
-        exact_levels = (
-            len(observed.levels) == len(chosen.levels)
-            and all(
-                type(left.value) is type(right.value) and left == right
-                for left, right in zip(observed.levels, chosen.levels, strict=True)
-            )
+        exact_levels = len(observed.levels) == len(chosen.levels) and all(
+            type(left.value) is type(right.value) and left == right
+            for left, right in zip(observed.levels, chosen.levels, strict=True)
         )
         if not (
             observed.summary.scoring_scale_id == new_scale_id
@@ -1057,7 +1061,9 @@ def _create_guided_criterion_set(
         if use_after_create:
             assert before_selection is not None
             _complete_guided_criterion_selection(
-                current, actor, result.criterion_set_id,
+                current,
+                actor,
+                result.criterion_set_id,
                 created_snapshot=result.commit.snapshot_revision,
                 original_selection=before_selection.criterion_set_ids,
             )
@@ -1131,7 +1137,8 @@ def _complete_guided_criterion_selection(
         # canonical state; never present a guessed rollback or blindly retry.
         try:
             observed = read_activity_criterion_set_selection(
-                activity.class_id, activity.activity_id,
+                activity.class_id,
+                activity.activity_id,
                 standards_library=_library(),
             )
         except Exception as inspection_error:
@@ -1381,8 +1388,7 @@ def _native_rubric_choice_labels(
 
     counts = Counter(labels)
     return tuple(
-        f"{label} [exact ID: {item.criterion_set_id}]"
-        if counts[label] > 1 else label
+        f"{label} [exact ID: {item.criterion_set_id}]" if counts[label] > 1 else label
         for item, label in zip(sets, labels, strict=True)
     )
 
@@ -1480,9 +1486,7 @@ def _selected_criteria(
 def _choose_criterion(activity: ActivitySummary) -> Criterion:
     pairs = _selected_criteria(activity)
     if not pairs:
-        raise ValueError(
-            "Select at least one Criterion Set before recording a Score."
-        )
+        raise ValueError("Select at least one Criterion Set before recording a Score.")
     return select_one(
         "Choose a Criterion",
         pairs,
@@ -1542,9 +1546,7 @@ def _choose_target(
             target_id=activity.activity_id,
             owning_system="concord",
         )
-    choices = list_teacher_artifact_choices(
-        activity.class_id, activity.activity_id
-    )
+    choices = list_teacher_artifact_choices(activity.class_id, activity.activity_id)
     selected = select_one(
         "Choose Score Target Artifact",
         choices,
@@ -1844,10 +1846,7 @@ def _score_components(
         selected_level = select_one(
             "Choose Exact Score Value",
             detail.levels,
-            tuple(
-                f"{json.dumps(item.value)} - {item.label}"
-                for item in detail.levels
-            ),
+            tuple(f"{json.dumps(item.value)} - {item.label}" for item in detail.levels),
             help_text=(
                 "Choose one exact native Scale value. Concord does not suggest "
                 "a value from the evidence."
@@ -1998,9 +1997,7 @@ def _record_score(
         _handle_error(activity, error)
 
 
-def _score_label(
-    item: ScoreSummary, labels: ScoreTeacherLabels | None = None
-) -> str:
+def _score_label(item: ScoreSummary, labels: ScoreTeacherLabels | None = None) -> str:
     value = "-" if item.value is None else json.dumps(item.value)
     state = "current" if item.is_current else "historical"
     reference = item.target_reference
@@ -2024,9 +2021,7 @@ def _browse_scores(activity: ActivitySummary) -> None:
             standards_library=_library(),
             current_only=False,
         )
-        labels = build_score_teacher_labels(
-            activity, include_score_definitions=True
-        )
+        labels = build_score_teacher_labels(activity, include_score_definitions=True)
         selected = select_one(
             "Scores",
             scores,
@@ -2048,7 +2043,8 @@ def _browse_scores(activity: ActivitySummary) -> None:
         lines = [
             _score_label(selected, labels),
             "Exact scored scan version not recorded in Score metadata.",
-            "Target: " + labels.target(
+            "Target: "
+            + labels.target(
                 selected.target_reference.target_kind,
                 selected.target_reference.target_id,
             ),
@@ -2064,9 +2060,7 @@ def _browse_scores(activity: ActivitySummary) -> None:
             f"Evidence Links: {len(detail.evidence_links)}",
         ]
         if detail.status_reason is not None:
-            lines.append(
-                f"Status Reason: {detail.status_reason.reason_code}"
-            )
+            lines.append(f"Status Reason: {detail.status_reason.reason_code}")
         show_result("Score Detail", tuple(lines))
     except CancelMenuAction:
         return
@@ -2085,9 +2079,7 @@ def _revise_score(
             current.activity_id,
             standards_library=_library(),
         )
-        labels = build_score_teacher_labels(
-            current, include_score_definitions=True
-        )
+        labels = build_score_teacher_labels(current, include_score_definitions=True)
         predecessor = select_one(
             "Revise a Score",
             heads,
@@ -2170,8 +2162,6 @@ def _revise_score(
         _handle_error(activity, error)
 
 
-
-
 def _preset_save_lines(prepared: PreparedPresetSave) -> tuple[str, ...]:
     return (
         f"Preset: {prepared.name}",
@@ -2244,9 +2234,7 @@ def _save_scale_as_preset(
             tuple(f"{item.name} ({item.scoring_scale_id})" for item in scales),
             help_text="Choose the native Scale whose reusable definition to save.",
         )
-        saved_id = _save_scale_id_as_preset(
-            current, state, selected.scoring_scale_id
-        )
+        saved_id = _save_scale_id_as_preset(current, state, selected.scoring_scale_id)
         if saved_id is None:
             return
         show_result(
@@ -2454,9 +2442,7 @@ def _save_criterion_set_as_preset(
             # A failed call does not prove a failed durable write. Do not offer
             # a blind retry with a fresh ID after an uncertain receipt.
             try:
-                existing = get_preset_revision(
-                    "criterion_set", preset_id, revision_id
-                )
+                existing = get_preset_revision("criterion_set", preset_id, revision_id)
             except Exception:
                 show_result(
                     "Reusable Assessment Save Outcome Unknown",
@@ -2603,7 +2589,8 @@ def _use_existing_criterion_set(
             if item.lineage_id == chosen.lineage_id
         )
         prior_same_lineage = tuple(
-            item for item in selection.criterion_set_ids
+            item
+            for item in selection.criterion_set_ids
             if item in lineage_ids and item != selected_id
         )
         replace_prior = False
@@ -2637,9 +2624,7 @@ def _use_existing_criterion_set(
             "USE",
             (
                 f"Activity: {current.title}",
-                *describe_native_criterion_set(
-                    review, standards_library=library
-                ),
+                *describe_native_criterion_set(review, standards_library=library),
                 "Current selections (ordered):",
                 *_describe_selected_rubric_revisions(
                     selection.criterion_set_ids, descriptions
@@ -2648,8 +2633,8 @@ def _use_existing_criterion_set(
                 *_describe_selected_rubric_revisions(proposed, descriptions),
                 (
                     "Action: replace earlier selected revisions of this lineage."
-                    if replace_prior else
-                    "Action: retain existing selected revisions."
+                    if replace_prior
+                    else "Action: retain existing selected revisions."
                 ),
                 f"Earlier selections to deselect: {len(displaced)}",
                 "Existing rubric definitions and historical Scores are preserved.",
@@ -2751,8 +2736,7 @@ def _use_existing_criterion_set(
                 *_describe_selected_rubric_revisions(proposed, descriptions),
                 "Historical definitions and Scores remain unchanged.",
                 "No Score, Grade, evidence, or preset was created.",
-                "Next: Criterion Sets > Save this assessment "
-                "for another class.",
+                "Next: Criterion Sets > Save this assessment for another class.",
             ),
         )
     except CancelMenuAction:
@@ -2834,9 +2818,7 @@ def _revise_criterion_set(
             created_provenance=provenance(actor),
         )
         replacement_id = f"criterion-set-{uuid4().hex}"
-        criterion_ids = tuple(
-            f"criterion-{uuid4().hex}" for _ in draft.criteria
-        )
+        criterion_ids = tuple(f"criterion-{uuid4().hex}" for _ in draft.criteria)
         new_specs = criterion_specs(draft, criterion_ids)
         if not confirm_write(
             "Revise Native Rubric",
@@ -2917,12 +2899,9 @@ def _revise_criterion_set(
                 or verified.summary.revision != review.revision + 1
                 or verified.summary.supersedes_criterion_set_id
                 != review.criterion_set_id
-                or verified.summary.snapshot_revision
-                != result.commit.snapshot_revision
-                or selected_after.snapshot_revision
-                != result.commit.snapshot_revision
-                or selected_after.criterion_set_ids
-                != selection.criterion_set_ids
+                or verified.summary.snapshot_revision != result.commit.snapshot_revision
+                or selected_after.snapshot_revision != result.commit.snapshot_revision
+                or selected_after.criterion_set_ids != selection.criterion_set_ids
                 or not verified.summary.is_current
             ):
                 raise ValueError("Successor/selection verification mismatch.")
@@ -3043,7 +3022,6 @@ def _criterion_set_menu(
             pause_for_user()
 
 
-
 def _choose_saved_scale_for_preset(
     criterion: CriterionSetPresetRevision,
 ) -> ScoringScalePresetRevision | None:
@@ -3128,8 +3106,7 @@ def _saved_criteria_menu_labels(
         for value in presets
     )
     return tuple(
-        f"{label} | Preset ID: {value.preset_id}"
-        if base.count(label) > 1 else label
+        f"{label} | Preset ID: {value.preset_id}" if base.count(label) > 1 else label
         for label, value in zip(base, presets)
     )
 
@@ -3152,8 +3129,9 @@ def _saved_criteria_preview(
             (
                 f"{index}. {criterion.label} [{criterion.criterion_kind}]",
                 f"   What is assessed: {criterion.definition}",
-                "   Targets: " + ", ".join(
-                    kind.replace('_', ' ') for kind in criterion.supported_target_kinds
+                "   Targets: "
+                + ", ".join(
+                    kind.replace("_", " ") for kind in criterion.supported_target_kinds
                 ),
                 f"   Governing Standard: {criterion.standard_id or '-'}",
                 "   Alignment Standards: "
@@ -3252,7 +3230,8 @@ def _use_saved_scoring_setup(
                 (
                     f"Saved Scale revision: {scale.revision} "
                     f"({scale.preset_revision_id}); Preset ID: {scale.preset_id}"
-                    if scale is not None else "Saved Scale revision: none"
+                    if scale is not None
+                    else "Saved Scale revision: none"
                 ),
                 f"Verified Standards profile: {prepared.standards_profile_id or '-'}",
                 "This creates fresh Activity configuration only.",
@@ -3337,9 +3316,7 @@ def _continue_created_scale(
     try:
         # Refresh snapshot AFTER native Scale creation. The separate preset
         # prepare/review/commit service owns its own currentness checks.
-        saved_id = _save_scale_id_as_preset(
-            _latest(activity), state, scale_id
-        )
+        saved_id = _save_scale_id_as_preset(_latest(activity), state, scale_id)
     except CancelMenuAction:
         return
     except Exception as error:
@@ -3424,7 +3401,7 @@ def launch_assessment_setup_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Configure how an Activity will be assessed without recording Scores."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         try:
             activity = _latest(activity)
@@ -3468,7 +3445,7 @@ def launch_score_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Record, inspect, or revise explicit teacher Score judgments."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         try:
             activity = _latest(activity)
@@ -3496,8 +3473,7 @@ def launch_score_menu(
             print("Concord never infers a Score from evidence.")
             print("A Group Score never creates individual student Scores.")
             print(
-                "Open returned work uses your normal PDF viewer and "
-                "records no Score."
+                "Open returned work uses your normal PDF viewer and records no Score."
             )
             print()
             pause_for_user()
@@ -3525,7 +3501,7 @@ def launch_scoring_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Open the teacher-facing Criterion, Scale, and Score surface."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         try:
             activity = _latest(activity)

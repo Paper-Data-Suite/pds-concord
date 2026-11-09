@@ -24,7 +24,11 @@ from pds_core.scan_resolution_metadata import (
 from pds_core.scan_routes import scans_inbox_dir
 from pds_core.workspace import WorkspaceRootError, inspect_workspace_root
 
-from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_context import (
+    CancelMenuAction,
+    MenuSessionContext,
+    new_menu_session,
+)
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
@@ -78,9 +82,7 @@ def _scan_inbox_sources(
     if not inbox.exists():
         return inbox, ()
     if not inbox.is_dir():
-        raise NotADirectoryError(
-            f"Shared scan inbox is not a directory: {inbox}"
-        )
+        raise NotADirectoryError(f"Shared scan inbox is not a directory: {inbox}")
     sources = tuple(
         sorted(
             (
@@ -103,8 +105,7 @@ def _inbox_file_display(source: Path) -> str:
     except (OSError, OverflowError, ValueError):
         return f"{source.name} - file modified time unavailable"
     return (
-        f"{source.name} - file modified "
-        f"{modified.strftime('%b %d, %Y at %I:%M %p %Z')}"
+        f"{source.name} - file modified {modified.strftime('%b %d, %Y at %I:%M %p %Z')}"
     )
 
 
@@ -120,11 +121,7 @@ def _custom_route_sources() -> tuple[Path, ...]:
             ),
         )
         assert raw is not None
-        sources = tuple(
-            Path(item.strip())
-            for item in raw.split(";")
-            if item.strip()
-        )
+        sources = tuple(Path(item.strip()) for item in raw.split(";") if item.strip())
         if sources:
             return sources
         show_result(
@@ -137,9 +134,7 @@ def _choose_route_sources() -> tuple[Path, ...]:
     """Choose one exact inbox scan or explicit custom source paths."""
     status = inspect_workspace_root()
     if status.exists and not status.is_dir:
-        raise WorkspaceRootError(
-            f"Workspace root is not a directory: {status.root}"
-        )
+        raise WorkspaceRootError(f"Workspace root is not a directory: {status.root}")
     workspace_root = status.root
     page_index = 0
     while True:
@@ -162,8 +157,7 @@ def _choose_route_sources() -> tuple[Path, ...]:
             print("No supported scans were found.")
             print()
             print(
-                "Place scanned PDFs or images in the scan inbox, "
-                "then choose Refresh."
+                "Place scanned PDFs or images in the scan inbox, then choose Refresh."
             )
 
         if pages > 1:
@@ -224,9 +218,7 @@ def _choose_route_sources() -> tuple[Path, ...]:
 def _show_scan_batch_result(result: ScanBatchResult) -> None:
     """Show truthful routing counts plus any source-level failures."""
     source_errors = tuple(
-        source
-        for source in result.sources
-        if source.source_error is not None
+        source for source in result.sources if source.source_error is not None
     )
     lines = [
         f"Sources: {len(result.sources)}",
@@ -434,9 +426,7 @@ def _routing_technical_detail_lines(
             )
         )
     if review.route_action_unavailable_reason is not None:
-        lines.append(
-            "Route action status: " + review.route_action_unavailable_reason
-        )
+        lines.append("Route action status: " + review.route_action_unavailable_reason)
         if review.route_action_unavailable_detail:
             lines.append(
                 "Route action detail: " + review.route_action_unavailable_detail
@@ -633,8 +623,9 @@ def _review(state: MenuSessionContext) -> None:
 
             raise AssertionError(f"unsupported routing review action: {action}")
 
+
 def launch_scan_routing_menu(state: MenuSessionContext | None = None) -> None:
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         clear_screen()
         print_menu_header("Scan Routing")

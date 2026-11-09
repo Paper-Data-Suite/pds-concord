@@ -25,11 +25,6 @@ def test_concord_scoped_teacher_attribution_provider_is_available() -> None:
     assert importlib.util.find_spec("concord.teacher_attribution") is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#148 baseline: main menu has no deliberate teacher attribution Settings",
-)
 def test_main_menu_discloses_teacher_attribution_settings(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -42,11 +37,6 @@ def test_main_menu_discloses_teacher_attribution_settings(
     assert "attribution" in output.casefold()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#148 baseline: session has no injectable persisted actor provider",
-)
 def test_menu_session_has_explicit_provider_injection_seam() -> None:
     """Slice 2 must connect an injectable provider without global settings writes."""
     assert "attribution_provider" in MenuSessionContext.__dataclass_fields__
