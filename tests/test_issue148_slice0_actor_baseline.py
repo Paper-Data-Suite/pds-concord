@@ -42,11 +42,6 @@ def test_menu_session_has_explicit_provider_injection_seam() -> None:
     assert "attribution_provider" in MenuSessionContext.__dataclass_fields__
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#148 baseline: no operation-scoped actor override contract",
-)
 def test_menu_session_exposes_one_action_override_contract() -> None:
     """Slice 3 owns actor selection tied to one reviewed write, not a sticky actor."""
     assert callable(getattr(MenuSessionContext, "actor_for_action", None))

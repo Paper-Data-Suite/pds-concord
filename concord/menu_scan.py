@@ -24,6 +24,7 @@ from pds_core.scan_resolution_metadata import (
 from pds_core.scan_routes import scans_inbox_dir
 from pds_core.workspace import WorkspaceRootError, inspect_workspace_root
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import (
     CancelMenuAction,
     MenuSessionContext,
@@ -536,20 +537,23 @@ def _review(state: MenuSessionContext) -> None:
                 except CancelMenuAction:
                     continue
                 assert message is not None
-                if not confirm_write(
+                actor = confirm_actor_write(
                     "Defer Routing Failure",
                     "DEFER",
                     (
                         *_routing_review_context_lines(review),
                         f"Resolution note: {message}",
                     ),
-                ):
+                    state=state,
+                    legacy_confirm=confirm_write,
+                )
+                if actor is None:
                     continue
                 try:
                     result = defer_routing_failure(
                         summary.failure_id,
                         message=message,
-                        reviewer=state.require_actor(),
+                        reviewer=actor,
                     )
                 except RoutingFailureAlreadyResolvedError as error:
                     show_result(
@@ -585,7 +589,7 @@ def _review(state: MenuSessionContext) -> None:
                 except CancelMenuAction:
                     continue
                 assert message is not None
-                if not confirm_write(
+                actor = confirm_actor_write(
                     "Resolve Routing Failure",
                     "RESOLVE",
                     (
@@ -593,14 +597,17 @@ def _review(state: MenuSessionContext) -> None:
                         f"Destination: {destination_label}",
                         f"Resolution note: {message}",
                     ),
-                ):
+                    state=state,
+                    legacy_confirm=confirm_write,
+                )
+                if actor is None:
                     continue
                 try:
                     result = resolve_routing_failure_with_route(
                         summary.failure_id,
                         candidate.locator,
                         message=message,
-                        reviewer=state.require_actor(),
+                        reviewer=actor,
                     )
                 except RoutingFailureAlreadyResolvedError as error:
                     show_result(

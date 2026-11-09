@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group_plan_application import apply_approved_group_plan_from_menu
 from concord.menu_group_plan_bulk import launch_cluster_bulk_editor
@@ -205,7 +206,7 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
             default=slug_identifier(f"{current.activity_id}-group-plan", "group-plan"),
         )
         assert plan_id is not None
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Create Manual GroupPlan",
             "CREATE",
             (
@@ -214,7 +215,10 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
                 "All roster students begin unresolved.",
                 "No canonical Groups or Memberships will be created.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         standards_library = standards_for_activity(current)
         result = create_manual_group_plan(
@@ -223,7 +227,7 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
                 activity_id=current.activity_id,
                 group_plan_id=plan_id,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=standards_library,
         )
@@ -539,9 +543,7 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     )
 
 
-def _manage_cluster_bulk(
-    detail: GroupPlanDetail, state: MenuSessionContext
-) -> None:
+def _manage_cluster_bulk(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     """Orchestrate one reviewed, proposal-only planned-Cluster edit."""
     launch_cluster_bulk_editor(detail, state)
 

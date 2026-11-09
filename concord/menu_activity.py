@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.standards import StandardsLibrary
 from pds_core.workspace import WorkspaceRootError
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_artifact import (
     launch_artifact_page_menu,
     launch_collect_work_menu,
@@ -382,7 +383,6 @@ def _create_activity(state: MenuSessionContext) -> None:
             help_text="Optional teacher-facing label for the first Session.",
             optional=True,
         )
-        actor = state.require_actor()
         review = [
             f"Class: {selected_class.class_id}",
             f"Activity: {title}",
@@ -393,7 +393,14 @@ def _create_activity(state: MenuSessionContext) -> None:
         ]
         if focus_ids:
             review.append(f"Focus Standards: {len(focus_ids)}")
-        if not confirm_write("Create an Activity", "CREATE", tuple(review)):
+        actor = confirm_actor_write(
+            "Create an Activity",
+            "CREATE",
+            tuple(review),
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_activity_context(
             CreateActivityContextRequest(

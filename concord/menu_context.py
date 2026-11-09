@@ -14,6 +14,7 @@ from concord.teacher_attribution import (
     ConcordTeacherAttributionProvider,
     ConcordTeacherAttributionStore,
     TeacherAttributionError,
+    TeacherAttributionIdentity,
 )
 from concord.workflows import WorkflowActor
 
@@ -34,6 +35,40 @@ class MenuSessionContext:
         """Drop a cached default after Settings/workspace changes, not history."""
         self.actor = None
         self.actor_fingerprint = None
+
+    def actor_for_action(
+        self,
+        *,
+        action_label: str,
+        alternate: TeacherAttributionIdentity | None = None,
+    ) -> WorkflowActor:
+        """Resolve one operation's actor; never queue or retain an override.
+
+        A temporary identity is supplied *only* by the immediate operation's
+        reviewed confirmation. The cached actor remains the saved default.
+        Every call revalidates the profile fingerprint, including after review.
+        """
+        if (
+            not isinstance(action_label, str)
+            or not action_label.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in action_label)
+        ):
+            raise ValueError("A nonblank, control-free action label is required.")
+        default = self.require_actor()
+        if alternate is None:
+            return default
+        if self.attribution_provider is None:
+            raise CancelMenuAction(
+                "Temporary actor selection requires a provider-backed "
+                "reviewed Concord action."
+            )
+        if not isinstance(alternate, TeacherAttributionIdentity) or (
+            alternate.source != "temporary"
+        ):
+            raise CancelMenuAction(
+                "The alternate actor must be explicitly selected for this action."
+            )
+        return alternate.workflow_actor()
 
     def require_actor(self) -> WorkflowActor:
         """Resolve a concrete actor without treating it as authorization.
