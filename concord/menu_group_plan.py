@@ -301,7 +301,7 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
             ),
         )
         assert seed is not None
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Create Random GroupPlan",
             "CREATE",
             (
@@ -313,7 +313,10 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
                 "This is a deterministic random proposal, not an optimized grouping.",
                 "No canonical Groups or Memberships will be created.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_random_group_plan(
             CreateRandomGroupPlanRequest(
@@ -321,7 +324,7 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
                 activity_id=current.activity_id,
                 group_plan_id=plan_id,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
                 seed=seed,
                 target_group_size=target_group_size,
                 target_group_count=target_group_count,
@@ -368,7 +371,7 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
             help_text="Choose a UTF-8 CSV with the exact header student_id,group.",
         )
         assert raw_path is not None
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Import Arrangement",
             "IMPORT",
             (
@@ -377,7 +380,10 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
                 "The CSV will be validated completely before any write.",
                 "Import does not create canonical Groups or Memberships.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = import_arrangement_group_plan(
             ImportArrangementGroupPlanRequest(
@@ -386,7 +392,7 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
                 group_plan_id=plan_id,
                 csv_path=Path(raw_path),
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             **standards_kwargs_for_activity(current),
         )
@@ -428,14 +434,17 @@ def _add_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
         help_text="Optional short description for this planned group.",
         optional=True,
     )
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Add Planned Group",
         "ADD",
         (
             f"GroupPlan: {detail.plan.group_plan_id}",
             f"Planned group: {label} ({group_key})",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = add_planned_group(
         AddPlannedGroupRequest(
@@ -446,7 +455,7 @@ def _add_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             label=label,
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -477,7 +486,7 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
         ),
         optional=True,
     )
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Edit Planned Group",
         "UPDATE",
         (
@@ -485,7 +494,10 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             f"Planned group key: {group.planned_group_key}",
             f"Label: {label}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = edit_planned_group(
         EditPlannedGroupRequest(
@@ -496,7 +508,7 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             label=label,
             description=description,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -512,7 +524,7 @@ def _edit_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
 
 def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     group = _select_planned_group(detail, title="Remove a Planned Group")
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Remove Planned Group",
         "REMOVE",
         (
@@ -520,7 +532,10 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             f"Planned group: {group.label}",
             f"Students becoming unresolved: {len(group.student_ids)}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = remove_planned_group(
         RemovePlannedGroupRequest(
@@ -529,7 +544,7 @@ def _remove_group(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             group_plan_id=detail.summary.group_plan_id,
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -604,7 +619,7 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     root = resolve_workspace_root()
     student = choose_student(root, detail.summary.class_id)
     group = _select_planned_group(detail, title="Choose a Planned Group")
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Place Student",
         "PLACE",
         (
@@ -612,7 +627,10 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             f"Planned group: {group.label}",
             "This changes only the GroupPlan proposal.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = place_student_in_plan(
         PlaceStudentInPlanRequest(
@@ -622,7 +640,7 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             student_id=student.student_id,
             planned_group_key=group.planned_group_key,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -639,14 +657,17 @@ def _place_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
 def _unassign_student(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
     root = resolve_workspace_root()
     student = choose_student(root, detail.summary.class_id)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Unassign Student",
         "UNASSIGN",
         (
             f"Student: {student.first_name} {student.last_name} ({student.student_id})",
             "The student will remain in the GroupPlan as unresolved.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = unassign_student_from_plan(
         UnassignStudentFromPlanRequest(
@@ -655,7 +676,7 @@ def _unassign_student(detail: GroupPlanDetail, state: MenuSessionContext) -> Non
             group_plan_id=detail.summary.group_plan_id,
             student_id=student.student_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -670,7 +691,7 @@ def _unassign_student(detail: GroupPlanDetail, state: MenuSessionContext) -> Non
 
 
 def _refresh_roster(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Refresh GroupPlan Roster",
         "REFRESH",
         (
@@ -678,7 +699,10 @@ def _refresh_roster(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             "Departed students will be removed from the proposal.",
             "New roster students will be added as unresolved.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = refresh_group_plan_roster(
         RefreshGroupPlanRosterRequest(
@@ -686,7 +710,7 @@ def _refresh_roster(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             activity_id=detail.summary.activity_id,
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -707,7 +731,7 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
         help_text="Choose a UTF-8 CSV with the exact header student_id,group.",
     )
     assert raw_path is not None
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Replace from Arrangement",
         "REPLACE",
         (
@@ -715,7 +739,10 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
             "The complete proposal will be replaced only after full CSV validation.",
             "The GroupPlan identity and revision history will be preserved.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = replace_group_plan_from_arrangement(
         ReplaceArrangementGroupPlanRequest(
@@ -724,7 +751,7 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
             group_plan_id=detail.summary.group_plan_id,
             csv_path=Path(raw_path),
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -741,7 +768,7 @@ def _replace_arrangement(detail: GroupPlanDetail, state: MenuSessionContext) -> 
 
 
 def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Preview GroupPlan",
         "PREVIEW",
         (
@@ -749,7 +776,10 @@ def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             f"Unresolved students: {detail.summary.unresolved_student_count}",
             "Preview does not create canonical Groups or Memberships.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = preview_group_plan(
         PreviewGroupPlanRequest(
@@ -757,7 +787,7 @@ def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             activity_id=detail.summary.activity_id,
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -772,7 +802,7 @@ def _preview(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
 
 
 def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Approve GroupPlan",
         "APPROVE",
         (
@@ -784,7 +814,10 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             "Approval freezes this proposal but does not apply it.",
             "Canonical Groups created: no",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = approve_group_plan(
         ApproveGroupPlanRequest(
@@ -792,7 +825,7 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             activity_id=detail.summary.activity_id,
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )
@@ -808,14 +841,17 @@ def _approve(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
 
 
 def _cancel(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Cancel GroupPlan",
         "CANCEL",
         (
             f"GroupPlan: {detail.plan.group_plan_id}",
             "Cancellation is terminal and preserves GroupPlan history.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = cancel_group_plan(
         CancelGroupPlanRequest(
@@ -823,7 +859,7 @@ def _cancel(detail: GroupPlanDetail, state: MenuSessionContext) -> None:
             activity_id=detail.summary.activity_id,
             group_plan_id=detail.summary.group_plan_id,
             expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **standards_kwargs_for_plan(detail),
     )

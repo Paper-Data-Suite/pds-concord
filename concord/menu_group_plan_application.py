@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concord.group_plan_application import ApplicationMembershipSpec
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import MenuSessionContext
 from concord.menu_prompts import (
     choose_effective_context,
@@ -107,7 +108,7 @@ def apply_approved_group_plan_from_menu(
     )
     _show_application_preview(preview)
     pause_for_user()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Apply Approved GroupPlan",
         "APPLY",
         (
@@ -119,7 +120,10 @@ def apply_approved_group_plan_from_menu(
             f"Without Membership: {preview.unresolved_count}",
             "This is one atomic Activity update.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
 
     result = apply_group_plan(
@@ -130,7 +134,7 @@ def apply_approved_group_plan_from_menu(
             application_id=preview.application_id,
             application_digest=preview.application_digest,
             expected_snapshot_revision=preview.expected_snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             fallback_effective_context=preview.fallback_effective_context,
         ),
         **standards_kwargs,
