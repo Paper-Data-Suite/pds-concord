@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concord.group_plan_missing_signal import distribute_missing_signal_students
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_prompts import (
     confirm_write,
@@ -128,7 +129,7 @@ def resolve_missing_signal_from_menu(
 
         random_seed: str | None = None
         if choice == "manual":
-            if not confirm_write(
+            actor = confirm_actor_write(
                 "Confirm Manual Missing-Signal Placement",
                 "CONFIRM",
                 (
@@ -138,7 +139,10 @@ def resolve_missing_signal_from_menu(
                     "This records the explicit manual disposition only.",
                     "Canonical Groups created: no",
                 ),
-            ):
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
         elif choice == "random":
             random_seed = prompt_exact_text(
@@ -152,7 +156,7 @@ def resolve_missing_signal_from_menu(
             )
             assert random_seed is not None
             _show_random_preview(inspection, seed=random_seed)
-            if not confirm_write(
+            actor = confirm_actor_write(
                 "Distribute Missing Students Randomly",
                 "DISTRIBUTE",
                 (
@@ -162,10 +166,13 @@ def resolve_missing_signal_from_menu(
                     "Existing represented-student placements will not move.",
                     "No canonical Groups or Memberships will be created.",
                 ),
-            ):
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
         else:
-            if not confirm_write(
+            actor = confirm_actor_write(
                 "Leave Missing Students Unassigned",
                 "LEAVE",
                 (
@@ -175,7 +182,10 @@ def resolve_missing_signal_from_menu(
                     "No signal band will be inferred or synthesized.",
                     "Canonical Groups created: no",
                 ),
-            ):
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
 
         result = set_missing_signal_disposition(
@@ -186,7 +196,7 @@ def resolve_missing_signal_from_menu(
                 disposition=choice,
                 random_seed=random_seed,
                 expected_snapshot_revision=inspection.detail.summary.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             **standards_kwargs_for_plan(inspection.detail),
         )

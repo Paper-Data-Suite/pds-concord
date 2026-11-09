@@ -5,13 +5,15 @@ Only a Concord proposal is changed; Core rosters and operational Groups are not.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 from typing import TypeVar
 
 from pds_core.classes import load_class_roster
 from pds_core.rosters import StudentRecord, student_display_name, student_sort_name
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import _choose_temporary_actor
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -28,6 +30,10 @@ from concord.menu_ui import (
     pause_for_user,
     print_menu_header,
     print_navigation,
+)
+from concord.teacher_attribution import (
+    TeacherAttributionIdentity,
+    TeacherAttributionValidationError,
 )
 from concord.workflows import GroupPlanDetail
 from concord.workflows.group_plan_manual import (
@@ -55,9 +61,7 @@ def select_cluster_roster_students(
         raise ValueError("Roster choices and labels must have equal length.")
     if not items:
         return ()
-    selected = {
-        index for index, item in enumerate(items) if item in initial_selected
-    }
+    selected = {index for index, item in enumerate(items) if item in initial_selected}
     page = 0
     while True:
         clear_screen()
@@ -119,9 +123,7 @@ def select_cluster_roster_students(
 def _group_names(detail: GroupPlanDetail) -> dict[str | None, str]:
     names: dict[str | None, str] = {None: "Unresolved"}
     for group in detail.plan.proposed_groups:
-        names[group.planned_group_key] = (
-            f"{group.label} ({group.planned_group_key})"
-        )
+        names[group.planned_group_key] = f"{group.label} ({group.planned_group_key})"
     return names
 
 
@@ -129,57 +131,79 @@ def _review_batch(
     detail: GroupPlanDetail,
     preview: BulkPlannedGroupEditPreview,
     names: dict[str, str],
-) -> bool:
-    """Show the exact zero-write review; Back retains selection in caller."""
+    *,
+    state: MenuSessionContext,
+    request: BulkPlannedGroupEditRequest,
+    prepare_review: Callable[
+        [BulkPlannedGroupEditRequest], BulkPlannedGroupEditPreview
+    ],
+) -> tuple[BulkPlannedGroupEditRequest, BulkPlannedGroupEditPreview] | None:
+    """Review actor-bound digest and exact proposal; Back retains selection."""
     groups = _group_names(detail)
-    added = sum(
-        item.from_group_key is None for item in preview.changes
-    )
+    action_label = "Save Planned Cluster Batch"
+    state.actor_for_action(action_label=action_label)
+    alternate: TeacherAttributionIdentity | None = None
+    reviewed_request = request
+    reviewed_preview = preview
+    added = sum(item.from_group_key is None for item in reviewed_preview.changes)
     moved = sum(
         item.from_group_key is not None and item.to_group_key is not None
-        for item in preview.changes
+        for item in reviewed_preview.changes
     )
-    removed = sum(item.to_group_key is None for item in preview.changes)
+    removed = sum(item.to_group_key is None for item in reviewed_preview.changes)
     page = 0
     while True:
         clear_screen()
         print_menu_header("Review Planned Cluster Batch")
-        print(f"Class: {preview.class_id}; Activity: {preview.activity_id}")
-        print(f"GroupPlan: {preview.group_plan_id}; strategy: manual")
-        print(f"Target: {groups[preview.planned_group_key]}")
-        print(f"Status: {preview.original_status}")
         print(
-            f"Snapshot: {preview.snapshot_revision}; "
-            f"GroupPlan revision: {preview.record_revision}"
+            f"Class: {reviewed_preview.class_id}; "
+            f"Activity: {reviewed_preview.activity_id}"
         )
-        print(f"Core roster students: {len(preview.roster_student_ids)}")
+        print(f"GroupPlan: {reviewed_preview.group_plan_id}; strategy: manual")
+        print(f"Target: {groups[reviewed_preview.planned_group_key]}")
+        print(f"Status: {reviewed_preview.original_status}")
         print(
-            f"Selected: {len(preview.selected_student_ids)}; "
+            f"Snapshot: {reviewed_preview.snapshot_revision}; "
+            f"GroupPlan revision: {reviewed_preview.record_revision}"
+        )
+        print(f"Core roster students: {len(reviewed_preview.roster_student_ids)}")
+        print(
+            f"Selected: {len(reviewed_preview.selected_student_ids)}; "
             f"added: {added}; moved: {moved}; removed: {removed}; "
-            f"unchanged: {preview.unchanged_count}; conflicts: 0"
+            f"unchanged: {reviewed_preview.unchanged_count}; conflicts: 0"
         )
         print(
-            f"Unresolved: {preview.unresolved_before} -> "
-            f"{preview.unresolved_after}"
+            f"Unresolved: {reviewed_preview.unresolved_before} -> "
+            f"{reviewed_preview.unresolved_after}"
         )
-        before = dict(preview.before_sizes)
-        for key, after in preview.after_sizes:
+        before = dict(reviewed_preview.before_sizes)
+        for key, after in reviewed_preview.after_sizes:
             print(f"{groups[key]}: {before[key]} -> {after}")
         print("Student changes (source -> destination):")
-        for item in page_items(preview.changes, page):
+        for item in page_items(reviewed_preview.changes, page):
             display = names.get(item.student_id, item.student_id)
             print(
                 f"  {display} ({item.student_id}): "
                 f"{groups[item.from_group_key]} -> {groups[item.to_group_key]}"
             )
-        print(f"Changes page {page + 1} of {page_count(len(preview.changes))}")
-        print(f"Review digest: {preview.review_digest}")
-        if preview.original_status == "previewed":
+        print(f"Changes page {page + 1} of {page_count(len(reviewed_preview.changes))}")
+        print(f"Review digest: {reviewed_preview.review_digest}")
+        print(
+            "Recorded by: "
+            f"{reviewed_request.actor.display_label or reviewed_request.actor.actor_id}"
+        )
+        print(f"Actor ID: {reviewed_request.actor.actor_id}")
+        print("Recorded attribution is self-declared, not authentication.")
+        if reviewed_preview.original_status == "previewed":
             print("Saving returns this previewed GroupPlan to draft.")
         print("Only the planning proposal changes. Core roster, operational")
         print("Groups/Memberships, approval and application remain unchanged.")
         print("SAVE BATCH. Confirm the exact reviewed proposal change")
-        if page < page_count(len(preview.changes)) - 1:
+        if state.attribution_provider is not None:
+            print("A. Advanced: another actor for THIS batch only")
+            if alternate is not None:
+                print("D. Restore saved default attribution")
+        if page < page_count(len(reviewed_preview.changes)) - 1:
             print("N. Next changes page")
         if page:
             print("P. Previous changes page")
@@ -193,17 +217,61 @@ def _review_batch(
         elif navigation is NavigationChoice.BACK:
             # parse_menu_navigation recognizes B only when enabled; here handle
             # B explicitly because the UI's review-specific Back is local.
-            return False
+            return None
         elif raw.casefold() == "b":
-            return False
+            return None
+        elif raw.casefold() == "a" and state.attribution_provider is not None:
+            try:
+                selected = _choose_temporary_actor()
+                candidate_actor = state.actor_for_action(
+                    action_label=action_label, alternate=selected
+                )
+                candidate_request = replace(request, actor=candidate_actor)
+                candidate_preview = prepare_review(candidate_request)
+            except CancelMenuAction:
+                return None
+            except TeacherAttributionValidationError as error:
+                show_result(
+                    "Invalid Alternate Actor",
+                    (str(error), "No batch saved; review attribution again."),
+                )
+                continue
+            if candidate_preview.no_op:
+                show_result("Bulk Planning", ("No assignments would change.",))
+                return None
+            alternate = selected
+            reviewed_request = candidate_request
+            reviewed_preview = candidate_preview
+            page = 0
+        elif raw.casefold() == "d" and alternate is not None:
+            default_actor = state.actor_for_action(action_label=action_label)
+            candidate_request = replace(request, actor=default_actor)
+            candidate_preview = prepare_review(candidate_request)
+            if candidate_preview.no_op:
+                show_result("Bulk Planning", ("No assignments would change.",))
+                return None
+            alternate = None
+            reviewed_request = candidate_request
+            reviewed_preview = candidate_preview
+            page = 0
         elif raw.casefold() == "save batch":
-            return True
-        elif raw.casefold() == "n" and page < page_count(len(preview.changes)) - 1:
+            actor = state.actor_for_action(
+                action_label=action_label, alternate=alternate
+            )
+            if actor != reviewed_request.actor:
+                raise CancelMenuAction(
+                    "Batch attribution changed during review; review again."
+                )
+            return reviewed_request, reviewed_preview
+        elif (
+            raw.casefold() == "n"
+            and page < page_count(len(reviewed_preview.changes)) - 1
+        ):
             page += 1
         elif raw.casefold() == "p" and page:
             page -= 1
         else:
-            print("Choose SAVE BATCH, B, N, P, H, M or Q.")
+            print("Choose SAVE BATCH, A, D, B, N, P, H, M or Q.")
             pause_for_user()
 
 
@@ -246,18 +314,19 @@ def launch_cluster_bulk_editor(
     root = resolve_workspace_root()
     roster = load_class_roster(root, detail.summary.class_id)
     names = {
-        student.student_id: student_display_name(student)
-        for student in roster.students
+        student.student_id: student_display_name(student) for student in roster.students
     }
     assignment = {
         student_id: item.planned_group_key
-        for item in plan.proposed_groups for student_id in item.student_ids
+        for item in plan.proposed_groups
+        for student_id in item.student_ids
     }
     groups = _group_names(detail)
     students = tuple(
         sorted(
             (
-                student for student in roster.students
+                student
+                for student in roster.students
                 if operation == "place_or_move"
                 or student.student_id in group.student_ids
             ),
@@ -304,11 +373,24 @@ def launch_cluster_bulk_editor(
         if preview.no_op:
             show_result("Bulk Planning", ("No assignments would change.",))
             return
-        if not _review_batch(detail, preview, names):
+        reviewed = _review_batch(
+            detail,
+            preview,
+            names,
+            state=state,
+            request=request,
+            prepare_review=lambda candidate: prepare_bulk_planned_group_edit(
+                candidate, workspace_root=root, **standards
+            ),
+        )
+        if reviewed is None:
             continue
+        reviewed_request, reviewed_preview = reviewed
         saved = commit_bulk_planned_group_edit(
-            request, review_digest=preview.review_digest,
-            workspace_root=root, **standards
+            reviewed_request,
+            review_digest=reviewed_preview.review_digest,
+            workspace_root=root,
+            **standards,
         )
         show_result(
             "Bulk Planning Result",
@@ -318,7 +400,7 @@ def launch_cluster_bulk_editor(
                 f"Status: {saved.detail.plan.status}",
                 f"Activity snapshot: {saved.detail.summary.snapshot_revision}",
                 f"Plan record revision: {saved.detail.record_revision}",
-                f"Changed students: {len(preview.changes)}",
+                f"Changed students: {len(reviewed_preview.changes)}",
                 f"Unresolved: {saved.detail.summary.unresolved_student_count}",
                 "Next: continue editing or preview the GroupPlan separately.",
                 "Canonical Groups and Core roster were not changed.",
