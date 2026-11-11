@@ -963,7 +963,7 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
         current, title="Update Artifact Author", write_context=write_preview
     )
     status = _author_status()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Update Artifact Author",
         "UPDATE",
         (
@@ -973,7 +973,10 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
             ),
             f"New attribution status: {status}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -987,7 +990,7 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
             artifact_author_id=selected.artifact_author_id,
             attribution_status=status,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -1934,7 +1937,14 @@ def _quick_review_selected(
         f"Snapshot SHA-256: {context.snapshot_sha256}",
         *_routine_review_value_lines(values),
     )
-    if not confirm_write("Quick Artifact Review", "REVIEW", preview):
+    actor = confirm_actor_write(
+        "Quick Artifact Review",
+        "REVIEW",
+        preview,
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return False
 
     write_context = revalidate_artifact_write_context(
@@ -1945,7 +1955,7 @@ def _quick_review_selected(
     result = record_routine_artifact_review(
         context,
         values,
-        actor=state.require_actor(),
+        actor=actor,
         **artifact_write_kwargs(write_context),
     )
     show_result(
@@ -2020,7 +2030,7 @@ def _record_review_selected(
         notes,
         review_privacy,
     ) = _review_values()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Record Artifact Review",
         "REVIEW",
         (
@@ -2029,7 +2039,10 @@ def _record_review_selected(
             f"Scoring readiness: {readiness}",
             f"Moderation requirement: {moderation}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return False
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -2055,7 +2068,7 @@ def _record_review_selected(
             notes=notes,
             privacy_policy=review_privacy,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -2247,7 +2260,7 @@ def _replace_review(activity: ActivitySummary, state: MenuSessionContext) -> Non
         notes,
         review_privacy,
     ) = _review_values()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Revise Artifact Review",
         "REVISE",
         (
@@ -2256,7 +2269,10 @@ def _replace_review(activity: ActivitySummary, state: MenuSessionContext) -> Non
             f"Outcome: {outcome}",
             f"Moderation requirement: {moderation}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -2287,7 +2303,7 @@ def _replace_review(activity: ActivitySummary, state: MenuSessionContext) -> Non
                 classification="teacher_restricted"
             ),
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -2774,7 +2790,7 @@ def _record_moderation(
     )
     assert moderation_id is not None
     status, permitted_use, rationale, qualification, privacy = _moderation_values()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Record Moderation",
         "MODERATE",
         (
@@ -2787,7 +2803,10 @@ def _record_moderation(
             f"Status: {status}",
             f"Permitted use: {permitted_use}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -2807,7 +2826,7 @@ def _record_moderation(
             qualification=qualification,
             privacy_policy=privacy,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -2868,7 +2887,7 @@ def _replace_moderation(
     assert correction_id is not None
     assert reason is not None
     status, permitted_use, rationale, qualification, privacy = _moderation_values()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Revise Moderation",
         "REVISE",
         (
@@ -2878,7 +2897,10 @@ def _replace_moderation(
             f"New status: {status}",
             f"New permitted use: {permitted_use}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -2904,7 +2926,7 @@ def _replace_moderation(
                 classification="teacher_restricted"
             ),
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
