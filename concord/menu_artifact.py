@@ -888,6 +888,24 @@ def _show_author(activity: ActivitySummary, *, historical: bool) -> None:
     )
 
 
+def _author_identity_review(
+    reference: ParticipantReference | ActorReference | ConcordRecordReference | None,
+    mode: str,
+) -> tuple[str, ...]:
+    """Name an adult Author separately from the action's recorded-by actor."""
+    if mode not in {"teacher_author", "authorized_adult_author"}:
+        return ()
+    if not isinstance(reference, ActorReference):
+        raise ConcordWorkflowValidationError(
+            "The selected adult Author reference changed before confirmation."
+        )
+    return (
+        f"Recorded Author: {reference.display_label_snapshot or reference.actor_id}",
+        f"Author Actor ID: {reference.actor_id}",
+        "A temporary Recorded by choice does not change this Author.",
+    )
+
+
 def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
@@ -912,15 +930,19 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
         role_id,
         representation,
     ) = _choose_author_semantics(current, state)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Add Artifact Author",
         "ADD",
         (
             f"Work: {artifact.artifact_status.replace('_', ' ')}",
             f"Authorship mode: {mode}",
+            *_author_identity_review(reference, mode),
             f"Attribution status: {status}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -938,7 +960,7 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
             attribution_status=status,
             attribution_source=source,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             represented_group_id=group_id,
             role_assignment_id=role_id,
             representation_status=representation,
@@ -1040,15 +1062,19 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
         role_id,
         representation,
     ) = _choose_author_semantics(current, state)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Correct Artifact Author",
         "CORRECT",
         (
             f"Predecessor: {selected.artifact_author_id}",
             f"Replacement: {replacement_id}",
             f"New authorship mode: {mode}",
+            *_author_identity_review(reference, mode),
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
@@ -1068,7 +1094,7 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
             attribution_status=status,
             attribution_source=source,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             represented_group_id=group_id,
             role_assignment_id=role_id,
             representation_status=representation,
@@ -3129,7 +3155,7 @@ def _commit_attribution_confirmation(
             "Reopen the review before confirming."
         )
 
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Confirm Attribution",
         "CONFIRM",
         (
@@ -3143,7 +3169,10 @@ def _commit_attribution_confirmation(
             "No Author or Subject identity or relationship meaning will change.",
             "Only confirmation status will change.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
 
     write_context = revalidate_artifact_write_context(
@@ -3158,7 +3187,7 @@ def _commit_attribution_confirmation(
             artifact_author_ids=artifact_author_ids,
             artifact_subject_ids=artifact_subject_ids,
             expected_snapshot_revision=review.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -3261,7 +3290,7 @@ def _add_multiple_authors(
     students = choose_students(write_preview.root, current.class_id)
     mode = _routine_multi_author_mode()
     status = _routine_add_status(relationship="Author Attribution")
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Add Several Artifact Authors",
         "ADD",
         (
@@ -3271,7 +3300,10 @@ def _add_multiple_authors(
             f"Shared attribution status: {status}",
             "All selected students receive the same Author semantics.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
 
     write_context = revalidate_artifact_write_context(
@@ -3289,7 +3321,7 @@ def _add_multiple_authors(
             attribution_status=status,
             attribution_source="teacher",
             expected_snapshot_revision=artifact.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -3325,7 +3357,7 @@ def _add_multiple_subjects(
         ),
         optional=True,
     )
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Add Several Artifact Subjects",
         "ADD",
         (
@@ -3336,7 +3368,10 @@ def _add_multiple_subjects(
             f"Shared Criterion context: {criterion_id or '-'}",
             "All selected students receive the same Subject semantics.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
 
     write_context = revalidate_artifact_write_context(
@@ -3354,7 +3389,7 @@ def _add_multiple_subjects(
             confirmation_status=status,
             assignment_source="teacher",
             expected_snapshot_revision=artifact.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             criterion_id=criterion_id,
         ),
         **artifact_write_kwargs(write_context),
