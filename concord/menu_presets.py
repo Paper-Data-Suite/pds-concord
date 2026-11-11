@@ -11,6 +11,7 @@ from pds_core.standards_selection import (
     list_standards_for_selection,
 )
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -242,12 +243,15 @@ def _role_key(default: str | None = None) -> str:
         "Custom namespaced role",
     )
     if default is not None and default not in _ROLE_KEYS:
-        return prompt_text(
-            "Role Preset",
-            "Role key",
-            help_text="Use a built-in Role key or a namespace-qualified custom key.",
-            default=default,
-        ) or default
+        return (
+            prompt_text(
+                "Role Preset",
+                "Role key",
+                help_text="Use a built-in Role key or a namespaced custom key.",
+                default=default,
+            )
+            or default
+        )
     selected = select_one(
         "Role Preset",
         choices,
@@ -310,11 +314,14 @@ def _create_role(state: MenuSessionContext) -> None:
     role_key = _role_key()
     label = _optional_text("Create Role Preset", "Display label")
     description = _optional_text("Create Role Preset", "Description")
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Create Role Preset",
         "CREATE",
         (f"Name: {name}", f"Role: {label or role_key}"),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = create_role_preset(
         CreateRolePresetRequest(
@@ -324,7 +331,7 @@ def _create_role(state: MenuSessionContext) -> None:
             role_key=role_key,
             role_label=label,
             description=description,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
     show_result("Role Preset Created", (f"Preset: {result.preset_id}",))
@@ -339,11 +346,14 @@ def _create_responsibility(state: MenuSessionContext) -> None:
     )
     assert description is not None
     output = _optional_text("Create Responsibility Preset", "Expected output")
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Create Responsibility Preset",
         "CREATE",
         (f"Name: {name}", f"Responsibility: {description}"),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = create_responsibility_preset(
         CreateResponsibilityPresetRequest(
@@ -352,7 +362,7 @@ def _create_responsibility(state: MenuSessionContext) -> None:
             name=name,
             description=description,
             expected_output=output,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
     show_result("Responsibility Preset Created", (f"Preset: {result.preset_id}",))
@@ -386,7 +396,7 @@ def _create_scale(state: MenuSessionContext) -> None:
         intended_use=intended_use,
         aggregation_guidance=aggregation,
     )
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Create Scoring Scale Preset",
         "CREATE",
         (
@@ -400,7 +410,10 @@ def _create_scale(state: MenuSessionContext) -> None:
             "No Scores, Grades, evidence, or publication are created.",
             "This saves a reusable definition; no Activity Scale is materialized.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = create_scoring_scale_preset(
         CreateScoringScalePresetRequest(
@@ -411,7 +424,7 @@ def _create_scale(state: MenuSessionContext) -> None:
             levels=guided.draft.levels,
             intended_use=intended_use,
             aggregation_guidance=aggregation,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
     show_result(
@@ -570,11 +583,14 @@ def _create_criterion(state: MenuSessionContext) -> None:
     )
     profile_id = _profile_id() if kind in {"standard_backed", "mixed"} else None
     criteria = _criterion_specs(kind, profile_id)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Create Criterion Set Preset",
         "CREATE",
         (f"Name: {name}", f"Kind: {kind}", f"Criteria: {len(criteria)}"),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = create_criterion_set_preset(
         CreateCriterionSetPresetRequest(
@@ -585,7 +601,7 @@ def _create_criterion(state: MenuSessionContext) -> None:
             criterion_set_kind=kind,
             criteria=criteria,
             standards_profile_id=profile_id,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         standards_library=load_menu_standards_library(),
     )
@@ -616,7 +632,7 @@ def _successor_id(preset_id: str, revision: int) -> str:
     return value
 
 
-def _edit_role(summary: PresetSummary, state: MenuSessionContext) -> None:
+def _edit_role(summary: PresetSummary, state: MenuSessionContext) -> bool:
     current = get_preset("role", summary.preset_id)
     assert isinstance(current, RolePresetRevision)
     name = prompt_text(
@@ -634,12 +650,15 @@ def _edit_role(summary: PresetSummary, state: MenuSessionContext) -> None:
         "Edit Role Preset", "Description", default=current.description
     )
     revision_id = _successor_id(current.preset_id, current.revision)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Edit Role Preset",
         "REVISE",
         (f"Preset: {current.name}", f"New version: {current.revision + 1}"),
-    ):
-        return
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
+        return False
     revise_role_preset(
         ReviseRolePresetRequest(
             preset_id=current.preset_id,
@@ -650,12 +669,13 @@ def _edit_role(summary: PresetSummary, state: MenuSessionContext) -> None:
             role_label=label,
             description=description,
             applicability_hints=current.applicability_hints,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
+    return True
 
 
-def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> None:
+def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> bool:
     current = get_preset("responsibility", summary.preset_id)
     assert isinstance(current, ResponsibilityPresetRevision)
     name = prompt_text(
@@ -677,12 +697,15 @@ def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> N
         default=current.expected_output,
     )
     revision_id = _successor_id(current.preset_id, current.revision)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Edit Responsibility Preset",
         "REVISE",
         (f"Preset: {current.name}", f"New version: {current.revision + 1}"),
-    ):
-        return
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
+        return False
     revise_responsibility_preset(
         ReviseResponsibilityPresetRequest(
             preset_id=current.preset_id,
@@ -692,13 +715,17 @@ def _edit_responsibility(summary: PresetSummary, state: MenuSessionContext) -> N
             description=description,
             expected_output=output,
             applicability_hints=current.applicability_hints,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
+    return True
 
 
 def _edit_optional_preset_scale_field(
-    title: str, label: str, previous: str | None, *,
+    title: str,
+    label: str,
+    previous: str | None,
+    *,
     combining_notes: bool = False,
 ) -> str | None:
     """Preserve existing optional metadata unless explicitly changed or cleared."""
@@ -753,11 +780,15 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
         ),
     )
     intended = _edit_optional_preset_scale_field(
-        "Edit Scoring Scale Preset", "Intended use", current.intended_use,
+        "Edit Scoring Scale Preset",
+        "Intended use",
+        current.intended_use,
     )
     aggregation = _edit_optional_preset_scale_field(
-        "Edit Scoring Scale Preset", "Notes on combining assessment results",
-        current.aggregation_guidance, combining_notes=True,
+        "Edit Scoring Scale Preset",
+        "Notes on combining assessment results",
+        current.aggregation_guidance,
+        combining_notes=True,
     )
     validate_draft(
         guided.draft,
@@ -779,7 +810,7 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
         )
         return
     revision_id = _successor_id(current.preset_id, current.revision)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Edit Scoring Scale Preset",
         "REVISE",
         (
@@ -794,7 +825,10 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
             "Old saved revisions and existing Activity Scales remain unchanged.",
             "No Scores, Grades, evidence, or publication are created.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     revise_scoring_scale_preset(
         ReviseScoringScalePresetRequest(
@@ -806,7 +840,7 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
             levels=guided.draft.levels,
             intended_use=intended,
             aggregation_guidance=aggregation,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
     show_result(
@@ -819,7 +853,7 @@ def _edit_scale(summary: PresetSummary, state: MenuSessionContext) -> None:
     )
 
 
-def _edit_criterion(summary: PresetSummary, state: MenuSessionContext) -> None:
+def _edit_criterion(summary: PresetSummary, state: MenuSessionContext) -> bool:
     current = get_preset("criterion_set", summary.preset_id)
     assert isinstance(current, CriterionSetPresetRevision)
     name = prompt_text(
@@ -854,12 +888,15 @@ def _edit_criterion(summary: PresetSummary, state: MenuSessionContext) -> None:
         else _criterion_specs(kind, profile_id, current.criteria)
     )
     revision_id = _successor_id(current.preset_id, current.revision)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Edit Criterion Set Preset",
         "REVISE",
         (f"Preset: {current.name}", f"New version: {current.revision + 1}"),
-    ):
-        return
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
+        return False
     revise_criterion_set_preset(
         ReviseCriterionSetPresetRequest(
             preset_id=current.preset_id,
@@ -870,33 +907,35 @@ def _edit_criterion(summary: PresetSummary, state: MenuSessionContext) -> None:
             criterion_set_kind=kind,
             criteria=criteria,
             standards_profile_id=profile_id,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         standards_library=load_menu_standards_library(),
     )
+    return True
 
 
 def _edit(kind: str, state: MenuSessionContext) -> None:
     selected = _choose_preset(kind, title=f"Edit a {_kind_label(kind)} Preset")
     if kind == "role":
-        _edit_role(selected, state)
+        saved = _edit_role(selected, state)
     elif kind == "responsibility":
-        _edit_responsibility(selected, state)
+        saved = _edit_responsibility(selected, state)
     elif kind == "criterion_set":
-        _edit_criterion(selected, state)
+        saved = _edit_criterion(selected, state)
     else:
         # The Scale editor issues its own receipt only after a successful write.
         # Cancellation, no-op and stale conflicts cannot claim "Preset Updated".
         _edit_scale(selected, state)
         return
-    show_result("Preset Updated", ("Saved as a new immutable version.",))
+    if saved:
+        show_result("Preset Updated", ("Saved as a new immutable version.",))
 
 
 def _retire(kind: str, state: MenuSessionContext) -> None:
     selected = _choose_preset(kind, title=f"Retire a {_kind_label(kind)} Preset")
     current = get_preset(kind, selected.preset_id)
     revision_id = _successor_id(current.preset_id, current.revision)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Retire Preset",
         "RETIRE",
         (
@@ -904,14 +943,17 @@ def _retire(kind: str, state: MenuSessionContext) -> None:
             "Past Activities and assignments remain unchanged.",
             "The preset will no longer appear in ordinary saved-preset selection.",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     retire_preset(
         kind,
         current.preset_id,
         preset_revision_id=revision_id,
         expected_revision=current.revision,
-        actor=state.require_actor(),
+        actor=actor,
     )
     show_result("Preset Retired", (f"Preset: {current.name}",))
 
