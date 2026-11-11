@@ -29,6 +29,7 @@ from concord.criterion_revision_guidance import (
     describe_native_criterion_set,
     project_native_criterion_set,
 )
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
@@ -331,7 +332,7 @@ def _create_scale(
             intended_use=intended_use,
             aggregation_guidance=aggregation,
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Create Scoring Scale",
             "CREATE",
             (
@@ -346,7 +347,10 @@ def _create_scale(
                 "No Scores, Grades, evidence, or publication are created.",
                 "Native Scale only; this does not link a Criterion or save a preset.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return None
         result = create_scoring_scale(
             CreateScoringScaleRequest(
@@ -362,7 +366,7 @@ def _create_scale(
                 intended_use=intended_use,
                 aggregation_guidance=aggregation,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=_library(),
         )
@@ -450,7 +454,7 @@ def _revise_scale(
             intended_use=intended_use,
             aggregation_guidance=aggregation,
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Revise Scoring Scale",
             "REVISE",
             (
@@ -464,7 +468,10 @@ def _revise_scale(
                 f"Notes on combining assessment results: {aggregation or '(none)'}",
                 "Historical Scale and Scores remain unchanged.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = revise_scoring_scale(
             ReviseScoringScaleRequest(
@@ -480,7 +487,7 @@ def _revise_scale(
                 intended_use=intended_use,
                 aggregation_guidance=aggregation,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=_library(),
         )
@@ -618,7 +625,7 @@ def _import_saved_scale(
         )
         new_scale_id = f"scale-{uuid4().hex}"
         new_lineage_id = f"scale-lineage-{uuid4().hex}"
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Use Saved Scoring Scale",
             "USE",
             (
@@ -630,7 +637,10 @@ def _import_saved_scale(
                 "data, evidence, or presets will be created or copied.",
                 "The new Scale must be chosen separately when configuring Criteria.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         # A concurrent Activity change or preset revision must fail before writing.
         if _latest(activity).snapshot_revision != current.snapshot_revision:
@@ -655,7 +665,7 @@ def _import_saved_scale(
             intended_use=chosen.intended_use,
             aggregation_guidance=chosen.aggregation_guidance,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         )
         try:
             result = create_scoring_scale(request, standards_library=_library())
@@ -909,7 +919,7 @@ def _create_criterion_set(
             if kind in {"standard_backed", "mixed"}
             else None
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Create Criterion Set",
             "CREATE",
             (
@@ -920,7 +930,10 @@ def _create_criterion_set(
                 f"Scope: {scope}",
                 f"Criteria: {len(criteria)}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_criterion_set(
             CreateCriterionSetRequest(
@@ -937,7 +950,7 @@ def _create_criterion_set(
                 status="active",
                 standards_profile_id=profile_id,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=_library(),
         )
@@ -1259,7 +1272,7 @@ def _revise_criterion_set_advanced(
             if kind in {"standard_backed", "mixed"}
             else None
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Revise Criterion Set",
             "REVISE",
             (
@@ -1268,7 +1281,10 @@ def _revise_criterion_set_advanced(
                 f"Revision: {predecessor.revision + 1}",
                 f"Criteria: {len(criteria)}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = revise_criterion_set(
             ReviseCriterionSetRequest(
@@ -1285,7 +1301,7 @@ def _revise_criterion_set_advanced(
                 status="active",
                 standards_profile_id=profile_id,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=_library(),
         )
@@ -1328,7 +1344,7 @@ def _select_criterion_sets_advanced(
             ),
         )
         selected_ids = tuple(item.criterion_set_id for item in selected)
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Select Criterion Sets",
             "SELECT",
             (
@@ -1336,7 +1352,10 @@ def _select_criterion_sets_advanced(
                 f"Selected Sets: {len(selected_ids)}",
                 *selected_ids,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = select_activity_criterion_sets(
             SelectActivityCriterionSetsRequest(
@@ -1344,7 +1363,7 @@ def _select_criterion_sets_advanced(
                 activity_id=current.activity_id,
                 criterion_set_ids=selected_ids,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
             ),
             standards_library=_library(),
         )
@@ -1946,7 +1965,7 @@ def _record_score(
             "Score Record ID",
             f"score-{uuid4().hex}",
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Record a Score",
             "SCORE",
             _score_confirmation_lines(
@@ -1960,7 +1979,10 @@ def _record_score(
                 draft.basis,
                 len(draft.links),
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = add_score(
             AddScoreRequest(
@@ -1975,7 +1997,7 @@ def _record_score(
                 basis=draft.basis,
                 privacy_policy=_PRIVACY,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
                 value=draft.value,
                 rationale=draft.rationale,
                 status_reason=draft.status_reason,
@@ -2121,7 +2143,14 @@ def _revise_score(
                 len(draft.links),
             ),
         )
-        if not confirm_write("Revise a Score", "REVISE", lines):
+        actor = confirm_actor_write(
+            "Revise a Score",
+            "REVISE",
+            lines,
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = replace_score(
             ReplaceScoreRequest(
@@ -2140,7 +2169,7 @@ def _revise_score(
                 privacy_policy=_PRIVACY,
                 correction_privacy_policy=_PRIVACY,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
                 value=draft.value,
                 rationale=draft.rationale,
                 status_reason=draft.status_reason,
