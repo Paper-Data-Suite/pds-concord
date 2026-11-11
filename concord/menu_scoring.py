@@ -1012,7 +1012,8 @@ def _create_guided_criterion_set(
             raise ValueError(
                 "Activity selection changed during review. Reopen the rubric."
             )
-        if not confirm_write(
+        initial_actor = actor
+        reviewed_actor = confirm_actor_write(
             (
                 "Create and Use Rubric"
                 if use_after_create
@@ -1041,8 +1042,21 @@ def _create_guided_criterion_set(
                 "durable writes.",
                 "Saving a reusable preset requires separate explicit authorization.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if reviewed_actor is None:
             return
+        actor = reviewed_actor
+        if actor != initial_actor:
+            validate_criterion_draft(
+                draft,
+                activity_scoring_orientation=current.scoring_orientation,
+                standards_profile_id=detail.standards_profile_id,
+                focus_standard_ids=tuple(detail.focus_standard_ids),
+                standards_library=library,
+                created_provenance=provenance(actor),
+            )
         if _latest(activity).snapshot_revision != current.snapshot_revision:
             raise ValueError(
                 "Activity changed after rubric review. "
@@ -2648,7 +2662,7 @@ def _use_existing_criterion_set(
         displaced = tuple(
             item for item in selection.criterion_set_ids if item not in proposed
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Use Existing Rubric",
             "USE",
             (
@@ -2671,7 +2685,10 @@ def _use_existing_criterion_set(
                 "refuses replacement; no selection write is made.",
                 "No Scores, Grades, evidence, or presets are created.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         fresh = read_activity_criterion_set_selection(
             current.class_id,
@@ -2695,7 +2712,6 @@ def _use_existing_criterion_set(
                 ),
             )
             return
-        actor = state.require_actor()
         try:
             result = select_activity_criterion_sets(
                 SelectActivityCriterionSetsRequest(
@@ -2849,7 +2865,8 @@ def _revise_criterion_set(
         replacement_id = f"criterion-set-{uuid4().hex}"
         criterion_ids = tuple(f"criterion-{uuid4().hex}" for _ in draft.criteria)
         new_specs = criterion_specs(draft, criterion_ids)
-        if not confirm_write(
+        initial_actor = actor
+        reviewed_actor = confirm_actor_write(
             "Revise Native Rubric",
             "REVISE",
             (
@@ -2865,8 +2882,21 @@ def _revise_criterion_set(
                 "After creation, use 'Use an existing rubric' to choose whether "
                 "to replace an earlier selected revision or keep both.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if reviewed_actor is None:
             return
+        actor = reviewed_actor
+        if actor != initial_actor:
+            validate_criterion_draft(
+                draft,
+                activity_scoring_orientation=current.scoring_orientation,
+                standards_profile_id=activity_detail.standards_profile_id,
+                focus_standard_ids=tuple(activity_detail.focus_standard_ids),
+                standards_library=library,
+                created_provenance=provenance(actor),
+            )
         fresh = read_activity_criterion_set_selection(
             current.class_id,
             current.activity_id,
