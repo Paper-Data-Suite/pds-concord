@@ -7,6 +7,7 @@ Only callers that deliberately use this helper offer the Advanced option.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
@@ -23,6 +24,7 @@ from concord.teacher_attribution import (
 from concord.workflows import WorkflowActor
 
 LegacyConfirm = Callable[[str, str, Sequence[str]], bool]
+_PreparedT = TypeVar("_PreparedT")
 
 
 def _choose_temporary_actor() -> TeacherAttributionIdentity:
@@ -56,6 +58,7 @@ def confirm_actor_write(
     *,
     state: MenuSessionContext,
     legacy_confirm: LegacyConfirm,
+    review_lines: Callable[[WorkflowActor], Sequence[str]] | None = None,
 ) -> WorkflowActor | None:
     """Return a *reviewed* actor for this operation or None on cancellation.
 
@@ -65,7 +68,10 @@ def confirm_actor_write(
     an opt-in Advanced actor choice in that very same review screen.
     """
     if getattr(state, "attribution_provider", None) is None:
-        if not legacy_confirm(title, expected, lines):
+        rendered = (
+            lines if review_lines is None else review_lines(state.require_actor())
+        )
+        if not legacy_confirm(title, expected, rendered):
             return None
         return state.require_actor()
 
@@ -77,7 +83,7 @@ def confirm_actor_write(
         actor = state.actor_for_action(action_label=title, alternate=alternate)
         clear_screen()
         print_menu_header(title)
-        for line in lines:
+        for line in lines if review_lines is None else review_lines(actor):
             print(line)
         print()
         print(f"Recorded by: {actor.display_label or actor.actor_id}")
@@ -129,4 +135,42 @@ def confirm_actor_write(
         )
 
 
-__all__ = ["confirm_actor_write"]
+def confirm_prepared_actor_write(
+    title: str,
+    expected: str,
+    *,
+    state: MenuSessionContext,
+    legacy_confirm: LegacyConfirm,
+    prepare_for_actor: Callable[[WorkflowActor], tuple[_PreparedT, Sequence[str]]],
+) -> _PreparedT | None:
+    """Reprepare and review the exact request for each selected actor.
+
+    The digest and request remain paired through alternate/default toggles.
+    Cancellation never exposes a prepared request for commitment.
+    """
+    latest: tuple[WorkflowActor, _PreparedT] | None = None
+
+    def render(actor: WorkflowActor) -> Sequence[str]:
+        nonlocal latest
+        pending, lines = prepare_for_actor(actor)
+        latest = actor, pending
+        return lines
+
+    actor = confirm_actor_write(
+        title,
+        expected,
+        (),
+        state=state,
+        legacy_confirm=legacy_confirm,
+        review_lines=render,
+    )
+    if actor is None:
+        return None
+    if latest is None or latest[0] != actor:
+        raise RuntimeError(
+            "Reviewed actor differs from prepared actor; no write attempted."
+        )
+    return latest[1]
+
+
+__all__ = ["confirm_actor_write", "confirm_prepared_actor_write"]

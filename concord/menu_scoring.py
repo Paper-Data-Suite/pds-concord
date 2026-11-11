@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -29,7 +29,10 @@ from concord.criterion_revision_guidance import (
     describe_native_criterion_set,
     project_native_criterion_set,
 )
-from concord.menu_actor_action import confirm_actor_write
+from concord.menu_actor_action import (
+    confirm_actor_write,
+    confirm_prepared_actor_write,
+)
 from concord.menu_artifact import (
     open_returned_work,
     open_verified_assembly_version,
@@ -103,6 +106,7 @@ from concord.workflows import (
     CriterionTargetIdentity,
     MaterializeScoringSetupRequest,
     PreparedPresetSave,
+    PreparedScoringSetup,
     ReplaceScoreRequest,
     ReviseCriterionSetRequest,
     ReviseScoringScaleRequest,
@@ -2234,23 +2238,37 @@ def _save_scale_id_as_preset(
         expected_snapshot_revision=current.snapshot_revision,
         actor=state.require_actor(),
     )
-    prepared = prepare_scoring_scale_preset_from_activity(
-        request,
-        standards_library=_library(),
-    )
-    if not confirm_write(
-        "Save Scoring Scale Preset",
-        "SAVE",
-        (
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[
+        tuple[SaveScoringScalePresetFromActivityRequest, PreparedPresetSave],
+        tuple[str, ...],
+    ]:
+        reviewed_request = replace(request, actor=actor)
+        reviewed_prepared = prepare_scoring_scale_preset_from_activity(
+            reviewed_request, standards_library=_library()
+        )
+        lines = (
             f"Source Activity: {current.title} ({current.activity_id})",
             f"Source native Scale ID: {scale_id}",
             f"Current Activity snapshot: {current.snapshot_revision}",
-            *_preset_save_lines(prepared),
+            *_preset_save_lines(reviewed_prepared),
             "This is a second, independently reviewed write.",
             "No Scores, student/Group data, or evidence will be copied.",
-        ),
-    ):
+        )
+        return (reviewed_request, reviewed_prepared), lines
+
+    reviewed = confirm_prepared_actor_write(
+        "Save Scoring Scale Preset",
+        "SAVE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
+    )
+    if reviewed is None:
         return None
+    request, prepared = reviewed
     saved = save_scoring_scale_preset_from_activity(
         request,
         review_digest=prepared.review_digest,
@@ -2441,13 +2459,18 @@ def _save_criterion_set_as_preset(
             recommended_scoring_scale_preset_id=recommended_id,
             recommended_scoring_scale_preset_revision_id=recommended_revision_id,
         )
-        prepared = prepare_criterion_set_preset_from_activity(
-            request, standards_library=library
-        )
-        if not confirm_write(
-            "Save this assessment for another class",
-            "SAVE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[
+            tuple[SaveCriterionSetPresetFromActivityRequest, PreparedPresetSave],
+            tuple[str, ...],
+        ]:
+            reviewed_request = replace(request, actor=actor)
+            reviewed_prepared = prepare_criterion_set_preset_from_activity(
+                reviewed_request, standards_library=library
+            )
+            lines = (
                 f"Source Activity: {current.title} ({current.activity_id})",
                 f"Exact native Set: {selected.criterion_set_id}",
                 f"Native revision: {selected.revision}",
@@ -2457,14 +2480,24 @@ def _save_criterion_set_as_preset(
                 f"{'yes' if selected.is_selected else 'no'}",
                 f"Source Activity snapshot: {current.snapshot_revision}",
                 *scale_lines,
-                *_preset_save_lines(prepared),
+                *_preset_save_lines(reviewed_prepared),
                 "SAVE is one separate reusable-preset write; it will not",
                 "change this Activity or configure any other class yet.",
                 "No Scores, Grades, student/Group IDs, evidence, or publication",
                 "are copied. The target Activity must later be reviewed.",
-            ),
-        ):
+            )
+            return (reviewed_request, reviewed_prepared), lines
+
+        reviewed = confirm_prepared_actor_write(
+            "Save this assessment for another class",
+            "SAVE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if reviewed is None:
             return
+        request, prepared = reviewed
         fresh = read_activity_criterion_set_selection(
             current.class_id, current.activity_id, standards_library=library
         )
@@ -3275,29 +3308,45 @@ def _use_saved_scoring_setup(
                 None if scale is None else f"scale-lineage-{uuid4().hex}"
             ),
         )
-        prepared = prepare_scoring_setup(
-            request,
-            standards_library=_library(),
-        )
-        if not confirm_write(
-            "Use Saved Scoring Setup",
-            "USE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[
+            tuple[MaterializeScoringSetupRequest, PreparedScoringSetup],
+            tuple[str, ...],
+        ]:
+            reviewed_request = replace(request, actor=actor)
+            reviewed_prepared = prepare_scoring_setup(
+                reviewed_request, standards_library=_library()
+            )
+            scale_label = reviewed_prepared.scoring_scale_preset_name or "none"
+            profile_label = reviewed_prepared.standards_profile_id or "-"
+            lines = (
                 *_saved_criteria_preview(value),
-                f"Verified Criteria count: {prepared.criterion_count}",
-                f"Selected Scale: {prepared.scoring_scale_preset_name or 'none'}",
+                f"Verified Criteria count: {reviewed_prepared.criterion_count}",
+                f"Selected Scale: {scale_label}",
                 (
                     f"Saved Scale revision: {scale.revision} "
                     f"({scale.preset_revision_id}); Preset ID: {scale.preset_id}"
                     if scale is not None
                     else "Saved Scale revision: none"
                 ),
-                f"Verified Standards profile: {prepared.standards_profile_id or '-'}",
+                f"Verified Standards profile: {profile_label}",
                 "This creates fresh Activity configuration only.",
                 "No Scores, Groups, student data, or evidence will be copied.",
-            ),
-        ):
+            )
+            return (reviewed_request, reviewed_prepared), lines
+
+        reviewed = confirm_prepared_actor_write(
+            "Use Saved Scoring Setup",
+            "USE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if reviewed is None:
             return
+        request, prepared = reviewed
         result = materialize_scoring_setup(
             request,
             review_digest=prepared.review_digest,
