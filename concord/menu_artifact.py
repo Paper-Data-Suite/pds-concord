@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_artifact_write_context import (
     ArtifactWriteContext,
     artifact_write_kwargs,
@@ -219,11 +220,14 @@ def _prepare(activity: ActivitySummary, state: MenuSessionContext) -> None:
         default=1,
     )
     assert artifact_id is not None and template_id is not None
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Prepare Artifact Pages",
         "CREATE",
         (f"Activity: {activity.title}", f"Artifact: {artifact_id}", f"Pages: {count}"),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = prepare_artifact_pages(
         PrepareArtifactPagesRequest(
@@ -233,7 +237,7 @@ def _prepare(activity: ActivitySummary, state: MenuSessionContext) -> None:
             template_version_id=template_id,
             artifact_category="student_work",
             expected_snapshot_revision=activity.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             pages=tuple(
                 ArtifactPagePlan(page_number=index) for index in range(1, count + 1)
             ),
@@ -249,6 +253,7 @@ def _prepare(activity: ActivitySummary, state: MenuSessionContext) -> None:
         ),
     )
 
+
 def _list_pages(activity: ActivitySummary) -> None:
     pages = list_artifact_pages(activity.class_id, activity.activity_id)
     if not pages:
@@ -258,7 +263,8 @@ def _list_pages(activity: ActivitySummary) -> None:
         tuple(
             f"Page {item.page_number} - {item.page_status.replace('_', ' ')}"
             for item in pages
-        ), noun="page choice",
+        ),
+        noun="page choice",
     )
     page = select_one(
         "Artifact Pages",
@@ -289,11 +295,14 @@ def _render(activity: ActivitySummary, state: MenuSessionContext) -> None:
         help_text="Enter an already prepared Artifact Instance ID.",
     )
     assert artifact_id is not None
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Render Artifact Pages",
         "RENDER",
         (f"Activity: {activity.title}", f"Artifact: {artifact_id}"),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = render_artifact_pages(
         RenderArtifactPagesRequest(
@@ -301,7 +310,7 @@ def _render(activity: ActivitySummary, state: MenuSessionContext) -> None:
             activity_id=activity.activity_id,
             artifact_instance_id=artifact_id,
             expected_snapshot_revision=activity.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         )
     )
     show_result(
@@ -313,8 +322,11 @@ def _render(activity: ActivitySummary, state: MenuSessionContext) -> None:
         ),
     )
 
+
 def _choose_artifact_choice(
-    activity: ActivitySummary, *, title: str,
+    activity: ActivitySummary,
+    *,
+    title: str,
     write_context: ArtifactWriteContext | None = None,
 ) -> TeacherArtifactChoice:
     if write_context is None:
@@ -339,7 +351,9 @@ def _choose_artifact_choice(
 
 
 def _choose_artifact(
-    activity: ActivitySummary, *, title: str,
+    activity: ActivitySummary,
+    *,
+    title: str,
     write_context: ArtifactWriteContext | None = None,
 ) -> ArtifactSummary:
     """Keep existing callers' exact, typed Artifact identity contract."""
@@ -418,7 +432,6 @@ def _assembly_selections(
     return tuple(selections)
 
 
-
 def _open_returned_work_failure_lines(error: Exception) -> tuple[str, ...]:
     if isinstance(error, ArtifactAssemblyNotFoundError):
         return (
@@ -455,12 +468,8 @@ def _open_returned_work_failure_lines(error: Exception) -> tuple[str, ...]:
             "The selected returned work is no longer available. Refresh and try again.",
         )
     if isinstance(error, ArtifactAssemblyError):
-        return (
-            "This Artifact has no return-expected evidence to open.",
-        )
-    return (
-        "Returned work could not be opened safely. No workflow state was changed.",
-    )
+        return ("This Artifact has no return-expected evidence to open.",)
+    return ("Returned work could not be opened safely. No workflow state was changed.",)
 
 
 def open_returned_work(activity: ActivitySummary) -> None:
@@ -525,8 +534,9 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
             when = display_recorded_time(item.assembled_at)
             tied = timestamps.count(instant(item.assembled_at)) > 1
             order_note = (
-                "same recorded time; order uncertain" if tied else
-                "recorded assembly creation time"
+                "same recorded time; order uncertain"
+                if tied
+                else "recorded assembly creation time"
             )
             attention = {
                 "newer": " | Newer routed evidence available",
@@ -536,8 +546,7 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
                 "none": "",
             }[item.newer_evidence_status]
             labels.append(
-                f"Assembled {when} ({order_note}) | "
-                f"{item.page_count} pages{attention}"
+                f"Assembled {when} ({order_note}) | {item.page_count} pages{attention}"
             )
         selected = select_one(
             "Open a Verified Assembly Version",
@@ -586,12 +595,10 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
 
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
-    choice = _choose_artifact_choice(
-        current, title="Assemble Returned Artifact"
-    )
+    choice = _choose_artifact_choice(current, title="Assemble Returned Artifact")
     artifact = choice.summary
     selections = _assembly_selections(current, artifact)
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Assemble Returned Artifact",
         "ASSEMBLE",
         (
@@ -599,7 +606,10 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
             f"Work: {choice.label}",
             f"Exact occurrence selections: {len(selections)}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = assemble_returned_artifact(
         AssembleArtifactRequest(
@@ -607,7 +617,7 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
             activity_id=current.activity_id,
             artifact_instance_id=artifact.artifact_instance_id,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             selections=selections,
         )
     )
@@ -881,7 +891,7 @@ def _show_author(activity: ActivitySummary, *, historical: bool) -> None:
 def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Add Artifact Author'
+        current, operation="Add Artifact Author"
     )
     artifact = _choose_artifact(
         current, title="Add Artifact Author", write_context=write_preview
@@ -914,7 +924,7 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Add Artifact Author',
+        operation="Add Artifact Author",
         expected_snapshot_revision=current.snapshot_revision,
     )
     add_artifact_author(
@@ -947,7 +957,7 @@ def _add_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
 def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Update Artifact Author'
+        current, operation="Update Artifact Author"
     )
     selected = _choose_author(
         current, title="Update Artifact Author", write_context=write_preview
@@ -967,7 +977,7 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Update Artifact Author',
+        operation="Update Artifact Author",
         expected_snapshot_revision=current.snapshot_revision,
     )
     update_artifact_author(
@@ -993,7 +1003,7 @@ def _update_author(activity: ActivitySummary, state: MenuSessionContext) -> None
 def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Correct Artifact Author'
+        current, operation="Correct Artifact Author"
     )
     selected = _choose_author(
         current, title="Correct Artifact Author", write_context=write_preview
@@ -1039,7 +1049,7 @@ def _correct_author(activity: ActivitySummary, state: MenuSessionContext) -> Non
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Correct Artifact Author',
+        operation="Correct Artifact Author",
         expected_snapshot_revision=current.snapshot_revision,
     )
     replace_artifact_author(
@@ -1331,7 +1341,7 @@ def _show_subject(activity: ActivitySummary, *, historical: bool) -> None:
 def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Add Artifact Subject'
+        current, operation="Add Artifact Subject"
     )
     artifact = _choose_artifact(
         current, title="Add Artifact Subject", write_context=write_preview
@@ -1343,10 +1353,8 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
         default=f"subject_{uuid4().hex}",
     )
     assert subject_id is not None
-    reference, role, status, source, criterion_id = _choose_subject_semantics(
-        current
-    )
-    if not confirm_write(
+    reference, role, status, source, criterion_id = _choose_subject_semantics(current)
+    actor = confirm_actor_write(
         "Add Artifact Subject",
         "ADD",
         (
@@ -1355,11 +1363,14 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
             f"Subject role: {role}",
             f"Confirmation: {status}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Add Artifact Subject',
+        operation="Add Artifact Subject",
         expected_snapshot_revision=current.snapshot_revision,
     )
     add_artifact_subject(
@@ -1373,7 +1384,7 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
             confirmation_status=status,
             assignment_source=source,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             criterion_id=criterion_id,
         ),
         **artifact_write_kwargs(write_context),
@@ -1390,24 +1401,27 @@ def _add_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
 def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Update Artifact Subject'
+        current, operation="Update Artifact Subject"
     )
     selected = _choose_subject(
         current, title="Update Artifact Subject", write_context=write_preview
     )
     status = _subject_status()
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Update Artifact Subject",
         "UPDATE",
         (
             f"Subject: {selected.reference_display_label or 'Subject not recorded'}",
             f"New confirmation status: {status}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Update Artifact Subject',
+        operation="Update Artifact Subject",
         expected_snapshot_revision=current.snapshot_revision,
     )
     update_artifact_subject(
@@ -1417,7 +1431,7 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
             artifact_subject_id=selected.artifact_subject_id,
             confirmation_status=status,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
         ),
         **artifact_write_kwargs(write_context),
     )
@@ -1433,7 +1447,7 @@ def _update_subject(activity: ActivitySummary, state: MenuSessionContext) -> Non
 def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Correct Artifact Subject'
+        current, operation="Correct Artifact Subject"
     )
     selected = _choose_subject(
         current, title="Correct Artifact Subject", write_context=write_preview
@@ -1458,10 +1472,8 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
     assert replacement_id is not None
     assert correction_id is not None
     assert reason is not None
-    reference, role, status, source, criterion_id = _choose_subject_semantics(
-        current
-    )
-    if not confirm_write(
+    reference, role, status, source, criterion_id = _choose_subject_semantics(current)
+    actor = confirm_actor_write(
         "Correct Artifact Subject",
         "CORRECT",
         (
@@ -1469,11 +1481,14 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
             f"Replacement: {replacement_id}",
             f"New Subject kind: {reference.subject_kind}",
         ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Correct Artifact Subject',
+        operation="Correct Artifact Subject",
         expected_snapshot_revision=current.snapshot_revision,
     )
     replace_artifact_subject(
@@ -1489,7 +1504,7 @@ def _correct_subject(activity: ActivitySummary, state: MenuSessionContext) -> No
             confirmation_status=status,
             assignment_source=source,
             expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
+            actor=actor,
             criterion_id=criterion_id,
         ),
         **artifact_write_kwargs(write_context),
@@ -1549,7 +1564,6 @@ def _launch_subject_menu(
             raise
         except Exception as error:
             _handle_error(activity, error, title="Artifact Subject Error")
-
 
 
 def _review_choice(title: str, values: tuple[str, ...], help_text: str) -> str:
@@ -1951,14 +1965,13 @@ def _quick_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
     _quick_review_selected(current, artifact, state)
 
 
-
 def _record_review_selected(
     current: ActivitySummary,
     artifact: ArtifactSummary,
     state: MenuSessionContext,
 ) -> bool:
     write_preview = begin_artifact_write_context(
-        current, operation='Record Artifact Review'
+        current, operation="Record Artifact Review"
     )
     if artifact.snapshot_revision != write_preview.snapshot_revision:
         raise ConcordWorkflowConflictError(
@@ -2020,7 +2033,7 @@ def _record_review_selected(
         return False
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Record Artifact Review',
+        operation="Record Artifact Review",
         expected_snapshot_revision=current.snapshot_revision,
     )
     result = add_artifact_review(
@@ -2059,7 +2072,7 @@ def _record_review_selected(
 def _record_review(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Record Artifact Review'
+        current, operation="Record Artifact Review"
     )
     artifact = _choose_artifact(
         current, title="Record Artifact Review", write_context=write_preview
@@ -2360,7 +2373,8 @@ def _evidence_requirement() -> str:
 
 def _choose_moderation_evidence(
     activity: ActivitySummary,
-    *, write_context: ArtifactWriteContext | None = None,
+    *,
+    write_context: ArtifactWriteContext | None = None,
 ) -> EvidenceReference:
     kind = select_one(
         "Moderation Evidence",
@@ -2371,7 +2385,8 @@ def _choose_moderation_evidence(
     requirement = _evidence_requirement()
     if kind == "artifact":
         artifact = _choose_artifact(
-            activity, title="Moderation Artifact Evidence",
+            activity,
+            title="Moderation Artifact Evidence",
             write_context=write_context,
         )
         return EvidenceReference(
@@ -2382,7 +2397,8 @@ def _choose_moderation_evidence(
         )
     if kind == "page":
         pages = list_artifact_pages(
-            activity.class_id, activity.activity_id,
+            activity.class_id,
+            activity.activity_id,
             workspace_root=write_context.root if write_context else None,
         )
         page = select_one(
@@ -2471,7 +2487,8 @@ def _choose_moderation_evidence(
 
 def _choose_moderation_subjects(
     activity: ActivitySummary,
-    *, write_context: ArtifactWriteContext | None = None,
+    *,
+    write_context: ArtifactWriteContext | None = None,
 ) -> tuple[SubjectReference, ...]:
     kind = select_one(
         "Moderation Subject Scope",
@@ -2515,7 +2532,8 @@ def _choose_moderation_subjects(
         )
     if kind == "group":
         groups = list_groups(
-            activity.class_id, activity.activity_id,
+            activity.class_id,
+            activity.activity_id,
             workspace_root=write_context.root if write_context else None,
         )
         group = select_one(
@@ -2533,7 +2551,8 @@ def _choose_moderation_subjects(
         )
     if kind == "session":
         sessions = list_sessions(
-            activity.class_id, activity.activity_id,
+            activity.class_id,
+            activity.activity_id,
             workspace_root=write_context.root if write_context else None,
         )
         session = select_one(
@@ -2562,7 +2581,8 @@ def _choose_moderation_subjects(
         )
     if kind == "artifact":
         artifact = _choose_artifact(
-            activity, title="Moderation Artifact Subject Scope",
+            activity,
+            title="Moderation Artifact Subject Scope",
             write_context=write_context,
         )
         return (
@@ -2668,8 +2688,12 @@ def _moderation_values() -> tuple[str, str, str, str | None, PrivacyPolicy]:
         help_text="Moderation privacy is independent from the evidence privacy.",
     )
     assert rationale is not None
-    return status, permitted_use, rationale, qualification, PrivacyPolicy(
-        classification=privacy
+    return (
+        status,
+        permitted_use,
+        rationale,
+        qualification,
+        PrivacyPolicy(classification=privacy),
     )
 
 
@@ -2716,10 +2740,13 @@ def _show_moderation(activity: ActivitySummary) -> None:
             ),
             (
                 "Subject scope: "
-                + (", ".join(
-                    subject.subject_kind.replace("_", " ")
-                    for subject in item.target_subject_references
-                ) or "general")
+                + (
+                    ", ".join(
+                        subject.subject_kind.replace("_", " ")
+                        for subject in item.target_subject_references
+                    )
+                    or "general"
+                )
             ),
             f"Status: {item.status}",
             f"Permitted use: {item.permitted_use}",
@@ -2736,15 +2763,9 @@ def _record_moderation(
     state: MenuSessionContext,
 ) -> None:
     current = _latest(activity)
-    write_preview = begin_artifact_write_context(
-        current, operation='Record Moderation'
-    )
-    evidence = _choose_moderation_evidence(
-        current, write_context=write_preview
-    )
-    subjects = _choose_moderation_subjects(
-        current, write_context=write_preview
-    )
+    write_preview = begin_artifact_write_context(current, operation="Record Moderation")
+    evidence = _choose_moderation_evidence(current, write_context=write_preview)
+    subjects = _choose_moderation_subjects(current, write_context=write_preview)
     moderation_id = prompt_text(
         "Record Moderation",
         "Moderation Record ID",
@@ -2770,7 +2791,7 @@ def _record_moderation(
         return
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Record Moderation',
+        operation="Record Moderation",
         expected_snapshot_revision=current.snapshot_revision,
     )
     result = add_moderation_record(
@@ -2804,9 +2825,7 @@ def _replace_moderation(
     state: MenuSessionContext,
 ) -> None:
     current = _latest(activity)
-    write_preview = begin_artifact_write_context(
-        current, operation="Revise Moderation"
-    )
+    write_preview = begin_artifact_write_context(current, operation="Revise Moderation")
     items = list_moderation_records(
         current.class_id,
         current.activity_id,
@@ -2987,8 +3006,6 @@ def _launch_moderation_menu(
             _handle_error(activity, error, title="Moderation Error")
 
 
-
-
 @dataclass(frozen=True, slots=True)
 class _AttributionProposalChoice:
     relationship_kind: str
@@ -3077,7 +3094,7 @@ def _commit_attribution_confirmation(
 
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Confirm Attribution'
+        current, operation="Confirm Attribution"
     )
     if (
         review.class_id != current.class_id
@@ -3109,7 +3126,7 @@ def _commit_attribution_confirmation(
 
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Confirm Attribution',
+        operation="Confirm Attribution",
         expected_snapshot_revision=review.snapshot_revision,
     )
     result = batch_confirm_artifact_attribution(
@@ -3147,14 +3164,10 @@ def _confirm_selected_straightforward_attribution(
 
     selected = _select_attribution_proposals(review)
     artifact_author_ids = tuple(
-        item.association_id
-        for item in selected
-        if item.relationship_kind == "author"
+        item.association_id for item in selected if item.relationship_kind == "author"
     )
     artifact_subject_ids = tuple(
-        item.association_id
-        for item in selected
-        if item.relationship_kind == "subject"
+        item.association_id for item in selected if item.relationship_kind == "subject"
     )
     _commit_attribution_confirmation(
         activity,
@@ -3164,7 +3177,6 @@ def _confirm_selected_straightforward_attribution(
         artifact_subject_ids=artifact_subject_ids,
         unselected_candidate_count=review.candidate_count - len(selected),
     )
-
 
 
 def _routine_multi_author_mode() -> str:
@@ -3219,7 +3231,7 @@ def _add_multiple_authors(
 ) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Add Several Artifact Authors'
+        current, operation="Add Several Artifact Authors"
     )
     artifact = _choose_artifact(
         current, title="Add Several Artifact Authors", write_context=write_preview
@@ -3242,7 +3254,7 @@ def _add_multiple_authors(
 
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Add Several Artifact Authors',
+        operation="Add Several Artifact Authors",
         expected_snapshot_revision=artifact.snapshot_revision,
     )
     result = add_artifact_authors(
@@ -3274,7 +3286,7 @@ def _add_multiple_subjects(
 ) -> None:
     current = _latest(activity)
     write_preview = begin_artifact_write_context(
-        current, operation='Add Several Artifact Subjects'
+        current, operation="Add Several Artifact Subjects"
     )
     artifact = _choose_artifact(
         current, title="Add Several Artifact Subjects", write_context=write_preview
@@ -3307,7 +3319,7 @@ def _add_multiple_subjects(
 
     write_context = revalidate_artifact_write_context(
         write_preview,
-        operation='Add Several Artifact Subjects',
+        operation="Add Several Artifact Subjects",
         expected_snapshot_revision=artifact.snapshot_revision,
     )
     result = add_artifact_subjects(
@@ -3406,10 +3418,7 @@ def _print_attribution_review(
                 if author.disposition == "candidate"
                 else "individual review"
             )
-            print(
-                f"  Completed by: {label} "
-                f"[{author.attribution_status}; {suffix}]"
-            )
+            print(f"  Completed by: {label} [{author.attribution_status}; {suffix}]")
             if author.represented_group_id is not None:
                 print(f"    Represents: {author.represented_group_id}")
         for subject in group.subjects:
@@ -3419,10 +3428,7 @@ def _print_attribution_review(
                 if subject.disposition == "candidate"
                 else "individual review"
             )
-            print(
-                f"  Concerns: {label} "
-                f"[{subject.confirmation_status}; {suffix}]"
-            )
+            print(f"  Concerns: {label} [{subject.confirmation_status}; {suffix}]")
     print()
     print("A. Confirm all straightforward proposals")
     print("S. Select multiple proposals")
@@ -3644,8 +3650,7 @@ def launch_review_work_menu(
                 print_menu_header("Review Help")
                 print("Review records explicit human evidence-readiness judgments.")
                 print(
-                    "Moderation is a separate reliability and "
-                    "permitted-use decision."
+                    "Moderation is a separate reliability and permitted-use decision."
                 )
                 print("Neither Review nor Moderation creates a Score.")
                 print(
