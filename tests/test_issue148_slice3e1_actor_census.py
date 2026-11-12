@@ -64,15 +64,11 @@ def test_inventory_is_deterministic_and_reports_known_coverage_and_gaps() -> Non
     promoted = (
         ("concord/menu_group.py", "_create_group"),
         ("concord/menu_session.py", "_add"),
-    )
-    for key in promoted:
-        assert by_key[key].classification == "action-reviewed", key
-    candidates = (
         ("concord/menu_template.py", "_create"),
         ("concord/menu_packet.py", "_create"),
     )
-    for key in candidates:
-        assert by_key[key].classification == "legacy-confirm-with-actor", key
+    for key in promoted:
+        assert by_key[key].classification == "action-reviewed", key
     assert rows == tuple(sorted(rows, key=lambda r: (r.path, r.line, r.function)))
     report = render_report("0123456789abcdef", file_count, rows)
     assert "`concord/menu_group.py:" in report

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -26,6 +27,7 @@ from concord.menu_ui import (
 from concord.starter_templates.catalog import get_starter_template
 from concord.template_storage import TemplateStoragePartialSuccessError
 from concord.workflows.errors import ConcordWorkflowError
+from concord.workflows.models import WorkflowActor
 from concord.workflows.starter_template import (
     STARTER_INSTALLATION_ALREADY_INSTALLED,
     STARTER_INSTALLATION_MISSING,
@@ -43,6 +45,12 @@ from concord.workflows.starter_template import (
     prepare_starter_template_install_all,
 )
 from concord.workflows.template import (
+    PreparedTemplateActivation,
+    PreparedTemplateCreate,
+    PreparedTemplateRetire,
+    PreparedTemplateRetireVersion,
+    PreparedTemplateRevision,
+    PreparedTemplateUpdate,
     PrepareTemplateActivationRequest,
     PrepareTemplateCreateRequest,
     PrepareTemplateRetireRequest,
@@ -82,10 +90,10 @@ def _help() -> None:
 
 
 def _summary_label(item: TemplateSummary) -> str:
-    return (
-        f"{item.name} | {item.status.replace('_', ' ')} | "
-        + ("Current version selected" if item.current_template_version_id
-           else "No current version selected")
+    return f"{item.name} | {item.status.replace('_', ' ')} | " + (
+        "Current version selected"
+        if item.current_template_version_id
+        else "No current version selected"
     )
 
 
@@ -108,13 +116,19 @@ def _detail_lines(detail: TemplateDetail) -> tuple[str, ...]:
     definition = detail.definition
     summary = detail.summary
     current = next(
-        (item for item in detail.versions
-         if item.template_version_id == summary.current_template_version_id),
+        (
+            item
+            for item in detail.versions
+            if item.template_version_id == summary.current_template_version_id
+        ),
         None,
     )
     head = next(
-        (item for item in detail.versions
-         if item.template_version_id == summary.head_template_version_id),
+        (
+            item
+            for item in detail.versions
+            if item.template_version_id == summary.head_template_version_id
+        ),
         None,
     )
     lines = [
@@ -122,16 +136,25 @@ def _detail_lines(detail: TemplateDetail) -> tuple[str, ...]:
         f"Purpose: {definition.purpose}",
         f"Status: {summary.status.replace('_', ' ')}",
         f"Artifact category: {summary.artifact_category}",
-        "Current version: " + (
-            "none" if summary.current_template_version_id is None
-            else (teacher_version_line(current.version_label,
-                    current.revision_sequence, current.status)
-                  if current is not None else "unavailable; refresh before editing")
+        "Current version: "
+        + (
+            "none"
+            if summary.current_template_version_id is None
+            else (
+                teacher_version_line(
+                    current.version_label, current.revision_sequence, current.status
+                )
+                if current is not None
+                else "unavailable; refresh before editing"
+            )
         ),
-        "Latest revision: " + (
-            teacher_version_line(head.version_label, head.revision_sequence,
-                                 head.status)
-            if head is not None else "unavailable; refresh before editing"
+        "Latest revision: "
+        + (
+            teacher_version_line(
+                head.version_label, head.revision_sequence, head.status
+            )
+            if head is not None
+            else "unavailable; refresh before editing"
         ),
         f"Versions: {len(detail.versions)}",
     ]
@@ -145,17 +168,11 @@ def _version_preview_lines(
     version_id: str,
 ) -> tuple[str, ...]:
     version = next(
-        (
-            item
-            for item in detail.versions
-            if item.template_version_id == version_id
-        ),
+        (item for item in detail.versions if item.template_version_id == version_id),
         None,
     )
     if version is None:
-        raise ConcordWorkflowError(
-            f"Template Version is not available: {version_id}"
-        )
+        raise ConcordWorkflowError(f"Template Version is not available: {version_id}")
     return (
         f"Template: {detail.summary.template_id}",
         f"Name: {detail.summary.name}",
@@ -218,10 +235,7 @@ def _show_history() -> None:
     lines.append("Version history:")
     for version in detail.versions:
         markers: list[str] = []
-        if (
-            version.template_version_id
-            == detail.summary.current_template_version_id
-        ):
+        if version.template_version_id == detail.summary.current_template_version_id:
             markers.append("current")
         if version.template_version_id == detail.summary.head_template_version_id:
             markers.append("head")
@@ -271,34 +285,47 @@ def _create(state: MenuSessionContext) -> None:
     )
     assert rendering is not None
     activate = _choose_activation()
-    prepared = prepare_template_create(
-        PrepareTemplateCreateRequest(
-            template_id=template_id,
-            template_version_id=version_id,
-            authoring_file=Path(authoring).expanduser(),
-            rendering_specification=Path(rendering).expanduser(),
-            actor=state.require_actor(),
-            activate=activate,
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateCreate, tuple[str, ...]]:
+        prepared = prepare_template_create(
+            PrepareTemplateCreateRequest(
+                template_id=template_id,
+                template_version_id=version_id,
+                authoring_file=Path(authoring).expanduser(),
+                rendering_specification=Path(rendering).expanduser(),
+                actor=actor,
+                activate=activate,
+            )
         )
+        lines = (
+            f"Template: {prepared.definition.template_id}",
+            f"Name: {prepared.definition.name}",
+            f"Version: {prepared.version.template_version_id}",
+            f"Version label: {prepared.version.version_label}",
+            f"Artifact category: {prepared.version.artifact_category}",
+            f"Pages: {len(prepared.version.page_manifest)}",
+            f"Expected return: {prepared.version.default_expected_return_status}",
+            f"Privacy: {prepared.version.default_privacy_policy.classification}",
+            f"Rendering contract: {prepared.version.rendering_contract_version}",
+            (
+                "Rendering reference: "
+                f"{prepared.version.rendering_specification_reference}"
+            ),
+            f"Rendering SHA-256: {prepared.rendering_source.sha256}",
+            f"Initial status: {prepared.version.status}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Create Template",
+        "CREATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = (
-        f"Template: {prepared.definition.template_id}",
-        f"Name: {prepared.definition.name}",
-        f"Version: {prepared.version.template_version_id}",
-        f"Version label: {prepared.version.version_label}",
-        f"Artifact category: {prepared.version.artifact_category}",
-        f"Pages: {len(prepared.version.page_manifest)}",
-        f"Expected return: {prepared.version.default_expected_return_status}",
-        f"Privacy: {prepared.version.default_privacy_policy.classification}",
-        f"Rendering contract: {prepared.version.rendering_contract_version}",
-        (
-            "Rendering reference: "
-            f"{prepared.version.rendering_specification_reference}"
-        ),
-        f"Rendering SHA-256: {prepared.rendering_source.sha256}",
-        f"Initial status: {prepared.version.status}",
-    )
-    if not confirm_write("Create Template", "CREATE", lines):
+    if prepared is None:
         return
     result = commit_template_create(prepared)
     show_result("Template Result", _mutation_lines(result))
@@ -325,37 +352,50 @@ def _revise(state: MenuSessionContext) -> None:
         help_text="Enter the exact successor rendering specification.",
     )
     assert rendering is not None
-    prepared = prepare_template_revision(
-        PrepareTemplateRevisionRequest(
-            template_id=selected.template_id,
-            template_version_id=version_id,
-            authoring_file=Path(authoring).expanduser(),
-            rendering_specification=Path(rendering).expanduser(),
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateRevision, tuple[str, ...]]:
+        prepared = prepare_template_revision(
+            PrepareTemplateRevisionRequest(
+                template_id=selected.template_id,
+                template_version_id=version_id,
+                authoring_file=Path(authoring).expanduser(),
+                rendering_specification=Path(rendering).expanduser(),
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = (
+            f"Template: {selected.template_id}",
+            f"Name: {selected.name}",
+            f"Current Version: {detail.summary.current_template_version_id or '-'}",
+            f"Current head: {detail.summary.head_template_version_id}",
+            f"New Version: {prepared.version.template_version_id}",
+            f"Version label: {prepared.version.version_label}",
+            f"Revision sequence: {prepared.version.revision_sequence}",
+            f"Artifact category: {prepared.version.artifact_category}",
+            f"Pages: {len(prepared.version.page_manifest)}",
+            f"Expected return: {prepared.version.default_expected_return_status}",
+            f"Privacy: {prepared.version.default_privacy_policy.classification}",
+            f"Rendering contract: {prepared.version.rendering_contract_version}",
+            (
+                "Rendering reference: "
+                f"{prepared.version.rendering_specification_reference}"
+            ),
+            f"Rendering SHA-256: {prepared.rendering_source.sha256}",
+            f"Expected Template snapshot: {detail.summary.snapshot_revision}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Create Successor Template Version",
+        "REVISE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = (
-        f"Template: {selected.template_id}",
-        f"Name: {selected.name}",
-        f"Current Version: {detail.summary.current_template_version_id or '-'}",
-        f"Current head: {detail.summary.head_template_version_id}",
-        f"New Version: {prepared.version.template_version_id}",
-        f"Version label: {prepared.version.version_label}",
-        f"Revision sequence: {prepared.version.revision_sequence}",
-        f"Artifact category: {prepared.version.artifact_category}",
-        f"Pages: {len(prepared.version.page_manifest)}",
-        f"Expected return: {prepared.version.default_expected_return_status}",
-        f"Privacy: {prepared.version.default_privacy_policy.classification}",
-        f"Rendering contract: {prepared.version.rendering_contract_version}",
-        (
-            "Rendering reference: "
-            f"{prepared.version.rendering_specification_reference}"
-        ),
-        f"Rendering SHA-256: {prepared.rendering_source.sha256}",
-        f"Expected Template snapshot: {detail.summary.snapshot_revision}",
-    )
-    if not confirm_write("Create Successor Template Version", "REVISE", lines):
+    if prepared is None:
         return
     result = commit_template_revision(prepared)
     show_result("Template Result", _mutation_lines(result))
@@ -365,16 +405,29 @@ def _activate(state: MenuSessionContext) -> None:
     selected = _choose_template(title="Choose Template to Activate")
     detail = get_template(selected.template_id)
     head = detail.summary.head_template_version_id
-    prepared = prepare_template_activation(
-        PrepareTemplateActivationRequest(
-            template_id=selected.template_id,
-            template_version_id=head,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateActivation, tuple[str, ...]]:
+        prepared = prepare_template_activation(
+            PrepareTemplateActivationRequest(
+                template_id=selected.template_id,
+                template_version_id=head,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _version_preview_lines(detail, head)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Activate Template Version",
+        "ACTIVATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _version_preview_lines(detail, head)
-    if not confirm_write("Activate Template Version", "ACTIVATE", lines):
+    if prepared is None:
         return
     result = commit_template_activation(prepared)
     show_result("Template Result", _mutation_lines(result))
@@ -423,27 +476,40 @@ def _update(state: MenuSessionContext) -> None:
     )
     assert purpose is not None
     description = _description_update(detail)
-    prepared = prepare_template_update(
-        PrepareTemplateUpdateRequest(
-            template_id=selected.template_id,
-            name=name,
-            purpose=purpose,
-            description=description,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateUpdate, tuple[str, ...]]:
+        prepared = prepare_template_update(
+            PrepareTemplateUpdateRequest(
+                template_id=selected.template_id,
+                name=name,
+                purpose=purpose,
+                description=description,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = (
+            f"Template: {selected.template_id}",
+            f"Name: {prepared.definition.name}",
+            f"Purpose: {prepared.definition.purpose}",
+            f"Description: {prepared.definition.description or '-'}",
+            f"Artifact category: {prepared.definition.artifact_category}",
+            f"Current Version: {detail.summary.current_template_version_id or '-'}",
+            f"Head Version: {detail.summary.head_template_version_id}",
+            f"Expected Template snapshot: {detail.summary.snapshot_revision}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Update Template",
+        "UPDATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = (
-        f"Template: {selected.template_id}",
-        f"Name: {prepared.definition.name}",
-        f"Purpose: {prepared.definition.purpose}",
-        f"Description: {prepared.definition.description or '-'}",
-        f"Artifact category: {prepared.definition.artifact_category}",
-        f"Current Version: {detail.summary.current_template_version_id or '-'}",
-        f"Head Version: {detail.summary.head_template_version_id}",
-        f"Expected Template snapshot: {detail.summary.snapshot_revision}",
-    )
-    if not confirm_write("Update Template", "UPDATE", lines):
+    if prepared is None:
         return
     result = commit_template_update(prepared)
     show_result("Template Result", _mutation_lines(result))
@@ -456,8 +522,7 @@ def _retire_version(state: MenuSessionContext) -> None:
         item
         for item in detail.versions
         if item.status == "draft"
-        and item.template_version_id
-        != detail.summary.current_template_version_id
+        and item.template_version_id != detail.summary.current_template_version_id
     )
     if not candidates:
         raise ConcordWorkflowError(
@@ -473,16 +538,29 @@ def _retire_version(state: MenuSessionContext) -> None:
         ),
         help_text="Only non-current draft Versions may be retired independently.",
     )
-    prepared = prepare_template_retire_version(
-        PrepareTemplateRetireVersionRequest(
-            template_id=selected.template_id,
-            template_version_id=candidate.template_version_id,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateRetireVersion, tuple[str, ...]]:
+        prepared = prepare_template_retire_version(
+            PrepareTemplateRetireVersionRequest(
+                template_id=selected.template_id,
+                template_version_id=candidate.template_version_id,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _version_preview_lines(detail, candidate.template_version_id)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Retire Template Version",
+        "RETIRE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _version_preview_lines(detail, candidate.template_version_id)
-    if not confirm_write("Retire Template Version", "RETIRE", lines):
+    if prepared is None:
         return
     result = commit_template_retire_version(prepared)
     show_result("Template Result", _mutation_lines(result))
@@ -491,23 +569,35 @@ def _retire_version(state: MenuSessionContext) -> None:
 def _retire(state: MenuSessionContext) -> None:
     selected = _choose_template(title="Choose Template to Retire")
     detail = get_template(selected.template_id)
-    prepared = prepare_template_retire(
-        PrepareTemplateRetireRequest(
-            template_id=selected.template_id,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedTemplateRetire, tuple[str, ...]]:
+        prepared = prepare_template_retire(
+            PrepareTemplateRetireRequest(
+                template_id=selected.template_id,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _detail_lines(detail) + (
+            "Retirement preserves all historical Versions and "
+            "rendering specifications.",
+            f"Expected Template snapshot: {detail.summary.snapshot_revision}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Retire Template",
+        "RETIRE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _detail_lines(detail) + (
-        "Retirement preserves all historical Versions and rendering specifications.",
-        f"Expected Template snapshot: {detail.summary.snapshot_revision}",
-    )
-    if not confirm_write("Retire Template", "RETIRE", lines):
+    if prepared is None:
         return
     result = commit_template_retire(prepared)
     show_result("Template Result", _mutation_lines(result))
-
-
 
 
 def _starter_status_label(item: StarterTemplateStatus) -> str:
@@ -560,10 +650,7 @@ def _starter_detail_lines(
         ),
         f"Initial v1 Authorship: {entry.default_authorship_mode}",
         f"Initial v1 Subject: {entry.default_subject_kind}",
-        (
-            "Initial rendering reference: "
-            f"{entry.rendering_specification_reference}"
-        ),
+        (f"Initial rendering reference: {entry.rendering_specification_reference}"),
         f"Initial rendering SHA-256: {entry.rendering_sha256()}",
         f"Installation state: {status.installation_state}",
     )
@@ -603,8 +690,7 @@ def _install_starter(state: MenuSessionContext) -> None:
     if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
         show_result(
             "Starter Template",
-            _starter_detail_lines(selected)
-            + ("No canonical write is required.",),
+            _starter_detail_lines(selected) + ("No canonical write is required.",),
         )
         return
     if prepared.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE:
@@ -619,8 +705,10 @@ def _install_starter(state: MenuSessionContext) -> None:
             "Relationship-aware starters preserve historical v1 and activate v2.",
             f"Package Current Version after install: {selected.template_version_id}",
         )
-    lines = _starter_detail_lines(selected) + action_lines + (
-        "Future teacher customization uses the ordinary successor workflow.",
+    lines = (
+        _starter_detail_lines(selected)
+        + action_lines
+        + ("Future teacher customization uses the ordinary successor workflow.",)
     )
     if not confirm_write("Install / Update Starter Template", "INSTALL", lines):
         return
@@ -649,8 +737,7 @@ def _install_all_starters(state: MenuSessionContext) -> None:
         )
     )
     missing = sum(
-        item.initial_state == STARTER_INSTALLATION_MISSING
-        for item in prepared.items
+        item.initial_state == STARTER_INSTALLATION_MISSING for item in prepared.items
     )
     upgrades = sum(
         item.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE
@@ -720,7 +807,6 @@ def _starter_library_menu(state: MenuSessionContext) -> None:
             pause_for_user()
             continue
         _run(action)
-
 
 
 def _run(action: Callable[[], None]) -> None:
