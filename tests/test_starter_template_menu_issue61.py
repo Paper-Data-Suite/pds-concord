@@ -68,9 +68,7 @@ def test_starter_install_menu_requires_install_confirmation(
         suggested_activity_type_keys=(),
         default_authorship_mode="collective_group_author",
         default_subject_kind="concord_group",
-        rendering_specification_reference=(
-            "starter-think-pair-share-layout-v1"
-        ),
+        rendering_specification_reference=("starter-think-pair-share-layout-v1"),
         rendering_sha256=lambda: "a" * 64,
     )
     prepared = SimpleNamespace(
@@ -114,7 +112,10 @@ def test_starter_install_menu_requires_install_confirmation(
         lambda _prompt="": next(answers),
     )
     menu_template.launch_template_library_menu(_state())
-    assert [kind for kind, _ in captured] == ["prepare", "commit"]
+    # Initial read-only inspection plus the exact reviewed actor preparation.
+    assert [kind for kind, _ in captured] == ["prepare", "prepare", "commit"]
+    assert captured[0][1].actor == captured[1][1].actor
+    assert captured[2][1] is prepared
 
 
 def test_starter_install_cancel_writes_nothing(
@@ -146,9 +147,7 @@ def test_starter_install_cancel_writes_nothing(
         suggested_activity_type_keys=(),
         default_authorship_mode="collective_group_author",
         default_subject_kind="concord_group",
-        rendering_specification_reference=(
-            "starter-think-pair-share-layout-v1"
-        ),
+        rendering_specification_reference=("starter-think-pair-share-layout-v1"),
         rendering_sha256=lambda: "a" * 64,
     )
     prepared = SimpleNamespace(entry=entry, initial_state="missing")

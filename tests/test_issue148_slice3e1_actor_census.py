@@ -66,6 +66,8 @@ def test_inventory_is_deterministic_and_reports_known_coverage_and_gaps() -> Non
         ("concord/menu_session.py", "_add"),
         ("concord/menu_template.py", "_create"),
         ("concord/menu_packet.py", "_create"),
+        ("concord/menu_template.py", "_install_starter"),
+        ("concord/menu_template.py", "_install_all_starters"),
     )
     for key in promoted:
         assert by_key[key].classification == "action-reviewed", key

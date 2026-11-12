@@ -32,6 +32,8 @@ from concord.workflows.starter_template import (
     STARTER_INSTALLATION_ALREADY_INSTALLED,
     STARTER_INSTALLATION_MISSING,
     STARTER_INSTALLATION_UPGRADE_AVAILABLE,
+    PreparedStarterTemplateInstall,
+    PreparedStarterTemplateInstallAll,
     PrepareStarterTemplateInstallAllRequest,
     PrepareStarterTemplateInstallRequest,
     StarterTemplateInstallAllPartialSuccessError,
@@ -681,36 +683,63 @@ def _show_starter_selected() -> None:
 
 def _install_starter(state: MenuSessionContext) -> None:
     selected = _choose_starter(title="Choose Starter Template to Install")
-    prepared = prepare_starter_template_install(
+    initial = prepare_starter_template_install(
         PrepareStarterTemplateInstallRequest(
             starter_key=selected.starter_key,
             actor=state.require_actor(),
         )
     )
-    if prepared.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
+    if initial.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED:
         show_result(
             "Starter Template",
             _starter_detail_lines(selected) + ("No canonical write is required.",),
         )
         return
-    if prepared.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE:
-        action_lines = (
-            "A package-owned successor Version will be appended and activated.",
-            "Historical packaged Versions remain immutable and loadable.",
-            f"Package Current Version after update: {selected.template_version_id}",
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedStarterTemplateInstall, tuple[str, ...]]:
+        pending = prepare_starter_template_install(
+            PrepareStarterTemplateInstallRequest(
+                starter_key=selected.starter_key,
+                actor=actor,
+            )
         )
-    else:
-        action_lines = (
-            "The complete package-owned starter lineage will be installed.",
-            "Relationship-aware starters preserve historical v1 and activate v2.",
-            f"Package Current Version after install: {selected.template_version_id}",
+        if pending.initial_state != initial.initial_state:
+            raise ConcordWorkflowError(
+                "Starter installation status changed during actor review; "
+                "reopen this action before making a write."
+            )
+        if pending.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE:
+            action_lines = (
+                "A package-owned successor Version will be appended and activated.",
+                "Historical packaged Versions remain immutable and loadable.",
+                f"Package Current Version after update: {selected.template_version_id}",
+            )
+        else:
+            action_lines = (
+                "The complete package-owned starter lineage will be installed.",
+                "Relationship-aware starters preserve historical v1 and activate v2.",
+                (
+                    "Package Current Version after install: "
+                    f"{selected.template_version_id}"
+                ),
+            )
+        lines = (
+            _starter_detail_lines(selected)
+            + action_lines
+            + ("Future teacher customization uses the ordinary successor workflow.",)
         )
-    lines = (
-        _starter_detail_lines(selected)
-        + action_lines
-        + ("Future teacher customization uses the ordinary successor workflow.",)
+        return pending, lines
+
+    prepared = confirm_prepared_actor_write(
+        "Install / Update Starter Template",
+        "INSTALL",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    if not confirm_write("Install / Update Starter Template", "INSTALL", lines):
+    if prepared is None:
         return
     result = commit_starter_template_install(prepared)
     show_result(
@@ -731,21 +760,20 @@ def _starter_install_all_lines(
 
 
 def _install_all_starters(state: MenuSessionContext) -> None:
-    prepared = prepare_starter_template_install_all(
+    initial = prepare_starter_template_install_all(
         PrepareStarterTemplateInstallAllRequest(
             actor=state.require_actor(),
         )
     )
+    initial_states = tuple(
+        (item.entry.starter_key, item.initial_state) for item in initial.items
+    )
     missing = sum(
-        item.initial_state == STARTER_INSTALLATION_MISSING for item in prepared.items
+        item.initial_state == STARTER_INSTALLATION_MISSING for item in initial.items
     )
     upgrades = sum(
         item.initial_state == STARTER_INSTALLATION_UPGRADE_AVAILABLE
-        for item in prepared.items
-    )
-    current = sum(
-        item.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED
-        for item in prepared.items
+        for item in initial.items
     )
     if missing == 0 and upgrades == 0:
         show_result(
@@ -756,14 +784,42 @@ def _install_all_starters(state: MenuSessionContext) -> None:
             ),
         )
         return
-    lines = (
-        f"Missing starters to install: {missing}",
-        f"Package upgrades available: {upgrades}",
-        f"Already current: {current}",
-        "Missing starters install their complete package-owned lineage.",
-        "Package upgrades append successors without rewriting historical Versions.",
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedStarterTemplateInstallAll, tuple[str, ...]]:
+        pending = prepare_starter_template_install_all(
+            PrepareStarterTemplateInstallAllRequest(actor=actor)
+        )
+        pending_states = tuple(
+            (item.entry.starter_key, item.initial_state) for item in pending.items
+        )
+        if pending_states != initial_states:
+            raise ConcordWorkflowError(
+                "Packaged starter installation status changed during actor review; "
+                "reopen this action before making a write."
+            )
+        still_current = sum(
+            item.initial_state == STARTER_INSTALLATION_ALREADY_INSTALLED
+            for item in pending.items
+        )
+        lines = (
+            f"Missing starters to install: {missing}",
+            f"Package upgrades available: {upgrades}",
+            f"Already current: {still_current}",
+            "Missing starters install their complete package-owned lineage.",
+            "Package upgrades append successors without rewriting historical Versions.",
+        )
+        return pending, lines
+
+    prepared = confirm_prepared_actor_write(
+        "Install / Update Starter Templates",
+        "INSTALL",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    if not confirm_write("Install / Update Starter Templates", "INSTALL", lines):
+    if prepared is None:
         return
     result = commit_starter_template_install_all(prepared)
     show_result(
