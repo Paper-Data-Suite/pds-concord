@@ -234,7 +234,6 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         group_id = _choose_optional_group(current)
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
         participant = core_student_participant(
             root,
             current.class_id,
@@ -243,7 +242,7 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         assignment_id = f"role-{uuid.uuid4().hex}"
         if preset is None:
             assert role_key is not None
-            if not confirm_write(
+            actor = confirm_actor_write(
                 "Assign Role",
                 "ADD",
                 (
@@ -251,7 +250,10 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                     f"Role: {role_key}",
                     f"Group: {group_id or 'Activity-wide'}",
                 ),
-            ):
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
             result = assign_role(
                 AssignRoleRequest(
@@ -268,6 +270,7 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 **standards_kwargs_for_activity(current),
             )
         else:
+            actor = state.require_actor()
             request = ApplyRolePresetRequest(
                 preset_id=preset.preset_id,
                 preset_revision_id=preset.preset_revision_id,
