@@ -6,6 +6,7 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_assignment_end import (
     assignment_end_review,
     choose_assignment_end_status,
@@ -402,8 +403,7 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
             display_label=display,
             current_status=role.status,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "End Role",
             "END",
             assignment_end_review(
@@ -414,7 +414,10 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 previous_status=role.status,
                 requested_status=status,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = end_role(
             EndRoleRequest(
@@ -457,8 +460,7 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         group_id = _choose_optional_group(current)
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Reassign Role",
             "REASSIGN",
             (
@@ -466,7 +468,10 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"New student: {student.first_name} {student.last_name}",
                 f"New Role: {role_key}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = reassign_role(
             ReassignRoleRequest(

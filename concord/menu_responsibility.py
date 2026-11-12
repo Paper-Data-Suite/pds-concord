@@ -6,6 +6,7 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_assignment_end import (
     assignment_end_review,
     choose_assignment_end_status,
@@ -378,8 +379,7 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
             display_label=display,
             current_status=responsibility.status,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "End Responsibility",
             "END",
             assignment_end_review(
@@ -390,7 +390,10 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 previous_status=responsibility.status,
                 requested_status=status,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = end_responsibility(
             EndResponsibilityRequest(
@@ -439,8 +442,7 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         assert description is not None
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Reassign Responsibility",
             "REASSIGN",
             (
@@ -448,7 +450,10 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"New assignee: {label}",
                 f"Responsibility: {description}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = reassign_responsibility(
             ReassignResponsibilityRequest(
