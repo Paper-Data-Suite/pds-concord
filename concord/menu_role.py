@@ -6,7 +6,10 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
-from concord.menu_actor_action import confirm_actor_write
+from concord.menu_actor_action import (
+    confirm_actor_write,
+    confirm_prepared_actor_write,
+)
 from concord.menu_assignment_end import (
     assignment_end_review,
     choose_assignment_end_status,
@@ -59,6 +62,7 @@ from concord.workflows import (
     save_role_preset_from_assignment,
     show_activity,
 )
+from concord.workflows.models import WorkflowActor
 
 _ROLE_KEYS = (
     "facilitator",
@@ -270,34 +274,46 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 **standards_kwargs_for_activity(current),
             )
         else:
-            actor = state.require_actor()
-            request = ApplyRolePresetRequest(
-                preset_id=preset.preset_id,
-                preset_revision_id=preset.preset_revision_id,
-                class_id=current.class_id,
-                activity_id=current.activity_id,
-                role_assignment_id=assignment_id,
-                participant_reference=participant,
-                effective_context=context,
-                expected_snapshot_revision=current.snapshot_revision,
-                actor=actor,
-                group_id=group_id,
-            )
             standards_kwargs = standards_kwargs_for_activity(current)
-            prepared = prepare_role_preset_application(request, **standards_kwargs)
-            if not confirm_write(
-                "Assign Saved Role",
-                "ADD",
-                (
+
+            def _prepare_for_actor(
+                actor: WorkflowActor,
+            ) -> tuple[
+                tuple[ApplyRolePresetRequest, str],
+                tuple[str, ...],
+            ]:
+                request = ApplyRolePresetRequest(
+                    preset_id=preset.preset_id,
+                    preset_revision_id=preset.preset_revision_id,
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    role_assignment_id=assignment_id,
+                    participant_reference=participant,
+                    effective_context=context,
+                    expected_snapshot_revision=current.snapshot_revision,
+                    actor=actor,
+                    group_id=group_id,
+                )
+                prepared = prepare_role_preset_application(request, **standards_kwargs)
+                return (request, prepared.review_digest), (
                     f"Student: {student.first_name} {student.last_name}",
                     f"Role: {prepared.preset_name}",
                     f"Group: {group_id or 'Activity-wide'}",
-                ),
-            ):
+                )
+
+            reviewed = confirm_prepared_actor_write(
+                "Assign Saved Role",
+                "ADD",
+                state=state,
+                legacy_confirm=confirm_write,
+                prepare_for_actor=_prepare_for_actor,
+            )
+            if reviewed is None:
                 return
+            request, review_digest = reviewed
             result = apply_role_preset(
                 request,
-                review_digest=prepared.review_digest,
+                review_digest=review_digest,
                 **standards_kwargs,
             )
         show_result(
@@ -336,33 +352,46 @@ def _save_role_as_preset(
             optional=True,
         )
         preset_id = f"role-preset-{uuid.uuid4().hex}"
-        request = SaveRolePresetFromAssignmentRequest(
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            role_assignment_id=selected.role_assignment_id,
-            preset_id=preset_id,
-            preset_revision_id=f"{preset_id}-v1",
-            name=name,
-            description=description,
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
-        )
         standards_kwargs = standards_kwargs_for_activity(current)
-        prepared = prepare_role_preset_from_assignment(request, **standards_kwargs)
-        if not confirm_write(
-            "Save Role Preset",
-            "SAVE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[
+            tuple[SaveRolePresetFromAssignmentRequest, str],
+            tuple[str, ...],
+        ]:
+            request = SaveRolePresetFromAssignmentRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                role_assignment_id=selected.role_assignment_id,
+                preset_id=preset_id,
+                preset_revision_id=f"{preset_id}-v1",
+                name=name,
+                description=description,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+            )
+            prepared = prepare_role_preset_from_assignment(request, **standards_kwargs)
+            return (request, prepared.review_digest), (
                 f"Preset: {prepared.name}",
                 *prepared.reusable_fields,
                 "NOT SAVED:",
                 *prepared.excluded_state,
-            ),
-        ):
+            )
+
+        reviewed = confirm_prepared_actor_write(
+            "Save Role Preset",
+            "SAVE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if reviewed is None:
             return
+        request, review_digest = reviewed
         result = save_role_preset_from_assignment(
             request,
-            review_digest=prepared.review_digest,
+            review_digest=review_digest,
             **standards_kwargs,
         )
         show_result(

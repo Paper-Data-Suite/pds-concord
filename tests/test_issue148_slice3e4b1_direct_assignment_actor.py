@@ -1,7 +1,7 @@
 """#148 3E4B1: manual Role/Responsibility assignment uses reviewed actor.
 
 Synthetic only: never consults an actual roster, classroom workspace, or profile.
-Saved-preset branches remain legacy until the separate digest-bound patch.
+Saved-preset branches use actor-exact review as of Slice 3E4B2.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def _calls(node: ast.AST, name: str) -> list[ast.Call]:
 
 
 @pytest.mark.parametrize(("path", "request_type", "service"), CASES)
-def test_direct_assignment_reviews_exact_request_while_preset_is_unconverted(
+def test_direct_assignment_reviews_exact_request_and_preset_is_actor_reviewed(
     path: str, request_type: str, service: str
 ) -> None:
     tree = ast.parse((ROOT / path).read_text(encoding="utf-8"))
@@ -47,9 +47,10 @@ def test_direct_assignment_reviews_exact_request_while_preset_is_unconverted(
         n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_assign"
     )
     direct = _calls(fn, "confirm_actor_write")
-    legacy = _calls(fn, "confirm_write")
+    prepared = _calls(fn, "confirm_prepared_actor_write")
     writes = _calls(fn, service)
-    assert len(direct) == len(legacy) == len(writes) == 1
+    assert len(direct) == len(prepared) == len(writes) == 1
+    assert not _calls(fn, "confirm_write")
     assert direct[0].lineno < writes[0].lineno
     assert len(_calls(fn, request_type)) == 1
     direct_request = _calls(fn, request_type)[0]
@@ -69,8 +70,8 @@ def test_direct_assignment_reviews_exact_request_while_preset_is_unconverted(
                 and n.func.value.id == "state"
             ]
         )
-        == 1
-    )  # Intentionally retained in saved-preset branch.
+        == 0
+    )  # Neither branch reads a cached actor.
 
 
 @pytest.mark.parametrize(("path", "request_type", "service"), CASES)
