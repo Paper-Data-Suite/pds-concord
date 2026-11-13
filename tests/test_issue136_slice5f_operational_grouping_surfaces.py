@@ -154,7 +154,7 @@ def test_menu_commits_one_reviewed_operational_grouping(
 
     monkeypatch.setattr(menu, "save_operational_grouping", commit)
     menu.save_grouping_from_existing_groups(_activity(), _state())
-    assert events == ["prepare", "review", "confirm", "commit"]
+    assert events == ["prepare", "review", "prepare", "confirm", "commit"]
 
 
 def test_menu_unresolved_requires_extra_acknowledgment(
@@ -184,7 +184,7 @@ def test_menu_final_save_cancellation_leaves_library_unchanged(
         lambda *_a, **_k: pytest.fail("Canceled save wrote"),
     )
     menu.save_grouping_from_existing_groups(_activity(), _state())
-    assert events == ["prepare", "review"]
+    assert events == ["prepare", "review", "prepare"]
 
 
 def _args(command: str, *extra: str) -> Any:
