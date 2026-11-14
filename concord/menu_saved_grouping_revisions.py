@@ -11,6 +11,7 @@ from concord.class_group_arrangement_storage import (
     list_arrangement_history,
     load_current_arrangement,
 )
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -31,7 +32,12 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
-from concord.workflows import ActivitySummary, list_group_plans, show_activity
+from concord.workflows import (
+    ActivitySummary,
+    WorkflowActor,
+    list_group_plans,
+    show_activity,
+)
 from concord.workflows.class_group_arrangement_revision import (
     ChangeGroupingRequest,
     change_grouping,
@@ -72,7 +78,6 @@ def _change(
         "arrangement_id": selected.revision.arrangement_id,
         "expected_revision": selected.revision.revision,
         "expected_sha256": selected.sha256,
-        "actor": state.require_actor(),
         "action": action,
     }
     if action == "rename":
@@ -117,35 +122,51 @@ def _change(
             source_group_plan_id=chosen.group_plan_id,
             expected_source_snapshot_revision=current_activity.snapshot_revision,
         )
-    request = ChangeGroupingRequest(**request_args)  # type: ignore[arg-type]
-    prepared = prepare_grouping_change(request)
-    if action == "replace_from_plan":
-        show_placements(
-            activity,
-            prepared.groups,
-            prepared.unresolved_student_ids,
-            title="Review new saved grouping placements",
-        )
     label = {
         "rename": "RENAME",
         "replace_from_plan": "REVISE",
         "retire": "RETIRE",
     }[action]
-    if not confirm_write(
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[tuple[ChangeGroupingRequest, str], tuple[str, ...]]:
+        # The actor determines both ownership access and the review digest.
+        # Never transplant an alternate actor onto an earlier request/digest.
+        args = {**request_args, "actor": actor}
+        request = ChangeGroupingRequest(**args)  # type: ignore[arg-type]
+        prepared = prepare_grouping_change(request)
+        if action == "replace_from_plan":
+            show_placements(
+                activity,
+                prepared.groups,
+                prepared.unresolved_student_ids,
+                title="Review new saved grouping placements",
+            )
+        return (
+            (request, prepared.review_digest),
+            (
+                f"Grouping: {prepared.name}",
+                f"Revision: {prepared.previous_revision} -> {prepared.new_revision}",
+                f"Groups: {len(prepared.groups)}",
+                f"Assigned: {prepared.assigned_count}",
+                f"Unresolved: {len(prepared.unresolved_student_ids)}",
+                f"New status: {prepared.status}",
+                "Earlier revisions and existing Activities are unchanged.",
+            ),
+        )
+
+    reviewed = confirm_prepared_actor_write(
         f"Review saved grouping: {action.replace('_', ' ')}",
         label,
-        (
-            f"Grouping: {prepared.name}",
-            f"Revision: {prepared.previous_revision} -> {prepared.new_revision}",
-            f"Groups: {len(prepared.groups)}",
-            f"Assigned: {prepared.assigned_count}",
-            f"Unresolved: {len(prepared.unresolved_student_ids)}",
-            f"New status: {prepared.status}",
-            "Earlier revisions and existing Activities are unchanged.",
-        ),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
+    )
+    if reviewed is None:
         return False
-    written = change_grouping(request, review_digest=prepared.review_digest)
+    request, review_digest = reviewed
+    written = change_grouping(request, review_digest=review_digest)
     show_result(
         "Saved grouping updated",
         (
