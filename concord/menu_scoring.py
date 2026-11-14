@@ -1969,6 +1969,19 @@ def _score_confirmation_lines(
     return tuple(lines)
 
 
+def _reviewed_score_status_reason(
+    reason: StatusReason | None, actor: WorkflowActor
+) -> StatusReason | None:
+    """Bind nested non-score reason provenance to the finally reviewed actor.
+
+    Preserve the original reason, timestamp, note, and related record.  This
+    helper does not persist any profile or change a reviewed Score's meaning.
+    """
+    if reason is None:
+        return None
+    return replace(reason, recorded_by=actor_reference(actor))
+
+
 def _record_score(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -2018,7 +2031,7 @@ def _record_score(
                 actor=actor,
                 value=draft.value,
                 rationale=draft.rationale,
-                status_reason=draft.status_reason,
+                status_reason=_reviewed_score_status_reason(draft.status_reason, actor),
                 evidence_links=draft.links,
             ),
             standards_library=_library(),
@@ -2190,7 +2203,7 @@ def _revise_score(
                 actor=actor,
                 value=draft.value,
                 rationale=draft.rationale,
-                status_reason=draft.status_reason,
+                status_reason=_reviewed_score_status_reason(draft.status_reason, actor),
                 evidence_links=draft.links,
             ),
             standards_library=_library(),
