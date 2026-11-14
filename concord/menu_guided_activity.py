@@ -6,6 +6,7 @@ import uuid
 
 from pds_core.standards import StandardsLibrary
 
+from concord.menu_actor_action import confirm_actor_write, confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_group import launch_direct_group_menu
 from concord.menu_group_plan import launch_group_plan_menu
@@ -46,6 +47,7 @@ from concord.workflows import (
     CopyActivityRequest,
     CreateActivityContextRequest,
     PrepareActivityCopyRequest,
+    WorkflowActor,
     copy_activity,
     create_activity_context,
     list_activities,
@@ -65,6 +67,7 @@ from concord.workflows.guided_activity_setup import (
 from concord.workflows.models import UNSET
 from concord.workflows.packet import (
     PacketSummary,
+    PreparedPacketFromTemplate,
     PreparePacketFromTemplateRequest,
     commit_packet_from_template,
     list_packets,
@@ -199,8 +202,14 @@ def _create_fresh(state: MenuSessionContext, classes: tuple[ClassSummary, ...]) 
         f"Assessment: {scoring_orientation_label(orientation)}",
         f"First session: {session_label}",
     )
-    actor = state.require_actor()
-    if not confirm_write("Create Classroom Activity", "CREATE", review):
+    actor = confirm_actor_write(
+        "Create Classroom Activity",
+        "CREATE",
+        review,
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = create_activity_context(
         CreateActivityContextRequest(
@@ -275,8 +284,14 @@ def _create_from_activity(
         "Does not carry forward: groups, assignments, collected work, Scores,",
         "or review and publication history.",
     )
-    actor = state.require_actor()
-    if not confirm_write("Create Classroom Activity", "CREATE", review):
+    actor = confirm_actor_write(
+        "Create Classroom Activity",
+        "CREATE",
+        review,
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return
     result = copy_activity(
         CopyActivityRequest(
@@ -300,7 +315,6 @@ def _create_from_activity(
         state,
         copied=True,
     )
-
 
 
 def _offer_after_creation(
@@ -342,6 +356,7 @@ def _offer_after_creation(
             return
         print(navigation_hint_with_help())
         pause_for_user()
+
 
 def launch_guided_activity_menu(state: MenuSessionContext) -> None:
     """Create a classroom Activity through teacher-facing guided decisions."""
@@ -573,35 +588,47 @@ def _start_packet_from_template(
         default=f"{selected.name} — {activity.title}",
     )
     assert packet_name is not None
-    prepared = prepare_packet_from_template(
-        PreparePacketFromTemplateRequest(
-            packet_definition_id=_fresh_id("packet"),
-            packet_version_id=_fresh_id("packet-version"),
-            packet_component_id=_fresh_id("component"),
-            name=packet_name,
-            purpose="Classroom materials created from a saved Template.",
-            template_id=selected.template_id,
-            template_version_id=version_id,
-            audience_kind=audience_kind,
-            actor=state.require_actor(),
-        )
-    )
+    packet_definition_id = _fresh_id("packet")
+    packet_version_id = _fresh_id("packet-version")
+    packet_component_id = _fresh_id("component")
     audience_labels = {
         "activity": "whole Activity",
         "group": "each group",
         "participant": "each student",
         "teacher": "teacher",
     }
-    if not confirm_write(
-        "Save Classroom Packet",
-        "SAVE",
-        (
+
+    def prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketFromTemplate, tuple[str, ...]]:
+        pending = prepare_packet_from_template(
+            PreparePacketFromTemplateRequest(
+                packet_definition_id=packet_definition_id,
+                packet_version_id=packet_version_id,
+                packet_component_id=packet_component_id,
+                name=packet_name,
+                purpose="Classroom materials created from a saved Template.",
+                template_id=selected.template_id,
+                template_version_id=version_id,
+                audience_kind=audience_kind,
+                actor=actor,
+            )
+        )
+        return pending, (
             f"Template: {selected.name}",
             f"Saved Packet: {packet_name}",
             f"Copies for: {audience_labels[audience_kind]}",
             "The saved Packet keeps an exact reference to this Template version.",
-        ),
-    ):
+        )
+
+    prepared = confirm_prepared_actor_write(
+        "Save Classroom Packet",
+        "SAVE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=prepare_for_actor,
+    )
+    if prepared is None:
         return
     result = commit_packet_from_template(prepared)
     packet = next(
@@ -794,10 +821,7 @@ def _launch_assessment(activity: ActivitySummary, state: MenuSessionContext) -> 
         clear_screen()
         print_menu_header("Assessment")
         print(f"Activity: {activity.title}")
-        print(
-            "Approach: "
-            f"{scoring_orientation_label(activity.scoring_orientation)}"
-        )
+        print(f"Approach: {scoring_orientation_label(activity.scoring_orientation)}")
         print()
         print("1. Set up or change assessment")
         print("2. Decide later")
@@ -835,10 +859,7 @@ def _choose_setup_area(summary: GuidedActivitySetup) -> str | None:
         print(f"Activity: {summary.title}")
         print()
         for index, item in enumerate(areas, start=1):
-            print(
-                f"{index}. {item.label} — "
-                f"{setup_status_label(item.status)}"
-            )
+            print(f"{index}. {item.label} — {setup_status_label(item.status)}")
         print("6. Finish for now")
         print_navigation()
         print()
