@@ -8,6 +8,10 @@ from pds_core.classes import load_class_roster
 from pds_core.rosters import student_display_name, student_sort_name
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import (
+    confirm_actor_write,
+    confirm_prepared_actor_write,
+)
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -41,6 +45,7 @@ from concord.models import (
 from concord.workflows import (
     ActivitySummary,
     SessionSummary,
+    WorkflowActor,
     list_sessions,
     open_rendered_packet_output,
     open_rendered_packet_output_directory,
@@ -214,19 +219,49 @@ def _generate(
                     subject_bindings=subject_bindings,
                 )
             )
-        lines = _preview_lines(prepared)
         if not prepared.ready_for_commit:
-            show_result("Packet Preview", lines)
+            show_result("Packet Preview", _preview_lines(prepared))
             return
-        if not confirm_write("Generate Packet", "GENERATE", lines):
+
+        def prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[PreparedPacketInstantiation, tuple[str, ...]]:
+            pending = prepare_packet_instantiation(
+                PreparePacketInstantiationRequest(
+                    class_id=activity.class_id,
+                    activity_id=activity.activity_id,
+                    session_id=session.session_id,
+                    packet_definition_id=summary.packet_definition_id,
+                    packet_version_id=version.packet_version_id,
+                    actor=actor,
+                    component_choices=choices,
+                    rendering_bindings=bindings,
+                    subject_bindings=subject_bindings,
+                )
+            )
+            if not pending.ready_for_commit:
+                raise ConcordWorkflowError(
+                    "Packet generation preview changed during actor review. "
+                    "Reopen the Packet and review the required inputs."
+                )
+            return pending, _preview_lines(pending)
+
+        reviewed = confirm_prepared_actor_write(
+            "Generate Packet",
+            "GENERATE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=prepare_for_actor,
+        )
+        if reviewed is None:
             return
-        committed = commit_packet_instantiation(prepared)
+        committed = commit_packet_instantiation(reviewed)
         rendered = render_packet_generation(
             RenderPacketGenerationRequest(
                 class_id=activity.class_id,
                 activity_id=activity.activity_id,
                 generation_id=committed.generation_id,
-                actor=state.require_actor(),
+                actor=reviewed.request.actor,
             )
         )
         _post_generation_open_menu(activity, rendered)
@@ -693,14 +728,9 @@ def _relationship_preview_lines(
             if artifact.proposed_subject_role == "reviewed_subject":
                 input_keys = {item.input_key for item in artifact.rendering_inputs}
                 subject_role = (
-                    "Reviewee"
-                    if "reviewee_display_label" in input_keys
-                    else "Reviewed"
+                    "Reviewee" if "reviewee_display_label" in input_keys else "Reviewed"
                 )
-                line = (
-                    f"Reviewer: {target_label} | "
-                    f"{subject_role}: {subject_label}"
-                )
+                line = f"Reviewer: {target_label} | {subject_role}: {subject_label}"
             elif (
                 artifact.authorship_mode == "observer"
                 and artifact.proposed_subject_role == "session_context"
@@ -725,9 +755,7 @@ def show_prepared_materials(activity: ActivitySummary) -> None:
             )
             return
 
-        ready_count = sum(
-            1 for item in items if item.generation_status == "generated"
-        )
+        ready_count = sum(1 for item in items if item.generation_status == "generated")
         attention_count = len(items) - ready_count
         lines = [
             f"Prepared sets: {len(items)}",
@@ -943,9 +971,7 @@ def launch_prepared_materials_menu(
             )
             return
 
-        ready_count = sum(
-            1 for item in items if item.generation_status == "generated"
-        )
+        ready_count = sum(1 for item in items if item.generation_status == "generated")
         attention_count = len(items) - ready_count
         clear_screen()
         print_menu_header("Prepared Materials")
@@ -990,16 +1016,18 @@ def _list_instances(activity: ActivitySummary) -> None:
         items = list_packet_instances(activity.class_id, activity.activity_id)
         target_labels = _teacher_instance_labels(activity, items)
         lines = (
-            distinguish_equal_labels(tuple(
-                f"{target} | {item.audience_kind.replace('_', ' ')} | "
-                f"{item.generation_status.replace('_', ' ')} | "
-                f"{item.page_count} pages | "
-                f"{teacher_recorded_instant(item.created_at, kind='Created')}"
-                for target, item in zip(target_labels, items, strict=True)
-            ), noun="copy")
-            if items else (
-                "No Packet Instances have been generated for this Activity.",
+            distinguish_equal_labels(
+                tuple(
+                    f"{target} | {item.audience_kind.replace('_', ' ')} | "
+                    f"{item.generation_status.replace('_', ' ')} | "
+                    f"{item.page_count} pages | "
+                    f"{teacher_recorded_instant(item.created_at, kind='Created')}"
+                    for target, item in zip(target_labels, items, strict=True)
+                ),
+                noun="copy",
             )
+            if items
+            else ("No Packet Instances have been generated for this Activity.",)
         )
         show_result("Packet Instances", lines)
     except Exception as error:
@@ -1072,11 +1100,7 @@ def _render_generation(
             )
             return
 
-        if (
-            selected.planned_count
-            or selected.failed_count
-            or selected.cancelled_count
-        ):
+        if selected.planned_count or selected.failed_count or selected.cancelled_count:
             show_result(
                 "Packet Generation Requires Attention",
                 (
@@ -1119,7 +1143,7 @@ def _render_generation(
             )
             return
 
-        if not confirm_write(
+        actor = confirm_actor_write(
             title,
             action,
             (
@@ -1131,7 +1155,10 @@ def _render_generation(
                 f"Routes: {selected.route_count}",
                 identity_line,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
 
         result = render_packet_generation(
@@ -1139,7 +1166,7 @@ def _render_generation(
                 class_id=activity.class_id,
                 activity_id=activity.activity_id,
                 generation_id=selected.generation_id,
-                actor=state.require_actor(),
+                actor=actor,
                 expected_snapshot_revision=selected.snapshot_revision,
             )
         )
@@ -1244,7 +1271,7 @@ def _render_instance(
     try:
         selected = _choose_instance(activity, title="Render / Reprint Packet")
         action = "REPRINT" if selected.generation_status == "generated" else "RENDER"
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Render / Reprint Packet",
             action,
             (
@@ -1257,14 +1284,18 @@ def _render_instance(
                     else "Prepared PDS2 route identities will be rendered."
                 ),
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
+
         result = render_packet_instance(
             RenderPacketInstanceRequest(
                 class_id=activity.class_id,
                 activity_id=activity.activity_id,
                 packet_instance_id=selected.packet_instance_id,
-                actor=state.require_actor(),
+                actor=actor,
             )
         )
         show_result(
