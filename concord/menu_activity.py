@@ -666,12 +666,14 @@ def _copy_activity(state: MenuSessionContext) -> None:
             workspace_root=root,
             standards_library=library,
         )
-        if not _confirm_copy(
-            _copy_review_lines(
-                prepared,
-                standards_library=library,
-            )
-        ):
+        actor = confirm_actor_write(
+            "Copy an Activity",
+            "COPY",
+            _copy_review_lines(prepared, standards_library=library),
+            state=state,
+            legacy_confirm=lambda _title, _expected, lines: _confirm_copy(tuple(lines)),
+        )
+        if actor is None:
             return
         result = copy_activity(
             CopyActivityRequest(
@@ -680,7 +682,7 @@ def _copy_activity(state: MenuSessionContext) -> None:
                 target_class_id=prepare_request.target_class_id,
                 target_activity_id=prepare_request.target_activity_id,
                 first_session_id=prepare_request.first_session_id,
-                actor=state.require_actor(),
+                actor=actor,
                 review_digest=prepared.review_digest,
                 title=prepare_request.title,
                 description=prepare_request.description,
@@ -726,7 +728,6 @@ def _update_activity_field(
             "class_id": current.class_id,
             "activity_id": current.activity_id,
             "expected_snapshot_revision": current.snapshot_revision,
-            "actor": state.require_actor(),
         }
         library: StandardsLibrary | None = None
         change = field.replace("_", " ").title()
@@ -788,8 +789,16 @@ def _update_activity_field(
                     "publications are created by this status change.",
                 )
             )
-        if not confirm_write("Edit Activity", "UPDATE", tuple(review_lines)):
+        actor = confirm_actor_write(
+            "Edit Activity",
+            "UPDATE",
+            tuple(review_lines),
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
+        values["actor"] = actor
         # The Activity's orientation is not the whole standards contract:
         # historical standard-backed Criteria or Scores still need Core authority.
         # Read the *verified structural* snapshot after confirmation. The
