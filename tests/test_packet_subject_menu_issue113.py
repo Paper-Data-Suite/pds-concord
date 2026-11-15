@@ -295,9 +295,13 @@ def test_generate_reprepares_with_explicit_subject_bindings(
         selected_packet=packet,
     )
 
-    assert len(requests) == 2
+    # The reviewed action re-prepares the identical actor-bound request once.
+    # The final preparation is read-only even when confirmation is declined.
+    assert len(requests) == 3
     assert requests[0].subject_bindings == ()
     assert requests[1].subject_bindings == (binding,)
+    assert requests[2].subject_bindings == (binding,)
+    assert all(request.actor == actor for request in requests)
 
 
 def test_preview_includes_human_readable_review_pairing() -> None:
@@ -310,9 +314,7 @@ def test_preview_includes_human_readable_review_pairing() -> None:
             subject_id="student-2",
             owning_system="core",
         ),
-        rendering_inputs=(
-            SimpleNamespace(input_key="reviewee_display_label"),
-        ),
+        rendering_inputs=(SimpleNamespace(input_key="reviewee_display_label"),),
     )
     prepared = SimpleNamespace(
         target_plans=(
