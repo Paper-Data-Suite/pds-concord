@@ -19,6 +19,7 @@ from concord.menu_prompts import prompt_text, show_result
 from concord.menu_ui import clear_screen, print_menu_header, print_navigation
 from concord.teacher_attribution import (
     TeacherAttributionIdentity,
+    TeacherAttributionNotConfiguredError,
     TeacherAttributionValidationError,
 )
 from concord.workflows import WorkflowActor
@@ -77,17 +78,65 @@ def confirm_actor_write(
 
     # Bind this pending review to the exact saved profile fingerprint. A
     # concurrent change must abort, not silently change the recorded actor.
-    state.actor_for_action(action_label=title)
+    # A genuinely absent profile may use a deliberate one-action alternate,
+    # but never silently infer an actor or bypass corrupt/stale profile state.
+    if isinstance(state, MenuSessionContext):
+        # The unconfigured-default exception belongs only to the real session
+        # provider, which tracks cache identity and fingerprint explicitly.
+        had_cached_default = (
+            state.actor is not None or state.actor_fingerprint is not None
+        )
+        try:
+            state.actor_for_action(action_label=title)
+        except CancelMenuAction as error:
+            if had_cached_default or not isinstance(
+                error.__cause__, TeacherAttributionNotConfiguredError
+            ):
+                raise
+            unconfigured_default = True
+        else:
+            unconfigured_default = False
+    else:
+        # Long-lived action integrations provide a structural actor-review
+        # context. Preserve its published actor_for_action call signature;
+        # never grant a missing-default exception to an unrelated object.
+        state.actor_for_action(action_label=title)
+        unconfigured_default = False
+
+    def reviewed_actor(
+        alternate: TeacherAttributionIdentity | None,
+    ) -> WorkflowActor:
+        if unconfigured_default:
+            return state.actor_for_action(
+                action_label=title,
+                alternate=alternate,
+                allow_unconfigured_default=True,
+            )
+        return state.actor_for_action(action_label=title, alternate=alternate)
+
     alternate: TeacherAttributionIdentity | None = None
     while True:
-        actor = state.actor_for_action(action_label=title, alternate=alternate)
+        actor = (
+            None
+            if unconfigured_default and alternate is None
+            else reviewed_actor(alternate)
+        )
         clear_screen()
         print_menu_header(title)
-        for line in lines if review_lines is None else review_lines(actor):
+        # Actor-dependent previews must not be prepared without a reviewed
+        # actor. Selecting Advanced will render the exact prepared request.
+        preview = (
+            lines if review_lines is None or actor is None else review_lines(actor)
+        )
+        for line in preview:
             print(line)
         print()
-        print(f"Recorded by: {actor.display_label or actor.actor_id}")
-        print(f"Actor ID: {actor.actor_id}")
+        if actor is None:
+            print("Recorded by: not configured; choose A for this action.")
+            print("No academic write can be confirmed without a reviewed actor.")
+        else:
+            print(f"Recorded by: {actor.display_label or actor.actor_id}")
+            print(f"Actor ID: {actor.actor_id}")
         print("Actor attribution is self-declared, not authentication.")
         if alternate is not None:
             print("Attribution: temporary for THIS action; no default changed.")
@@ -126,9 +175,18 @@ def confirm_actor_write(
             alternate = None
             continue
         if raw.casefold() == expected.casefold():
+            if actor is None:
+                show_result(
+                    "Actor Attribution Required",
+                    (
+                        "No saved default exists. Choose A to review an alternate "
+                        "for this action, or cancel without writing.",
+                    ),
+                )
+                continue
             # Revalidate AFTER the substantive review and before the guarded
-            # service call. This returns a fresh value, never a queued override.
-            return state.actor_for_action(action_label=title, alternate=alternate)
+            # service call. A newly configured default invalidates this review.
+            return reviewed_actor(alternate)
         show_result(
             "Confirmation Not Accepted",
             ("No action recorded; use the displayed confirmation or Back.",),

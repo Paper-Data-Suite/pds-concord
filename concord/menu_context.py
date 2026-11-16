@@ -15,6 +15,7 @@ from concord.teacher_attribution import (
     ConcordTeacherAttributionStore,
     TeacherAttributionError,
     TeacherAttributionIdentity,
+    TeacherAttributionNotConfiguredError,
 )
 from concord.workflows import WorkflowActor
 
@@ -41,6 +42,7 @@ class MenuSessionContext:
         *,
         action_label: str,
         alternate: TeacherAttributionIdentity | None = None,
+        allow_unconfigured_default: bool = False,
     ) -> WorkflowActor:
         """Resolve one operation's actor; never queue or retain an override.
 
@@ -54,9 +56,29 @@ class MenuSessionContext:
             or any(ord(ch) < 32 or ord(ch) == 127 for ch in action_label)
         ):
             raise ValueError("A nonblank, control-free action label is required.")
-        default = self.require_actor()
-        if alternate is None:
-            return default
+        if allow_unconfigured_default:
+            # Only the actor-review screen may request this narrow path.  A
+            # missing preference is not a substitute for a reviewed identity.
+            if alternate is None or self.attribution_provider is None:
+                raise CancelMenuAction(
+                    "An explicit alternate actor is required without a saved default."
+                )
+            try:
+                self.require_actor()
+            except CancelMenuAction as error:
+                if not isinstance(
+                    error.__cause__, TeacherAttributionNotConfiguredError
+                ):
+                    raise  # Corrupt/inaccessible profiles are never bypassed.
+            else:
+                raise CancelMenuAction(
+                    "A saved attribution default appeared during this review. "
+                    "Reopen the action and review its actor; no write was made."
+                )
+        else:
+            default = self.require_actor()
+            if alternate is None:
+                return default
         if self.attribution_provider is None:
             raise CancelMenuAction(
                 "Temporary actor selection requires a provider-backed "
