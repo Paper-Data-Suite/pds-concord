@@ -51,7 +51,8 @@ def _called_name(node: ast.AST) -> str | None:
 
 def _calls(node: ast.AST, name: str) -> tuple[ast.Call, ...]:
     return tuple(
-        sub for sub in ast.walk(node)
+        sub
+        for sub in ast.walk(node)
         if isinstance(sub, ast.Call) and _called_name(sub) == name
     )
 
@@ -109,11 +110,13 @@ def test_existing_numbered_choices_must_not_be_rewritten(
 def _model_status_values(name: str) -> frozenset[str]:
     tree = _parse("concord/models/collaboration.py")
     cls = next(
-        node for node in tree.body
+        node
+        for node in tree.body
         if isinstance(node, ast.ClassDef) and node.name == name
     )
     method = next(
-        node for node in cls.body
+        node
+        for node in cls.body
         if isinstance(node, ast.FunctionDef) and node.name == "__post_init__"
     )
     statuses = tuple(
@@ -144,8 +147,13 @@ def _model_status_values(name: str) -> frozenset[str]:
         (
             "Group",
             {
-                "planned", "active", "inactive", "completed", "cancelled",
-                "archived", "superseded",
+                "planned",
+                "active",
+                "inactive",
+                "completed",
+                "cancelled",
+                "archived",
+                "superseded",
             },
         ),
     ),
@@ -160,11 +168,11 @@ def test_source_model_status_values_are_authoritative(
 def test_assignment_end_status_is_a_separate_canonical_subset() -> None:
     tree = _parse("concord/workflows/_collaboration.py")
     candidates = (
-        node.value for node in tree.body
+        node.value
+        for node in tree.body
         if isinstance(node, ast.Assign)
         and any(
-            isinstance(target, ast.Name)
-            and target.id == "END_ASSIGNMENT_STATUSES"
+            isinstance(target, ast.Name) and target.id == "END_ASSIGNMENT_STATUSES"
             for target in node.targets
         )
     )
@@ -181,7 +189,7 @@ def test_activity_edit_keeps_merged_standards_context_guard() -> None:
         "_load_activity_context",
         "load_menu_standards_library",
         "update_activity",
-        "confirm_write",
+        "confirm_actor_write",
     ):
         assert _calls(node, helper), f"Lost Activity write guard: {helper}"
     assert any(
@@ -215,4 +223,14 @@ def test_group_plan_still_has_separate_preview_approve_apply_cancel() -> None:
 )
 def test_current_write_surfaces_have_review_gate(path: str, function: str) -> None:
     """The new choosers must not discard the existing confirmation boundary."""
-    assert _calls(_function(path, function), "confirm_write")
+    node = _function(path, function)
+    reviews = _calls(node, "confirm_actor_write")
+    assert len(reviews) == 1, f"Missing exact actor review: {path}:{function}"
+    assert not _calls(node, "confirm_write"), (
+        f"Legacy unbound confirmation remains: {path}:{function}"
+    )
+    keywords = {item.arg: item.value for item in reviews[0].keywords}
+    assert isinstance(keywords.get("state"), ast.Name)
+    assert keywords["state"].id == "state"
+    assert isinstance(keywords.get("legacy_confirm"), ast.Name)
+    assert keywords["legacy_confirm"].id == "confirm_write"

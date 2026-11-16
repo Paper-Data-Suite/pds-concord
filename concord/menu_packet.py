@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -26,10 +27,17 @@ from concord.menu_ui import (
 from concord.models import PacketComponent, PacketVersion
 from concord.packet_storage import PacketStoragePartialSuccessError
 from concord.workflows.errors import ConcordWorkflowError
+from concord.workflows.models import WorkflowActor
 from concord.workflows.packet import (
     PacketDetail,
     PacketMutationResult,
     PacketSummary,
+    PreparedPacketActivation,
+    PreparedPacketCreate,
+    PreparedPacketRetire,
+    PreparedPacketRetireVersion,
+    PreparedPacketRevision,
+    PreparedPacketUpdate,
     PreparePacketActivationRequest,
     PreparePacketCreateRequest,
     PreparePacketRetireRequest,
@@ -61,8 +69,7 @@ def _help() -> None:
     print("Template components pin exact Template Definition/Version identities.")
     print("External components preserve source-owned ModuleRecordRef identities.")
     print(
-        "Creating or revising a Packet does not create "
-        "Packet Instances or Artifacts."
+        "Creating or revising a Packet does not create Packet Instances or Artifacts."
     )
     print("Activation selects the exact Version for ordinary future use.")
     print("Retirement preserves historical Versions and component references.")
@@ -71,10 +78,10 @@ def _help() -> None:
 
 
 def _summary_label(item: PacketSummary) -> str:
-    return (
-        f"{item.name} | {item.status.replace('_', ' ')} | "
-        + ("Current version selected" if item.current_packet_version_id
-           else "No current version selected")
+    return f"{item.name} | {item.status.replace('_', ' ')} | " + (
+        "Current version selected"
+        if item.current_packet_version_id
+        else "No current version selected"
     )
 
 
@@ -109,9 +116,7 @@ def _component_line(component: PacketComponent) -> str:
     if component.audience_intent.role_keys:
         audience += f"[{','.join(component.audience_intent.role_keys)}]"
     condition = (
-        component.condition.condition_kind
-        if component.condition is not None
-        else "-"
+        component.condition.condition_kind if component.condition is not None else "-"
     )
     return (
         f"{component.sequence}. {component.label or component.packet_component_id}: "
@@ -122,17 +127,11 @@ def _component_line(component: PacketComponent) -> str:
 
 def _find_version(detail: PacketDetail, version_id: str) -> PacketVersion:
     match = next(
-        (
-            item
-            for item in detail.versions
-            if item.packet_version_id == version_id
-        ),
+        (item for item in detail.versions if item.packet_version_id == version_id),
         None,
     )
     if match is None:
-        raise ConcordWorkflowError(
-            f"Packet Version is not available: {version_id}"
-        )
+        raise ConcordWorkflowError(f"Packet Version is not available: {version_id}")
     return match
 
 
@@ -140,29 +139,44 @@ def _detail_lines(detail: PacketDetail) -> tuple[str, ...]:
     definition = detail.definition
     summary = detail.summary
     current = next(
-        (item for item in detail.versions
-         if item.packet_version_id == summary.current_packet_version_id),
+        (
+            item
+            for item in detail.versions
+            if item.packet_version_id == summary.current_packet_version_id
+        ),
         None,
     )
     head = next(
-        (item for item in detail.versions
-         if item.packet_version_id == summary.head_packet_version_id),
+        (
+            item
+            for item in detail.versions
+            if item.packet_version_id == summary.head_packet_version_id
+        ),
         None,
     )
     lines = [
         f"Packet: {summary.name}",
         f"Purpose: {definition.purpose}",
         f"Status: {summary.status.replace('_', ' ')}",
-        "Current version: " + (
-            "none" if summary.current_packet_version_id is None
-            else (teacher_version_line(current.version_label,
-                    current.revision_sequence, current.status)
-                  if current is not None else "unavailable; refresh before editing")
+        "Current version: "
+        + (
+            "none"
+            if summary.current_packet_version_id is None
+            else (
+                teacher_version_line(
+                    current.version_label, current.revision_sequence, current.status
+                )
+                if current is not None
+                else "unavailable; refresh before editing"
+            )
         ),
-        "Latest revision: " + (
-            teacher_version_line(head.version_label, head.revision_sequence,
-                                 head.status)
-            if head is not None else "unavailable; refresh before editing"
+        "Latest revision: "
+        + (
+            teacher_version_line(
+                head.version_label, head.revision_sequence, head.status
+            )
+            if head is not None
+            else "unavailable; refresh before editing"
         ),
         f"Versions: {len(detail.versions)}",
         f"Latest-revision components: {summary.component_count}",
@@ -292,27 +306,40 @@ def _create(state: MenuSessionContext) -> None:
     )
     assert authoring is not None
     activate = _choose_activation()
-    prepared = prepare_packet_create(
-        PreparePacketCreateRequest(
-            packet_definition_id=packet_id,
-            packet_version_id=version_id,
-            authoring_file=Path(authoring).expanduser(),
-            actor=state.require_actor(),
-            activate=activate,
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketCreate, tuple[str, ...]]:
+        prepared = prepare_packet_create(
+            PreparePacketCreateRequest(
+                packet_definition_id=packet_id,
+                packet_version_id=version_id,
+                authoring_file=Path(authoring).expanduser(),
+                actor=actor,
+                activate=activate,
+            )
         )
+        lines = [
+            f"Packet: {prepared.definition.packet_definition_id}",
+            f"Name: {prepared.definition.name}",
+            f"Version: {prepared.version.packet_version_id}",
+            f"Version label: {prepared.version.version_label}",
+            f"Components: {len(prepared.version.components)}",
+            f"Initial status: {prepared.version.status}",
+            "",
+            "Ordered components:",
+        ]
+        lines.extend(_component_line(item) for item in prepared.version.components)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Create Packet",
+        "CREATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = [
-        f"Packet: {prepared.definition.packet_definition_id}",
-        f"Name: {prepared.definition.name}",
-        f"Version: {prepared.version.packet_version_id}",
-        f"Version label: {prepared.version.version_label}",
-        f"Components: {len(prepared.version.components)}",
-        f"Initial status: {prepared.version.status}",
-        "",
-        "Ordered components:",
-    ]
-    lines.extend(_component_line(item) for item in prepared.version.components)
-    if not confirm_write("Create Packet", "CREATE", tuple(lines)):
+    if prepared is None:
         return
     result = commit_packet_create(prepared)
     show_result("Packet Result", _mutation_lines(result))
@@ -333,34 +360,43 @@ def _revise(state: MenuSessionContext) -> None:
         help_text="Successor authoring must omit Definition metadata.",
     )
     assert authoring is not None
-    prepared = prepare_packet_revision(
-        PreparePacketRevisionRequest(
-            packet_definition_id=selected.packet_definition_id,
-            packet_version_id=version_id,
-            authoring_file=Path(authoring).expanduser(),
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketRevision, tuple[str, ...]]:
+        prepared = prepare_packet_revision(
+            PreparePacketRevisionRequest(
+                packet_definition_id=selected.packet_definition_id,
+                packet_version_id=version_id,
+                authoring_file=Path(authoring).expanduser(),
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
-    )
-    lines = [
-        f"Packet: {selected.packet_definition_id}",
-        f"Name: {selected.name}",
-        f"Current Version: {detail.summary.current_packet_version_id or '-'}",
-        f"Current head: {detail.summary.head_packet_version_id}",
-        f"New Version: {prepared.version.packet_version_id}",
-        f"Version label: {prepared.version.version_label}",
-        f"Revision sequence: {prepared.version.revision_sequence}",
-        f"Components: {len(prepared.version.components)}",
-        f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
-        "",
-        "Ordered components:",
-    ]
-    lines.extend(_component_line(item) for item in prepared.version.components)
-    if not confirm_write(
+        lines = [
+            f"Packet: {selected.packet_definition_id}",
+            f"Name: {selected.name}",
+            f"Current Version: {detail.summary.current_packet_version_id or '-'}",
+            f"Current head: {detail.summary.head_packet_version_id}",
+            f"New Version: {prepared.version.packet_version_id}",
+            f"Version label: {prepared.version.version_label}",
+            f"Revision sequence: {prepared.version.revision_sequence}",
+            f"Components: {len(prepared.version.components)}",
+            f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
+            "",
+            "Ordered components:",
+        ]
+        lines.extend(_component_line(item) for item in prepared.version.components)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
         "Create Successor Packet Version",
         "REVISE",
-        tuple(lines),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
+    )
+    if prepared is None:
         return
     result = commit_packet_revision(prepared)
     show_result("Packet Result", _mutation_lines(result))
@@ -370,16 +406,29 @@ def _activate(state: MenuSessionContext) -> None:
     selected = _choose_packet(title="Choose Packet to Activate")
     detail = get_packet(selected.packet_definition_id)
     head = detail.summary.head_packet_version_id
-    prepared = prepare_packet_activation(
-        PreparePacketActivationRequest(
-            packet_definition_id=selected.packet_definition_id,
-            packet_version_id=head,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketActivation, tuple[str, ...]]:
+        prepared = prepare_packet_activation(
+            PreparePacketActivationRequest(
+                packet_definition_id=selected.packet_definition_id,
+                packet_version_id=head,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _version_preview_lines(detail, head)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Activate Packet Version",
+        "ACTIVATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _version_preview_lines(detail, head)
-    if not confirm_write("Activate Packet Version", "ACTIVATE", lines):
+    if prepared is None:
         return
     result = commit_packet_activation(prepared)
     show_result("Packet Result", _mutation_lines(result))
@@ -427,26 +476,39 @@ def _update(state: MenuSessionContext) -> None:
     )
     assert purpose is not None
     description = _description_update(detail)
-    prepared = prepare_packet_update(
-        PreparePacketUpdateRequest(
-            packet_definition_id=selected.packet_definition_id,
-            name=name,
-            purpose=purpose,
-            description=description,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketUpdate, tuple[str, ...]]:
+        prepared = prepare_packet_update(
+            PreparePacketUpdateRequest(
+                packet_definition_id=selected.packet_definition_id,
+                name=name,
+                purpose=purpose,
+                description=description,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = (
+            f"Packet: {selected.packet_definition_id}",
+            f"Name: {prepared.definition.name}",
+            f"Purpose: {prepared.definition.purpose}",
+            f"Description: {prepared.definition.description or '-'}",
+            f"Current Version: {detail.summary.current_packet_version_id or '-'}",
+            f"Head Version: {detail.summary.head_packet_version_id}",
+            f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Update Packet",
+        "UPDATE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = (
-        f"Packet: {selected.packet_definition_id}",
-        f"Name: {prepared.definition.name}",
-        f"Purpose: {prepared.definition.purpose}",
-        f"Description: {prepared.definition.description or '-'}",
-        f"Current Version: {detail.summary.current_packet_version_id or '-'}",
-        f"Head Version: {detail.summary.head_packet_version_id}",
-        f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
-    )
-    if not confirm_write("Update Packet", "UPDATE", lines):
+    if prepared is None:
         return
     result = commit_packet_update(prepared)
     show_result("Packet Result", _mutation_lines(result))
@@ -469,22 +531,34 @@ def _retire_version(state: MenuSessionContext) -> None:
         "Choose Draft Version to Retire",
         candidates,
         tuple(
-            f"{item.revision_sequence}. {item.version_label} "
-            f"({item.packet_version_id})"
+            f"{item.revision_sequence}. {item.version_label} ({item.packet_version_id})"
             for item in candidates
         ),
         help_text="Only non-current draft Versions may be retired independently.",
     )
-    prepared = prepare_packet_retire_version(
-        PreparePacketRetireVersionRequest(
-            packet_definition_id=selected.packet_definition_id,
-            packet_version_id=candidate.packet_version_id,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketRetireVersion, tuple[str, ...]]:
+        prepared = prepare_packet_retire_version(
+            PreparePacketRetireVersionRequest(
+                packet_definition_id=selected.packet_definition_id,
+                packet_version_id=candidate.packet_version_id,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _version_preview_lines(detail, candidate.packet_version_id)
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Retire Packet Version",
+        "RETIRE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _version_preview_lines(detail, candidate.packet_version_id)
-    if not confirm_write("Retire Packet Version", "RETIRE", lines):
+    if prepared is None:
         return
     result = commit_packet_retire_version(prepared)
     show_result("Packet Result", _mutation_lines(result))
@@ -493,18 +567,31 @@ def _retire_version(state: MenuSessionContext) -> None:
 def _retire(state: MenuSessionContext) -> None:
     selected = _choose_packet(title="Choose Packet to Retire")
     detail = get_packet(selected.packet_definition_id)
-    prepared = prepare_packet_retire(
-        PreparePacketRetireRequest(
-            packet_definition_id=selected.packet_definition_id,
-            expected_snapshot_revision=detail.summary.snapshot_revision,
-            actor=state.require_actor(),
+
+    def _prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[PreparedPacketRetire, tuple[str, ...]]:
+        prepared = prepare_packet_retire(
+            PreparePacketRetireRequest(
+                packet_definition_id=selected.packet_definition_id,
+                expected_snapshot_revision=detail.summary.snapshot_revision,
+                actor=actor,
+            )
         )
+        lines = _detail_lines(detail) + (
+            "Retirement preserves all historical Versions and component references.",
+            f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
+        )
+        return prepared, tuple(lines)
+
+    prepared = confirm_prepared_actor_write(
+        "Retire Packet",
+        "RETIRE",
+        state=state,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=_prepare_for_actor,
     )
-    lines = _detail_lines(detail) + (
-        "Retirement preserves all historical Versions and component references.",
-        f"Expected Packet snapshot: {detail.summary.snapshot_revision}",
-    )
-    if not confirm_write("Retire Packet", "RETIRE", lines):
+    if prepared is None:
         return
     result = commit_packet_retire(prepared)
     show_result("Packet Result", _mutation_lines(result))

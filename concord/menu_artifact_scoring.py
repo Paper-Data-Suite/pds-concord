@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import concord.menu_artifact_write_context as scoring_write_authority
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_artifact_write_context import (
     ArtifactWriteContext,
     artifact_write_kwargs,
@@ -116,9 +117,7 @@ def _refresh_score_continuation_authority(
     refreshed = begin_artifact_write_context(
         selected,
         operation=operation,
-        workspace_root=(
-            None if previous.active_workspace_binding else previous.root
-        ),
+        workspace_root=(None if previous.active_workspace_binding else previous.root),
     )
     if (
         refreshed.root != previous.root
@@ -129,11 +128,9 @@ def _refresh_score_continuation_authority(
             "Routine scoring workspace changed during continuation."
         )
     if (
-        (snapshot_revision is not None and
-         refreshed.snapshot_revision != snapshot_revision)
-        or (snapshot_sha256 is not None and
-            refreshed.snapshot_sha256 != snapshot_sha256)
-    ):
+        snapshot_revision is not None
+        and refreshed.snapshot_revision != snapshot_revision
+    ) or (snapshot_sha256 is not None and refreshed.snapshot_sha256 != snapshot_sha256):
         raise ConcordWorkflowConflictError(
             "Routine scoring continuation snapshot changed. Refresh Score selection."
         )
@@ -306,9 +303,7 @@ def _choose_scale(
         "Choose Scoring Scale",
         ordered,
         labels,
-        help_text=(
-            f"{default_note} No Score value is selected by the Scale default."
-        ),
+        help_text=(f"{default_note} No Score value is selected by the Scale default."),
     )
 
 
@@ -437,10 +432,7 @@ def _preview_lines(
         f"Target: {_target_label(activity, context, preview.target_reference)}",
         f"Criterion: {preview.criterion_label}",
         f"Scale: {preview.scoring_scale_name}",
-        (
-            "Value: "
-            f"{json.dumps(preview.value)} — {preview.selected_level.label}"
-        ),
+        (f"Value: {json.dumps(preview.value)} — {preview.selected_level.label}"),
         f"Disposition: {preview.disposition}",
         f"Basis: {preview.basis}",
         "Evidence: this reviewed Artifact",
@@ -551,11 +543,14 @@ def _record_selected_artifact_score(
             ),
         )
         return None
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Score this work",
         "SCORE",
         _preview_lines(current, context, preview),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return None
 
     if (
@@ -573,7 +568,7 @@ def _record_selected_artifact_score(
     )
     result = record_prepared_routine_score(
         preview,
-        actor=state.require_actor(),
+        actor=actor,
         **artifact_write_kwargs(write_context),
     )
     show_result(
@@ -692,18 +687,20 @@ def _record_another_criterion(
             ),
         )
         return None
-    if not confirm_write(
+    actor = confirm_actor_write(
         "Score another Criterion",
         "SCORE",
         _preview_lines(activity, context, preview),
-    ):
+        state=state,
+        legacy_confirm=confirm_write,
+    )
+    if actor is None:
         return None
 
     if (
         preview.snapshot_revision != write_preview.snapshot_revision
         or preview.snapshot_sha256 != write_preview.snapshot_sha256
-        or preview.artifact_instance_id
-        != context.artifact.artifact_instance_id
+        or preview.artifact_instance_id != context.artifact.artifact_instance_id
     ):
         raise ConcordWorkflowConflictError(
             "Another-Criterion preview does not match inspected state."
@@ -715,7 +712,7 @@ def _record_another_criterion(
     )
     result = record_prepared_routine_score(
         preview,
-        actor=state.require_actor(),
+        actor=actor,
         **artifact_write_kwargs(write_context),
     )
     show_result(
@@ -936,7 +933,8 @@ def launch_selected_artifact_scoring(
                     session_authority, operation="Open Returned Work"
                 )
                 refreshed = show_activity(
-                    current.class_id, current.activity_id,
+                    current.class_id,
+                    current.activity_id,
                     workspace_root=session_authority.root,
                 ).summary
                 open_selected_work(refreshed, current_artifact_id)

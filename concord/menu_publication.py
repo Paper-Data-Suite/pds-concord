@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from pds_core.academic_work_registrations import (
@@ -41,6 +42,7 @@ from concord.academic_work_registration import (
     load_current_concord_academic_work_registration,
     register_concord_academic_work,
 )
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -65,7 +67,7 @@ from concord.menu_ui import (
     print_menu_header,
     print_navigation,
 )
-from concord.workflows import ActivitySummary, show_activity
+from concord.workflows import ActivitySummary, WorkflowActor, show_activity
 from concord.workflows.context import resolve_read_workspace_root
 
 _ACADEMIC_INTENTS: tuple[AcademicWorkIntent, ...] = (
@@ -76,9 +78,12 @@ _ACADEMIC_INTENTS: tuple[AcademicWorkIntent, ...] = (
     "feedback_only",
     "reporting_only",
 )
-_REGISTRATION_LIFECYCLES: tuple[
-    AcademicWorkRegistrationLifecycle, ...
-] = ("planned", "active", "closed", "cancelled")
+_REGISTRATION_LIFECYCLES: tuple[AcademicWorkRegistrationLifecycle, ...] = (
+    "planned",
+    "active",
+    "closed",
+    "cancelled",
+)
 _REVISION_REASONS: tuple[RevisionReason, ...] = (
     "native_state_change",
     "evidence_lineage_change",
@@ -171,9 +176,7 @@ def _update_registration(activity: ActivitySummary) -> None:
         show_result("Registration Update", ("Register the Activity first.",))
         return
     intent, lifecycle = _choose_registration_values()
-    detail = show_activity(
-        activity.class_id, activity.activity_id, workspace_root=root
-    )
+    detail = show_activity(activity.class_id, activity.activity_id, workspace_root=root)
     if not confirm_write(
         "Update Registration",
         "REGISTER",
@@ -302,19 +305,53 @@ def _show_preview(activity: ActivitySummary, session: MenuSessionContext) -> Non
     )
 
 
+def _preview_for_reviewed_actor(
+    base_request: GenerateAcademicResultManifestRequest,
+    actor: WorkflowActor,
+) -> tuple[GenerateAcademicResultManifestRequest, AcademicResultManifestPreview]:
+    """Rebuild immutable public projection using exactly the reviewed actor."""
+    request = replace(base_request, actor=actor)
+    preview = preview_academic_result_manifest(
+        request,
+        workspace_root=_root(),
+        standards_library=load_menu_standards_library(),
+    )
+    return request, preview
+
+
 def _generate(activity: ActivitySummary, session: MenuSessionContext) -> None:
-    request, preview = _preview(activity, session)
+    base_request = _manifest_request(activity, session)
     registration = load_current_concord_academic_work_registration(
         _root(), activity.class_id, activity.activity_id
     )
     assert registration is not None
-    review = _review_lines(
-        preview,
-        academic_intent=registration.academic_intent,
-        lifecycle=registration.lifecycle,
+
+    def prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[
+        tuple[GenerateAcademicResultManifestRequest, AcademicResultManifestPreview],
+        tuple[str, ...],
+    ]:
+        request, preview = _preview_for_reviewed_actor(base_request, actor)
+        return (
+            (request, preview),
+            _review_lines(
+                preview,
+                academic_intent=registration.academic_intent,
+                lifecycle=registration.lifecycle,
+            ),
+        )
+
+    reviewed = confirm_prepared_actor_write(
+        "Generate Immutable Manifest",
+        "GENERATE",
+        state=session,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=prepare_for_actor,
     )
-    if not confirm_write("Generate Immutable Manifest", "GENERATE", review):
+    if reviewed is None:
         return
+    request, preview = reviewed
     result = generate_academic_result_manifest(
         request,
         workspace_root=_root(),
@@ -339,23 +376,27 @@ def _publication_status(activity: ActivitySummary) -> None:
     )
     current_id = (
         state.current_selectable_publication.publication_id
-        if state.current_selectable_publication else None
+        if state.current_selectable_publication
+        else None
     )
     head_id = state.core_head.publication_id if state.core_head else None
     withdrawn_ids = {item.publication_id for item in state.withdrawals}
     lines = [
         f"Activity: {activity.title}",
-        "Producer manifest: " + (
+        "Producer manifest: "
+        + (
             f"revision {state.producer_head.revision}"
-            if state.producer_head else "not generated"
+            if state.producer_head
+            else "not generated"
         ),
-        "Structural publication: " + (
-            "none" if head_id is None
+        "Structural publication: "
+        + (
+            "none"
+            if head_id is None
             else ("withdrawn" if state.core_head_withdrawal else "available")
         ),
-        "Current selectable publication: " + (
-            "none" if current_id is None else "available"
-        ),
+        "Current selectable publication: "
+        + ("none" if current_id is None else "available"),
         f"Catalog available: {'yes' if state.catalog_available else 'no'}",
         f"Catalog rows: {len(state.catalog_rows)}",
         "Publication history (revision order, not creation order):",
@@ -395,42 +436,55 @@ def _publish(
             ("A Core publication series already exists; use superseding publication.",),
         )
         return
-    request, preview = _preview(activity, session)
+    base_request = _manifest_request(activity, session)
     registration = load_current_concord_academic_work_registration(
         _root(), activity.class_id, activity.activity_id
     )
     assert registration is not None
-    if teacher_facing:
-        review = list(
-            _share_review_lines(
+    confirmation_title = (
+        "Share Results" if teacher_facing else "Publish Academic Results"
+    )
+    confirmation_word = "SHARE" if teacher_facing else "PUBLISH"
+
+    def prepare_for_actor(
+        actor: WorkflowActor,
+    ) -> tuple[
+        tuple[GenerateAcademicResultManifestRequest, AcademicResultManifestPreview],
+        tuple[str, ...],
+    ]:
+        request, preview = _preview_for_reviewed_actor(base_request, actor)
+        if teacher_facing:
+            review = _share_review_lines(
                 activity,
                 preview,
                 academic_intent=registration.academic_intent,
                 lifecycle=registration.lifecycle,
             )
-        )
-    else:
-        review = list(
-            _review_lines(
+        else:
+            review = _review_lines(
                 preview,
                 academic_intent=registration.academic_intent,
                 lifecycle=registration.lifecycle,
             )
-        )
-        if state.core_head is not None:
-            review.append(f"Expected Core head: {state.core_head.publication_id}")
-            withdrawn_label = "yes" if state.core_head_withdrawal else "no"
-            review.append(f"Expected Core head withdrawn: {withdrawn_label}")
-    confirmation_title = (
-        "Share Results" if teacher_facing else "Publish Academic Results"
-    )
-    confirmation_word = "SHARE" if teacher_facing else "PUBLISH"
-    if not confirm_write(
+            if state.core_head is not None:
+                withdrawn_label = "yes" if state.core_head_withdrawal else "no"
+                review = (
+                    *review,
+                    f"Expected Core head: {state.core_head.publication_id}",
+                    f"Expected Core head withdrawn: {withdrawn_label}",
+                )
+        return (request, preview), review
+
+    reviewed = confirm_prepared_actor_write(
         confirmation_title,
         confirmation_word,
-        tuple(review),
-    ):
+        state=session,
+        legacy_confirm=confirm_write,
+        prepare_for_actor=prepare_for_actor,
+    )
+    if reviewed is None:
         return
+    request, preview = reviewed
     if not superseding:
         result = publish_concord_academic_results(
             request,
@@ -494,9 +548,7 @@ def _withdraw(
             return
         current_publication_id = current.publication_id
         if current_publication_id is None:
-            raise ValueError(
-                "Current shared results have no publication identifier."
-            )
+            raise ValueError("Current shared results have no publication identifier.")
         publication_id = current_publication_id
         reason = prompt_text(
             "Stop Sharing",
@@ -749,10 +801,7 @@ def _share_review_lines(
             f"{summary['local_score_count']}"
         ),
         f"Non-score records included: {summary['non_score_count']}",
-        (
-            "Scores requiring moderation: "
-            f"{summary['moderation_dependent_count']}"
-        ),
+        (f"Scores requiring moderation: {summary['moderation_dependent_count']}"),
     )
 
 

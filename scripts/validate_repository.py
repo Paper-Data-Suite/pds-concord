@@ -373,6 +373,16 @@ def validate(
                 phase="installed-wheel smoke: module operations",
                 timings=timings,
             )
+            _run(
+                [
+                    python,
+                    "scripts/smoke_test_issue148_teacher_attribution_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: #148 teacher attribution",
+                timings=timings,
+            )
 
         # The published v0.3.2/Core 0.6.5 acceptance stays frozen as
         # historical evidence. Qualify the new candidate in a separate lane.

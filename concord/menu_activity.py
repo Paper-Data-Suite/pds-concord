@@ -7,6 +7,7 @@ from pathlib import Path
 from pds_core.standards import StandardsLibrary
 from pds_core.workspace import WorkspaceRootError
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_artifact import (
     launch_artifact_page_menu,
     launch_collect_work_menu,
@@ -16,7 +17,11 @@ from concord.menu_attention import (
     launch_activity_attention_discovery,
     print_activity_attention_summary,
 )
-from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_context import (
+    CancelMenuAction,
+    MenuSessionContext,
+    new_menu_session,
+)
 from concord.menu_group import launch_group_menu
 from concord.menu_guided_activity import (
     launch_classroom_materials_menu,
@@ -378,7 +383,6 @@ def _create_activity(state: MenuSessionContext) -> None:
             help_text="Optional teacher-facing label for the first Session.",
             optional=True,
         )
-        actor = state.require_actor()
         review = [
             f"Class: {selected_class.class_id}",
             f"Activity: {title}",
@@ -389,7 +393,14 @@ def _create_activity(state: MenuSessionContext) -> None:
         ]
         if focus_ids:
             review.append(f"Focus Standards: {len(focus_ids)}")
-        if not confirm_write("Create an Activity", "CREATE", tuple(review)):
+        actor = confirm_actor_write(
+            "Create an Activity",
+            "CREATE",
+            tuple(review),
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_activity_context(
             CreateActivityContextRequest(
@@ -655,12 +666,14 @@ def _copy_activity(state: MenuSessionContext) -> None:
             workspace_root=root,
             standards_library=library,
         )
-        if not _confirm_copy(
-            _copy_review_lines(
-                prepared,
-                standards_library=library,
-            )
-        ):
+        actor = confirm_actor_write(
+            "Copy an Activity",
+            "COPY",
+            _copy_review_lines(prepared, standards_library=library),
+            state=state,
+            legacy_confirm=lambda _title, _expected, lines: _confirm_copy(tuple(lines)),
+        )
+        if actor is None:
             return
         result = copy_activity(
             CopyActivityRequest(
@@ -669,7 +682,7 @@ def _copy_activity(state: MenuSessionContext) -> None:
                 target_class_id=prepare_request.target_class_id,
                 target_activity_id=prepare_request.target_activity_id,
                 first_session_id=prepare_request.first_session_id,
-                actor=state.require_actor(),
+                actor=actor,
                 review_digest=prepared.review_digest,
                 title=prepare_request.title,
                 description=prepare_request.description,
@@ -715,7 +728,6 @@ def _update_activity_field(
             "class_id": current.class_id,
             "activity_id": current.activity_id,
             "expected_snapshot_revision": current.snapshot_revision,
-            "actor": state.require_actor(),
         }
         library: StandardsLibrary | None = None
         change = field.replace("_", " ").title()
@@ -777,8 +789,16 @@ def _update_activity_field(
                     "publications are created by this status change.",
                 )
             )
-        if not confirm_write("Edit Activity", "UPDATE", tuple(review_lines)):
+        actor = confirm_actor_write(
+            "Edit Activity",
+            "UPDATE",
+            tuple(review_lines),
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
+        values["actor"] = actor
         # The Activity's orientation is not the whole standards contract:
         # historical standard-backed Criteria or Scores still need Core authority.
         # Read the *verified structural* snapshot after confirmation. The
@@ -827,9 +847,7 @@ def _update_activity_field(
             f"Snapshot: {result.commit.snapshot_revision}",
         ]
         if field == "status":
-            receipt_lines.append(
-                f"Status: {current.status} -> {values['status']}"
-            )
+            receipt_lines.append(f"Status: {current.status} -> {values['status']}")
         show_result("Activity Result", tuple(receipt_lines))
     except CancelMenuAction:
         return
@@ -1134,7 +1152,7 @@ def launch_activity_context_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Open one Activity around teacher tasks instead of record families."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         read_context = None
         try:
@@ -1306,7 +1324,7 @@ def launch_advanced_activity_tools_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Run Activity creation, listing, and open-Activity workflows."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         clear_screen()
         print_menu_header("Activity Management")
@@ -1343,7 +1361,7 @@ def launch_activity_management_menu(
     state: MenuSessionContext | None = None,
 ) -> None:
     """Offer the guided teacher path before exact Activity tools."""
-    session_state = MenuSessionContext() if state is None else state
+    session_state = new_menu_session() if state is None else state
     while True:
         clear_screen()
         print_menu_header("Activity Management")

@@ -9,6 +9,7 @@ from concord.group_plan_signal import (
     generate_mixed_signal_group_plan_proposal,
     generate_similar_signal_group_plan_proposal,
 )
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_prompts import (
     confirm_write,
@@ -302,7 +303,7 @@ def create_signal_group_plan_from_menu(
         )
         _show_preview(strategy, selection, proposal, target_line)
 
-        if not confirm_write(
+        actor = confirm_actor_write(
             f"Create {label} GroupPlan",
             "CREATE",
             (
@@ -319,7 +320,10 @@ def create_signal_group_plan_from_menu(
                 "The displayed preview must still match the current Core roster.",
                 "No canonical Groups or Memberships will be created.",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
 
         result = create_signal_group_plan(
@@ -331,7 +335,7 @@ def create_signal_group_plan_from_menu(
                 signal_set_id=selection.signal_set_id,
                 dimension_id=selection.dimension_id,
                 expected_snapshot_revision=current.snapshot_revision,
-                actor=state.require_actor(),
+                actor=actor,
                 target_group_size=target_size,
                 target_group_count=target_count,
                 expected_roster_student_ids=proposal.roster_student_ids,

@@ -7,7 +7,7 @@ from concord.menu_activity import (
     launch_activity_management_menu,
     select_activity,
 )
-from concord.menu_context import MenuSessionContext
+from concord.menu_context import CancelMenuAction, MenuSessionContext, new_menu_session
 from concord.menu_navigation import (
     ConcordMenuChoice,
     QuitPDS,
@@ -18,6 +18,7 @@ from concord.menu_navigation import (
 from concord.menu_packet import launch_packet_library_menu
 from concord.menu_presets import launch_preset_library_menu
 from concord.menu_scan import launch_scan_routing_menu
+from concord.menu_teacher_settings import launch_teacher_settings_menu
 from concord.menu_template import launch_template_library_menu
 from concord.menu_ui import (
     clear_screen,
@@ -34,6 +35,7 @@ def _main_help() -> None:
     print("Concord manages paper-first collaborative classroom evidence.")
     print("Activity, Session, Group, Role, and Responsibility records remain distinct.")
     print("Teacher judgment remains primary; Concord does not calculate Grades.")
+    print("Teacher Settings controls Concord-local, self-declared attribution.")
     print()
     print("Complete direct command help:")
     print("  concord --help")
@@ -51,6 +53,7 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
     print("5. Template Library")
     print("6. Packet Library")
     print("7. Reusable Presets")
+    print("8. Teacher Settings — attribution")
     print_navigation(back=False, main_menu=False)
     print()
     choice = input("Select an option: ").strip()
@@ -72,6 +75,9 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
         return True
     if choice == "3":
         launch_workspace_menu()
+        # A workspace may have changed while the menu was open. Invalidate
+        # process-local attribution/currentness, but never reset the preference.
+        state.invalidate_actor()
         return True
     if choice == "4":
         launch_scan_routing_menu(state)
@@ -85,6 +91,9 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
     if choice == "7":
         launch_preset_library_menu(state)
         return True
+    if choice == "8":
+        launch_teacher_settings_menu(state)
+        return True
     print(
         navigation_hint_with_help(
             back=False,
@@ -97,11 +106,21 @@ def _main_menu_once(state: MenuSessionContext) -> bool:
 
 def launch_menu() -> int:
     """Launch Concord's menu and unwind B/M/Q/Ctrl+C/EOF cleanly."""
-    state = MenuSessionContext()
+    state = new_menu_session()
     while True:
         try:
             _main_menu_once(state)
         except ReturnToMainMenu:
+            continue
+        except CancelMenuAction as error:
+            # A saved profile could be absent, corrupt or changed externally.
+            # Preserve the menu, never retry a consequential action implicitly.
+            if str(error):
+                clear_screen()
+                print_menu_header("Teacher Attribution")
+                print(str(error))
+                print()
+                pause_for_user()
             continue
         except (QuitPDS, KeyboardInterrupt, EOFError):
             clear_screen()

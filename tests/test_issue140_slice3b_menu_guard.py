@@ -26,6 +26,7 @@ from concord.workflows import (
     show_activity,
 )
 from concord.workflows.artifact_review import add_artifact_review
+from concord.workflows.context import actor_reference
 from concord.workflows.moderation import add_moderation_record
 
 ARTIFACT_ID = "issue140-nonexistent-evidence"
@@ -76,7 +77,7 @@ def _exercise(
             menu,
             "_choose_author_semantics",
             lambda *a, **k: (
-                None,
+                actor_reference(ACTOR),
                 "teacher_author",
                 "proposed",
                 "manual",

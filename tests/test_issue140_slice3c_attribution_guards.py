@@ -34,6 +34,7 @@ from concord.workflows import (
     update_artifact_author,
     update_artifact_subject,
 )
+from concord.workflows.context import actor_reference
 
 KINDS = (
     "update_author",
@@ -117,7 +118,7 @@ def _exercise(
         menu,
         "_choose_author_semantics",
         lambda *a, **kw: (
-            None,
+            actor_reference(ACTOR),
             "teacher_author",
             "proposed",
             "manual",

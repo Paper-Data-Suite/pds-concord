@@ -6,6 +6,7 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_assignment_end import (
     assignment_end_review,
     choose_assignment_end_status,
@@ -188,8 +189,7 @@ def _create_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
             help_text="Optional short description of the Group's purpose.",
             optional=True,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Create Group",
             "CREATE",
             (
@@ -198,7 +198,10 @@ def _create_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Group ID: {group_id}",
                 "Status: planned",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_group(
             CreateGroupRequest(
@@ -327,7 +330,6 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 "activity_id": current.activity_id,
                 "group_id": selected.group_id,
                 "expected_snapshot_revision": current.snapshot_revision,
-                "actor": state.require_actor(),
             }
             change_label = ""
             if choice == "1":
@@ -403,8 +405,16 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                     "No Group successor, Membership, evidence, Score, or Grade "
                     "is created by changing the status.",
                 )
-            if not confirm_write("Edit Group", "UPDATE", review_lines):
+            actor = confirm_actor_write(
+                "Edit Group",
+                "UPDATE",
+                review_lines,
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
+            values["actor"] = actor
             result = update_group(
                 UpdateGroupRequest(**values),  # type: ignore[arg-type]
                 **standards_kwargs_for_activity(current),
@@ -419,9 +429,7 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Snapshot: {result.commit.snapshot_revision}",
             )
             if choice == "3":
-                result_lines += (
-                    f"Status: {selected.status} -> {values['status']}",
-                )
+                result_lines += (f"Status: {selected.status} -> {values['status']}",)
             show_result("Group Result", result_lines)
             return
         except CancelMenuAction:
@@ -467,7 +475,6 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         context = choose_effective_context(current.activity_id, sessions)
         root = resolve_workspace_root()
         students = choose_students(root, current.class_id)
-        actor = state.require_actor()
         members = tuple(
             GroupMemberSpec(
                 membership_id=f"membership-{uuid.uuid4().hex}",
@@ -476,7 +483,7 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
             )
             for student in students
         )
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Add Group Members",
             "ADD",
             (
@@ -484,7 +491,10 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Students: {len(students)}",
                 f"Sessions: {len(context.session_ids)}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = add_memberships(
             AddMembershipsRequest(
@@ -546,8 +556,7 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
             display_label=display,
             current_status=membership.status,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "End Membership",
             "END",
             assignment_end_review(
@@ -558,7 +567,10 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 previous_status=membership.status,
                 requested_status=status,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = end_membership(
             EndMembershipRequest(
@@ -602,9 +614,8 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
         new_group = choose_group(groups, title="Choose the New Group")
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
         successor_id = f"membership-{uuid.uuid4().hex}"
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Reassign Membership",
             "REASSIGN",
             (
@@ -618,7 +629,10 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
                 "From: previously assigned Group",
                 f"To: {new_group.label}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         reassign_membership(
             ReassignMembershipRequest(

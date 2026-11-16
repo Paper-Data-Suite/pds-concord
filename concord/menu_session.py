@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -56,9 +57,7 @@ _SESSION_STATUS_EXPLANATIONS = (
 )
 
 
-def _choose_session_status(
-    activity: ActivitySummary, session: SessionSummary
-) -> str:
+def _choose_session_status(activity: ActivitySummary, session: SessionSummary) -> str:
     """Choose an exact native Session status, without inventing transitions."""
     labels = tuple(
         f"{explanation}{' [current]' if status == session.status else ''}"
@@ -161,8 +160,7 @@ def _add(activity: ActivitySummary, state: MenuSessionContext) -> None:
             help_text="Sequence controls Session ordering inside the Activity.",
             default=next_sequence,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Add Session",
             "ADD",
             (
@@ -171,7 +169,10 @@ def _add(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"Sequence: {sequence}",
                 "Status: planned",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = create_session(
             CreateSessionRequest(
@@ -212,7 +213,6 @@ def _edit_field(
             "activity_id": current.activity_id,
             "session_id": session.session_id,
             "expected_snapshot_revision": current.snapshot_revision,
-            "actor": state.require_actor(),
         }
         display = field.replace("_", " ").title()
         if field == "sequence":
@@ -271,8 +271,16 @@ def _edit_field(
                     "Grades or publications.",
                 )
             )
-        if not confirm_write("Edit Session", "UPDATE", tuple(review_lines)):
+        actor = confirm_actor_write(
+            "Edit Session",
+            "UPDATE",
+            tuple(review_lines),
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
+        values["actor"] = actor
         request = UpdateSessionRequest(**values)  # type: ignore[arg-type]
         result = update_session(request, **standards_kwargs_for_activity(current))
         receipt_lines = list(

@@ -13,6 +13,7 @@ from concord.class_group_arrangements import (
     SavedArrangementGroup,
     compare_roster,
 )
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
@@ -40,9 +41,15 @@ from concord.menu_ui import (
     print_navigation,
 )
 from concord.models import PlannedGroup
-from concord.workflows import ActivitySummary, list_group_plans, show_activity
+from concord.workflows import (
+    ActivitySummary,
+    WorkflowActor,
+    list_group_plans,
+    show_activity,
+)
 from concord.workflows.class_group_arrangements import (
     PreparedGroupingReuse,
+    PreparedGroupingSave,
     ReuseGroupingRequest,
     SaveGroupingRequest,
     StudentPlacementDecision,
@@ -177,34 +184,45 @@ def save_grouping_from_plan(
             default=slug_identifier(name, "saved-grouping"),
         )
         assert arrangement_id is not None
-        request = SaveGroupingRequest(
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            group_plan_id=group_plan_id,
-            arrangement_id=arrangement_id,
-            name=name,
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
-        )
-        preview = prepare_save_grouping(request)
-        _show_placements(
-            current,
-            preview.groups,
-            preview.unresolved_student_ids,
-            title="Review grouping before saving",
-        )
-        if not confirm_write(
-            "Save current grouping",
-            "SAVE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[tuple[SaveGroupingRequest, PreparedGroupingSave], tuple[str, ...]]:
+            assert group_plan_id is not None
+            request = SaveGroupingRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                group_plan_id=group_plan_id,
+                arrangement_id=arrangement_id,
+                name=name,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+            )
+            preview = prepare_save_grouping(request)
+            _show_placements(
+                current,
+                preview.groups,
+                preview.unresolved_student_ids,
+                title="Review grouping before saving",
+            )
+            return (request, preview), (
                 f"Grouping: {preview.name}",
                 f"Groups: {len(preview.groups)}",
                 f"Assigned students: {preview.assigned_count}",
                 f"Unresolved students: {len(preview.unresolved_student_ids)}",
                 "Only grouping choices are saved; no Scores or Activity state.",
-            ),
-        ):
+            )
+
+        confirmed = confirm_prepared_actor_write(
+            "Save current grouping",
+            "SAVE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if confirmed is None:
             return
+        request, preview = confirmed
         saved = save_grouping(request, review_digest=preview.review_digest)
         show_result(
             "Saved grouping",
@@ -325,32 +343,42 @@ def use_saved_grouping(activity: ActivitySummary, state: MenuSessionContext) -> 
         if reconciliation is None:
             return
         decisions, departed = reconciliation
-        request = ReuseGroupingRequest(
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            arrangement_id=saved.revision.arrangement_id,
-            new_group_plan_id=new_id,
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
-            placement_decisions=decisions,
-            acknowledged_departed_student_ids=departed,
-            acknowledge_existing_plans=acknowledged,
-        )
-        prepared = prepare_reuse_grouping(request)
-        _preview_reuse(current, prepared)
-        if not confirm_write(
-            "Create Activity grouping draft",
-            "CREATE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[tuple[ReuseGroupingRequest, PreparedGroupingReuse], tuple[str, ...]]:
+            request = ReuseGroupingRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                arrangement_id=saved.revision.arrangement_id,
+                new_group_plan_id=new_id,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+                placement_decisions=decisions,
+                acknowledged_departed_student_ids=departed,
+                acknowledge_existing_plans=acknowledged,
+            )
+            prepared = prepare_reuse_grouping(request)
+            _preview_reuse(current, prepared)
+            return (request, prepared), (
                 f"Saved grouping: {saved.revision.name}",
                 f"New GroupPlan: {new_id}",
                 f"Groups: {len(prepared.groups)}",
                 f"Assigned students: {prepared.assigned_count}",
                 f"Unresolved students: {len(prepared.unresolved_student_ids)}",
                 "Creates one editable draft, not canonical Groups or Scores.",
-            ),
-        ):
+            )
+
+        confirmed = confirm_prepared_actor_write(
+            "Create Activity grouping draft",
+            "CREATE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if confirmed is None:
             return
+        request, prepared = confirmed
         result = reuse_grouping(
             request,
             review_digest=prepared.review_digest,

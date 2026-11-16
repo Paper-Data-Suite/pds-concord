@@ -6,6 +6,10 @@ import uuid
 
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import (
+    confirm_actor_write,
+    confirm_prepared_actor_write,
+)
 from concord.menu_assignment_end import (
     assignment_end_review,
     choose_assignment_end_status,
@@ -60,7 +64,7 @@ from concord.workflows import (
     save_responsibility_preset_from_assignment,
     show_activity,
 )
-from concord.workflows.models import WorkflowAssigneeReference
+from concord.workflows.models import WorkflowActor, WorkflowAssigneeReference
 
 
 def _latest(activity: ActivitySummary) -> ActivitySummary:
@@ -219,11 +223,10 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
             )
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
         assignment_id = f"responsibility-{uuid.uuid4().hex}"
         if preset is None:
             assert description is not None
-            if not confirm_write(
+            actor = confirm_actor_write(
                 "Assign Responsibility",
                 "ADD",
                 (
@@ -231,7 +234,10 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                     f"Responsibility: {description}",
                     f"Sessions: {len(context.session_ids)}",
                 ),
-            ):
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
                 return
             result = assign_responsibility(
                 AssignResponsibilityRequest(
@@ -249,35 +255,48 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 **standards_kwargs_for_activity(current),
             )
         else:
-            request = ApplyResponsibilityPresetRequest(
-                preset_id=preset.preset_id,
-                preset_revision_id=preset.preset_revision_id,
-                class_id=current.class_id,
-                activity_id=current.activity_id,
-                responsibility_assignment_id=assignment_id,
-                assignee_reference=assignee,
-                effective_context=context,
-                expected_snapshot_revision=current.snapshot_revision,
-                actor=actor,
-                group_id=group_id,
-            )
             standards_kwargs = standards_kwargs_for_activity(current)
-            prepared = prepare_responsibility_preset_application(
-                request, **standards_kwargs
-            )
-            if not confirm_write(
-                "Assign Saved Responsibility",
-                "ADD",
-                (
+
+            def _prepare_for_actor(
+                actor: WorkflowActor,
+            ) -> tuple[
+                tuple[ApplyResponsibilityPresetRequest, str],
+                tuple[str, ...],
+            ]:
+                request = ApplyResponsibilityPresetRequest(
+                    preset_id=preset.preset_id,
+                    preset_revision_id=preset.preset_revision_id,
+                    class_id=current.class_id,
+                    activity_id=current.activity_id,
+                    responsibility_assignment_id=assignment_id,
+                    assignee_reference=assignee,
+                    effective_context=context,
+                    expected_snapshot_revision=current.snapshot_revision,
+                    actor=actor,
+                    group_id=group_id,
+                )
+                prepared = prepare_responsibility_preset_application(
+                    request, **standards_kwargs
+                )
+                return (request, prepared.review_digest), (
                     f"Assignee: {label}",
                     f"Responsibility: {prepared.description}",
                     f"Expected output: {prepared.expected_output or '-'}",
-                ),
-            ):
+                )
+
+            reviewed = confirm_prepared_actor_write(
+                "Assign Saved Responsibility",
+                "ADD",
+                state=state,
+                legacy_confirm=confirm_write,
+                prepare_for_actor=_prepare_for_actor,
+            )
+            if reviewed is None:
                 return
+            request, review_digest = reviewed
             result = apply_responsibility_preset(
                 request,
-                review_digest=prepared.review_digest,
+                review_digest=review_digest,
                 **standards_kwargs,
             )
         show_result(
@@ -310,34 +329,47 @@ def _save_responsibility_as_preset(
         )
         assert name is not None
         preset_id = f"responsibility-preset-{uuid.uuid4().hex}"
-        request = SaveResponsibilityPresetFromAssignmentRequest(
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            responsibility_assignment_id=selected.responsibility_assignment_id,
-            preset_id=preset_id,
-            preset_revision_id=f"{preset_id}-v1",
-            name=name,
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
-        )
         standards_kwargs = standards_kwargs_for_activity(current)
-        prepared = prepare_responsibility_preset_from_assignment(
-            request, **standards_kwargs
-        )
-        if not confirm_write(
-            "Save Responsibility Preset",
-            "SAVE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[
+            tuple[SaveResponsibilityPresetFromAssignmentRequest, str],
+            tuple[str, ...],
+        ]:
+            request = SaveResponsibilityPresetFromAssignmentRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                responsibility_assignment_id=selected.responsibility_assignment_id,
+                preset_id=preset_id,
+                preset_revision_id=f"{preset_id}-v1",
+                name=name,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+            )
+            prepared = prepare_responsibility_preset_from_assignment(
+                request, **standards_kwargs
+            )
+            return (request, prepared.review_digest), (
                 f"Preset: {prepared.name}",
                 *prepared.reusable_fields,
                 "NOT SAVED:",
                 *prepared.excluded_state,
-            ),
-        ):
+            )
+
+        reviewed = confirm_prepared_actor_write(
+            "Save Responsibility Preset",
+            "SAVE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
+        )
+        if reviewed is None:
             return
+        request, review_digest = reviewed
         result = save_responsibility_preset_from_assignment(
             request,
-            review_digest=prepared.review_digest,
+            review_digest=review_digest,
             **standards_kwargs,
         )
         show_result(
@@ -378,8 +410,7 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
             display_label=display,
             current_status=responsibility.status,
         )
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "End Responsibility",
             "END",
             assignment_end_review(
@@ -390,7 +421,10 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 previous_status=responsibility.status,
                 requested_status=status,
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = end_responsibility(
             EndResponsibilityRequest(
@@ -439,8 +473,7 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         assert description is not None
         sessions = list_sessions(current.class_id, current.activity_id)
         context = choose_effective_context(current.activity_id, sessions)
-        actor = state.require_actor()
-        if not confirm_write(
+        actor = confirm_actor_write(
             "Reassign Responsibility",
             "REASSIGN",
             (
@@ -448,7 +481,10 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 f"New assignee: {label}",
                 f"Responsibility: {description}",
             ),
-        ):
+            state=state,
+            legacy_confirm=confirm_write,
+        )
+        if actor is None:
             return
         result = reassign_responsibility(
             ReassignResponsibilityRequest(

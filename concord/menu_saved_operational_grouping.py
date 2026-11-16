@@ -5,6 +5,7 @@ from __future__ import annotations
 from pds_core.rosters import student_display_name, student_lookup
 from pds_core.workspace import resolve_workspace_root
 
+from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_prompts import (
     choose_session,
@@ -15,13 +16,19 @@ from concord.menu_prompts import (
     slug_identifier,
 )
 from concord.menu_ui import clear_screen, pause_for_user, print_menu_header
-from concord.workflows import ActivitySummary, list_sessions, show_activity
+from concord.workflows import (
+    ActivitySummary,
+    WorkflowActor,
+    list_sessions,
+    show_activity,
+)
 from concord.workflows.class_group_arrangement_operational import (
     PreparedOperationalGroupingSave,
     SaveOperationalGroupingRequest,
     prepare_save_operational_grouping,
     save_operational_grouping,
 )
+from concord.workflows.errors import ConcordWorkflowConflictError
 from concord.workflows.participants import load_required_roster
 
 
@@ -79,7 +86,7 @@ def save_grouping_from_existing_groups(
             default=slug_identifier(name, "saved-grouping"),
         )
         assert arrangement_id is not None
-        request = SaveOperationalGroupingRequest(
+        inspection_request = SaveOperationalGroupingRequest(
             class_id=current.class_id,
             activity_id=current.activity_id,
             session_id=session.session_id,
@@ -88,15 +95,15 @@ def save_grouping_from_existing_groups(
             expected_snapshot_revision=current.snapshot_revision,
             actor=state.require_actor(),
         )
-        preview = prepare_save_operational_grouping(request)
-        _review_placements(current, preview)
-        acknowledged = not preview.unresolved_student_ids
+        inspected = prepare_save_operational_grouping(inspection_request)
+        _review_placements(current, inspected)
+        acknowledged = not inspected.unresolved_student_ids
         if not acknowledged:
             acknowledged = confirm_write(
                 "Acknowledge unassigned students",
                 "ACKNOWLEDGE",
                 (
-                    f"Unassigned students: {len(preview.unresolved_student_ids)}",
+                    f"Unassigned students: {len(inspected.unresolved_student_ids)}",
                     "They will remain explicitly unassigned in this saved grouping.",
                     "They will require a placement decision when this grouping "
                     "is reused.",
@@ -104,29 +111,61 @@ def save_grouping_from_existing_groups(
             )
         if not acknowledged:
             return
-        if not confirm_write(
-            "Save existing Groups",
-            "SAVE",
-            (
+
+        def _prepare_for_actor(
+            actor: WorkflowActor,
+        ) -> tuple[
+            tuple[SaveOperationalGroupingRequest, PreparedOperationalGroupingSave],
+            tuple[str, ...],
+        ]:
+            request = SaveOperationalGroupingRequest(
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                session_id=session.session_id,
+                arrangement_id=arrangement_id,
+                name=name,
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+                acknowledge_unresolved=acknowledged,
+            )
+            preview = prepare_save_operational_grouping(request)
+            # An actor switch cannot silently switch the Group/Membership
+            # snapshot or the placements previously reviewed and acknowledged.
+            if (
+                preview.source_activity_id != inspected.source_activity_id
+                or preview.source_session_id != inspected.source_session_id
+                or (
+                    preview.source_snapshot_revision
+                    != inspected.source_snapshot_revision
+                )
+                or preview.groups != inspected.groups
+                or preview.unresolved_student_ids != inspected.unresolved_student_ids
+                or preview.assigned_count != inspected.assigned_count
+                or preview.name != inspected.name
+            ):
+                raise ConcordWorkflowConflictError(
+                    "Existing Group placements changed during actor review. "
+                    "Reopen and review before saving; nothing was written."
+                )
+            return (request, preview), (
                 f"Saved name: {preview.name}",
                 f"Source Session: {session.label or session.session_id}",
                 f"Groups: {len(preview.groups)}",
                 f"Assigned: {preview.assigned_count}",
                 f"Unassigned: {len(preview.unresolved_student_ids)}",
                 "Copies placements only; no Activity records or Scores are modified.",
-            ),
-        ):
-            return
-        request = SaveOperationalGroupingRequest(
-            class_id=request.class_id,
-            activity_id=request.activity_id,
-            session_id=request.session_id,
-            arrangement_id=request.arrangement_id,
-            name=request.name,
-            expected_snapshot_revision=request.expected_snapshot_revision,
-            actor=request.actor,
-            acknowledge_unresolved=acknowledged,
+            )
+
+        confirmed = confirm_prepared_actor_write(
+            "Save existing Groups",
+            "SAVE",
+            state=state,
+            legacy_confirm=confirm_write,
+            prepare_for_actor=_prepare_for_actor,
         )
+        if confirmed is None:
+            return
+        request, preview = confirmed
         saved = save_operational_grouping(request, review_digest=preview.review_digest)
         show_result(
             "Saved existing Groups",

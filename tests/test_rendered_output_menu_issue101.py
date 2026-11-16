@@ -25,9 +25,7 @@ def _activity() -> ActivitySummary:
 def _generated() -> SimpleNamespace:
     return SimpleNamespace(
         generation_status="generated",
-        output_relative_path=(
-            "rendered/packets/packet-instance-secret.pdf"
-        ),
+        output_relative_path=("rendered/packets/packet-instance-secret.pdf"),
         packet_instance_id="packet-instance-secret",
         generation_id="generation-secret",
         target_key="participant:student-secret",
@@ -374,7 +372,11 @@ def test_successful_generate_enters_post_generation_open_affordance(
         versions=(version,),
     )
     session = SimpleNamespace(session_id="session-1")
-    prepared = SimpleNamespace(ready_for_commit=True)
+    # The #148 reviewed preparation preserves the exact canonical request.
+    prepared = SimpleNamespace(
+        ready_for_commit=True,
+        request=SimpleNamespace(actor=state.require_actor()),
+    )
     committed = SimpleNamespace(generation_id="generation-new")
     rendered = SimpleNamespace(
         generation_id="generation-new",
