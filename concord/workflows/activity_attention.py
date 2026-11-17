@@ -30,6 +30,7 @@ from concord.workflows.artifact_attribution import _current_authors, _current_su
 from concord.workflows.artifact_collection import (
     ArtifactCollectionState,
     _assembly_state,
+    _has_retained_return_reference,
     inspect_artifact_collection_state,
 )
 from concord.workflows.artifact_review import _review_heads
@@ -694,21 +695,25 @@ def _collection_state_from_context(
     )
     authors = index.authors_by_artifact.get(artifact_instance_id, ())
     subjects = index.subjects_by_artifact.get(artifact_instance_id, ())
+    assembly_state = _assembly_state(
+        context.root,
+        context.work.class_id,
+        context.work.work_id,
+        artifact,
+        context.graph,
+    )
+    has_return = _has_retained_return_reference(artifact, context.graph, assembly_state)
     return ArtifactCollectionState(
         class_id=context.work.class_id,
         activity_id=context.work.work_id,
         artifact_instance_id=artifact_instance_id,
-        assembly_state=_assembly_state(
-            context.root,
-            context.work.class_id,
-            context.work.work_id,
-            artifact,
-            context.graph,
-        ),
-        author_confirmation_pending=any(
+        assembly_state=assembly_state,
+        author_confirmation_pending=has_return
+        and any(
             item.attribution_status in {"proposed", "disputed"} for item in authors
         ),
-        subject_confirmation_pending=any(
+        subject_confirmation_pending=has_return
+        and any(
             item.confirmation_status in {"proposed", "disputed", "unresolved"}
             for item in subjects
         ),

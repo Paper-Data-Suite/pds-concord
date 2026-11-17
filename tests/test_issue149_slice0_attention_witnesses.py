@@ -133,10 +133,6 @@ def test_applied_six_cluster_plan_with_unused_draft_is_not_unready(
     }, counts
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#149: planned associations to blank packets are called returned evidence",
-)
 def test_six_generated_unreturned_blank_artifacts_have_no_returned_confirmation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
