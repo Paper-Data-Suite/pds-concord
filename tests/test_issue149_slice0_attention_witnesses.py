@@ -66,21 +66,64 @@ def _plan(status: str, *, unresolved: tuple[str, ...] = ()) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize("roster_size", (29, 30))
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "#149: applied operational Clusters still show unused drafts "
-        "as blocking Plan attention"
-    ),
-)
 def test_applied_six_cluster_plan_with_unused_draft_is_not_unready(
-    roster_size: int,
+    roster_size: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An unrelated proposal must not erase current operational readiness."""
+    """Exact native application and fresh Core roster make a draft optional."""
+    from concord.group_plan_application import derive_group_id, derive_membership_id
+
+    students = tuple(f"student-{i:02d}" for i in range(roster_size))
+    groups = tuple(
+        SimpleNamespace(
+            planned_group_key=f"cluster-{index}",
+            student_ids=students[index::6],
+        )
+        for index in range(6)
+    )
+    application_id = "apply-synthetic"
+    plan_id = "synthetic-applied"
+    plan = SimpleNamespace(
+        group_plan_id=plan_id,
+        status="applied",
+        strategy="manual",
+        unresolved_student_ids=(),
+        missing_signal_disposition=None,
+        applied_application_id=application_id,
+        proposed_groups=groups,
+        roster_student_ids=students,
+    )
     context = _context(
-        plans=(_plan("applied"), _plan("draft", unresolved=("draft-only",))),
-        group_count=6,
-        student_count=roster_size,
+        plans=(plan, _plan("draft", unresolved=("draft-only",))),
+    )
+    context.graph.groups = tuple(
+        SimpleNamespace(
+            group_id=derive_group_id(application_id, plan_id, group.planned_group_key),
+            status="planned",
+        )
+        for group in groups
+    )
+    context.graph.memberships = tuple(
+        SimpleNamespace(
+            membership_id=derive_membership_id(
+                application_id, plan_id, group.planned_group_key, student_id
+            ),
+            group_id=derive_group_id(application_id, plan_id, group.planned_group_key),
+            status="active",
+            participant_reference=SimpleNamespace(
+                participant_kind="core_student",
+                owning_system="core",
+                participant_id=student_id,
+            ),
+        )
+        for group in groups
+        for student_id in group.student_ids
+    )
+    monkeypatch.setattr(
+        attention,
+        "load_required_roster",
+        lambda *_a: SimpleNamespace(
+            students=tuple(SimpleNamespace(student_id=sid) for sid in students)
+        ),
     )
     counts = attention._plan_attention_counts_from_context(context)
     assert not {

@@ -13,6 +13,7 @@ from concord.academic_result_share_attention import (
 from concord.academic_work_registration import (
     _managed_activity_registration_context_from_verified_activity,
 )
+from concord.group_plan_application import derive_group_id, derive_membership_id
 from concord.models import (
     ArtifactAuthor,
     ArtifactReview,
@@ -53,6 +54,7 @@ from concord.workflows.moderation import (
 from concord.workflows.packet_instance import (
     PacketInstanceSummary,
 )
+from concord.workflows.participants import load_required_roster
 
 ActivityAttentionTask: TypeAlias = Literal[
     "plan",
@@ -423,7 +425,6 @@ def _collect_attention_counts(
     return counts
 
 
-
 def _review_attention_counts(
     artifacts: tuple[ArtifactSummary, ...],
     *,
@@ -438,13 +439,11 @@ def _review_attention_counts(
         counts[code] = counts.get(code, 0) + 1
 
     for artifact in artifacts:
-        state: ArtifactReviewAttentionState = (
-            inspect_artifact_review_attention_state(
-                artifact.class_id,
-                artifact.activity_id,
-                artifact.artifact_instance_id,
-                workspace_root=workspace_root,
-            )
+        state: ArtifactReviewAttentionState = inspect_artifact_review_attention_state(
+            artifact.class_id,
+            artifact.activity_id,
+            artifact.artifact_instance_id,
+            workspace_root=workspace_root,
         )
         if state.first_review_pending:
             add("concord_review_first")
@@ -470,13 +469,11 @@ def _score_attention_counts(
     """
     count = 0
     for artifact in artifacts:
-        state: ArtifactScoringAttentionState = (
-            inspect_artifact_scoring_attention_state(
-                artifact.class_id,
-                artifact.activity_id,
-                artifact.artifact_instance_id,
-                workspace_root=workspace_root,
-            )
+        state: ArtifactScoringAttentionState = inspect_artifact_scoring_attention_state(
+            artifact.class_id,
+            artifact.activity_id,
+            artifact.artifact_instance_id,
+            workspace_root=workspace_root,
         )
         if state.scoring_ready:
             count += 1
@@ -544,9 +541,7 @@ def _build_attention_index(context: ActivityReadContext) -> _ActivityAttentionIn
         reviews[artifact_id] = review
 
     return _ActivityAttentionIndex(
-        authors_by_artifact={
-            key: tuple(value) for key, value in author_lists.items()
-        },
+        authors_by_artifact={key: tuple(value) for key, value in author_lists.items()},
         subjects_by_artifact={
             key: tuple(value) for key, value in subject_lists.items()
         },
@@ -560,11 +555,97 @@ def _add_count(counts: dict[str, int], code: str) -> None:
     counts[code] = counts.get(code, 0) + 1
 
 
+def _current_applied_plan_is_operational(context: ActivityReadContext) -> bool:
+    """Prove one applied plan's exact Groups/Memberships still match Core roster.
+
+    A historical ``applied`` flag alone is insufficient to suppress attention
+    for other proposals. The application ID binds canonical derived identities
+    to their planned group keys and exact planned student memberships. Missing
+    or changed canonical records do not establish current operational grouping.
+    """
+    applied = tuple(
+        plan for plan in context.graph.group_plans if plan.status == "applied"
+    )
+    if len(applied) != 1:
+        return False
+    plan = applied[0]
+    application_id = getattr(plan, "applied_application_id", None)
+    proposed_groups = getattr(plan, "proposed_groups", ())
+    if application_id is None or not proposed_groups:
+        return False
+
+    groups = {group.group_id: group for group in context.graph.groups}
+    memberships = {
+        membership.membership_id: membership for membership in context.graph.memberships
+    }
+    expected_groups: set[str] = set()
+    expected_memberships: set[str] = set()
+    for planned in proposed_groups:
+        group_id = derive_group_id(
+            application_id, plan.group_plan_id, planned.planned_group_key
+        )
+        group = groups.get(group_id)
+        # Application creates planned native Groups; teachers may activate them.
+        if group is None or group.status not in {"planned", "active"}:
+            return False
+        expected_groups.add(group_id)
+        for student_id in planned.student_ids:
+            membership_id = derive_membership_id(
+                application_id,
+                plan.group_plan_id,
+                planned.planned_group_key,
+                student_id,
+            )
+            membership = memberships.get(membership_id)
+            if (
+                membership is None
+                or membership.group_id != group_id
+                or membership.status != "active"
+            ):
+                return False
+            participant = membership.participant_reference
+            if (
+                participant.participant_kind != "core_student"
+                or participant.owning_system != "core"
+                or participant.participant_id != student_id
+            ):
+                return False
+            expected_memberships.add(membership_id)
+
+    # A later active Membership, whether added within these Groups or in an
+    # unrelated Group, makes the applied plan insufficient as an exact current
+    # Activity grouping. Inactive/historical alternatives do not mask it.
+    if any(
+        membership.status == "active"
+        and (
+            membership.group_id not in expected_groups
+            or membership.membership_id not in expected_memberships
+        )
+        for membership in context.graph.memberships
+    ):
+        return False
+
+    # Core is the live class-roster authority, not the historical plan snapshot.
+    roster = load_required_roster(context.root, context.work.class_id)
+    return tuple(sorted(student.student_id for student in roster.students)) == (
+        plan.roster_student_ids
+    )
+
+
 def _plan_attention_counts_from_context(
     context: ActivityReadContext,
 ) -> dict[str, int]:
     counts: dict[str, int] = {}
+    has_pending = any(
+        plan.status in {"draft", "previewed", "approved"}
+        for plan in context.graph.group_plans
+    )
+    has_operational_plan = has_pending and _current_applied_plan_is_operational(context)
     for plan in context.graph.group_plans:
+        # Other proposals remain inspectable/cancellable in Plan Groups, but
+        # are not blockers when one exact applied operational plan is current.
+        if has_operational_plan and plan.status in {"draft", "previewed", "approved"}:
+            continue
         if plan.status == "draft":
             _add_count(counts, "concord_plan_prepare")
         elif plan.status == "previewed":
@@ -578,8 +659,10 @@ def _plan_attention_counts_from_context(
         actionable_status = plan.status in {"draft", "previewed"}
         signal_strategy = plan.strategy in _SIGNAL_GROUP_PLAN_STRATEGIES
         leave_unassigned = plan.missing_signal_disposition == "leave_unassigned"
-        if unresolved and actionable_status and not (
-            signal_strategy and leave_unassigned
+        if (
+            unresolved
+            and actionable_status
+            and not (signal_strategy and leave_unassigned)
         ):
             _add_count(counts, "concord_plan_unresolved_placements")
     return counts
@@ -623,8 +706,7 @@ def _collection_state_from_context(
             context.graph,
         ),
         author_confirmation_pending=any(
-            item.attribution_status in {"proposed", "disputed"}
-            for item in authors
+            item.attribution_status in {"proposed", "disputed"} for item in authors
         ),
         subject_confirmation_pending=any(
             item.confirmation_status in {"proposed", "disputed", "unresolved"}
@@ -651,17 +733,14 @@ def _review_state_from_context(
             post_moderation_review_pending=False,
         )
 
-    review_attention_pending = (
-        current.review_outcome
-        in {
-            "incomplete",
-            "unreadable",
-            "misrouted",
-            "duplicate",
-            "awaiting_correction",
-            "awaiting_additional_evidence",
-        }
-    )
+    review_attention_pending = current.review_outcome in {
+        "incomplete",
+        "unreadable",
+        "misrouted",
+        "duplicate",
+        "awaiting_correction",
+        "awaiting_additional_evidence",
+    }
     moderation_pending = False
     post_moderation_review_pending = False
     if current.moderation_requirement == "required":
