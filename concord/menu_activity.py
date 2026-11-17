@@ -14,7 +14,9 @@ from concord.menu_artifact import (
     launch_review_work_menu,
 )
 from concord.menu_attention import (
+    launch_activity_attention_details,
     launch_activity_attention_discovery,
+    launch_activity_prelesson_readiness,
     print_activity_attention_summary,
 )
 from concord.menu_context import (
@@ -1189,6 +1191,8 @@ def launch_activity_context_menu(
         print("5. Score")
         print("6. Share")
         print("7. Advanced Activity tools")
+        print("R. Before class - lesson readiness (read-only)")
+        print("D. All attention categories (read-only)")
         if attention is not None and attention.next_item is not None:
             print("A. Open next action")
         print_navigation()
@@ -1210,6 +1214,10 @@ def launch_activity_context_menu(
             )
         elif navigation is NavigationChoice.BACK:
             return
+        elif choice.casefold() == "r":
+            launch_activity_prelesson_readiness(read_context)
+        elif choice.casefold() == "d":
+            launch_activity_attention_details(attention)
         elif (
             choice.casefold() == "a"
             and attention is not None
