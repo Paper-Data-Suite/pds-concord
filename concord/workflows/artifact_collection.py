@@ -112,6 +112,52 @@ def _assembly_state(
     return "assembled"
 
 
+def _has_retained_return_reference(
+    artifact: ArtifactInstance,
+    graph: ConcordRecordGraph,
+    assembly_state: ArtifactAssemblyState,
+) -> bool:
+    """Whether this graph establishes an actual routed return for the Artifact.
+
+    A valid complete/assembled return is already established by the assembly
+    inspector. For *partial* returns, require a canonical Scan Reference bound
+    to a return-expected page and matching Activity/route. Artifact status,
+    intended authors, and generated blank packet identities are not evidence.
+    This checks graph provenance, not physical-source availability on disk.
+    """
+    if assembly_state in {"ready", "selection_required", "assembled", "needs_recovery"}:
+        return True
+    if assembly_state == "not_applicable":
+        return False
+
+    # Production loads a validated graph with page_ids, artifact_pages and
+    # scan_references. Missing fields in a partial/synthetic input are not a
+    # reason to infer received evidence.
+    required_ids = set(getattr(artifact, "page_ids", ()))
+    pages = {
+        page.artifact_page_id: page
+        for page in getattr(graph, "artifact_pages", ())
+        if page.artifact_instance_id == artifact.artifact_instance_id
+        and page.artifact_page_id in required_ids
+        and page.return_expected
+    }
+    observed = False
+    for scan in getattr(graph, "scan_references", ()):
+        page = pages.get(scan.artifact_page_id)
+        if page is None:
+            continue
+        if (
+            scan.activity_id != artifact.activity_id
+            or page.route_id is None
+            or scan.route_id != page.route_id
+        ):
+            raise ArtifactAssemblyIntegrityError(
+                "Scan Reference contradicts the canonical returned Artifact Page."
+            )
+        observed = True
+    return observed
+
+
 def inspect_artifact_collection_state(
     class_id: str,
     activity_id: str,
@@ -144,22 +190,25 @@ def inspect_artifact_collection_state(
         artifact_instance_id=artifact_instance_id,
         workspace_root=root,
     )
+    assembly_state = _assembly_state(
+        root,
+        class_id,
+        activity_id,
+        artifact,
+        graph,
+    )
+    has_return = _has_retained_return_reference(artifact, graph, assembly_state)
     return ArtifactCollectionState(
         class_id=class_id,
         activity_id=activity_id,
         artifact_instance_id=artifact_instance_id,
-        assembly_state=_assembly_state(
-            root,
-            class_id,
-            activity_id,
-            artifact,
-            graph,
+        assembly_state=assembly_state,
+        author_confirmation_pending=has_return
+        and any(
+            item.attribution_status in {"proposed", "disputed"} for item in authors
         ),
-        author_confirmation_pending=any(
-            item.attribution_status in {"proposed", "disputed"}
-            for item in authors
-        ),
-        subject_confirmation_pending=any(
+        subject_confirmation_pending=has_return
+        and any(
             item.confirmation_status in {"proposed", "disputed", "unresolved"}
             for item in subjects
         ),
