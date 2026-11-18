@@ -368,12 +368,38 @@ def _create_from_activity(
         workspace_root=root,
         standards_library=library,
     )
-    created = show_activity(target_class.class_id, result.activity_id).summary
-    _offer_after_creation(
-        created,
-        state,
-        copied=True,
-    )
+    # The create-only copy has returned. If the terminal or readback fails,
+    # never start another copy implicitly: inspect this exact target first.
+    try:
+        created = show_activity(target_class.class_id, result.activity_id).summary
+        if (
+            created.class_id != target_class.class_id
+            or created.activity_id != result.activity_id
+        ):
+            raise ConcordWorkflowError("Copied target identity did not match.")
+    except Exception:
+        show_result(
+            "Target Copy Outcome Unconfirmed",
+            (
+                "The copy service returned, but target readback was unconfirmed.",
+                f"Target class: {target_class.class_id}",
+                f"Requested lesson: {target_title}",
+                "Do not copy again. Open Continue Classroom Setup and inspect",
+                "the existing target before taking another action.",
+            ),
+        )
+        return
+    try:
+        _offer_after_creation(created, state, copied=True)
+    except EOFError:
+        show_result(
+            "Target Saved — Continuation Interrupted",
+            (
+                "The independent target was verified before the menu closed.",
+                "Reopen Continue Classroom Setup and select this exact target.",
+                "Do not start a new copy merely to resume preparation.",
+            ),
+        )
 
 
 def _launch_target_cluster_planning(
@@ -912,7 +938,23 @@ def _offer_after_creation(
         if copied and raw in {"3", "4", "5", "6"}:
             # Reload the just-created *target* before any further teacher choice.
             # Existing task menus own their guarded writes and authorization.
-            current = show_activity(activity.class_id, activity.activity_id).summary
+            try:
+                current = show_activity(activity.class_id, activity.activity_id).summary
+                if (
+                    current.class_id != activity.class_id
+                    or current.activity_id != activity.activity_id
+                ):
+                    raise ConcordWorkflowError("Target identity changed.")
+            except Exception:
+                show_result(
+                    "Target Stage Outcome Unconfirmed",
+                    (
+                        "The selected target could not be verified for this stage.",
+                        "No new stage was launched by the guide.",
+                        "Reopen Continue Classroom Setup for the existing target.",
+                    ),
+                )
+                return
             if raw == "3":
                 _launch_target_cluster_planning(current, state)
             elif raw == "4":
@@ -1531,8 +1573,22 @@ def launch_guided_setup_for_activity(
                 current.activity_id,
                 standards_library=standards,
             )
-        except Exception as error:
-            show_result("Continue Classroom Setup", (str(error),))
+            if (
+                current.class_id != activity.class_id
+                or current.activity_id != activity.activity_id
+                or setup.class_id != current.class_id
+                or setup.activity_id != current.activity_id
+            ):
+                raise ConcordWorkflowError("Resumed target identity changed.")
+        except Exception:
+            show_result(
+                "Continue Classroom Setup — Verification Unavailable",
+                (
+                    "The selected target or its current setup could not be verified.",
+                    "No new stage was launched. Earlier saved work is not undone.",
+                    "Reselect the target Activity and inspect its current records.",
+                ),
+            )
             return
 
         recommended = setup.recommended_area()
