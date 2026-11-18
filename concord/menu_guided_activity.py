@@ -32,6 +32,7 @@ from concord.menu_responsibility import launch_responsibility_menu
 from concord.menu_role import launch_role_menu
 from concord.menu_scoring import launch_scoring_menu
 from concord.menu_session import launch_session_menu
+from concord.menu_standards_context import standards_for_activity
 from concord.menu_template import launch_template_library_menu
 from concord.menu_ui import (
     clear_screen,
@@ -57,6 +58,7 @@ from concord.workflows import (
     resolve_read_workspace_root,
     show_activity,
 )
+from concord.workflows.group_plan import show_group_plan
 from concord.workflows.guided_activity_setup import (
     GuidedActivitySetup,
     SetupStatus,
@@ -73,6 +75,10 @@ from concord.workflows.packet import (
     commit_packet_from_template,
     list_packets,
     prepare_packet_from_template,
+)
+from concord.workflows.target_cluster_preflight import (
+    create_target_six_cluster_draft,
+    inspect_target_cluster_preflight,
 )
 from concord.workflows.template import get_template, list_templates
 
@@ -358,6 +364,172 @@ def _create_from_activity(
     )
 
 
+def _launch_target_cluster_planning(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Review the *target* Core roster; never carry source placements forward.
+
+    Creating six empty planned Clusters is one explicit guarded GroupPlan write.
+    Existing plan editing, student placement and application stay in their
+    separate owner menus. Cancel, Back and status review remain read-only.
+    """
+    while True:
+        try:
+            root = resolve_read_workspace_root()
+            reviewed = inspect_target_cluster_preflight(
+                activity.class_id, activity.activity_id, workspace_root=root
+            )
+        except Exception:
+            show_result(
+                "Plan Target Clusters",
+                (
+                    "Target class, Activity, roster or existing plans could not be",
+                    "verified. No Clusters were created by this inspection.",
+                    "Reopen the target Activity after resolving the Core roster.",
+                ),
+            )
+            return
+
+        clear_screen()
+        print_menu_header("Plan Target Clusters")
+        print(f"Target Activity: {reviewed.title}")
+        print(f"Target class: {reviewed.class_id}")
+        print(f"Verified Core roster: {reviewed.roster_count} students")
+        print(f"Current Groups: {reviewed.current_group_count}")
+        print(f"Existing GroupPlans: {reviewed.existing_plan_count}")
+        print()
+        print("Six-Cluster size reference (not assigned or required):")
+        print(" / ".join(str(n) for n in reviewed.six_cluster_size_reference))
+        print("No source-class student IDs, memberships or saved groupings are reused.")
+        print("Only target Core roster members may be placed in these Clusters.")
+        print("No operational Groups or Memberships are created by a draft.")
+        print()
+        if reviewed.can_create_new_shape:
+            print("1. Create six empty draft Clusters for this target")
+            print("2. Open target GroupPlan tools (manual, CSV, saved grouping)")
+            print("3. Decide later")
+        else:
+            print("This target has existing Groups or GroupPlans.")
+            print("1. Review existing target grouping in GroupPlan tools")
+            print("2. Decide later")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Plan Target Clusters Help")
+            print("These are six proposed empty Clusters, not student assignments.")
+            print("The reference sizes come from this target class's Core roster.")
+            print("Place target students using the existing bulk editor, then")
+            print("review, approve, and separately apply the GroupPlan.")
+            print("Saved class groupings remain scoped to their own Core class.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            return
+        if reviewed.can_create_new_shape and raw == "3":
+            return
+        if not reviewed.can_create_new_shape and raw == "2":
+            return
+        if (reviewed.can_create_new_shape and raw == "2") or (
+            not reviewed.can_create_new_shape and raw == "1"
+        ):
+            if resolve_read_workspace_root() != root:
+                show_result(
+                    "Plan Target Clusters",
+                    (
+                        "Workspace changed; reopen the target Activity",
+                        "before continuing.",
+                    ),
+                )
+                return
+            current = show_activity(
+                reviewed.class_id, reviewed.activity_id, workspace_root=root
+            ).summary
+            launch_group_plan_menu(current, state)
+            continue
+        if reviewed.can_create_new_shape and raw == "1":
+            plan_id = _fresh_id("group-plan")
+            actor = confirm_actor_write(
+                "Create Target Cluster Draft",
+                "CREATE",
+                (
+                    f"Target class: {reviewed.class_id}",
+                    f"Target Activity: {reviewed.title}",
+                    f"Verified Core roster: {reviewed.roster_count} students",
+                    "Create six EMPTY planned Clusters; all roster students",
+                    "will remain unresolved until explicitly placed.",
+                    "Do not copy any source students, Scores or returned work.",
+                    "This creates one draft GroupPlan, not operational Groups.",
+                ),
+                state=state,
+                legacy_confirm=confirm_write,
+            )
+            if actor is None:
+                continue
+            try:
+                # The service rechecks exact target revision and roster, and
+                # the canonical GroupPlan writer checks both at commit.
+                if resolve_read_workspace_root() != root:
+                    raise ConcordWorkflowError(
+                        "Workspace changed during the reviewed Cluster setup."
+                    )
+                current = show_activity(
+                    reviewed.class_id, reviewed.activity_id, workspace_root=root
+                ).summary
+                standards = standards_for_activity(current)
+                result = create_target_six_cluster_draft(
+                    reviewed,
+                    group_plan_id=plan_id,
+                    actor=actor,
+                    workspace_root=root,
+                    standards_library=standards,
+                )
+                detail = show_group_plan(
+                    reviewed.class_id,
+                    reviewed.activity_id,
+                    result.group_plan_id,
+                    workspace_root=root,
+                )
+                if (
+                    detail.summary.status != "draft"
+                    or detail.summary.proposed_group_count != 6
+                    or detail.summary.assigned_student_count != 0
+                    or detail.summary.unresolved_student_count != reviewed.roster_count
+                ):
+                    raise ConcordWorkflowError(
+                        "Target GroupPlan receipt did not match saved state."
+                    )
+            except Exception:
+                show_result(
+                    "Target Cluster Draft Needs Inspection",
+                    (
+                        "The requested GroupPlan was not fully verified.",
+                        "A guarded write may have completed. Inspect existing",
+                        "target GroupPlans before attempting any new plan.",
+                        "Do not retry blindly or recreate the Activity.",
+                    ),
+                )
+                continue
+            show_result(
+                "Target Cluster Draft Saved",
+                (
+                    "Six empty draft Clusters were saved for the target class.",
+                    f"Unresolved target students: {reviewed.roster_count}",
+                    f"Activity snapshot: {result.commit.snapshot_revision}",
+                    "Next: open GroupPlan tools to place target students,",
+                    "then preview, approve and apply only by explicit choice.",
+                    "No source memberships or operational Groups were copied.",
+                ),
+            )
+            continue
+        print(navigation_hint_with_help())
+        pause_for_user()
+
+
 def _offer_after_creation(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -406,7 +578,7 @@ def _offer_after_creation(
             # Existing task menus own their guarded writes and authorization.
             current = show_activity(activity.class_id, activity.activity_id).summary
             if raw == "3":
-                _launch_groups(current, state)
+                _launch_target_cluster_planning(current, state)
             elif raw == "4":
                 _launch_materials(current, state)
             elif raw == "5":
