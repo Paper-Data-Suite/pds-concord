@@ -94,7 +94,7 @@ def test_post_copy_owned_stage_uses_refreshed_target_without_inferred_write(
     for name, kind in (
         ("_launch_target_cluster_planning", "groups"),
         ("_launch_target_materials", "materials"),
-        ("_launch_assessment", "assessment"),
+        ("_launch_target_assessment", "assessment"),
         ("launch_guided_setup_for_activity", "review"),
     ):
         monkeypatch.setattr(
@@ -134,7 +134,7 @@ def test_post_copy_finish_is_no_write_and_no_implicit_stage_call(
         "_launch_target_cluster_planning",
         "_launch_target_materials",
         "_launch_materials",
-        "_launch_assessment",
+        "_launch_target_assessment",
         "launch_guided_setup_for_activity",
     ):
         monkeypatch.setattr(

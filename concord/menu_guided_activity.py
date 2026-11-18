@@ -33,7 +33,7 @@ from concord.menu_prompts import (
 )
 from concord.menu_responsibility import launch_responsibility_menu
 from concord.menu_role import launch_role_menu
-from concord.menu_scoring import launch_scoring_menu
+from concord.menu_scoring import launch_assessment_setup_menu
 from concord.menu_session import launch_session_menu
 from concord.menu_standards_context import standards_for_activity
 from concord.menu_template import launch_template_library_menu
@@ -78,6 +78,10 @@ from concord.workflows.packet import (
     commit_packet_from_template,
     list_packets,
     prepare_packet_from_template,
+)
+from concord.workflows.target_assessment_preflight import (
+    inspect_target_assessment,
+    verify_target_assessment_delta,
 )
 from concord.workflows.target_cluster_preflight import (
     create_target_six_cluster_draft,
@@ -716,6 +720,152 @@ def _launch_target_materials(
         show_result("Target Materials Checkpoint", lines)
 
 
+def _launch_target_assessment(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Configure the target's typed Scales and Criteria, never record Scores.
+
+    Existing owned preset services retain all authorization and writes. This
+    guide only inspects target-only canonical state before and after the menu.
+    """
+    try:
+        root = resolve_read_workspace_root()
+        if root is None:
+            raise ConcordWorkflowError("Target workspace unavailable.")
+        current = show_activity(
+            activity.class_id, activity.activity_id, workspace_root=root
+        ).summary
+        standards = standards_for_activity(current)
+        before = inspect_target_assessment(
+            current.class_id,
+            current.activity_id,
+            workspace_root=root,
+            standards_library=standards,
+        )
+        if before.snapshot_revision != current.snapshot_revision:
+            raise ConcordWorkflowError(
+                "Target Activity changed during assessment review."
+            )
+    except Exception:
+        show_result(
+            "Target Assessment Needs Attention",
+            (
+                "Target class, Activity, Standards or native assessment state",
+                "could not be verified. No assessment setup was started.",
+                "Resolve the target records and reopen this Activity.",
+            ),
+        )
+        return
+
+    if before.scoring_orientation == "evidence_only":
+        show_result(
+            "Target Assessment",
+            (
+                "This target Activity collects evidence without scoring.",
+                "No rubric or Scale setup is required by this orientation.",
+                "No target Score was recorded by this guide.",
+            ),
+        )
+        return
+
+    while True:
+        clear_screen()
+        print_menu_header("Use Saved Rubric with Target Class")
+        print(f"Target Activity: {before.title}")
+        print(f"Target class: {before.class_id}")
+        print(f"Native Scoring Scales: {len(before.scale_ids)}")
+        print(f"Native Criterion Sets: {len(before.criterion_set_ids)}")
+        print(f"Selected Criterion Sets: {len(before.selected_criterion_set_ids)}")
+        print(f"Existing target Score records: {len(before.score_record_ids)}")
+        print()
+        print("Saved Scale/Criteria definitions must be selected and reviewed.")
+        print("Source Scores, evaluations and student evidence were not copied.")
+        print("Using saved setup creates fresh target native records only.")
+        if before.has_configuration:
+            print("Existing target configuration is preserved unless you")
+            print("explicitly select or create another assessed definition.")
+        print()
+        print("1. Open saved rubric, Scale or Criteria setup")
+        print("2. Finish for now")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Target Assessment Help")
+            print("Select exact saved revisions inside the owned setup menu.")
+            print("Its actor-reviewed services create native definitions only.")
+            print("Scores remain a separate teacher judgment workflow.")
+            print("No Grade is created by Concord assessment setup.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK or raw == "2":
+            return
+        if raw != "1":
+            print(navigation_hint_with_help())
+            pause_for_user()
+            continue
+
+        try:
+            if resolve_read_workspace_root() != root:
+                raise ConcordWorkflowError("Target workspace changed before setup.")
+            latest = show_activity(
+                before.class_id, before.activity_id, workspace_root=root
+            ).summary
+            if latest.snapshot_revision != before.snapshot_revision:
+                raise ConcordWorkflowError("Target Activity changed before setup.")
+            launch_assessment_setup_menu(latest, state)
+        except CancelMenuAction:
+            return
+        except Exception:
+            show_result(
+                "Target Assessment Outcome Unconfirmed",
+                (
+                    "Assessment setup did not return a verifiable result.",
+                    "Inspect the target's saved Scales and Criteria before retrying.",
+                    "No Score or Grade status is inferred from this menu error.",
+                ),
+            )
+            return
+        try:
+            after = inspect_target_assessment(
+                before.class_id,
+                before.activity_id,
+                workspace_root=root,
+                standards_library=standards,
+            )
+            delta = verify_target_assessment_delta(before, after)
+        except Exception:
+            show_result(
+                "Target Assessment Outcome Unconfirmed",
+                (
+                    "Assessment unconfirmed: canonical readback failed or changed.",
+                    "Inspect target Scales, Criteria and Scores before retrying.",
+                    "No successful import or no-Score result is asserted.",
+                ),
+            )
+            return
+        lines = [
+            f"{delta.new_scales} fresh Scoring Scale"
+            f"{'s' if delta.new_scales != 1 else ''} verified for target.",
+            f"{delta.new_criterion_sets} fresh Criterion Set"
+            f"{'s' if delta.new_criterion_sets != 1 else ''} verified for target.",
+            f"Target Criterion Sets selected: {delta.final_selected_count}",
+            f"Criteria across target Set revisions: {delta.final_criterion_count}",
+            "Target rubric selection changed: "
+            + ("yes" if delta.selection_changed else "no"),
+            "No Score records changed during this setup.",
+            "No source-class Scores or evidence were transferred.",
+        ]
+        if delta.new_scales == 0 and delta.new_criterion_sets == 0:
+            lines.append("No new target Scale or Criterion Set was verified.")
+        show_result("Target Assessment Verification", tuple(lines))
+        return
+
+
 def _offer_after_creation(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -768,7 +918,7 @@ def _offer_after_creation(
             elif raw == "4":
                 _launch_target_materials(current, state)
             elif raw == "5":
-                _launch_assessment(current, state)
+                _launch_target_assessment(current, state)
             else:
                 launch_guided_setup_for_activity(current, state)
             continue
@@ -1261,7 +1411,7 @@ def _launch_assessment(activity: ActivitySummary, state: MenuSessionContext) -> 
         if navigation is NavigationChoice.BACK or raw == "2":
             return
         if raw == "1":
-            launch_scoring_menu(activity, state)
+            launch_assessment_setup_menu(activity, state)
             continue
         print(navigation_hint_with_help())
         pause_for_user()
