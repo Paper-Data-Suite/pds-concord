@@ -1,8 +1,8 @@
 """#150 Slice 0: precisely scoped RED witnesses for teacher-facing cross-class reuse.
 
 All synthetic inputs; no workspace is created and no academic writes occur.
-The three strict XFAIL markers are retired in the implementing slice(s). Execute
-`pytest --runxfail` to reproduce the actual missing teacher journey.
+The three original missing-journey witnesses became ordinary passing
+regressions in Slice 1. Synthetic fixtures never commit classroom work.
 """
 
 from __future__ import annotations
@@ -77,9 +77,6 @@ def _capture_existing_copy_preview(
     return observed[0]
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#150 Slice 1: explicit teacher cross-class entry"
-)
 def test_teachers_can_find_use_this_lesson_with_another_class(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -96,7 +93,6 @@ def test_teachers_can_find_use_this_lesson_with_another_class(
     assert "use this lesson with another class" in rendered
 
 
-@pytest.mark.xfail(strict=True, reason="#150 Slice 1: explicit carry/exclusion preview")
 def test_cross_class_review_separates_saved_definitions_from_returned_evidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -109,9 +105,6 @@ def test_cross_class_review_separates_saved_definitions_from_returned_evidence(
     assert "target" in preview
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#150 Slice 1: teacher reuse-oriented continuation"
-)
 def test_after_copy_presents_target_preparation_stages(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

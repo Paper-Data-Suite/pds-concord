@@ -47,6 +47,7 @@ from concord.workflows import (
     CopyActivityRequest,
     CreateActivityContextRequest,
     PrepareActivityCopyRequest,
+    PreparedActivityCopy,
     WorkflowActor,
     copy_activity,
     create_activity_context,
@@ -231,6 +232,55 @@ def _create_fresh(state: MenuSessionContext, classes: tuple[ClassSummary, ...]) 
     _offer_after_creation(created, state)
 
 
+def _cross_class_copy_review(
+    source: ActivitySummary,
+    target_class: ClassSummary,
+    prepared: PreparedActivityCopy,
+) -> tuple[str, ...]:
+    """Teacher-facing review of the already validated, *create-only* copy.
+
+    Saved definitions can be chosen later; neither selected definitions nor
+    any student/returned-paper state are transferred by Activity copy.
+    """
+    policy = getattr(prepared, "privacy_policy", None)
+    classification = getattr(policy, "classification", None)
+    privacy = (
+        classification.replace("_", " ")
+        if isinstance(classification, str)
+        else "Activity default"
+    )
+    title = getattr(prepared, "title", None) or source.title
+    first_session = (
+        getattr(prepared, "first_session_label", None) or "Planned first session"
+    )
+    lines = [
+        f"Source lesson: {source.title} ({source.class_id})",
+        f"Target class: {target_class.class_id}",
+        f"New Activity: {title}",
+        f"New first Session: {first_session} (planned, fresh)",
+        f"What students are doing: {activity_type_label(prepared.activity_type)}",
+        f"Assessment: {scoring_orientation_label(prepared.scoring_orientation)}",
+        f"Target privacy: {privacy}",
+        "WILL CARRY: reviewed lesson settings and exact compatible Core Standards.",
+        "WILL CREATE: independent draft Activity and one fresh planned Session.",
+        "SAVED DEFINITIONS TO CHOOSE LATER, NOT COPIED:",
+        "  Saved Packet / Template; saved rubric, Scale, Criterion Set; "
+        "optional roles.",
+        "WILL NOT CARRY: source roster or student identities, Groups, Memberships,",
+        "  GroupPlans, source Sessions, assigned roles, generated or returned",
+        "  Artifacts/PDFs, QR/scan routes, Authors, Subjects, evidence, reviews,",
+        "  Scores, Grades, publications, history or source external references.",
+        "The new class requires its own target Clusters, packets and rubric setup.",
+        "Printing, distribution and returned work are NOT verified by copying.",
+    ]
+    if getattr(prepared, "standards_profile_id", None) is not None:
+        focus = getattr(prepared, "focus_standard_ids", ())
+        lines.append(f"Target Focus Standards retained and validated: {len(focus)}")
+    for diagnostic in getattr(prepared, "diagnostics", ()):
+        lines.append(f"Review notice: {diagnostic.message}")
+    return tuple(lines)
+
+
 def _create_from_activity(
     state: MenuSessionContext,
     classes: tuple[ClassSummary, ...],
@@ -274,16 +324,7 @@ def _create_from_activity(
         workspace_root=root,
         standards_library=library,
     )
-    review = (
-        f"Starting from: {source.title}",
-        f"New Activity: {target_title}",
-        f"Class: {target_class.class_id}",
-        f"What students are doing: {activity_type_label(prepared.activity_type)}",
-        f"Assessment: {scoring_orientation_label(prepared.scoring_orientation)}",
-        "Carries forward: Activity settings and selected standards.",
-        "Does not carry forward: groups, assignments, collected work, Scores,",
-        "or review and publication history.",
-    )
+    review = _cross_class_copy_review(source, target_class, prepared)
     actor = confirm_actor_write(
         "Create Classroom Activity",
         "CREATE",
@@ -331,11 +372,17 @@ def _offer_after_creation(
         print()
         print("Your confirmed work is saved.")
         if copied:
-            print("Student groups, assignments, work, Scores, and history")
-            print("were not copied.")
+            print("This target Activity has its own first planned Session.")
+            print("Source students, Groups, returned work, Scores, and history")
+            print("were not copied. Printing/distribution is not verified.")
         print()
         print("1. Continue setup now")
         print("2. Finish for now")
+        if copied:
+            print("3. Plan target Clusters")
+            print("4. Choose saved classroom materials")
+            print("5. Use saved rubric / assessment setup")
+            print("6. Review target setup")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -354,6 +401,19 @@ def _offer_after_creation(
         if raw == "1":
             launch_guided_setup_for_activity(activity, state)
             return
+        if copied and raw in {"3", "4", "5", "6"}:
+            # Reload the just-created *target* before any further teacher choice.
+            # Existing task menus own their guarded writes and authorization.
+            current = show_activity(activity.class_id, activity.activity_id).summary
+            if raw == "3":
+                _launch_groups(current, state)
+            elif raw == "4":
+                _launch_materials(current, state)
+            elif raw == "5":
+                _launch_assessment(current, state)
+            else:
+                launch_guided_setup_for_activity(current, state)
+            continue
         print(navigation_hint_with_help())
         pause_for_user()
 
@@ -378,7 +438,7 @@ def launch_guided_activity_menu(state: MenuSessionContext) -> None:
             print("How would you like to begin?")
             print()
             print("1. Start fresh")
-            print("2. Start from another Activity")
+            print("2. Use this lesson with another class")
             print_navigation()
             print()
             choice = input("Select an option: ").strip()
@@ -387,7 +447,9 @@ def launch_guided_activity_menu(state: MenuSessionContext) -> None:
                 clear_screen()
                 print_menu_header("Create Classroom Activity Help")
                 print("Start fresh for new classroom work.")
-                print("Start from another Activity to reuse safe starting settings.")
+                print("Use this lesson with another class to begin with safe settings.")
+                print("You may also use the same class with a fresh Activity identity.")
+                print("Choose saved packets and rubrics later for the target class.")
                 print(
                     "Student groups, assignments, work, Scores, and history "
                     "are not copied."
