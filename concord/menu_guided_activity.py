@@ -17,7 +17,10 @@ from concord.menu_navigation import (
     parse_menu_navigation,
 )
 from concord.menu_packet import launch_packet_library_menu
-from concord.menu_packet_generation import generate_saved_packet
+from concord.menu_packet_generation import (
+    generate_saved_packet,
+    launch_packet_generation_menu,
+)
 from concord.menu_prompts import (
     choose_class,
     choose_focus_standards,
@@ -79,6 +82,11 @@ from concord.workflows.packet import (
 from concord.workflows.target_cluster_preflight import (
     create_target_six_cluster_draft,
     inspect_target_cluster_preflight,
+)
+from concord.workflows.target_materials_preflight import (
+    TargetMaterialsCheckpoint,
+    inspect_target_materials,
+    new_target_generations,
 )
 from concord.workflows.template import get_template, list_templates
 
@@ -530,6 +538,184 @@ def _launch_target_cluster_planning(
         pause_for_user()
 
 
+def _target_material_receipt(
+    before: TargetMaterialsCheckpoint,
+    after: TargetMaterialsCheckpoint,
+) -> tuple[str, ...]:
+    """Report only the target's independently reread canonical generation state."""
+    added = new_target_generations(before, after)
+    if not added:
+        return (
+            "No new target generation was verified.",
+            "A cancelled operation may leave no new records; a saved reusable",
+            "Packet definition is separate from generating classroom copies.",
+            "Inspect the current target materials before trying another run.",
+        )
+    if len(added) != 1:
+        return (
+            "Multiple new target generations appeared during this action.",
+            "Inspect the target Activity's preparation history individually.",
+            "No single generation is assumed to represent the entire action.",
+        )
+    row = added[0]
+    status = (
+        "Needs recovery or further rendering"
+        if (
+            row.routes_pending_count
+            or row.planned_count
+            or row.rendering_count
+            or row.failed_count
+            or row.cancelled_count
+        )
+        else "Recorded as generated"
+        if row.generated_count == row.instance_count
+        else "Requires inspection"
+    )
+    return (
+        "One new target generation is present in canonical Concord state.",
+        f"Target: {after.title} ({after.class_id})",
+        f"Saved Packet: {row.packet_name}; Session: {row.session_label}",
+        f"Packet Instances: {row.instance_count}; pages: {row.page_count}",
+        f"Ready to print: {row.generated_count}",
+        f"Route-required pages: {row.route_count}",
+        f"Preparation state: {status}",
+        "This projection is not proof of printing, distribution, return,",
+        "or independent physical-paper/QR route custody verification.",
+    )
+
+
+def _launch_target_materials(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Guide a target-only materials restart; delegate all mutations to owners."""
+    while True:
+        try:
+            root = resolve_read_workspace_root()
+            reviewed = inspect_target_materials(
+                activity.class_id, activity.activity_id, workspace_root=root
+            )
+        except Exception:
+            show_result(
+                "Prepare Target Classroom Materials",
+                (
+                    "Target Activity or prepared material state could not be",
+                    "verified. No new generation was requested by this screen.",
+                    "Reopen the target Activity and inspect its saved state.",
+                ),
+            )
+            return
+
+        clear_screen()
+        print_menu_header("Prepare Target Classroom Materials")
+        print(f"Target Activity: {reviewed.title}")
+        print(f"Target class: {reviewed.class_id}")
+        print(f"Existing target generations: {len(reviewed.generations)}")
+        print(f"Ready to print (recorded): {reviewed.ready_to_print}")
+        print("Printed, distributed and returned are NOT verified by preparation.")
+        print("Source class papers, students, scans and routes are not reused.")
+        print()
+        if reviewed.requires_recovery:
+            print("Existing target preparation requires attention or recovery.")
+            print("1. Inspect/recover existing target Packet generations")
+            print("2. Finish for now")
+        elif reviewed.has_generations:
+            print("Existing target materials are already recorded.")
+            print("1. Inspect/reprint existing target materials")
+            print("2. Prepare ADDITIONAL target copies (a new generation)")
+            print("3. Finish for now")
+        else:
+            print("1. Choose a saved Packet or Template to prepare")
+            print("2. Finish for now")
+        print_navigation()
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Target Classroom Materials Help")
+            print("Existing prepared copies are never silently regenerated.")
+            print("Recover pending routes and render existing work first.")
+            print("New copies require a separate saved Packet/Template selection")
+            print("and the existing Packet generation review and confirmation.")
+            print("PDF generation does not establish printing or distribution.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            return
+        finish_choice = (
+            "3" if reviewed.has_generations and not reviewed.requires_recovery else "2"
+        )
+        if raw == finish_choice:
+            return
+
+        open_existing = reviewed.has_generations and raw == "1"
+        start_new = (not reviewed.has_generations and raw == "1") or (
+            reviewed.has_generations and not reviewed.requires_recovery and raw == "2"
+        )
+        if not (open_existing or start_new):
+            print(navigation_hint_with_help())
+            pause_for_user()
+            continue
+        try:
+            if resolve_read_workspace_root() != root:
+                raise ConcordWorkflowError(
+                    "Workspace changed. Reopen the target Activity."
+                )
+            fresh = inspect_target_materials(
+                reviewed.class_id, reviewed.activity_id, workspace_root=root
+            )
+            if (
+                fresh.snapshot_revision != reviewed.snapshot_revision
+                or fresh.generation_ids != reviewed.generation_ids
+            ):
+                raise ConcordWorkflowError(
+                    "Target materials changed since the displayed review."
+                )
+            current = show_activity(
+                reviewed.class_id, reviewed.activity_id, workspace_root=root
+            ).summary
+            if current.snapshot_revision != fresh.snapshot_revision:
+                raise ConcordWorkflowError(
+                    "Target Activity changed. Reopen its materials screen."
+                )
+        except Exception:
+            show_result(
+                "Target Materials Changed",
+                (
+                    "The target workspace, Activity or generations changed.",
+                    "No new preparation was requested by this screen.",
+                    "Reload the current target and review before continuing.",
+                ),
+            )
+            return
+        if open_existing:
+            launch_packet_generation_menu(current, state)
+            continue
+        if fresh.requires_recovery:
+            show_result(
+                "Recover Target Materials First",
+                ("Existing preparation needs recovery before new copies.",),
+            )
+            continue
+        # This existing menu owns independent Packet/Template choice, preview,
+        # actor authorization, PDS2 route registration and partial recovery.
+        _launch_materials(current, state)
+        try:
+            after = inspect_target_materials(
+                reviewed.class_id, reviewed.activity_id, workspace_root=root
+            )
+            lines = _target_material_receipt(fresh, after)
+        except Exception:
+            lines = (
+                "Could not reconcile current target preparation after return.",
+                "A new generation may have been committed; do not blindly retry.",
+                "Inspect target Packet generations and routes before continuing.",
+            )
+        show_result("Target Materials Checkpoint", lines)
+
+
 def _offer_after_creation(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -580,7 +766,7 @@ def _offer_after_creation(
             if raw == "3":
                 _launch_target_cluster_planning(current, state)
             elif raw == "4":
-                _launch_materials(current, state)
+                _launch_target_materials(current, state)
             elif raw == "5":
                 _launch_assessment(current, state)
             else:
@@ -1125,7 +1311,7 @@ def _launch_setup_area(
     if key == "session":
         launch_session_menu(activity, state)
     elif key == "materials":
-        _launch_materials(activity, state)
+        _launch_target_materials(activity, state)
     elif key == "groups":
         _launch_groups(activity, state)
     elif key == "assignments":
@@ -1168,7 +1354,7 @@ def _review_setup(
         if navigation is NavigationChoice.BACK:
             return False
         if raw == "1":
-            _launch_materials(activity, state)
+            _launch_target_materials(activity, state)
             return False
         if raw == "2":
             key = _choose_setup_area(setup)
