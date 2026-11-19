@@ -376,6 +376,16 @@ def validate(
             _run(
                 [
                     python,
+                    "scripts/smoke_test_issue150_reuse_wheel.py",
+                    wheel,
+                    core,
+                ],
+                phase="installed-wheel smoke: #150 independent lesson reuse",
+                timings=timings,
+            )
+            _run(
+                [
+                    python,
                     "scripts/smoke_test_issue148_teacher_attribution_wheel.py",
                     wheel,
                     core,

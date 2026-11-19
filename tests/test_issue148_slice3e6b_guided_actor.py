@@ -201,7 +201,13 @@ def test_guided_copy_actor_override_digest_or_cancel(
     monkeypatch.setattr(
         guided,
         "show_activity",
-        lambda *_a: SimpleNamespace(summary=SimpleNamespace(title="Synthetic copy")),
+        lambda *_a: SimpleNamespace(
+            summary=SimpleNamespace(
+                title="Synthetic copy",
+                class_id=target.class_id,
+                activity_id="activity-synthetic",
+            )
+        ),
     )
     monkeypatch.setattr(guided, "_offer_after_creation", lambda *_a, **_k: None)
     guided._create_from_activity(state, (target,))
