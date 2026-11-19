@@ -13,6 +13,8 @@ from concord.menu_group_plan import launch_group_plan_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -846,6 +848,8 @@ def _launch_target_assessment(
             launch_assessment_setup_menu(latest, state)
         except CancelMenuAction:
             return
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception:
             show_result(
                 "Target Assessment Outcome Unconfirmed",
@@ -1019,6 +1023,8 @@ def launch_guided_activity_menu(state: MenuSessionContext) -> None:
             pause_for_user()
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except ConcordStoragePartialSuccessError:
         show_result(
             "Activity Needs Attention",
@@ -1608,6 +1614,8 @@ def launch_guided_setup_for_activity(
             print("1. Review setup")
             print("2. Choose a setup area")
             print("3. Finish for now")
+        print("C. Review or plan six target Clusters")
+        print("R. Use saved rubric / target assessment setup")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -1623,6 +1631,12 @@ def launch_guided_setup_for_activity(
             continue
         if navigation is NavigationChoice.BACK:
             return
+        if raw.casefold() == "c":
+            _launch_target_cluster_planning(current, state)
+            continue
+        if raw.casefold() == "r":
+            _launch_target_assessment(current, state)
+            continue
 
         if recommended is not None:
             if raw == "1":
@@ -1680,6 +1694,8 @@ def launch_guided_continue_setup(state: MenuSessionContext) -> None:
         launch_guided_setup_for_activity(activity, state)
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Continue Classroom Setup", (str(error),))
 
