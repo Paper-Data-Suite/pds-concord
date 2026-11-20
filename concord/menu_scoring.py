@@ -3296,31 +3296,33 @@ def _use_saved_scoring_setup(
         )
         scale = _choose_saved_scale_for_preset(value)
         criterion_set_id = f"criterion-set-{uuid4().hex}"
-        request = MaterializeScoringSetupRequest(
-            criterion_preset_id=value.preset_id,
-            criterion_preset_revision_id=value.preset_revision_id,
-            class_id=current.class_id,
-            activity_id=current.activity_id,
-            criterion_set_id=criterion_set_id,
-            criterion_set_lineage_id=f"{criterion_set_id}-lineage",
-            criterion_ids=tuple(
-                CriterionTargetIdentity(
-                    criterion_key=item.key,
-                    criterion_id=f"criterion-{uuid4().hex}",
-                )
-                for item in value.criteria
-            ),
-            expected_snapshot_revision=current.snapshot_revision,
-            actor=state.require_actor(),
-            scoring_scale_preset_id=None if scale is None else scale.preset_id,
-            scoring_scale_preset_revision_id=(
-                None if scale is None else scale.preset_revision_id
-            ),
-            scoring_scale_id=None if scale is None else f"scale-{uuid4().hex}",
-            scoring_scale_lineage_id=(
-                None if scale is None else f"scale-lineage-{uuid4().hex}"
-            ),
-        )
+
+        def _request_for_actor(actor: WorkflowActor) -> MaterializeScoringSetupRequest:
+            return MaterializeScoringSetupRequest(
+                criterion_preset_id=value.preset_id,
+                criterion_preset_revision_id=value.preset_revision_id,
+                class_id=current.class_id,
+                activity_id=current.activity_id,
+                criterion_set_id=criterion_set_id,
+                criterion_set_lineage_id=f"{criterion_set_id}-lineage",
+                criterion_ids=tuple(
+                    CriterionTargetIdentity(
+                        criterion_key=item.key,
+                        criterion_id=f"criterion-{uuid4().hex}",
+                    )
+                    for item in value.criteria
+                ),
+                expected_snapshot_revision=current.snapshot_revision,
+                actor=actor,
+                scoring_scale_preset_id=None if scale is None else scale.preset_id,
+                scoring_scale_preset_revision_id=(
+                    None if scale is None else scale.preset_revision_id
+                ),
+                scoring_scale_id=None if scale is None else f"scale-{uuid4().hex}",
+                scoring_scale_lineage_id=(
+                    None if scale is None else f"scale-lineage-{uuid4().hex}"
+                ),
+            )
 
         def _prepare_for_actor(
             actor: WorkflowActor,
@@ -3328,7 +3330,7 @@ def _use_saved_scoring_setup(
             tuple[MaterializeScoringSetupRequest, PreparedScoringSetup],
             tuple[str, ...],
         ]:
-            reviewed_request = replace(request, actor=actor)
+            reviewed_request = _request_for_actor(actor)
             reviewed_prepared = prepare_scoring_setup(
                 reviewed_request, standards_library=_library()
             )

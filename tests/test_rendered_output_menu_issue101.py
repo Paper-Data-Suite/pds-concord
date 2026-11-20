@@ -360,7 +360,10 @@ def test_successful_generate_enters_post_generation_open_affordance(
 ) -> None:
     activity = _activity()
     state = MenuSessionContext(actor=WorkflowActor(actor_id="teacher-1"))
-    packet = SimpleNamespace(packet_definition_id="packet-1")
+    packet = SimpleNamespace(
+        packet_definition_id="packet-1",
+        current_packet_version_id="packet-version-1",
+    )
     version = SimpleNamespace(
         packet_version_id="packet-version-1",
         components=(),

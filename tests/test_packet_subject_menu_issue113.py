@@ -222,7 +222,10 @@ def test_generate_reprepares_with_explicit_subject_bindings(
         activity_id="activity-1",
         title="Peer Review",
     )
-    packet = SimpleNamespace(packet_definition_id="packet-1")
+    packet = SimpleNamespace(
+        packet_definition_id="packet-1",
+        current_packet_version_id="packet-version-1",
+    )
     version = SimpleNamespace(
         packet_version_id="packet-version-1",
         components=(),

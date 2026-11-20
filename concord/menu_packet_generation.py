@@ -163,6 +163,14 @@ def _generate(
         )
         detail = get_packet(summary.packet_definition_id)
         current_version_id = detail.summary.current_packet_version_id
+        if (
+            selected_packet is not None
+            and summary.current_packet_version_id != current_version_id
+        ):
+            raise ConcordWorkflowError(
+                "Saved Packet Version changed after selection. "
+                "Reselect and review the current Packet before preparing."
+            )
         if current_version_id is None:
             raise ConcordWorkflowError("Selected Packet has no active current Version.")
         version = next(
