@@ -180,10 +180,6 @@ def test_writer_rejects_pre_return_author_confirmation_before_any_commit(
     assert commits == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#151: ordinary Collect does not offer a scan-routing handoff",
-)
 def test_collect_offers_scan_routing_from_the_current_activity(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

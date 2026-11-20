@@ -34,6 +34,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_scan import launch_scan_routing_menu
 from concord.menu_teacher_history import (
     distinguish_equal_labels,
     teacher_recorded_instant,
@@ -3691,6 +3692,7 @@ def launch_collect_work_menu(
         print("O. Open returned work")
         print("V. Open a verified saved assembly version")
         print("S. Collection status (read-only)")
+        print("R. Route or review scans (shared PDS workspace)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3705,6 +3707,12 @@ def launch_collect_work_menu(
                 print("Authors and Subjects remain separate relationships underneath.")
                 print("Advanced attribution tools preserve individual management.")
                 print("Collect does not Review, Moderate, or Score the work.")
+                print(
+                    "Route or review scans uses the shared PDS workspace. "
+                    "PDS2 QR codes may route to other Activities or modules."
+                )
+                print("Only verified routes establish returned Artifact evidence.")
+                print("Use S. Collection status after routing to refresh page counts.")
                 print(
                     "Open returned work uses your normal PDF viewer and "
                     "changes no state."
@@ -3727,6 +3735,8 @@ def launch_collect_work_menu(
                 open_verified_assembly_version(activity)
             elif choice.casefold() == "s":
                 _show_collection_status(activity)
+            elif choice.casefold() == "r":
+                launch_scan_routing_menu(state)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
