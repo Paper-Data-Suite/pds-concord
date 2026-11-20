@@ -153,6 +153,9 @@ from concord.workflows.teacher_artifact_choices import (
     TeacherArtifactChoice,
     list_teacher_artifact_choices,
 )
+from concord.workflows.teacher_collection_overview import (
+    inspect_teacher_collection_overview,
+)
 from concord.workflows.teacher_evidence_chronology import (
     display_recorded_time,
     instant,
@@ -3621,6 +3624,56 @@ def _launch_attribution_review_menu(
             _handle_error(activity, error, title="Attribution Review Error")
 
 
+def _show_collection_status(activity: ActivitySummary) -> None:
+    """One read-only, snapshot-checked view of exact routed return progress."""
+    current = _latest(activity)
+    overview = inspect_teacher_collection_overview(
+        current.class_id,
+        current.activity_id,
+        expected_snapshot_revision=current.snapshot_revision,
+    )
+    if not overview.items:
+        show_result(
+            "Collection Status",
+            (
+                "No Artifact work is recorded for this Activity.",
+                "Prepare materials first; no returned work is inferred.",
+                "Printing and classroom distribution are not tracked here.",
+            ),
+        )
+        return
+
+    labels = tuple(
+        f"{item.label} | routed {item.routed_return_pages}/"
+        f"{item.required_return_pages} | {item.stage_label}"
+        for item in overview.items
+    )
+    chosen = select_one(
+        "Collection Status — Choose Work",
+        overview.items,
+        labels,
+        help_text=(
+            "Routed pages come from current PDS2 Scan References, not generated "
+            "page status. Printing/distribution is not tracked. "
+            "This view does not confirm authorship, Review or Score."
+        ),
+    )
+    show_result(
+        "Collection Status",
+        (
+            f"Work: {chosen.label}",
+            f"Routed returned pages: {chosen.routed_return_pages}/"
+            f"{chosen.required_return_pages}",
+            f"Routed occurrences: {chosen.routed_occurrences}",
+            f"Stage: {chosen.stage_label}",
+            chosen.attribution_note,
+            "Printing/distribution: not tracked.",
+            f"Next: {chosen.next_action}.",
+            "Reading this status does not assemble, Review or Score work.",
+        ),
+    )
+
+
 def launch_collect_work_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -3637,6 +3690,7 @@ def launch_collect_work_menu(
         print("4. Advanced attribution tools")
         print("O. Open returned work")
         print("V. Open a verified saved assembly version")
+        print("S. Collection status (read-only)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3671,6 +3725,8 @@ def launch_collect_work_menu(
                 open_returned_work(activity)
             elif choice.upper() == "V":
                 open_verified_assembly_version(activity)
+            elif choice.casefold() == "s":
+                _show_collection_status(activity)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
