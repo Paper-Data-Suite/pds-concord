@@ -49,7 +49,45 @@ def test_digest_review_keeps_exact_prepared_request_and_digest(
     )
     assert len(_calls(function, "confirm_prepared_actor_write")) == 1
     assert len(_calls(function, "confirm_write")) == 0
-    assert len(_calls(function, "replace")) == 1
+    if function_name == "_use_saved_scoring_setup":
+        # The reviewed actor now constructs the request directly, rather than
+        # replacing a stale actor in a request made before confirmation.
+        # Requiring replace() would reintroduce the silent-unconfigured-actor bug.
+        assert not _calls(function, "replace")
+        assert not _calls(function, "require_actor")
+        factories = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.FunctionDef) and node.name == "_request_for_actor"
+        ]
+        assert len(factories) == 1
+        requests = _calls(factories[0], "MaterializeScoringSetupRequest")
+        assert len(requests) == 1
+        bound_actor = next(kw.value for kw in requests[0].keywords if kw.arg == "actor")
+        assert isinstance(bound_actor, ast.Name) and bound_actor.id == "actor"
+        callbacks = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.FunctionDef) and node.name == "_prepare_for_actor"
+        ]
+        assert len(callbacks) == 1
+        request_calls = _calls(callbacks[0], "_request_for_actor")
+        assert len(request_calls) == 1
+        assert len(request_calls[0].args) == 1
+        assert isinstance(request_calls[0].args[0], ast.Name)
+        assert request_calls[0].args[0].id == "actor"
+        prepares = _calls(callbacks[0], "prepare_scoring_setup")
+        assert len(prepares) == 1
+        assert len(prepares[0].args) == 1
+        assert isinstance(prepares[0].args[0], ast.Name)
+        assert prepares[0].args[0].id == "reviewed_request"
+        confirmed = _calls(function, "confirm_prepared_actor_write")[0]
+        callback = next(
+            kw.value for kw in confirmed.keywords if kw.arg == "prepare_for_actor"
+        )
+        assert isinstance(callback, ast.Name) and callback.id == "_prepare_for_actor"
+    else:
+        assert len(_calls(function, "replace")) == 1
     assert len(_calls(function, write_name)) == 1
     save = _calls(function, write_name)[0]
     assert len(save.args) >= 1 and isinstance(save.args[0], ast.Name)
@@ -69,11 +107,14 @@ def test_digest_review_keeps_exact_prepared_request_and_digest(
     assert len(assignments) == 1
     reviewed = assignments[0].value
     assert isinstance(reviewed, ast.Name) and reviewed.id == "reviewed"
-    actor_preparations = _calls(function, "replace")
-    assert any(
-        kw.arg == "actor" and isinstance(kw.value, ast.Name) and kw.value.id == "actor"
-        for kw in actor_preparations[0].keywords
-    )
+    if function_name != "_use_saved_scoring_setup":
+        actor_preparations = _calls(function, "replace")
+        assert any(
+            kw.arg == "actor"
+            and isinstance(kw.value, ast.Name)
+            and kw.value.id == "actor"
+            for kw in actor_preparations[0].keywords
+        )
 
 
 class _FakeReviewState:
