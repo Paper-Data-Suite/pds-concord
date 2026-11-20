@@ -148,6 +148,7 @@ from concord.workflows.moderation import (
     show_moderation_record,
 )
 from concord.workflows.returned_assembly_versions import (
+    VerifiedAssemblyVersion,
     list_verified_assembly_versions,
 )
 from concord.workflows.teacher_artifact_choices import (
@@ -510,6 +511,35 @@ def open_returned_work(activity: ActivitySummary) -> None:
         )
 
 
+def _saved_assembly_version_labels(
+    versions: tuple[VerifiedAssemblyVersion, ...],
+) -> tuple[str, ...]:
+    """Disambiguate verified history without inventing a scan or assembly order.
+
+    Different precise creation instants may still DISPLAY as the same minute.
+    Stable copy numbers distinguish identical labels, never claim chronology.
+    """
+    timestamps = [instant(item.assembled_at) for item in versions]
+    labels: list[str] = []
+    for item in versions:
+        when = display_recorded_time(item.assembled_at)
+        tied = timestamps.count(instant(item.assembled_at)) > 1
+        order_note = (
+            "same recorded time; order uncertain"
+            if tied
+            else "recorded assembly creation time"
+        )
+        attention = {
+            "newer": " | Newer routed evidence available",
+            "additional_uncertain": (" | Additional evidence; chronology uncertain"),
+            "none": "",
+        }[item.newer_evidence_status]
+        labels.append(
+            f"Assembled {when} ({order_note}) | {item.page_count} pages{attention}"
+        )
+    return distinguish_equal_labels(tuple(labels), noun="saved copy")
+
+
 def open_verified_assembly_version(activity: ActivitySummary) -> None:
     """Choose and open one previously assembled, still-verified PDF version."""
     try:
@@ -532,36 +562,25 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
                 ),
             )
             return
-        timestamps = [instant(item.assembled_at) for item in versions]
-        labels = []
-        for item in versions:
-            when = display_recorded_time(item.assembled_at)
-            tied = timestamps.count(instant(item.assembled_at)) > 1
-            order_note = (
-                "same recorded time; order uncertain"
-                if tied
-                else "recorded assembly creation time"
-            )
-            attention = {
-                "newer": " | Newer routed evidence available",
-                "additional_uncertain": (
-                    " | Additional evidence; chronology uncertain"
-                ),
-                "none": "",
-            }[item.newer_evidence_status]
-            labels.append(
-                f"Assembled {when} ({order_note}) | {item.page_count} pages{attention}"
-            )
+        labels = _saved_assembly_version_labels(versions)
         selected = select_one(
             "Open a Verified Assembly Version",
             versions,
-            tuple(labels),
+            labels,
             help_text=(
                 "Choose one exact verified older or newer assembly. "
                 "Assembly-created time is not scan-routed time. "
                 "This does not establish which version was reviewed or scored."
             ),
         )
+        selected_index = next(
+            (index for index, version in enumerate(versions) if version is selected),
+            None,
+        )
+        if selected_index is None:
+            raise ConcordWorkflowConflictError(
+                "Verified assembly selection changed. Refresh and choose it again."
+            )
         # Core's safe local opener runs only after the exact lineage, canonical
         # snapshot, retained sources, manifest and PDF hash are verified AGAIN.
         open_returned_artifact_evidence(
@@ -575,6 +594,7 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
             "Assembly Version Viewer Requested",
             (
                 f"Selected work: {choice.label}",
+                f"Saved version: {labels[selected_index]}",
                 (
                     "Recorded assembly creation: "
                     f"{display_recorded_time(selected.assembled_at)}"
