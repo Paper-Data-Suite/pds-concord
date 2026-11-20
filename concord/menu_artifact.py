@@ -597,10 +597,56 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
         )
 
 
+def _assembly_preflight_ready(
+    activity: ActivitySummary,
+    choice: TeacherArtifactChoice,
+) -> bool:
+    """Reject non-actionable assembly before occurrence or actor prompts.
+
+    The overview is read from one current canonical Activity snapshot; this is
+    a preflight, not a writer authorization or a durable readiness record.
+    The assembly writer still revalidates its own exact evidence and snapshot.
+    """
+    overview = inspect_teacher_collection_overview(
+        activity.class_id,
+        activity.activity_id,
+        expected_snapshot_revision=activity.snapshot_revision,
+    )
+    item = next(
+        (
+            entry
+            for entry in overview.items
+            if entry.artifact_instance_id == choice.summary.artifact_instance_id
+        ),
+        None,
+    )
+    if item is None:
+        raise ConcordWorkflowConflictError(
+            "Selected returned work changed. Refresh and choose it again."
+        )
+    if item.stage in {"ready_to_assemble", "choose_occurrences", "assembled"}:
+        return True
+    show_result(
+        "Assemble Returned Work — Not Ready",
+        (
+            f"Work: {choice.label}",
+            f"Stage: {item.stage_label}",
+            f"Routed returned pages: {item.routed_return_pages}/"
+            f"{item.required_return_pages}",
+            f"Next: {item.next_action}.",
+            "Printing and distribution are not tracked.",
+            "No assembly or evidence change was attempted.",
+        ),
+    )
+    return False
+
+
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     choice = _choose_artifact_choice(current, title="Assemble Returned Artifact")
     artifact = choice.summary
+    if not _assembly_preflight_ready(current, choice):
+        return
     selections = _assembly_selections(current, artifact)
     actor = confirm_actor_write(
         "Assemble Returned Artifact",
@@ -636,6 +682,8 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 else "New exact assembly created and verified."
             ),
             "The original scan evidence was not changed.",
+            "To view this verified PDF, choose O. Open returned work.",
+            "Assembly did not request a PDF viewer or record Review or Score.",
         ),
     )
 
