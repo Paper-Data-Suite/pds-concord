@@ -29,6 +29,7 @@ from concord.workflows.errors import (
     ConcordWorkflowError,
     ConcordWorkflowNotFoundError,
 )
+from concord.workflows.teacher_artifact_choices import build_teacher_artifact_choices
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -66,6 +67,7 @@ class ArtifactAttributionReviewGroup:
     session_id: str | None
     authors: tuple[ArtifactAuthorReviewItem, ...]
     subjects: tuple[ArtifactSubjectReviewItem, ...]
+    teacher_work_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -275,6 +277,30 @@ def inspect_artifact_attribution_review(
 
     context = load_activity_read_context(root, work_ref(class_id, activity_id))
     graph = context.graph
+    # Use the SAME canonical snapshot already loaded for review. Never infer
+    # returned-paper status from this presentation-only work label.
+    teacher_labels: dict[str, str] = {}
+    fields = (
+        "groups",
+        "sessions",
+        "artifact_instances",
+        "artifact_pages",
+        "artifact_authors",
+        "artifact_subjects",
+    )
+    if all(hasattr(graph, field) for field in fields):
+        choices = build_teacher_artifact_choices(
+            graph,
+            class_id=class_id,
+            activity_id=activity_id,
+            snapshot_revision=context.snapshot_revision,
+        )
+        teacher_labels = {
+            choice.summary.artifact_instance_id: (
+                f"{choice.group_label} | {choice.session_label}"
+            )
+            for choice in choices
+        }
 
     current_authors = _current_authors(graph)
     current_subjects = _current_subjects(graph)
@@ -335,6 +361,7 @@ def inspect_artifact_attribution_review(
                 session_id=artifact.session_id,
                 authors=tuple(author_items.get(artifact_instance_id, ())),
                 subjects=tuple(subject_items.get(artifact_instance_id, ())),
+                teacher_work_label=teacher_labels.get(artifact_instance_id),
             )
         )
 

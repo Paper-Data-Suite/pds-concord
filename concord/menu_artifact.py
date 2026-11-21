@@ -3133,13 +3133,30 @@ class _AttributionProposalChoice:
     display_label: str
 
 
+def _attribution_teacher_labels(
+    review: ArtifactAttributionReview,
+) -> tuple[str, ...]:
+    """Human labels disambiguated by display order, never by assumed recency.
+
+    IDs remain in the typed review and exact confirmation requests, not in
+    ordinary teacher-facing choice labels or headings.
+    """
+    labels = tuple(
+        getattr(group, "teacher_work_label", None) or "Work requiring attribution"
+        for group in review.artifacts
+    )
+    return distinguish_equal_labels(labels, noun="work")
+
+
 def _attribution_proposal_choices(
     review: ArtifactAttributionReview,
 ) -> tuple[_AttributionProposalChoice, ...]:
     author_ids = set(review.candidate_author_ids)
     subject_ids = set(review.candidate_subject_ids)
     choices: list[_AttributionProposalChoice] = []
-    for group in review.artifacts:
+    for group, work_label in zip(
+        review.artifacts, _attribution_teacher_labels(review), strict=True
+    ):
         for author in group.authors:
             if (
                 author.disposition != "candidate"
@@ -3152,7 +3169,7 @@ def _attribution_proposal_choices(
                     relationship_kind="author",
                     association_id=author.artifact_author_id,
                     display_label=(
-                        f"{group.artifact_instance_id} - Completed by {label} "
+                        f"{work_label} - Completed by {label} "
                         f"({author.authorship_mode.replace('_', ' ')})"
                     ),
                 )
@@ -3169,7 +3186,7 @@ def _attribution_proposal_choices(
                     relationship_kind="subject",
                     association_id=subject.artifact_subject_id,
                     display_label=(
-                        f"{group.artifact_instance_id} - Concerns {label} "
+                        f"{work_label} - Concerns {label} "
                         f"({subject.subject_role.replace('_', ' ')})"
                     ),
                 )
@@ -3537,9 +3554,11 @@ def _print_attribution_review(
     if not review.artifacts:
         print()
         print("No current attribution requires teacher attention.")
-    for group in review.artifacts:
+    for group, work_label in zip(
+        review.artifacts, _attribution_teacher_labels(review), strict=True
+    ):
         print()
-        print(f"Artifact: {group.artifact_instance_id}")
+        print(f"Work: {work_label}")
         for author in group.authors:
             label = author.reference_display_label or "Unknown"
             suffix = (
@@ -3554,7 +3573,7 @@ def _print_attribution_review(
                     "use Collect R then S before confirming."
                 )
             if author.represented_group_id is not None:
-                print(f"    Represents: {author.represented_group_id}")
+                print("    Represents an explicit Group (details in Advanced tools).")
         for subject in group.subjects:
             label = subject.reference_display_label or "Unlabeled subject"
             suffix = (
@@ -3573,6 +3592,8 @@ def _print_attribution_review(
     print("S. Select multiple proposals")
     print("C. Create several relationships")
     print("E. Review / edit attribution in Advanced tools")
+    print("R. Route or review scans (shared workspace)")
+    print("T. Collection status (read-only)")
     print_navigation()
     print()
 
@@ -3666,6 +3687,8 @@ def _launch_attribution_review_menu(
                             "Core-student Authors or Subjects on one Artifact."
                         ),
                         "Author and Subject remain separate relationships.",
+                        "In this menu, R opens Scan Routing and T shows Collection "
+                        "Status; neither action confirms attribution.",
                     ),
                 )
             elif navigation is NavigationChoice.BACK:
@@ -3684,6 +3707,10 @@ def _launch_attribution_review_menu(
                 )
             elif choice.casefold() == "c":
                 _launch_multi_add_attribution_menu(activity, state)
+            elif choice.casefold() == "r":
+                launch_scan_routing_menu(state)
+            elif choice.casefold() == "t":
+                _show_collection_status(activity)
             elif choice.casefold() == "e":
                 _launch_advanced_attribution_menu(activity, state)
             else:
