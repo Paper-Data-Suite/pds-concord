@@ -29,6 +29,7 @@ from concord.workflows._collaboration import (
     require_role,
     work_ref,
 )
+from concord.workflows.artifact_confirmation_gate import require_confirmable_return
 from concord.workflows.context import (
     Clock,
     actor_reference,
@@ -89,7 +90,6 @@ class AddArtifactAuthorRequest:
     role_assignment_id: str | None = None
     representation_status: str | None = None
     privacy_policy: PrivacyPolicy | None = None
-
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -443,6 +443,8 @@ def _validate_author_semantics(
         raise ConcordWorkflowValidationError(
             "superseded is historical state; use Artifact Author replacement."
         )
+    if author.attribution_status == "confirmed":
+        require_confirmable_return(artifact, graph)
     reference = author.author_reference
     if reference is None:
         # The native model enforces the exact unknown-author state.
@@ -536,6 +538,8 @@ def _validate_subject_semantics(
         raise ConcordWorkflowValidationError(
             "superseded is historical state; use Artifact Subject replacement."
         )
+    if subject.confirmation_status == "confirmed":
+        require_confirmable_return(artifact, graph)
     reference = subject.subject_reference
     if reference.subject_kind == "core_student":
         if reference.owning_system != "core":
@@ -769,6 +773,7 @@ def batch_confirm_artifact_attribution(
             request.activity_id,
             current.artifact_instance_id,
         )
+        require_confirmable_return(artifact, graph)
         if current.attribution_status != "proposed":
             raise ConcordWorkflowConflictError(
                 "Only current proposed Artifact Authors may be batch-confirmed: "
@@ -797,6 +802,7 @@ def batch_confirm_artifact_attribution(
             request.activity_id,
             current_subject.artifact_instance_id,
         )
+        require_confirmable_return(subject_artifact, graph)
         if current_subject.confirmation_status != "proposed":
             raise ConcordWorkflowConflictError(
                 "Only current proposed Artifact Subjects may be batch-confirmed: "
@@ -841,7 +847,6 @@ def batch_confirm_artifact_attribution(
     )
 
 
-
 _ROUTINE_MULTI_AUTHOR_MODES = frozenset(
     {
         "individual_author",
@@ -858,10 +863,7 @@ def _validate_multi_add_request(
     *,
     label: str,
 ) -> None:
-    if (
-        type(expected_snapshot_revision) is not int
-        or expected_snapshot_revision < 1
-    ):
+    if type(expected_snapshot_revision) is not int or expected_snapshot_revision < 1:
         raise ConcordWorkflowValidationError(
             "expected_snapshot_revision must be a positive integer."
         )
@@ -967,9 +969,7 @@ def add_artifact_authors(
             result,
             workspace_created=bootstrap.created,
         ),
-        artifact_author_ids=tuple(
-            item.artifact_author_id for item in candidates
-        ),
+        artifact_author_ids=tuple(item.artifact_author_id for item in candidates),
     )
 
 
@@ -1056,9 +1056,7 @@ def add_artifact_subjects(
             result,
             workspace_created=bootstrap.created,
         ),
-        artifact_subject_ids=tuple(
-            item.artifact_subject_id for item in candidates
-        ),
+        artifact_subject_ids=tuple(item.artifact_subject_id for item in candidates),
     )
 
 

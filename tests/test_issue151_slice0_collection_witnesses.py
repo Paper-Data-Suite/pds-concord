@@ -110,10 +110,6 @@ def _review_proposals(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#151: pre-return paper Author remains a confirmation candidate",
-)
 def test_return_expected_artifact_without_routed_evidence_is_not_confirmable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -135,10 +131,6 @@ def test_non_return_expected_observation_keeps_existing_confirmation_contract(
     assert review.candidate_author_ids == ("author-151-synthetic",)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#151: writer has no independent paper-return eligibility gate",
-)
 def test_writer_rejects_pre_return_author_confirmation_before_any_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

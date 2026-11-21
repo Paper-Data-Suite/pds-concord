@@ -20,6 +20,9 @@ from concord.workflows.artifact_attribution import (
     _validate_author_semantics,
     _validate_subject_semantics,
 )
+from concord.workflows.artifact_confirmation_gate import (
+    return_evidence_confirmable,
+)
 from concord.workflows.context import require_core_class, resolve_read_workspace_root
 from concord.workflows.errors import (
     ConcordWorkflowConflictError,
@@ -122,7 +125,16 @@ def _author_review_item(
     exception_code: str | None
     exception_message: str | None
 
-    if artifact_author.attribution_status == "proposed":
+    if (
+        artifact_author.attribution_status == "proposed"
+        and not return_evidence_confirmable(artifact, record_graph)
+    ):
+        exception_code = "return_evidence_pending"
+        exception_message = (
+            "Required returned pages have not all been routed. "
+            "Route returns before confirming attribution."
+        )
+    elif artifact_author.attribution_status == "proposed":
         candidate = replace(
             artifact_author,
             attribution_status="confirmed",
@@ -194,7 +206,16 @@ def _subject_review_item(
     exception_code: str | None
     exception_message: str | None
 
-    if artifact_subject.confirmation_status == "proposed":
+    if (
+        artifact_subject.confirmation_status == "proposed"
+        and not return_evidence_confirmable(artifact, record_graph)
+    ):
+        exception_code = "return_evidence_pending"
+        exception_message = (
+            "Required returned pages have not all been routed. "
+            "Route returns before confirming attribution."
+        )
+    elif artifact_subject.confirmation_status == "proposed":
         candidate = replace(
             artifact_subject,
             confirmation_status="confirmed",
