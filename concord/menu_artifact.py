@@ -3548,6 +3548,11 @@ def _print_attribution_review(
                 else "individual review"
             )
             print(f"  Completed by: {label} [{author.attribution_status}; {suffix}]")
+            if author.exception_code == "return_evidence_pending":
+                print(
+                    "    Waiting for complete routed paper; "
+                    "use Collect R then S before confirming."
+                )
             if author.represented_group_id is not None:
                 print(f"    Represents: {author.represented_group_id}")
         for subject in group.subjects:
@@ -3558,6 +3563,11 @@ def _print_attribution_review(
                 else "individual review"
             )
             print(f"  Concerns: {label} [{subject.confirmation_status}; {suffix}]")
+            if subject.exception_code == "return_evidence_pending":
+                print(
+                    "    Waiting for complete routed paper; "
+                    "use Collect R then S before confirming."
+                )
     print()
     print("A. Confirm all straightforward proposals")
     print("S. Select multiple proposals")
@@ -3645,8 +3655,10 @@ def _launch_attribution_review_menu(
                 show_result(
                     "Review Attribution Help",
                     (
-                        "Proposed relationships that still pass current semantic "
-                        "validation are confirmation candidates.",
+                        "A proposed relationship is confirmable only when both "
+                        "semantic checks and required routed returns pass.",
+                        "Waiting for paper? Back to Collect, use R to route or "
+                        "review scans, then S to refresh collection status.",
                         "Disputed, unresolved, unknown, or invalid relationships "
                         "stay visible for individual review.",
                         (
@@ -3743,6 +3755,26 @@ def _show_collection_status(activity: ActivitySummary) -> None:
     )
 
 
+def _continue_collect_to_review(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Reopen current Review context; handoff itself records no judgment.
+
+    No durable wizard/continuation state is created. Child B returns to Collect;
+    Core-owned M/Q navigation continues to the top-level owner.
+    """
+    current = _latest(activity)
+    if (
+        current.class_id != activity.class_id
+        or current.activity_id != activity.activity_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Selected Activity changed. Reopen Collect before continuing to Review."
+        )
+    launch_review_work_menu(current, state)
+
+
 def launch_collect_work_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -3761,6 +3793,7 @@ def launch_collect_work_menu(
         print("V. Open a verified saved assembly version")
         print("S. Collection status (read-only)")
         print("R. Route or review scans (shared PDS workspace)")
+        print("N. Continue to Review (no automatic Review)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3781,6 +3814,10 @@ def launch_collect_work_menu(
                 )
                 print("Only verified routes establish returned Artifact evidence.")
                 print("Use S. Collection status after routing to refresh page counts.")
+                print(
+                    "Use N. Continue to Review to open the separate Review menu. "
+                    "Nothing is reviewed automatically; B returns to Collect."
+                )
                 print(
                     "Open returned work uses your normal PDF viewer and "
                     "changes no state."
@@ -3805,6 +3842,8 @@ def launch_collect_work_menu(
                 _show_collection_status(activity)
             elif choice.casefold() == "r":
                 launch_scan_routing_menu(state)
+            elif choice.casefold() == "n":
+                _continue_collect_to_review(activity, state)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()
