@@ -7,13 +7,17 @@ change the underlying canonical Score target, Criterion, Scale, or Session ID.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import NoReturn
 
 from pds_core.classes import load_class_roster
 from pds_core.rosters import student_display_name
 
+from concord.menu_standards_context import standards_for_activity
 from concord.menu_teacher_history import distinguish_equal_labels
 from concord.workflows import (
     ActivitySummary,
+    ConcordWorkflowConflictError,
+    ConcordWorkflowValidationError,
     list_criterion_sets,
     list_groups,
     list_scoring_scales,
@@ -69,16 +73,31 @@ def _label_unique(
     )
 
 
+def _raise_label_read_failure(source: str, error: Exception) -> NoReturn:
+    """Fail closed without exposing lower-level paths or student information."""
+    if isinstance(error, ConcordWorkflowConflictError):
+        raise ConcordWorkflowConflictError(
+            f"{source} labels could not be verified because the Activity "
+            "changed. Reopen the Activity and retry; no Score was recorded."
+        ) from error
+    raise ConcordWorkflowValidationError(
+        f"{source} labels could not be verified from authoritative records. "
+        "Reopen the Activity or repair the source before scoring; "
+        "no Score was recorded."
+    ) from error
+
+
 def build_score_teacher_labels(
     activity: ActivitySummary,
     *,
     include_score_definitions: bool = False,
 ) -> ScoreTeacherLabels:
-    """Build once per screen, never per Score history row.
+    """Read teacher labels with a pinned workspace and real Standards context.
 
-    These are display-only reads. The canonical Score APIs are authoritative for
-    permission, state, currentness, and identity. A failed display read yields
-    an explicit unavailable label, never a guessed or exposed identifier.
+    A failed canonical read is not equivalent to a missing human display name.
+    Never silently omit an entire identity family on exception. The optional
+    missing-workspace fallback is retained only for legacy, summary-only
+    inspection; Score history and revision require an actual workspace.
     """
     targets: dict[tuple[str, str], str] = {
         ("concord_activity", activity.activity_id): activity.title,
@@ -86,11 +105,29 @@ def build_score_teacher_labels(
     sessions: dict[str, str] = {}
     criteria: dict[str, str] = {}
     scales: dict[str, str] = {}
+
+    root = resolve_read_workspace_root()
+    if root is None:
+        if include_score_definitions:
+            raise ConcordWorkflowValidationError(
+                "Scoring labels require the selected Paper Data Suite workspace. "
+                "Select the workspace and reopen the Activity; no Score was recorded."
+            )
+        return ScoreTeacherLabels(targets, sessions, criteria, scales)
+
+    # Standards-bearing graph readers must use the same Core library as writes.
+    # Never interpret a missing required library as an empty assessment.
+    library = standards_for_activity(activity)
+
     try:
-        groups = tuple(sorted(
-            list_groups(activity.class_id, activity.activity_id),
-            key=lambda item: item.group_id,
-        ))
+        groups = tuple(
+            sorted(
+                list_groups(
+                    activity.class_id, activity.activity_id, workspace_root=root
+                ),
+                key=lambda item: item.group_id,
+            )
+        )
         names = _label_unique(
             tuple(item.group_id for item in groups),
             tuple(item.label for item in groups),
@@ -100,64 +137,83 @@ def build_score_teacher_labels(
             (("concord_group", group_id), label)
             for group_id, label in names.items()
         )
-    except Exception:
-        pass
+    except Exception as error:
+        _raise_label_read_failure("Cluster Group", error)
+
     try:
-        for item in list_sessions(activity.class_id, activity.activity_id):
+        for item in list_sessions(
+            activity.class_id, activity.activity_id, workspace_root=root
+        ):
             label = f"Session {item.sequence}"
             if item.label:
                 label += f" - {item.label}"
             sessions[item.session_id] = label
             targets[("concord_session", item.session_id)] = label
-    except Exception:
-        pass
+    except Exception as error:
+        _raise_label_read_failure("Session", error)
+
     try:
         choices = list_teacher_artifact_choices(
             activity.class_id,
             activity.activity_id,
             expected_snapshot_revision=activity.snapshot_revision,
+            workspace_root=root,
+            standards_library=library,
         )
         targets.update(
-            (("concord_artifact_instance", choice.summary.artifact_instance_id),
-             choice.label)
+            (
+                ("concord_artifact_instance", choice.summary.artifact_instance_id),
+                choice.label,
+            )
             for choice in choices
         )
-    except Exception:
-        pass
+    except Exception as error:
+        _raise_label_read_failure("Returned work", error)
+
     try:
-        root = resolve_read_workspace_root()
-        if root is not None:
-            roster = load_class_roster(root, activity.class_id)
-            students = tuple(sorted(
-                roster.students, key=lambda student: student.student_id
-            ))
-            names = _label_unique(
-                tuple(student.student_id for student in students),
-                tuple(student_display_name(student) for student in students),
-                "Student",
-            )
-            targets.update(
-                (("core_student", student_id), name)
-                for student_id, name in names.items()
-            )
-    except Exception:
-        pass
+        roster = load_class_roster(root, activity.class_id)
+        students = tuple(
+            sorted(roster.students, key=lambda student: student.student_id)
+        )
+        names = _label_unique(
+            tuple(student.student_id for student in students),
+            tuple(student_display_name(student) for student in students),
+            "Student",
+        )
+        targets.update(
+            (("core_student", student_id), name)
+            for student_id, name in names.items()
+        )
+    except Exception as error:
+        _raise_label_read_failure("Core student roster", error)
+
     if include_score_definitions:
         try:
             for scale_item in list_scoring_scales(
-                activity.class_id, activity.activity_id, current_only=False
+                activity.class_id,
+                activity.activity_id,
+                workspace_root=root,
+                standards_library=library,
+                current_only=False,
             ):
                 scales[scale_item.scoring_scale_id] = scale_item.name
-        except Exception:
-            pass
+        except Exception as error:
+            _raise_label_read_failure("Scoring Scale", error)
+
         try:
             for criterion_set_item in list_criterion_sets(
-                activity.class_id, activity.activity_id, current_only=False
+                activity.class_id,
+                activity.activity_id,
+                workspace_root=root,
+                standards_library=library,
+                current_only=False,
             ):
                 detail = show_criterion_set(
                     activity.class_id,
                     activity.activity_id,
                     criterion_set_item.criterion_set_id,
+                    workspace_root=root,
+                    standards_library=library,
                 )
                 for criterion in detail.criteria:
                     existing = criteria.get(criterion.criterion_id)
@@ -167,8 +223,9 @@ def build_score_teacher_labels(
                         criteria[criterion.criterion_id] = (
                             "Criterion label ambiguous across revisions"
                         )
-        except Exception:
-            pass
+        except Exception as error:
+            _raise_label_read_failure("Criterion Set", error)
+
     return ScoreTeacherLabels(targets, sessions, criteria, scales)
 
 
