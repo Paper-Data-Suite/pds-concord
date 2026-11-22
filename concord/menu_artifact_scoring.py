@@ -31,7 +31,10 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
-from concord.menu_teacher_history import teacher_recorded_instant
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -77,7 +80,10 @@ from concord.workflows.artifact_routine_scoring_selection import (
     routine_target_options,
 )
 from concord.workflows.context import resolve_read_workspace_root
-from concord.workflows.errors import ConcordWorkflowConflictError
+from concord.workflows.errors import (
+    ConcordWorkflowConflictError,
+    ConcordWorkflowValidationError,
+)
 from concord.workflows.models import ActivitySummary
 from concord.workflows.participants import participant_display_label
 from concord.workflows.score_recording import ScoreMutationResult
@@ -148,35 +154,76 @@ def _launch_advanced_score(
     launch_score_menu(activity, state)
 
 
+def _verified_score_display_name(
+    value: str | None, *, source: str
+) -> str:
+    """Require a human-facing identity; never substitute an opaque record ID."""
+    if value is None or not value.strip():
+        raise ConcordWorkflowValidationError(
+            f"{source} label is unavailable or ambiguous. "
+            "Reopen the Activity and verify its current identities before "
+            "choosing or confirming a Score; no Score was recorded."
+        )
+    return value
+
+
 def _student_label(class_id: str, student_id: str) -> str:
     root = resolve_read_workspace_root()
     if root is None:
-        return student_id
+        return _verified_score_display_name(
+            None, source="Core student roster"
+        )
     reference = ParticipantReference(
         participant_kind="core_student",
         participant_id=student_id,
         owning_system="core",
     )
-    return participant_display_label(root, class_id, reference) or student_id
+    # Core's label projection returns None when a roster or student is absent.
+    # That is a blocked teacher decision, not permission to show the raw ID.
+    try:
+        display = participant_display_label(root, class_id, reference)
+    except ConcordWorkflowConflictError:
+        raise
+    except Exception as error:
+        raise ConcordWorkflowValidationError(
+            "Core student labels could not be verified. Reopen the Activity "
+            "and check the selected Core roster; no Score was recorded."
+        ) from error
+    return _verified_score_display_name(display, source="Core student")
 
 
 def _group_label(context: ArtifactRoutineScoringContext, group_id: str) -> str:
     group = next(
-        (item for item in context.current_groups if item.group_id == group_id),
+        (
+            item
+            for item in context.current_groups
+            if item.group_id == group_id
+            and item.activity_id == context.activity_id
+        ),
         None,
     )
-    return group_id if group is None else group.label
+    return _verified_score_display_name(
+        None if group is None else group.label, source="Cluster Group"
+    )
 
 
 def _session_label(context: ArtifactRoutineScoringContext, session_id: str) -> str:
     session = next(
-        (item for item in context.current_sessions if item.session_id == session_id),
+        (
+            item
+            for item in context.current_sessions
+            if item.session_id == session_id
+            and item.activity_id == context.activity_id
+        ),
         None,
     )
     if session is None:
-        return session_id
-    label = session.label or session.session_id
-    return f"{session.sequence}. {label}"
+        return _verified_score_display_name(None, source="Score Session")
+    # Canonical sequence identifies an otherwise unlabeled Session without
+    # exposing its opaque record ID or guessing another Session's name.
+    if session.label is None or not session.label.strip():
+        return f"Session {session.sequence}"
+    return f"{session.sequence}. {session.label}"
 
 
 def _target_label(
@@ -194,10 +241,15 @@ def _target_label(
     if kind == "concord_artifact_instance":
         if reference.target_id == context.artifact.artifact_instance_id:
             return "This Artifact"
-        return f"Artifact {reference.target_id}"
+        return _verified_score_display_name(None, source="Selected Artifact")
     if kind == "concord_activity":
-        return f"{activity.title} — Activity"
-    return f"{reference.target_id} — {kind.replace('_', ' ')}"
+        if reference.target_id == context.activity_id:
+            return (
+                _verified_score_display_name(activity.title, source="Activity")
+                + " — Activity"
+            )
+        return _verified_score_display_name(None, source="Activity")
+    return _verified_score_display_name(None, source="Score target")
 
 
 def _subject_label(
@@ -212,13 +264,15 @@ def _subject_label(
         return f"{_group_label(context, reference.subject_id)} — group"
     if kind == "concord_session":
         return f"{_session_label(context, reference.subject_id)} — session"
-    if kind == "concord_activity":
-        return f"{activity.title} — Activity"
+    if kind == "concord_activity" and reference.subject_id == context.activity_id:
+        return (
+            _verified_score_display_name(activity.title, source="Activity")
+            + " — Activity"
+        )
     if kind == "concord_artifact_instance":
         if reference.subject_id == context.artifact.artifact_instance_id:
             return "This Artifact"
-        return f"Artifact {reference.subject_id}"
-    return f"{reference.subject_id} — external record"
+    return _verified_score_display_name(None, source="Evidence Subject")
 
 
 def _choose_target(
@@ -230,9 +284,12 @@ def _choose_target(
         *options.candidates,
         None,
     )
-    labels = tuple(
-        _target_label(activity, context, item.target_reference)
-        for item in options.candidates
+    labels = distinguish_equal_labels(
+        tuple(
+            _target_label(activity, context, item.target_reference)
+            for item in options.candidates
+        ),
+        noun="Score target",
     ) + ("Other supported target... — Advanced Score recording",)
     selected = select_one(
         "Choose Score Target",
@@ -373,7 +430,10 @@ def _choose_subject_context(
     return select_many(
         "Choose Evidence Subjects",
         options,
-        tuple(_subject_label(activity, context, item) for item in options),
+        distinguish_equal_labels(
+            tuple(_subject_label(activity, context, item) for item in options),
+            noun="Evidence Subject",
+        ),
         help_text=(
             "Choose only current confirmed Artifact Subjects that apply to this "
             "evidence use."
