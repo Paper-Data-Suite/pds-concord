@@ -252,11 +252,15 @@ def build_score_teacher_labels(
                     "Scoring Scale",
                 )
             )
-            for item in ordered_scales:
-                if hasattr(item, "revision") and hasattr(item, "is_current"):
-                    state = "current" if item.is_current else "historical"
-                    scale_versions[item.scoring_scale_id] = (
-                        f"revision {item.revision}; {state}"
+            for scale_item in ordered_scales:
+                if hasattr(scale_item, "revision") and hasattr(
+                    scale_item, "is_current"
+                ):
+                    state = (
+                        "current" if scale_item.is_current else "historical"
+                    )
+                    scale_versions[scale_item.scoring_scale_id] = (
+                        f"revision {scale_item.revision}; {state}"
                     )
         except Exception as error:
             _raise_label_read_failure("Scoring Scale", error)
