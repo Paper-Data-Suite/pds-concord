@@ -97,6 +97,7 @@ from concord.scale_guidance import describe_draft, validate_draft
 from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
+    ConcordWorkflowValidationError,
     AddScoreRequest,
     CreateCriterionSetRequest,
     CreateScoringScaleRequest,
@@ -1947,12 +1948,21 @@ def _score_confirmation_lines(
     evidence_count: int,
 ) -> tuple[str, ...]:
     labels = build_score_teacher_labels(activity)
+    # Criterion and Scale were chosen through guarded Score selection. The
+    # exact target/Session labels must also resolve before authorization.
+    target_label = labels.require_target(target.target_kind, target.target_id)
+    session_label = labels.require_session(session_id)
+    if not criterion.label.strip() or not scale.name.strip():
+        raise ConcordWorkflowValidationError(
+            "The selected Criterion or Scale has no verified teacher label. "
+            "Reopen assessment setup before scoring; no Score was recorded."
+        )
     lines = [
         f"Activity: {activity.title}",
-        f"Target: {labels.target(target.target_kind, target.target_id)}",
+        f"Target: {target_label}",
         f"Criterion: {criterion.label}",
         f"Scale: {scale.name}",
-        f"Session context: {labels.session(session_id)}",
+        f"Session context: {session_label}",
         f"Disposition: {disposition}",
         f"Value: {'-' if value is None else json.dumps(value)}",
         f"Basis: {basis}",
@@ -2066,6 +2076,31 @@ def _score_label(item: ScoreSummary, labels: ScoreTeacherLabels | None = None) -
     )
 
 
+def _revisable_score_label(
+    item: ScoreSummary, labels: ScoreTeacherLabels
+) -> str:
+    """Require exact human identity before offering an immutable replacement."""
+    reference = item.target_reference
+    target = labels.require_target(reference.target_kind, reference.target_id)
+    criterion = labels.require_criterion(item.criterion_id)
+    scale = labels.require_scale(item.scoring_scale_id)
+    labels.require_session(item.session_id)
+    target_kind = {
+        "core_student": "Individual student",
+        "concord_group": "Cluster Group",
+        "concord_session": "Session",
+        "concord_artifact_instance": "Artifact",
+        "concord_activity": "Activity",
+    }.get(reference.target_kind, "Score target")
+    value = "-" if item.value is None else json.dumps(item.value)
+    state = "current" if item.is_current else "historical"
+    return (
+        f"{teacher_recorded_instant(item.scored_at, kind='Scored')} - "
+        f"{target_kind}: {target} - {criterion} / {scale} - "
+        f"{item.disposition.replace('_', ' ')} {value} [{state}]"
+    )
+
+
 def _browse_scores(activity: ActivitySummary) -> None:
     try:
         scores = list_scores(
@@ -2133,11 +2168,16 @@ def _revise_score(
             standards_library=_library(),
         )
         labels = build_score_teacher_labels(current, include_score_definitions=True)
+        # Preflight every offered head. Read-only historical inspection
+        # remains available when a historical definition is unresolvable.
+        candidate_labels = tuple(
+            _revisable_score_label(item, labels) for item in heads
+        )
         predecessor = select_one(
             "Revise a Score",
             heads,
             distinguish_equal_labels(
-                tuple(_score_label(item, labels) for item in heads),
+                candidate_labels,
                 noun="Score choice",
             ),
             help_text="Choose the current Score lineage head to revise.",

@@ -60,6 +60,38 @@ class ScoreTeacherLabels:
     def scale(self, scale_id: str) -> str:
         return self.scales.get(scale_id, "Scoring Scale label unavailable")
 
+    def require_target(self, kind: str, target_id: str) -> str:
+        """Refuse a consequential Score decision on an unknown exact target."""
+        return _required_label(
+            self.targets.get((kind, target_id)), "Score target"
+        )
+
+    def require_session(self, session_id: str | None) -> str:
+        if session_id is None:
+            return "No separate Session"
+        return _required_label(self.sessions.get(session_id), "Score Session")
+
+    def require_criterion(self, criterion_id: str) -> str:
+        return _required_label(self.criteria.get(criterion_id), "Score Criterion")
+
+    def require_scale(self, scale_id: str) -> str:
+        return _required_label(self.scales.get(scale_id), "Scoring Scale")
+
+
+def _required_label(label: str | None, source: str) -> str:
+    """Validate display identity without exposing sensitive canonical IDs."""
+    if (
+        label is None
+        or not label.strip()
+        or label.startswith("Criterion label ambiguous across revisions")
+    ):
+        raise ConcordWorkflowValidationError(
+            f"{source} label is missing or ambiguous. "
+            "Reopen the Activity and inspect the current records before "
+            "confirming or revising a Score; no Score was recorded."
+        )
+    return label
+
 
 def _label_unique(
     keys: tuple[str, ...], names: tuple[str, ...], noun: str
@@ -189,14 +221,23 @@ def build_score_teacher_labels(
 
     if include_score_definitions:
         try:
-            for scale_item in list_scoring_scales(
+            scale_items = list_scoring_scales(
                 activity.class_id,
                 activity.activity_id,
                 workspace_root=root,
                 standards_library=library,
                 current_only=False,
-            ):
-                scales[scale_item.scoring_scale_id] = scale_item.name
+            )
+            ordered_scales = tuple(
+                sorted(scale_items, key=lambda item: item.scoring_scale_id)
+            )
+            scales.update(
+                _label_unique(
+                    tuple(item.scoring_scale_id for item in ordered_scales),
+                    tuple(item.name for item in ordered_scales),
+                    "Scoring Scale",
+                )
+            )
         except Exception as error:
             _raise_label_read_failure("Scoring Scale", error)
 
@@ -223,6 +264,12 @@ def build_score_teacher_labels(
                         criteria[criterion.criterion_id] = (
                             "Criterion label ambiguous across revisions"
                         )
+            ordered_criterion_ids = tuple(sorted(criteria))
+            criteria = _label_unique(
+                ordered_criterion_ids,
+                tuple(criteria[key] for key in ordered_criterion_ids),
+                "Criterion",
+            )
         except Exception as error:
             _raise_label_read_failure("Criterion Set", error)
 
