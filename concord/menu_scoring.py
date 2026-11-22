@@ -98,6 +98,7 @@ from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
     AddScoreRequest,
+    ConcordWorkflowConflictError,
     ConcordWorkflowValidationError,
     CreateCriterionSetRequest,
     CreateScoringScaleRequest,
@@ -113,6 +114,7 @@ from concord.workflows import (
     ReviseScoringScaleRequest,
     SaveCriterionSetPresetFromActivityRequest,
     SaveScoringScalePresetFromActivityRequest,
+    ScoreDetail,
     ScoreEvidenceLinkSpec,
     ScoreSummary,
     ScoringScaleSummary,
@@ -2101,20 +2103,92 @@ def _revisable_score_label(
     )
 
 
+def _score_history_label(item: ScoreSummary, labels: ScoreTeacherLabels) -> str:
+    """Read-only choice, never a guessed current Score or rubric."""
+    value = "-" if item.value is None else json.dumps(item.value)
+    state = "current" if item.is_current else "historical"
+    target = labels.target(
+        item.target_reference.target_kind, item.target_reference.target_id
+    )
+    return (
+        f"{teacher_recorded_instant(item.scored_at, kind='Scored')} - "
+        f"{target} - {labels.criterion(item.criterion_id)} / "
+        f"{labels.scale(item.scoring_scale_id)} - "
+        f"{item.disposition.replace('_', ' ')} {value} [{state}]"
+    )
+
+
+def _score_history_detail_lines(
+    selected: ScoreSummary,
+    detail: ScoreDetail,
+    labels: ScoreTeacherLabels,
+) -> tuple[str, ...]:
+    """Show exact Score and historical assessment metadata without mutation."""
+    if (
+        detail.summary.score_record_id != selected.score_record_id
+        or detail.summary.snapshot_revision != selected.snapshot_revision
+        or detail.summary.is_current != selected.is_current
+    ):
+        raise ConcordWorkflowConflictError(
+            "Score history changed while opening the selected record. "
+            "Reopen Scores and select the exact record again."
+        )
+    lines = [
+        _score_history_label(selected, labels),
+        "Exact scored scan version not recorded in Score metadata.",
+        f"Score state: {'current' if selected.is_current else 'historical'}",
+        "Target: " + labels.target(
+            selected.target_reference.target_kind,
+            selected.target_reference.target_id,
+        ),
+        f"Criterion: {labels.criterion(selected.criterion_id)}",
+        f"Criterion Set version: {labels.criterion_version(selected.criterion_id)}",
+        f"Scale: {labels.scale(selected.scoring_scale_id)}",
+        f"Scale version: {labels.scale_version(selected.scoring_scale_id)}",
+        f"Session: {labels.session(selected.session_id)}",
+        f"Disposition: {selected.disposition}",
+        "Value: " + (
+            "-" if selected.value is None else json.dumps(selected.value)
+        ),
+        f"Basis: {selected.basis}",
+        f"Rationale: {detail.rationale or '-'}",
+        f"Evidence Links: {len(detail.evidence_links)}",
+    ]
+    if selected.score_kind == "standard_backed" and selected.standard_id:
+        lines.append(f"Focus Standard: {selected.standard_id}")
+    if selected.target_reference.target_kind == "concord_group":
+        lines.append("Group Score only; no individual student Score is implied.")
+    if selected.supersedes_score_record_id is not None:
+        lines.append("This Score supersedes a previous immutable Score.")
+    if detail.status_reason is not None:
+        lines.append(f"Status Reason: {detail.status_reason.reason_code}")
+    return tuple(lines)
+
+
 def _browse_scores(activity: ActivitySummary) -> None:
     try:
+        current = _latest(activity)
         scores = list_scores(
-            activity.class_id,
-            activity.activity_id,
+            current.class_id,
+            current.activity_id,
             standards_library=_library(),
             current_only=False,
         )
-        labels = build_score_teacher_labels(activity, include_score_definitions=True)
+        labels = build_score_teacher_labels(
+            current, include_score_definitions=True
+        )
+        if any(
+            item.snapshot_revision != current.snapshot_revision
+            for item in scores
+        ):
+            raise ConcordWorkflowConflictError(
+                "Score history changed before selection. Reopen the Activity."
+            )
         selected = select_one(
             "Scores",
             scores,
             distinguish_equal_labels(
-                tuple(_score_label(item, labels) for item in scores),
+                tuple(_score_history_label(item, labels) for item in scores),
                 noun="Score choice",
             ),
             help_text=(
@@ -2123,33 +2197,15 @@ def _browse_scores(activity: ActivitySummary) -> None:
             ),
         )
         detail = show_score(
-            activity.class_id,
-            activity.activity_id,
+            current.class_id,
+            current.activity_id,
             selected.score_record_id,
             standards_library=_library(),
         )
-        lines = [
-            _score_label(selected, labels),
-            "Exact scored scan version not recorded in Score metadata.",
-            "Target: "
-            + labels.target(
-                selected.target_reference.target_kind,
-                selected.target_reference.target_id,
-            ),
-            f"Criterion: {labels.criterion(selected.criterion_id)}",
-            f"Disposition: {selected.disposition}",
-            (
-                "Value: "
-                + ("-" if selected.value is None else json.dumps(selected.value))
-            ),
-            f"Scale: {labels.scale(selected.scoring_scale_id)}",
-            f"Basis: {selected.basis}",
-            f"Rationale: {detail.rationale or '-'}",
-            f"Evidence Links: {len(detail.evidence_links)}",
-        ]
-        if detail.status_reason is not None:
-            lines.append(f"Status Reason: {detail.status_reason.reason_code}")
-        show_result("Score Detail", tuple(lines))
+        show_result(
+            "Score Detail",
+            _score_history_detail_lines(selected, detail, labels),
+        )
     except CancelMenuAction:
         return
     except Exception as error:

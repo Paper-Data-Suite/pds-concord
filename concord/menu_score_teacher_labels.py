@@ -36,6 +36,8 @@ class ScoreTeacherLabels:
     sessions: dict[str, str] = field(default_factory=dict)
     criteria: dict[str, str] = field(default_factory=dict)
     scales: dict[str, str] = field(default_factory=dict)
+    criterion_versions: dict[str, str] = field(default_factory=dict)
+    scale_versions: dict[str, str] = field(default_factory=dict)
 
     def target(self, kind: str, target_id: str) -> str:
         return self.targets.get(
@@ -59,6 +61,16 @@ class ScoreTeacherLabels:
 
     def scale(self, scale_id: str) -> str:
         return self.scales.get(scale_id, "Scoring Scale label unavailable")
+
+    def criterion_version(self, criterion_id: str) -> str:
+        return self.criterion_versions.get(
+            criterion_id, "Exact Criterion Set revision unavailable"
+        )
+
+    def scale_version(self, scale_id: str) -> str:
+        return self.scale_versions.get(
+            scale_id, "Exact Scoring Scale revision unavailable"
+        )
 
     def require_target(self, kind: str, target_id: str) -> str:
         """Refuse a consequential Score decision on an unknown exact target."""
@@ -137,6 +149,8 @@ def build_score_teacher_labels(
     sessions: dict[str, str] = {}
     criteria: dict[str, str] = {}
     scales: dict[str, str] = {}
+    criterion_versions: dict[str, str] = {}
+    scale_versions: dict[str, str] = {}
 
     root = resolve_read_workspace_root()
     if root is None:
@@ -238,6 +252,12 @@ def build_score_teacher_labels(
                     "Scoring Scale",
                 )
             )
+            for item in ordered_scales:
+                if hasattr(item, "revision") and hasattr(item, "is_current"):
+                    state = "current" if item.is_current else "historical"
+                    scale_versions[item.scoring_scale_id] = (
+                        f"revision {item.revision}; {state}"
+                    )
         except Exception as error:
             _raise_label_read_failure("Scoring Scale", error)
 
@@ -264,6 +284,27 @@ def build_score_teacher_labels(
                         criteria[criterion.criterion_id] = (
                             "Criterion label ambiguous across revisions"
                         )
+                    if (
+                        hasattr(criterion_set_item, "revision")
+                        and hasattr(criterion_set_item, "is_current")
+                    ):
+                        state = (
+                            "current" if criterion_set_item.is_current else "historical"
+                        )
+                        version = (
+                            f"rubric revision {criterion_set_item.revision}; "
+                            f"{state}"
+                        )
+                        prior = criterion_versions.get(criterion.criterion_id)
+                        if prior is not None and prior != version:
+                            criteria[criterion.criterion_id] = (
+                                "Criterion label ambiguous across revisions"
+                            )
+                            criterion_versions[criterion.criterion_id] = (
+                                "Criterion version ambiguous across revisions"
+                            )
+                        else:
+                            criterion_versions[criterion.criterion_id] = version
             ordered_criterion_ids = tuple(sorted(criteria))
             criteria = _label_unique(
                 ordered_criterion_ids,
@@ -273,7 +314,14 @@ def build_score_teacher_labels(
         except Exception as error:
             _raise_label_read_failure("Criterion Set", error)
 
-    return ScoreTeacherLabels(targets, sessions, criteria, scales)
+    return ScoreTeacherLabels(
+        targets=targets,
+        sessions=sessions,
+        criteria=criteria,
+        scales=scales,
+        criterion_versions=criterion_versions,
+        scale_versions=scale_versions,
+    )
 
 
 __all__ = ["ScoreTeacherLabels", "build_score_teacher_labels"]
