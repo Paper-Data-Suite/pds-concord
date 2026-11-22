@@ -327,6 +327,36 @@ def _choose_target(
     return None if selected is None else selected.target_reference
 
 
+def _verified_assessment_label(value: str | None, *, kind: str) -> str:
+    """Stop a teacher decision before displaying missing assessment identity."""
+    if value is None or not value.strip():
+        raise ConcordWorkflowValidationError(
+            f"{kind} label could not be verified from current assessment setup. "
+            "Return to Assessment Setup and repair the Criterion/Scale before "
+            "choosing a Score value; no Score was recorded."
+        )
+    return value
+
+
+def _criterion_choice_labels(
+    criteria: tuple[Criterion, ...],
+) -> tuple[str, ...]:
+    if not criteria:
+        raise ConcordWorkflowValidationError(
+            "No current compatible Criterion is available for this Score target. "
+            "Return to Assessment Setup and verify the selected Criterion Set; "
+            "no Score was recorded."
+        )
+    return distinguish_equal_labels(
+        tuple(
+            f"{_verified_assessment_label(item.label, kind='Criterion')} "
+            f"[{item.criterion_kind}]"
+            for item in criteria
+        ),
+        noun="Criterion",
+    )
+
+
 def _choose_criterion(
     context: ArtifactRoutineScoringContext,
     target: ScoreTargetReference,
@@ -335,7 +365,7 @@ def _choose_criterion(
     return select_one(
         "Choose Criterion",
         criteria,
-        tuple(f"{item.label} [{item.criterion_kind}]" for item in criteria),
+        _criterion_choice_labels(criteria),
         help_text=(
             "Choose one explicit Criterion compatible with the selected target. "
             "Concord does not infer a Criterion from the Artifact."
@@ -349,6 +379,14 @@ def _choose_scale(
     criterion_id: str,
 ) -> ScoringScale:
     options = routine_scale_options(context, target, criterion_id)
+    if not options.scales:
+        raise ConcordWorkflowValidationError(
+            "No current active Scoring Scale is available. Return to "
+            "Assessment Setup to activate or select a compatible Scale; "
+            "no Score was recorded."
+        )
+    for item in options.scales:
+        _verified_assessment_label(item.name, kind="Scoring Scale")
     default_id = (
         None
         if options.default_scale is None
@@ -364,9 +402,12 @@ def _choose_scale(
             ),
         )
     )
-    labels = tuple(
-        item.name + (" [default]" if item.scoring_scale_id == default_id else "")
-        for item in ordered
+    labels = distinguish_equal_labels(
+        tuple(
+            item.name + (" [default]" if item.scoring_scale_id == default_id else "")
+            for item in ordered
+        ),
+        noun="Scoring Scale",
     )
     default_note = {
         "valid": "The configured current default is marked [default].",
@@ -798,7 +839,7 @@ def _record_another_criterion(
     criterion = select_one(
         "Choose Another Criterion",
         criteria,
-        tuple(f"{item.label} [{item.criterion_kind}]" for item in criteria),
+        _criterion_choice_labels(criteria),
         help_text=(
             "Choose a fresh explicit Criterion. The just-completed Criterion "
             "is not reused by this shortcut."
