@@ -34,6 +34,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_scan import launch_scan_routing_menu
 from concord.menu_teacher_history import (
     distinguish_equal_labels,
     teacher_recorded_instant,
@@ -147,11 +148,15 @@ from concord.workflows.moderation import (
     show_moderation_record,
 )
 from concord.workflows.returned_assembly_versions import (
+    VerifiedAssemblyVersion,
     list_verified_assembly_versions,
 )
 from concord.workflows.teacher_artifact_choices import (
     TeacherArtifactChoice,
     list_teacher_artifact_choices,
+)
+from concord.workflows.teacher_collection_overview import (
+    inspect_teacher_collection_overview,
 )
 from concord.workflows.teacher_evidence_chronology import (
     display_recorded_time,
@@ -506,6 +511,35 @@ def open_returned_work(activity: ActivitySummary) -> None:
         )
 
 
+def _saved_assembly_version_labels(
+    versions: tuple[VerifiedAssemblyVersion, ...],
+) -> tuple[str, ...]:
+    """Disambiguate verified history without inventing a scan or assembly order.
+
+    Different precise creation instants may still DISPLAY as the same minute.
+    Stable copy numbers distinguish identical labels, never claim chronology.
+    """
+    timestamps = [instant(item.assembled_at) for item in versions]
+    labels: list[str] = []
+    for item in versions:
+        when = display_recorded_time(item.assembled_at)
+        tied = timestamps.count(instant(item.assembled_at)) > 1
+        order_note = (
+            "same recorded time; order uncertain"
+            if tied
+            else "recorded assembly creation time"
+        )
+        attention = {
+            "newer": " | Newer routed evidence available",
+            "additional_uncertain": (" | Additional evidence; chronology uncertain"),
+            "none": "",
+        }[item.newer_evidence_status]
+        labels.append(
+            f"Assembled {when} ({order_note}) | {item.page_count} pages{attention}"
+        )
+    return distinguish_equal_labels(tuple(labels), noun="saved copy")
+
+
 def open_verified_assembly_version(activity: ActivitySummary) -> None:
     """Choose and open one previously assembled, still-verified PDF version."""
     try:
@@ -528,36 +562,25 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
                 ),
             )
             return
-        timestamps = [instant(item.assembled_at) for item in versions]
-        labels = []
-        for item in versions:
-            when = display_recorded_time(item.assembled_at)
-            tied = timestamps.count(instant(item.assembled_at)) > 1
-            order_note = (
-                "same recorded time; order uncertain"
-                if tied
-                else "recorded assembly creation time"
-            )
-            attention = {
-                "newer": " | Newer routed evidence available",
-                "additional_uncertain": (
-                    " | Additional evidence; chronology uncertain"
-                ),
-                "none": "",
-            }[item.newer_evidence_status]
-            labels.append(
-                f"Assembled {when} ({order_note}) | {item.page_count} pages{attention}"
-            )
+        labels = _saved_assembly_version_labels(versions)
         selected = select_one(
             "Open a Verified Assembly Version",
             versions,
-            tuple(labels),
+            labels,
             help_text=(
                 "Choose one exact verified older or newer assembly. "
                 "Assembly-created time is not scan-routed time. "
                 "This does not establish which version was reviewed or scored."
             ),
         )
+        selected_index = next(
+            (index for index, version in enumerate(versions) if version is selected),
+            None,
+        )
+        if selected_index is None:
+            raise ConcordWorkflowConflictError(
+                "Verified assembly selection changed. Refresh and choose it again."
+            )
         # Core's safe local opener runs only after the exact lineage, canonical
         # snapshot, retained sources, manifest and PDF hash are verified AGAIN.
         open_returned_artifact_evidence(
@@ -571,6 +594,7 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
             "Assembly Version Viewer Requested",
             (
                 f"Selected work: {choice.label}",
+                f"Saved version: {labels[selected_index]}",
                 (
                     "Recorded assembly creation: "
                     f"{display_recorded_time(selected.assembled_at)}"
@@ -593,10 +617,56 @@ def open_verified_assembly_version(activity: ActivitySummary) -> None:
         )
 
 
+def _assembly_preflight_ready(
+    activity: ActivitySummary,
+    choice: TeacherArtifactChoice,
+) -> bool:
+    """Reject non-actionable assembly before occurrence or actor prompts.
+
+    The overview is read from one current canonical Activity snapshot; this is
+    a preflight, not a writer authorization or a durable readiness record.
+    The assembly writer still revalidates its own exact evidence and snapshot.
+    """
+    overview = inspect_teacher_collection_overview(
+        activity.class_id,
+        activity.activity_id,
+        expected_snapshot_revision=activity.snapshot_revision,
+    )
+    item = next(
+        (
+            entry
+            for entry in overview.items
+            if entry.artifact_instance_id == choice.summary.artifact_instance_id
+        ),
+        None,
+    )
+    if item is None:
+        raise ConcordWorkflowConflictError(
+            "Selected returned work changed. Refresh and choose it again."
+        )
+    if item.stage in {"ready_to_assemble", "choose_occurrences", "assembled"}:
+        return True
+    show_result(
+        "Assemble Returned Work — Not Ready",
+        (
+            f"Work: {choice.label}",
+            f"Stage: {item.stage_label}",
+            f"Routed returned pages: {item.routed_return_pages}/"
+            f"{item.required_return_pages}",
+            f"Next: {item.next_action}.",
+            "Printing and distribution are not tracked.",
+            "No assembly or evidence change was attempted.",
+        ),
+    )
+    return False
+
+
 def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
     current = _latest(activity)
     choice = _choose_artifact_choice(current, title="Assemble Returned Artifact")
     artifact = choice.summary
+    if not _assembly_preflight_ready(current, choice):
+        return
     selections = _assembly_selections(current, artifact)
     actor = confirm_actor_write(
         "Assemble Returned Artifact",
@@ -632,6 +702,8 @@ def _assemble(activity: ActivitySummary, state: MenuSessionContext) -> None:
                 else "New exact assembly created and verified."
             ),
             "The original scan evidence was not changed.",
+            "To view this verified PDF, choose O. Open returned work.",
+            "Assembly did not request a PDF viewer or record Review or Score.",
         ),
     )
 
@@ -3061,13 +3133,30 @@ class _AttributionProposalChoice:
     display_label: str
 
 
+def _attribution_teacher_labels(
+    review: ArtifactAttributionReview,
+) -> tuple[str, ...]:
+    """Human labels disambiguated by display order, never by assumed recency.
+
+    IDs remain in the typed review and exact confirmation requests, not in
+    ordinary teacher-facing choice labels or headings.
+    """
+    labels = tuple(
+        getattr(group, "teacher_work_label", None) or "Work requiring attribution"
+        for group in review.artifacts
+    )
+    return distinguish_equal_labels(labels, noun="work")
+
+
 def _attribution_proposal_choices(
     review: ArtifactAttributionReview,
 ) -> tuple[_AttributionProposalChoice, ...]:
     author_ids = set(review.candidate_author_ids)
     subject_ids = set(review.candidate_subject_ids)
     choices: list[_AttributionProposalChoice] = []
-    for group in review.artifacts:
+    for group, work_label in zip(
+        review.artifacts, _attribution_teacher_labels(review), strict=True
+    ):
         for author in group.authors:
             if (
                 author.disposition != "candidate"
@@ -3080,7 +3169,7 @@ def _attribution_proposal_choices(
                     relationship_kind="author",
                     association_id=author.artifact_author_id,
                     display_label=(
-                        f"{group.artifact_instance_id} - Completed by {label} "
+                        f"{work_label} - Completed by {label} "
                         f"({author.authorship_mode.replace('_', ' ')})"
                     ),
                 )
@@ -3097,7 +3186,7 @@ def _attribution_proposal_choices(
                     relationship_kind="subject",
                     association_id=subject.artifact_subject_id,
                     display_label=(
-                        f"{group.artifact_instance_id} - Concerns {label} "
+                        f"{work_label} - Concerns {label} "
                         f"({subject.subject_role.replace('_', ' ')})"
                     ),
                 )
@@ -3465,9 +3554,11 @@ def _print_attribution_review(
     if not review.artifacts:
         print()
         print("No current attribution requires teacher attention.")
-    for group in review.artifacts:
+    for group, work_label in zip(
+        review.artifacts, _attribution_teacher_labels(review), strict=True
+    ):
         print()
-        print(f"Artifact: {group.artifact_instance_id}")
+        print(f"Work: {work_label}")
         for author in group.authors:
             label = author.reference_display_label or "Unknown"
             suffix = (
@@ -3476,8 +3567,13 @@ def _print_attribution_review(
                 else "individual review"
             )
             print(f"  Completed by: {label} [{author.attribution_status}; {suffix}]")
+            if author.exception_code == "return_evidence_pending":
+                print(
+                    "    Waiting for complete routed paper; "
+                    "use Collect R then S before confirming."
+                )
             if author.represented_group_id is not None:
-                print(f"    Represents: {author.represented_group_id}")
+                print("    Represents an explicit Group (details in Advanced tools).")
         for subject in group.subjects:
             label = subject.reference_display_label or "Unlabeled subject"
             suffix = (
@@ -3486,11 +3582,18 @@ def _print_attribution_review(
                 else "individual review"
             )
             print(f"  Concerns: {label} [{subject.confirmation_status}; {suffix}]")
+            if subject.exception_code == "return_evidence_pending":
+                print(
+                    "    Waiting for complete routed paper; "
+                    "use Collect R then S before confirming."
+                )
     print()
     print("A. Confirm all straightforward proposals")
     print("S. Select multiple proposals")
     print("C. Create several relationships")
     print("E. Review / edit attribution in Advanced tools")
+    print("R. Route or review scans (shared workspace)")
+    print("T. Collection status (read-only)")
     print_navigation()
     print()
 
@@ -3573,8 +3676,10 @@ def _launch_attribution_review_menu(
                 show_result(
                     "Review Attribution Help",
                     (
-                        "Proposed relationships that still pass current semantic "
-                        "validation are confirmation candidates.",
+                        "A proposed relationship is confirmable only when both "
+                        "semantic checks and required routed returns pass.",
+                        "Waiting for paper? Back to Collect, use R to route or "
+                        "review scans, then S to refresh collection status.",
                         "Disputed, unresolved, unknown, or invalid relationships "
                         "stay visible for individual review.",
                         (
@@ -3582,6 +3687,8 @@ def _launch_attribution_review_menu(
                             "Core-student Authors or Subjects on one Artifact."
                         ),
                         "Author and Subject remain separate relationships.",
+                        "In this menu, R opens Scan Routing and T shows Collection "
+                        "Status; neither action confirms attribution.",
                     ),
                 )
             elif navigation is NavigationChoice.BACK:
@@ -3600,6 +3707,10 @@ def _launch_attribution_review_menu(
                 )
             elif choice.casefold() == "c":
                 _launch_multi_add_attribution_menu(activity, state)
+            elif choice.casefold() == "r":
+                launch_scan_routing_menu(state)
+            elif choice.casefold() == "t":
+                _show_collection_status(activity)
             elif choice.casefold() == "e":
                 _launch_advanced_attribution_menu(activity, state)
             else:
@@ -3621,6 +3732,76 @@ def _launch_attribution_review_menu(
             _handle_error(activity, error, title="Attribution Review Error")
 
 
+def _show_collection_status(activity: ActivitySummary) -> None:
+    """One read-only, snapshot-checked view of exact routed return progress."""
+    current = _latest(activity)
+    overview = inspect_teacher_collection_overview(
+        current.class_id,
+        current.activity_id,
+        expected_snapshot_revision=current.snapshot_revision,
+    )
+    if not overview.items:
+        show_result(
+            "Collection Status",
+            (
+                "No Artifact work is recorded for this Activity.",
+                "Prepare materials first; no returned work is inferred.",
+                "Printing and classroom distribution are not tracked here.",
+            ),
+        )
+        return
+
+    labels = tuple(
+        f"{item.label} | routed {item.routed_return_pages}/"
+        f"{item.required_return_pages} | {item.stage_label}"
+        for item in overview.items
+    )
+    chosen = select_one(
+        "Collection Status — Choose Work",
+        overview.items,
+        labels,
+        help_text=(
+            "Routed pages come from current PDS2 Scan References, not generated "
+            "page status. Printing/distribution is not tracked. "
+            "This view does not confirm authorship, Review or Score."
+        ),
+    )
+    show_result(
+        "Collection Status",
+        (
+            f"Work: {chosen.label}",
+            f"Routed returned pages: {chosen.routed_return_pages}/"
+            f"{chosen.required_return_pages}",
+            f"Routed occurrences: {chosen.routed_occurrences}",
+            f"Stage: {chosen.stage_label}",
+            chosen.attribution_note,
+            "Printing/distribution: not tracked.",
+            f"Next: {chosen.next_action}.",
+            "Reading this status does not assemble, Review or Score work.",
+        ),
+    )
+
+
+def _continue_collect_to_review(
+    activity: ActivitySummary,
+    state: MenuSessionContext,
+) -> None:
+    """Reopen current Review context; handoff itself records no judgment.
+
+    No durable wizard/continuation state is created. Child B returns to Collect;
+    Core-owned M/Q navigation continues to the top-level owner.
+    """
+    current = _latest(activity)
+    if (
+        current.class_id != activity.class_id
+        or current.activity_id != activity.activity_id
+    ):
+        raise ConcordWorkflowConflictError(
+            "Selected Activity changed. Reopen Collect before continuing to Review."
+        )
+    launch_review_work_menu(current, state)
+
+
 def launch_collect_work_menu(
     activity: ActivitySummary,
     state: MenuSessionContext,
@@ -3637,6 +3818,9 @@ def launch_collect_work_menu(
         print("4. Advanced attribution tools")
         print("O. Open returned work")
         print("V. Open a verified saved assembly version")
+        print("S. Collection status (read-only)")
+        print("R. Route or review scans (shared PDS workspace)")
+        print("N. Continue to Review (no automatic Review)")
         print_navigation()
         print()
         choice = input("Select an option: ").strip()
@@ -3651,6 +3835,16 @@ def launch_collect_work_menu(
                 print("Authors and Subjects remain separate relationships underneath.")
                 print("Advanced attribution tools preserve individual management.")
                 print("Collect does not Review, Moderate, or Score the work.")
+                print(
+                    "Route or review scans uses the shared PDS workspace. "
+                    "PDS2 QR codes may route to other Activities or modules."
+                )
+                print("Only verified routes establish returned Artifact evidence.")
+                print("Use S. Collection status after routing to refresh page counts.")
+                print(
+                    "Use N. Continue to Review to open the separate Review menu. "
+                    "Nothing is reviewed automatically; B returns to Collect."
+                )
                 print(
                     "Open returned work uses your normal PDF viewer and "
                     "changes no state."
@@ -3671,6 +3865,12 @@ def launch_collect_work_menu(
                 open_returned_work(activity)
             elif choice.upper() == "V":
                 open_verified_assembly_version(activity)
+            elif choice.casefold() == "s":
+                _show_collection_status(activity)
+            elif choice.casefold() == "r":
+                launch_scan_routing_menu(state)
+            elif choice.casefold() == "n":
+                _continue_collect_to_review(activity, state)
             else:
                 print(navigation_hint_with_help())
                 pause_for_user()

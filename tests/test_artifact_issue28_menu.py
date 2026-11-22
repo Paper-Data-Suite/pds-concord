@@ -188,7 +188,7 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
             scan_reference_id="scanref-1",
             source_scan_id="scan-1",
             source_page_number=1,
-                routed_at="2026-10-14T14:12:00-04:00",
+            routed_at="2026-10-14T14:12:00-04:00",
         ),
         SimpleNamespace(
             artifact_page_id="page-1",
@@ -196,7 +196,7 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
             scan_reference_id="scanref-2",
             source_scan_id="scan-2",
             source_page_number=1,
-                routed_at="2026-10-12T10:06:00-04:00",
+            routed_at="2026-10-12T10:06:00-04:00",
         ),
     )
     captured = []
@@ -218,6 +218,8 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
             ),
         ),
     )
+    # Assembly readiness is independently covered by the #151 preflight tests.
+    monkeypatch.setattr(menu_artifact, "_assembly_preflight_ready", lambda *_a: True)
     monkeypatch.setattr(
         menu_artifact,
         "list_artifact_scan_occurrences",
@@ -239,6 +241,8 @@ def test_assembly_menu_selects_exact_ambiguous_occurrence(
     assert len(selections) == 1
     assert selections[0].artifact_page_id == "page-1"
     assert selections[0].scan_reference_id == "scanref-2"
+
+
 def test_subject_menu_adds_group_subject_without_collapsing_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

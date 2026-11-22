@@ -224,11 +224,13 @@ def test_issue106_confirm_all_uses_one_confirmation_and_one_exact_batch(
     monkeypatch.setattr(
         menu_artifact,
         "batch_confirm_artifact_attribution",
-        lambda request, **_kwargs: requests.append(request)
-        or SimpleNamespace(
-            confirmed_author_count=1,
-            confirmed_subject_count=1,
-            commit=SimpleNamespace(snapshot_revision=10),
+        lambda request, **_kwargs: (
+            requests.append(request)
+            or SimpleNamespace(
+                confirmed_author_count=1,
+                confirmed_subject_count=1,
+                commit=SimpleNamespace(snapshot_revision=10),
+            )
         ),
     )
 
@@ -307,6 +309,7 @@ def test_issue106_confirm_all_with_no_candidates_is_read_only(
 
     assert shown == ["Confirm Attribution"]
 
+
 def test_issue106_subset_choices_hide_ids_and_exclude_exceptions() -> None:
     choices = menu_artifact._attribution_proposal_choices(_review())
 
@@ -318,8 +321,10 @@ def test_issue106_subset_choices_hide_ids_and_exclude_exceptions() -> None:
         "author-1",
         "subject-1",
     )
-    assert "artifact-1 - Completed by Alex One" in choices[0].display_label
-    assert "artifact-1 - Concerns Alex One" in choices[1].display_label
+    assert (
+        "Work requiring attribution - Completed by Alex One" in choices[0].display_label
+    )
+    assert "Work requiring attribution - Concerns Alex One" in choices[1].display_label
     assert "author-1" not in choices[0].display_label
     assert "subject-1" not in choices[1].display_label
     assert all("Blair Two" not in item.display_label for item in choices)
@@ -356,11 +361,13 @@ def test_issue106_explicit_subset_confirms_only_selected_relationship(
     monkeypatch.setattr(
         menu_artifact,
         "batch_confirm_artifact_attribution",
-        lambda request, **_kwargs: requests.append(request)
-        or SimpleNamespace(
-            confirmed_author_count=0,
-            confirmed_subject_count=1,
-            commit=SimpleNamespace(snapshot_revision=10),
+        lambda request, **_kwargs: (
+            requests.append(request)
+            or SimpleNamespace(
+                confirmed_author_count=0,
+                confirmed_subject_count=1,
+                commit=SimpleNamespace(snapshot_revision=10),
+            )
         ),
     )
 
@@ -457,6 +464,7 @@ def test_issue106_subset_cancel_before_confirm_produces_no_mutation(
         _state(),
     )
 
+
 def test_issue106_review_surface_offers_homogeneous_multi_add(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -542,10 +550,12 @@ def test_issue106_multi_add_authors_uses_one_reviewed_atomic_request(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_authors",
-        lambda request, **_kwargs: requests.append(request)
-        or SimpleNamespace(
-            artifact_author_ids=("generated-1", "generated-2"),
-            commit=SimpleNamespace(snapshot_revision=18),
+        lambda request, **_kwargs: (
+            requests.append(request)
+            or SimpleNamespace(
+                artifact_author_ids=("generated-1", "generated-2"),
+                commit=SimpleNamespace(snapshot_revision=18),
+            )
         ),
     )
 
@@ -622,10 +632,12 @@ def test_issue106_multi_add_subjects_uses_one_reviewed_atomic_request(
     monkeypatch.setattr(
         menu_artifact,
         "add_artifact_subjects",
-        lambda request, **_kwargs: requests.append(request)
-        or SimpleNamespace(
-            artifact_subject_ids=("generated-1", "generated-2"),
-            commit=SimpleNamespace(snapshot_revision=24),
+        lambda request, **_kwargs: (
+            requests.append(request)
+            or SimpleNamespace(
+                artifact_subject_ids=("generated-1", "generated-2"),
+                commit=SimpleNamespace(snapshot_revision=24),
+            )
         ),
     )
 

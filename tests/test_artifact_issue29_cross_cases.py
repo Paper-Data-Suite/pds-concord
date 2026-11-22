@@ -92,6 +92,7 @@ def _workspace(
     *,
     artifact_id: str = "artifact-1",
     page_count: int = 1,
+    no_return: bool = False,
 ) -> tuple[Path, int]:
     root = ensure_workspace_root(tmp_path / "workspace")
     write_class_metadata_for_class(
@@ -174,13 +175,16 @@ def _workspace(
             artifact_instance_id=artifact_id,
             template_version_id="template-1",
             artifact_category="observation",
+            expected_return_status=(
+                "return_not_expected" if no_return else "returned_expected"
+            ),
             expected_snapshot_revision=group.commit.snapshot_revision,
             actor=_actor(),
             pages=tuple(
                 ArtifactPagePlan(
                     page_number=index,
                     artifact_page_id=f"{artifact_id}-page-{index}",
-                    return_expected=True,
+                    return_expected=not no_return,
                     route_required=False,
                 )
                 for index in range(1, page_count + 1)
@@ -196,7 +200,7 @@ def _workspace(
 def test_peer_observation_keeps_author_subject_review_and_moderation_separate(
     tmp_path: Path,
 ) -> None:
-    root, revision = _workspace(tmp_path)
+    root, revision = _workspace(tmp_path, no_return=True)
     author = add_artifact_author(
         AddArtifactAuthorRequest(
             class_id="class-1",
@@ -287,7 +291,7 @@ def test_peer_observation_keeps_author_subject_review_and_moderation_separate(
 def test_recorder_for_group_does_not_infer_moderation_subject_scope(
     tmp_path: Path,
 ) -> None:
-    root, revision = _workspace(tmp_path)
+    root, revision = _workspace(tmp_path, no_return=True)
     author = add_artifact_author(
         AddArtifactAuthorRequest(
             class_id="class-1",
@@ -347,7 +351,7 @@ def test_recorder_for_group_does_not_infer_moderation_subject_scope(
 def test_teacher_tracker_can_concern_several_students_without_student_author(
     tmp_path: Path,
 ) -> None:
-    root, revision = _workspace(tmp_path)
+    root, revision = _workspace(tmp_path, no_return=True)
     author = add_artifact_author(
         AddArtifactAuthorRequest(
             class_id="class-1",
@@ -433,7 +437,7 @@ def test_teacher_tracker_can_concern_several_students_without_student_author(
 def test_attribution_dispute_and_correction_do_not_rewrite_review_history(
     tmp_path: Path,
 ) -> None:
-    root, revision = _workspace(tmp_path)
+    root, revision = _workspace(tmp_path, no_return=True)
     author = add_artifact_author(
         AddArtifactAuthorRequest(
             class_id="class-1",

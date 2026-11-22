@@ -392,10 +392,7 @@ def test_affected_v1_packet_replays_identically_after_packaged_upgrade(
     assert installed_version_ids == (v1_id, v2_id)
 
     packet_library = load_current_packet(root, PACKET_ID)
-    assert (
-        packet_library.head_version.components[0].template_version_id
-        == v1_id
-    )
+    assert packet_library.head_version.components[0].template_version_id == v1_id
 
     after_upgrade = load_current_record_graph(root, work)
     assert after_upgrade == before
@@ -403,13 +400,17 @@ def test_affected_v1_packet_replays_identically_after_packaged_upgrade(
     binding_after = packet_after.artifact_bindings[0]
     assert binding_after.template_version_id == v1_id
     assert binding_after.rendering_values == frozen_values
-    assert tuple(
-        page.human_fallback for page in after_upgrade.graph.artifact_pages
-    ) == fallbacks
-    assert tuple(
-        load_route_registration(root, parse_pds2_payload(payload))
-        for payload in first_payloads
-    ) == routes
+    assert (
+        tuple(page.human_fallback for page in after_upgrade.graph.artifact_pages)
+        == fallbacks
+    )
+    assert (
+        tuple(
+            load_route_registration(root, parse_pds2_payload(payload))
+            for payload in first_payloads
+        )
+        == routes
+    )
 
     replay = _render_only_packet(root)
     assert replay.replayed
@@ -462,9 +463,7 @@ def test_returned_v1_evidence_survives_upgrade_and_remains_correctable(
 
     returned = load_current_record_graph(root, work)
     assert len(returned.graph.scan_references) == len(committed.pages)
-    assert {page.page_status for page in returned.graph.artifact_pages} == {
-        "returned"
-    }
+    assert {page.page_status for page in returned.graph.artifact_pages} == {"returned"}
     returned_routes = tuple(
         load_route_registration(root, parse_pds2_payload(payload))
         for payload in rendered.payloads
@@ -481,10 +480,13 @@ def test_returned_v1_evidence_survives_upgrade_and_remains_correctable(
     assert after_upgrade.graph.scan_references == returned_scan_references
     assert after_upgrade.graph.artifact_authors[0] == returned_author
     assert after_upgrade.graph.artifact_subjects[0] == returned_subject
-    assert tuple(
-        load_route_registration(root, parse_pds2_payload(payload))
-        for payload in rendered.payloads
-    ) == returned_routes
+    assert (
+        tuple(
+            load_route_registration(root, parse_pds2_payload(payload))
+            for payload in rendered.payloads
+        )
+        == returned_routes
+    )
 
     artifact_id = after_upgrade.graph.artifact_instances[0].artifact_instance_id
     corrected = replace_artifact_subject(
@@ -555,7 +557,7 @@ def test_returned_v1_evidence_survives_upgrade_and_remains_correctable(
         ("peer_review_presentation", "project"),
     ),
 )
-def test_mixed_response_v2_starts_with_reviewer_then_accepts_reviewee_author(
+def test_mixed_response_v2_starts_with_reviewer_then_accepts_reviewee_proposal(
     tmp_path: Path,
     starter_key: str,
     activity_type: str,
@@ -594,6 +596,7 @@ def test_mixed_response_v2_starts_with_reviewer_then_accepts_reviewee_author(
         _student_subject(REVIEWEE_ID)
     )
 
+    # The packet has been generated, not returned: preserve proposal state.
     artifact_id = generated.graph.artifact_instances[0].artifact_instance_id
     added = add_artifact_author(
         AddArtifactAuthorRequest(
@@ -607,7 +610,7 @@ def test_mixed_response_v2_starts_with_reviewer_then_accepts_reviewee_author(
                 REVIEWEE_ID,
             ),
             authorship_mode="co_author",
-            attribution_status="confirmed",
+            attribution_status="proposed",
             attribution_source="teacher",
             expected_snapshot_revision=generated.snapshot_revision,
             actor=_actor(),
