@@ -87,11 +87,11 @@ def _head() -> ScoreSummary:
 @pytest.mark.parametrize(
     ("method", "args", "source"),
     (
-        ("require_target", ("concord_group", "missing"), "Score target"),
-        ("require_target", ("core_student", "missing"), "Score target"),
-        ("require_session", ("missing",), "Score Session"),
-        ("require_criterion", ("missing",), "Score Criterion"),
-        ("require_scale", ("missing",), "Scoring Scale"),
+        ("require_target", ("concord_group", "opaque-score-identity-654321"), "Score target"),
+        ("require_target", ("core_student", "opaque-score-identity-654321"), "Score target"),
+        ("require_session", ("opaque-score-identity-654321",), "Score Session"),
+        ("require_criterion", ("opaque-score-identity-654321",), "Score Criterion"),
+        ("require_scale", ("opaque-score-identity-654321",), "Scoring Scale"),
     ),
 )
 def test_missing_essential_identity_never_falls_back(
@@ -102,7 +102,7 @@ def test_missing_essential_identity_never_falls_back(
     with pytest.raises(ConcordWorkflowValidationError) as error:
         getattr(_labels(), method)(*args)
     assert source in str(error.value)
-    assert "missing" not in str(error.value)
+    assert "opaque-score-identity-654321" not in str(error.value)
     assert "no Score was recorded" in str(error.value)
 
 
