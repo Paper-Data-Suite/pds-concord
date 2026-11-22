@@ -87,8 +87,16 @@ def _head() -> ScoreSummary:
 @pytest.mark.parametrize(
     ("method", "args", "source"),
     (
-        ("require_target", ("concord_group", "opaque-score-identity-654321"), "Score target"),
-        ("require_target", ("core_student", "opaque-score-identity-654321"), "Score target"),
+        (
+            "require_target",
+            ("concord_group", "opaque-score-identity-654321"),
+            "Score target",
+        ),
+        (
+            "require_target",
+            ("core_student", "opaque-score-identity-654321"),
+            "Score target",
+        ),
         ("require_session", ("opaque-score-identity-654321",), "Score Session"),
         ("require_criterion", ("opaque-score-identity-654321",), "Score Criterion"),
         ("require_scale", ("opaque-score-identity-654321",), "Scoring Scale"),
