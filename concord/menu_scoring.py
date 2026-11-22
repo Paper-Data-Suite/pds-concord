@@ -97,8 +97,8 @@ from concord.scale_guidance import describe_draft, validate_draft
 from concord.workflows import (
     ActivityDetail,
     ActivitySummary,
-    ConcordWorkflowValidationError,
     AddScoreRequest,
+    ConcordWorkflowValidationError,
     CreateCriterionSetRequest,
     CreateScoringScaleRequest,
     CriterionSetDetail,
