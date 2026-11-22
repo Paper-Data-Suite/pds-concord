@@ -82,6 +82,9 @@ class ArtifactRoutineScoringContext:
     eligibility: ArtifactRoutineScoringEligibility
     snapshot_revision: int
     snapshot_sha256: str
+    # Canonical read root for subsequent teacher label projection. Never
+    # resolve a potentially different active workspace during Score selection.
+    workspace_root: Path | None = None
 
 
 def native_artifact_evidence_reference(
@@ -308,6 +311,7 @@ def _project_artifact_routine_scoring_from_context(
         eligibility=eligibility,
         snapshot_revision=context.snapshot_revision,
         snapshot_sha256=context.snapshot_sha256,
+        workspace_root=context.root,
     )
 
 

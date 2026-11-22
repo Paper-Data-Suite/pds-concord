@@ -102,6 +102,25 @@ def _current_activity(activity: ActivitySummary) -> ActivitySummary:
     return show_activity(activity.class_id, activity.activity_id).summary
 
 
+def _require_pinned_score_label_context(
+    context: ArtifactRoutineScoringContext,
+    authority: ArtifactWriteContext,
+) -> None:
+    """Block any workspace/snapshot split before Score target selection."""
+    root = getattr(context, "workspace_root", None)
+    if (
+        (root is not None and root.resolve() != authority.root)
+        or context.class_id != authority.class_id
+        or context.activity_id != authority.activity_id
+        or context.snapshot_revision != authority.snapshot_revision
+        or context.snapshot_sha256 != authority.snapshot_sha256
+    ):
+        raise ConcordWorkflowConflictError(
+            "The Score label workspace or Activity snapshot changed. "
+            "Reopen Score this work; no Score was recorded."
+        )
+
+
 def _refresh_score_continuation_authority(
     previous: ArtifactWriteContext,
     *,
@@ -167,12 +186,16 @@ def _verified_score_display_name(
     return value
 
 
-def _student_label(class_id: str, student_id: str) -> str:
-    root = resolve_read_workspace_root()
+def _student_label(
+    context: ArtifactRoutineScoringContext, student_id: str
+) -> str:
+    # Live workflow contexts carry the root from their inspected graph. The
+    # implicit active-root path is only for older in-memory menu projections.
+    root = getattr(context, "workspace_root", None)
     if root is None:
-        return _verified_score_display_name(
-            None, source="Core student roster"
-        )
+        root = resolve_read_workspace_root()
+    if root is None:
+        return _verified_score_display_name(None, source="Core student roster")
     reference = ParticipantReference(
         participant_kind="core_student",
         participant_id=student_id,
@@ -181,7 +204,7 @@ def _student_label(class_id: str, student_id: str) -> str:
     # Core's label projection returns None when a roster or student is absent.
     # That is a blocked teacher decision, not permission to show the raw ID.
     try:
-        display = participant_display_label(root, class_id, reference)
+        display = participant_display_label(root, context.class_id, reference)
     except ConcordWorkflowConflictError:
         raise
     except Exception as error:
@@ -233,7 +256,7 @@ def _target_label(
 ) -> str:
     kind = reference.target_kind
     if kind == "core_student":
-        return f"{_student_label(context.class_id, reference.target_id)} — student"
+        return f"{_student_label(context, reference.target_id)} — student"
     if kind == "concord_group":
         return f"{_group_label(context, reference.target_id)} — group"
     if kind == "concord_session":
@@ -259,7 +282,7 @@ def _subject_label(
 ) -> str:
     kind = reference.subject_kind
     if kind == "core_student":
-        return f"{_student_label(context.class_id, reference.subject_id)} — student"
+        return f"{_student_label(context, reference.subject_id)} — student"
     if kind == "concord_group":
         return f"{_group_label(context, reference.subject_id)} — group"
     if kind == "concord_session":
@@ -609,11 +632,8 @@ def _record_selected_artifact_score(
         artifact_instance_id,
         workspace_root=write_preview.root,
     )
-    if (
-        context.snapshot_revision != write_preview.snapshot_revision
-        or context.snapshot_sha256 != write_preview.snapshot_sha256
-        or context.artifact.artifact_instance_id != artifact_instance_id
-    ):
+    _require_pinned_score_label_context(context, write_preview)
+    if context.artifact.artifact_instance_id != artifact_instance_id:
         raise ConcordWorkflowConflictError(
             "Selected routine Score context changed after Activity selection."
         )
@@ -736,6 +756,7 @@ def _record_another_criterion(
         snapshot_revision=context.snapshot_revision,
         snapshot_sha256=context.snapshot_sha256,
     )
+    _require_pinned_score_label_context(context, write_preview)
     if (
         context.class_id != write_preview.class_id
         or context.activity_id != write_preview.activity_id
