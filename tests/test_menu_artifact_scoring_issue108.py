@@ -8,7 +8,7 @@ import pytest
 
 import concord.menu_artifact_scoring as scoring_menu
 from concord import menu_artifact
-from concord.models import ScoreTargetReference
+from concord.models import EvidenceReference, ScoreTargetReference
 from concord.workflows.artifact_routine_scoring_preparation import RoutineScorePreview
 from concord.workflows.models import ActivitySummary, WorkflowActor
 
@@ -113,8 +113,25 @@ def _context(*, eligible: bool = True, revision: int = 20) -> object:
         artifact=SimpleNamespace(
             artifact_instance_id="artifact-1",
             session_id=None,
+            artifact_status="returned",
         ),
-        current_review=SimpleNamespace(scoring_readiness="ready"),
+        current_review=SimpleNamespace(
+            artifact_instance_id="artifact-1",
+            review_outcome="ready",
+            scoring_readiness="ready",
+            author_judgment="confirmed",
+            subject_judgment="confirmed",
+            reviewed_at="2026-11-22T15:00:00+00:00",
+            reviewer=SimpleNamespace(
+                actor_kind="authorized_adult",
+                display_label_snapshot="Teacher Example",
+            ),
+        ),
+        evidence_reference=EvidenceReference(
+            evidence_kind="artifact_instance",
+            owning_system="concord",
+            record_id="artifact-1",
+        ),
         current_sessions=(),
         current_groups=(),
         eligibility=SimpleNamespace(
@@ -154,6 +171,11 @@ def _preview(*, existing: tuple[str, ...] = ()) -> RoutineScorePreview:
             disposition="scored",
             basis="linked_evidence",
             evidence=SimpleNamespace(
+                evidence_reference=EvidenceReference(
+                    evidence_kind="artifact_instance",
+                    owning_system="concord",
+                    record_id="artifact-1",
+                ),
                 subject_context=(),
                 moderation_requirement="not_required",
                 relevance_description=(
@@ -212,7 +234,7 @@ def test_preview_shows_complete_teacher_significant_routine_decision() -> None:
         _preview(),
     )
 
-    assert lines == (
+    assert lines[:12] == (
         "Artifact: this reviewed Artifact",
         "Target: This Artifact",
         "Criterion: Uses textual evidence",
@@ -225,6 +247,24 @@ def test_preview_shows_complete_teacher_significant_routine_decision() -> None:
         "Session: None",
         "Moderation: not_required",
         "Relevance: Returned Artifact evidence for this Score.",
+    )
+    assert lines[12:15] == (
+        "Review provenance (preview only): explicit current Artifact Review",
+        "Review outcome/readiness: ready / ready",
+        "Reviewed by: Teacher Example",
+    )
+    assert lines[15].startswith("Reviewed ")
+    assert " at " in lines[15]
+    assert lines[16:] == (
+        "Review author/subject judgments: confirmed / confirmed",
+        (
+            "Concord Artifact status: returned "
+            "(not independent proof of a Core scan receipt)"
+        ),
+        (
+            "Proposed Score Evidence Link: one native Concord Artifact; "
+            "no exact scanned-file or assembled-PDF version linked"
+        ),
     )
 
 
@@ -295,6 +335,28 @@ def test_confirmed_score_uses_score_token_then_canonical_execution(
     assert "Relevance: Returned Artifact evidence for this Score." in lines
     assert captured["preview"] is preview
     assert cast(WorkflowActor, captured["actor"]).actor_id == "teacher-1"
+
+
+def test_changed_evidence_link_never_reaches_teacher_confirmation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview()
+    preview.evidence.evidence_reference = EvidenceReference(
+        evidence_kind="artifact_instance",
+        owning_system="concord",
+        record_id="wrong-artifact",
+    )
+    _patch_preparation(monkeypatch, preview=preview)
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Mismatched evidence must not reach approval or recording.")
+
+    monkeypatch.setattr(scoring_menu, "confirm_actor_write", forbidden)
+    monkeypatch.setattr(scoring_menu, "record_prepared_routine_score", forbidden)
+    with pytest.raises(scoring_menu.ConcordWorkflowConflictError):
+        scoring_menu._record_selected_artifact_score(
+            _activity(), "artifact-1", cast(object, _state())
+        )
 
 
 def test_existing_current_score_does_not_create_parallel_routine_score(

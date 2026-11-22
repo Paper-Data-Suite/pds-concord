@@ -31,6 +31,7 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_teacher_history import teacher_recorded_instant
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -422,6 +423,69 @@ def _subject_preview_label(
     return ", ".join(_subject_label(activity, context, item) for item in subjects)
 
 
+def _review_evidence_lines(
+    context: ArtifactRoutineScoringContext,
+    preview: RoutineScorePreview,
+) -> tuple[str, ...]:
+    """Show exact Review provenance and proposed native Artifact evidence.
+
+    Review provenance informs the teacher's judgment, but is not itself
+    written as an additional Score Evidence Link. The native Artifact link
+    does not identify an immutable scanned-file or assembly version.
+    """
+    artifact_id = context.artifact.artifact_instance_id
+    review = context.current_review
+    source = context.evidence_reference
+    linked = preview.evidence.evidence_reference
+    if (
+        review is None
+        or not context.eligibility.routine_scoring_eligible
+        or review.artifact_instance_id != artifact_id
+        or preview.artifact_instance_id != artifact_id
+        or preview.class_id != context.class_id
+        or preview.activity_id != context.activity_id
+        or preview.snapshot_revision != context.snapshot_revision
+        or preview.snapshot_sha256 != context.snapshot_sha256
+        or source.evidence_kind != "artifact_instance"
+        or source.owning_system != "concord"
+        or source.record_id != artifact_id
+        or linked != source
+    ):
+        raise ConcordWorkflowConflictError(
+            "The reviewed Artifact or proposed evidence identity changed. "
+            "Reopen Score this work; no Score was recorded."
+        )
+    reviewer = review.reviewer
+    reviewer_label = (
+        reviewer.display_label_snapshot
+        if reviewer.actor_kind == "authorized_adult"
+        and reviewer.display_label_snapshot
+        else "Reviewer display name not recorded"
+    )
+    return (
+        "Review provenance (preview only): explicit current Artifact Review",
+        (
+            f"Review outcome/readiness: {review.review_outcome.replace('_', ' ')} / "
+            f"{review.scoring_readiness.replace('_', ' ')}"
+        ),
+        f"Reviewed by: {reviewer_label}",
+        teacher_recorded_instant(review.reviewed_at, kind="Reviewed"),
+        (
+            f"Review author/subject judgments: "
+            f"{review.author_judgment.replace('_', ' ')} / "
+            f"{review.subject_judgment.replace('_', ' ')}"
+        ),
+        (
+            f"Concord Artifact status: {context.artifact.artifact_status} "
+            "(not independent proof of a Core scan receipt)"
+        ),
+        (
+            "Proposed Score Evidence Link: one native Concord Artifact; "
+            "no exact scanned-file or assembled-PDF version linked"
+        ),
+    )
+
+
 def _preview_lines(
     activity: ActivitySummary,
     context: ArtifactRoutineScoringContext,
@@ -448,6 +512,7 @@ def _preview_lines(
         f"Moderation: {preview.evidence.moderation_requirement}",
         f"Relevance: {preview.evidence.relevance_description}",
     ]
+    lines.extend(_review_evidence_lines(context, preview))
     if preview.target_reference.target_kind == "concord_group":
         lines.extend(
             (
