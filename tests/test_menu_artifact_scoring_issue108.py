@@ -40,6 +40,7 @@ def _legacy_score_menu_authority(
     legacy_cases = {
         "test_cancelled_score_confirmation_never_executes",
         "test_confirmed_score_uses_score_token_then_canonical_execution",
+        "test_changed_evidence_link_never_reaches_teacher_confirmation",
         "test_existing_current_score_does_not_create_parallel_routine_score",
         "test_ineligible_routine_context_stops_before_teacher_score_choices",
         "test_open_returned_work_keeps_exact_selected_artifact",
