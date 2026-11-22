@@ -213,6 +213,9 @@ def test_scoring_history_menu_displays_failure_before_selection(
 ) -> None:
     recorded: list[tuple[str, tuple[str, ...]]] = []
 
+    # The synthetic Activity is not stored; this case isolates label
+    # failure after successful Activity refresh, not missing-Activity handling.
+    monkeypatch.setattr(scoring_menu, "_latest", lambda activity: activity)
     monkeypatch.setattr(scoring_menu, "_library", lambda: None)
     monkeypatch.setattr(
         scoring_menu, "list_scores", lambda *_args, **_kwargs: (object(),)
