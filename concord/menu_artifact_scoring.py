@@ -648,6 +648,55 @@ def _preview_lines(
     return tuple(lines)
 
 
+def _routine_score_receipt_lines(
+    decision_lines: tuple[str, ...],
+    mutation: ScoreMutationResult,
+) -> tuple[str, ...]:
+    """Report the committed Score using pre-approval verified human labels.
+
+    Never resolve names again after mutation from a possibly changed workspace.
+    A missing Evidence Link or no-op is an uncertain outcome, not proof that
+    a teacher should blindly submit a second Score.
+    """
+    link_count = len(mutation.score_evidence_link_ids)
+    snapshot = f"Snapshot: {mutation.commit.snapshot_revision}"
+    if mutation.commit.no_op or link_count != 1:
+        return (
+            "Score write outcome requires verification; do not submit again.",
+            f"Reported native Artifact Evidence Links: {link_count}",
+            snapshot,
+            "Open View Scores to verify the exact durable Score and links.",
+        )
+    names = (
+        "Target: ",
+        "Criterion: ",
+        "Scale: ",
+        "Value: ",
+        "Disposition: ",
+        "Basis: ",
+        "Evidence: ",
+        "Session: ",
+    )
+    details = tuple(
+        line for line in decision_lines
+        if line.startswith(names)
+    )
+    group_note = (
+        ("Group Score only: no individual student Scores were created.",)
+        if "GROUP SCORE WARNING:" in decision_lines
+        else ()
+    )
+    return (
+        "Teacher-authorized Score and native Artifact Evidence Link recorded.",
+        *details,
+        f"Native Artifact Evidence Links: {link_count}",
+        snapshot,
+        *group_note,
+        "Recording a Score is not a Grade or a Meridian publication.",
+        "Use View Scores to inspect it or Advanced Score to revise.",
+    )
+
+
 def _record_selected_artifact_score(
     activity: ActivitySummary,
     artifact_instance_id: str,
@@ -729,10 +778,11 @@ def _record_selected_artifact_score(
             ),
         )
         return None
+    decision_lines = _preview_lines(current, context, preview)
     actor = confirm_actor_write(
         "Score this work",
         "SCORE",
-        _preview_lines(current, context, preview),
+        decision_lines,
         state=state,
         legacy_confirm=confirm_write,
     )
@@ -759,10 +809,7 @@ def _record_selected_artifact_score(
     )
     show_result(
         "Score Recorded",
-        (
-            "The explicit Score and native Artifact Evidence Link were recorded.",
-            f"Snapshot: {result.commit.snapshot_revision}",
-        ),
+        _routine_score_receipt_lines(decision_lines, result),
     )
     return _RoutineScoreMenuResult(
         preview=preview, mutation=result, write_context=write_context
@@ -874,10 +921,11 @@ def _record_another_criterion(
             ),
         )
         return None
+    decision_lines = _preview_lines(activity, context, preview)
     actor = confirm_actor_write(
         "Score another Criterion",
         "SCORE",
-        _preview_lines(activity, context, preview),
+        decision_lines,
         state=state,
         legacy_confirm=confirm_write,
     )
@@ -904,10 +952,7 @@ def _record_another_criterion(
     )
     show_result(
         "Score Recorded",
-        (
-            "Another explicit Score and native Artifact Evidence Link were recorded.",
-            f"Snapshot: {result.commit.snapshot_revision}",
-        ),
+        _routine_score_receipt_lines(decision_lines, result),
     )
     return _RoutineScoreMenuResult(
         preview=preview, mutation=result, write_context=write_context

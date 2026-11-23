@@ -313,11 +313,19 @@ def test_confirmed_score_uses_score_token_then_canonical_execution(
     ) -> object:
         captured["preview"] = supplied_preview
         captured["actor"] = actor
-        return SimpleNamespace(commit=SimpleNamespace(snapshot_revision=21))
+        return SimpleNamespace(
+            score_record_id="score-synthetic",
+            score_evidence_link_ids=("link-synthetic",),
+            commit=SimpleNamespace(snapshot_revision=21, no_op=False),
+        )
 
     monkeypatch.setattr(scoring_menu, "confirm_write", fake_confirm)
     monkeypatch.setattr(scoring_menu, "record_prepared_routine_score", fake_record)
-    monkeypatch.setattr(scoring_menu, "show_result", lambda *args: None)
+    monkeypatch.setattr(
+        scoring_menu,
+        "show_result",
+        lambda title, lines: captured.setdefault("receipt", (title, tuple(lines))),
+    )
 
     recorded = scoring_menu._record_selected_artifact_score(
         _activity(),
@@ -336,6 +344,16 @@ def test_confirmed_score_uses_score_token_then_canonical_execution(
     assert "Relevance: Returned Artifact evidence for this Score." in lines
     assert captured["preview"] is preview
     assert cast(WorkflowActor, captured["actor"]).actor_id == "teacher-1"
+    receipt_title, receipt_lines = cast(
+        tuple[str, tuple[str, ...]], captured["receipt"]
+    )
+    assert receipt_title == "Score Recorded"
+    assert "Target: This Artifact" in receipt_lines
+    assert "Criterion: Uses textual evidence" in receipt_lines
+    assert "Scale: Standards 4-point rubric" in receipt_lines
+    assert "Value: 3 — Proficient" in receipt_lines
+    assert "Native Artifact Evidence Links: 1" in receipt_lines
+    assert "Snapshot: 21" in receipt_lines
 
 
 def test_changed_evidence_link_never_reaches_teacher_confirmation(
@@ -587,13 +605,21 @@ def test_score_another_criterion_requires_fresh_criterion_and_value(
         fake_prepare,
     )
     monkeypatch.setattr(scoring_menu, "confirm_write", lambda *args: True)
-    mutation = SimpleNamespace(commit=SimpleNamespace(snapshot_revision=22))
+    mutation = SimpleNamespace(
+        score_record_id="score-second",
+        score_evidence_link_ids=("link-second",),
+        commit=SimpleNamespace(snapshot_revision=22, no_op=False),
+    )
     monkeypatch.setattr(
         scoring_menu,
         "record_prepared_routine_score",
         lambda supplied_preview, *, actor, **_kwargs: mutation,
     )
-    monkeypatch.setattr(scoring_menu, "show_result", lambda *args: None)
+    monkeypatch.setattr(
+        scoring_menu,
+        "show_result",
+        lambda title, lines: captured.setdefault("receipt", (title, tuple(lines))),
+    )
 
     outcome = scoring_menu._record_another_criterion(
         _activity(),
@@ -610,6 +636,14 @@ def test_score_another_criterion_requires_fresh_criterion_and_value(
     assert request.criterion_id != continuation.completed_criterion_id
     assert outcome.preview is preview
     assert outcome.mutation is mutation
+    receipt_title, receipt_lines = cast(
+        tuple[str, tuple[str, ...]], captured["receipt"]
+    )
+    assert receipt_title == "Score Recorded"
+    assert "Criterion: Explains reasoning" in receipt_lines
+    assert "Value: 4 — Sophisticated" in receipt_lines
+    assert "Native Artifact Evidence Links: 1" in receipt_lines
+    assert "Snapshot: 22" in receipt_lines
 
 
 def test_post_score_next_uses_latest_commit_revision_and_current_artifact(
