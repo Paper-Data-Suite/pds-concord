@@ -94,7 +94,9 @@ def test_source_boundary_inventory_preserves_named_p02_sites() -> None:
     assert successor.read_bytes() != payload
 
 
-def test_mixed_activity_score_label_reader_fails_closed_without_standards(
+# Preserve the historic witness name referenced by the frozen #140 Slice 3E
+# audit. Its assertion now verifies #152 fail-closed behavior, not silent loss.
+def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
