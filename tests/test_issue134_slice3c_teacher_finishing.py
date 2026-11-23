@@ -31,11 +31,11 @@ def _activity() -> ActivitySummary:
 
 
 def test_teacher_labels_are_exact_and_disambiguate_identical_group_names(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     reads: list[str] = []
 
-    def groups(*_args: object) -> tuple[object, ...]:
+    def groups(*_args: object, **_kwargs: object) -> tuple[object, ...]:
         reads.append("groups")
         return (
             SimpleNamespace(group_id="group-b", label="Group A"),
@@ -47,7 +47,7 @@ def test_teacher_labels_are_exact_and_disambiguate_identical_group_names(
     )
     monkeypatch.setattr(
         "concord.menu_score_teacher_labels.list_sessions",
-        lambda *_args: (
+        lambda *_args, **_kwargs: (
             SimpleNamespace(
                 session_id="session-1", sequence=2, label="Discussion"
             ),
@@ -64,7 +64,15 @@ def test_teacher_labels_are_exact_and_disambiguate_identical_group_names(
     )
     monkeypatch.setattr(
         "concord.menu_score_teacher_labels.resolve_read_workspace_root",
-        lambda: None,
+        lambda: tmp_path,
+    )
+    monkeypatch.setattr(
+        "concord.menu_score_teacher_labels.standards_for_activity",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "concord.menu_score_teacher_labels.load_class_roster",
+        lambda *_args: SimpleNamespace(students=()),
     )
     labels = build_score_teacher_labels(_activity())
     assert reads == ["groups"]

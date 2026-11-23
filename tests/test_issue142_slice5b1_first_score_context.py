@@ -135,7 +135,13 @@ def test_spy_only_score_boundary_forwards_exact_canonical_authority(
 
     def spy(preview: Any, **kwargs: Any) -> Any:
         captured.append((preview, kwargs))
-        return SimpleNamespace(commit=SimpleNamespace(snapshot_revision=7))
+        return SimpleNamespace(
+            score_record_id="synthetic-score",
+            score_evidence_link_ids=("synthetic-native-artifact-link",),
+            commit=SimpleNamespace(
+                snapshot_revision=7, no_op=False
+            ),
+        )
 
     monkeypatch.setattr(scoring, "record_prepared_routine_score", spy)
     before = list_work_snapshots(root, _work())
@@ -269,7 +275,7 @@ def test_stale_eligibility_snapshot_blocks_before_teacher_selection(
         lambda *a: pytest.fail("Stale inspection reached Score selection"),
     )
     before = list_work_snapshots(root, _work())
-    with pytest.raises(Exception, match="Score context changed"):
+    with pytest.raises(Exception, match="label workspace or Activity snapshot changed"):
         scoring._record_selected_artifact_score(
             current, ARTIFACT_ID, scoring.MenuSessionContext(actor=ACTOR)
         )

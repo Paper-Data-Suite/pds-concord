@@ -77,11 +77,24 @@ def test_source_boundary_inventory_preserves_named_p02_sites() -> None:
     successor = ROOT / (
         "docs/audits/issue142/slice6c4_current_boundary_inventory.csv"
     )
-    assert successor.read_bytes() == payload
+    # The #142 successor inventory is also a frozen historical source census.
+    # #152 changes teacher-menu call lines and explicit Standards keywords.
+    # Verify stable callsite identities without rewriting either archive.
+    old_rows = tuple(
+        csv.DictReader(io.StringIO(successor.read_text(encoding="utf-8")))
+    )
+
+    def identities(items: tuple[dict[str, str], ...]) -> set[tuple[str, str, str]]:
+        return {
+            (row["source_file"], row["service_name"], row["qualification_owner"])
+            for row in items
+        }
+    assert identities(rows) == identities(old_rows)
     assert successor.read_bytes() != frozen
+    assert successor.read_bytes() != payload
 
 
-def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
+def test_mixed_activity_score_label_reader_fails_closed_without_standards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = build_workspace(tmp_path, orientation="mixed")
@@ -140,17 +153,17 @@ def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
         teacher_labels.list_criterion_sets(
             SOURCE_CLASS, ACTIVITY_ID, current_only=False
         )
-    labels = teacher_labels.build_score_teacher_labels(
-        activity, include_score_definitions=True
-    )
-    assert labels.scales == {}
-    assert labels.criteria == {}
-    assert labels.scale("issue140-scale") == "Scoring Scale label unavailable"
-    assert (
-        labels.criterion("issue140-criterion-individual")
-        == "Criterion label unavailable"
-    )
-    assert list_work_snapshots(fixture.root, _work())
+    before = list_work_snapshots(fixture.root, _work())
+    # #152 fixes the original silent-loss bug: a failed authoritative
+    # assessment read must block consequential Score selection, not pretend
+    # the real native definitions are absent.
+    with pytest.raises(
+        Exception, match="Scoring Scale labels could not be verified"
+    ):
+        teacher_labels.build_score_teacher_labels(
+            activity, include_score_definitions=True
+        )
+    assert list_work_snapshots(fixture.root, _work()) == before
 
 
 @pytest.mark.parametrize("explicit", (False, True))

@@ -181,7 +181,13 @@ def test_next_criterion_spy_receives_new_snapshot_and_canonical_authority(
 
     def spy(preview: Any, **kwargs: Any) -> Any:
         captured.append((preview, kwargs))
-        return SimpleNamespace(commit=SimpleNamespace(snapshot_revision=17))
+        return SimpleNamespace(
+            score_record_id="synthetic-score",
+            score_evidence_link_ids=("synthetic-native-artifact-link",),
+            commit=SimpleNamespace(
+                snapshot_revision=17, no_op=False
+            ),
+        )
 
     monkeypatch.setattr(scoring, "record_prepared_routine_score", spy)
     before = list_work_snapshots(root, _work())
