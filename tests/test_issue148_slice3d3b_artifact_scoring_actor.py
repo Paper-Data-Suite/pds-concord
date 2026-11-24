@@ -188,7 +188,11 @@ def test_scoring_review_keeps_preview_target_and_reviewer(
         return alternate if approved else None
 
     patch(menu, "confirm_actor_write", reviewed)
-    mutation = SimpleNamespace(commit=SimpleNamespace(snapshot_revision=8))
+    mutation = SimpleNamespace(
+        score_record_id="score-actor-synthetic",
+        score_evidence_link_ids=("link-actor-synthetic",),
+        commit=SimpleNamespace(snapshot_revision=8, no_op=False),
+    )
     patch(
         menu,
         "record_prepared_routine_score",

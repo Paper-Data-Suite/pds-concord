@@ -31,6 +31,10 @@ from concord.menu_prompts import (
     select_one,
     show_result,
 )
+from concord.menu_teacher_history import (
+    distinguish_equal_labels,
+    teacher_recorded_instant,
+)
 from concord.menu_ui import (
     clear_screen,
     pause_for_user,
@@ -76,7 +80,10 @@ from concord.workflows.artifact_routine_scoring_selection import (
     routine_target_options,
 )
 from concord.workflows.context import resolve_read_workspace_root
-from concord.workflows.errors import ConcordWorkflowConflictError
+from concord.workflows.errors import (
+    ConcordWorkflowConflictError,
+    ConcordWorkflowValidationError,
+)
 from concord.workflows.models import ActivitySummary
 from concord.workflows.participants import participant_display_label
 from concord.workflows.score_recording import ScoreMutationResult
@@ -93,6 +100,25 @@ class _RoutineScoreMenuResult:
 
 def _current_activity(activity: ActivitySummary) -> ActivitySummary:
     return show_activity(activity.class_id, activity.activity_id).summary
+
+
+def _require_pinned_score_label_context(
+    context: ArtifactRoutineScoringContext,
+    authority: ArtifactWriteContext,
+) -> None:
+    """Block any workspace/snapshot split before Score target selection."""
+    root = getattr(context, "workspace_root", None)
+    if (
+        (root is not None and root.resolve() != authority.root)
+        or context.class_id != authority.class_id
+        or context.activity_id != authority.activity_id
+        or context.snapshot_revision != authority.snapshot_revision
+        or context.snapshot_sha256 != authority.snapshot_sha256
+    ):
+        raise ConcordWorkflowConflictError(
+            "The Score label workspace or Activity snapshot changed. "
+            "Reopen Score this work; no Score was recorded."
+        )
 
 
 def _refresh_score_continuation_authority(
@@ -147,35 +173,80 @@ def _launch_advanced_score(
     launch_score_menu(activity, state)
 
 
-def _student_label(class_id: str, student_id: str) -> str:
-    root = resolve_read_workspace_root()
+def _verified_score_display_name(
+    value: str | None, *, source: str
+) -> str:
+    """Require a human-facing identity; never substitute an opaque record ID."""
+    if value is None or not value.strip():
+        raise ConcordWorkflowValidationError(
+            f"{source} label is unavailable or ambiguous. "
+            "Reopen the Activity and verify its current identities before "
+            "choosing or confirming a Score; no Score was recorded."
+        )
+    return value
+
+
+def _student_label(
+    context: ArtifactRoutineScoringContext, student_id: str
+) -> str:
+    # Live workflow contexts carry the root from their inspected graph. The
+    # implicit active-root path is only for older in-memory menu projections.
+    root = getattr(context, "workspace_root", None)
     if root is None:
-        return student_id
+        root = resolve_read_workspace_root()
+    if root is None:
+        return _verified_score_display_name(None, source="Core student roster")
     reference = ParticipantReference(
         participant_kind="core_student",
         participant_id=student_id,
         owning_system="core",
     )
-    return participant_display_label(root, class_id, reference) or student_id
+    # Core's label projection returns None when a roster or student is absent.
+    # That is a blocked teacher decision, not permission to show the raw ID.
+    try:
+        display = participant_display_label(root, context.class_id, reference)
+    except ConcordWorkflowConflictError:
+        raise
+    except Exception as error:
+        raise ConcordWorkflowValidationError(
+            "Core student labels could not be verified. Reopen the Activity "
+            "and check the selected Core roster; no Score was recorded."
+        ) from error
+    return _verified_score_display_name(display, source="Core student")
 
 
 def _group_label(context: ArtifactRoutineScoringContext, group_id: str) -> str:
     group = next(
-        (item for item in context.current_groups if item.group_id == group_id),
+        (
+            item
+            for item in context.current_groups
+            if item.group_id == group_id
+            and item.activity_id == context.activity_id
+        ),
         None,
     )
-    return group_id if group is None else group.label
+    return _verified_score_display_name(
+        None if group is None else group.label, source="Cluster Group"
+    )
 
 
 def _session_label(context: ArtifactRoutineScoringContext, session_id: str) -> str:
     session = next(
-        (item for item in context.current_sessions if item.session_id == session_id),
+        (
+            item
+            for item in context.current_sessions
+            if item.session_id == session_id
+            and item.activity_id == context.activity_id
+        ),
         None,
     )
     if session is None:
-        return session_id
-    label = session.label or session.session_id
-    return f"{session.sequence}. {label}"
+        return _verified_score_display_name(None, source="Score Session")
+    # Canonical sequence identifies an otherwise unlabeled Session without
+    # exposing its opaque record ID or guessing another Session's name.
+    if session.label is None or not session.label.strip():
+        return f"Session {session.sequence}"
+    return f"{session.sequence}. {session.label}"
 
 
 def _target_label(
@@ -185,7 +256,7 @@ def _target_label(
 ) -> str:
     kind = reference.target_kind
     if kind == "core_student":
-        return f"{_student_label(context.class_id, reference.target_id)} — student"
+        return f"{_student_label(context, reference.target_id)} — student"
     if kind == "concord_group":
         return f"{_group_label(context, reference.target_id)} — group"
     if kind == "concord_session":
@@ -193,10 +264,15 @@ def _target_label(
     if kind == "concord_artifact_instance":
         if reference.target_id == context.artifact.artifact_instance_id:
             return "This Artifact"
-        return f"Artifact {reference.target_id}"
+        return _verified_score_display_name(None, source="Selected Artifact")
     if kind == "concord_activity":
-        return f"{activity.title} — Activity"
-    return f"{reference.target_id} — {kind.replace('_', ' ')}"
+        if reference.target_id == context.activity_id:
+            return (
+                _verified_score_display_name(activity.title, source="Activity")
+                + " — Activity"
+            )
+        return _verified_score_display_name(None, source="Activity")
+    return _verified_score_display_name(None, source="Score target")
 
 
 def _subject_label(
@@ -206,18 +282,20 @@ def _subject_label(
 ) -> str:
     kind = reference.subject_kind
     if kind == "core_student":
-        return f"{_student_label(context.class_id, reference.subject_id)} — student"
+        return f"{_student_label(context, reference.subject_id)} — student"
     if kind == "concord_group":
         return f"{_group_label(context, reference.subject_id)} — group"
     if kind == "concord_session":
         return f"{_session_label(context, reference.subject_id)} — session"
-    if kind == "concord_activity":
-        return f"{activity.title} — Activity"
+    if kind == "concord_activity" and reference.subject_id == context.activity_id:
+        return (
+            _verified_score_display_name(activity.title, source="Activity")
+            + " — Activity"
+        )
     if kind == "concord_artifact_instance":
         if reference.subject_id == context.artifact.artifact_instance_id:
             return "This Artifact"
-        return f"Artifact {reference.subject_id}"
-    return f"{reference.subject_id} — external record"
+    return _verified_score_display_name(None, source="Evidence Subject")
 
 
 def _choose_target(
@@ -229,9 +307,12 @@ def _choose_target(
         *options.candidates,
         None,
     )
-    labels = tuple(
-        _target_label(activity, context, item.target_reference)
-        for item in options.candidates
+    labels = distinguish_equal_labels(
+        tuple(
+            _target_label(activity, context, item.target_reference)
+            for item in options.candidates
+        ),
+        noun="Score target",
     ) + ("Other supported target... — Advanced Score recording",)
     selected = select_one(
         "Choose Score Target",
@@ -246,6 +327,36 @@ def _choose_target(
     return None if selected is None else selected.target_reference
 
 
+def _verified_assessment_label(value: str | None, *, kind: str) -> str:
+    """Stop a teacher decision before displaying missing assessment identity."""
+    if value is None or not value.strip():
+        raise ConcordWorkflowValidationError(
+            f"{kind} label could not be verified from current assessment setup. "
+            "Return to Assessment Setup and repair the Criterion/Scale before "
+            "choosing a Score value; no Score was recorded."
+        )
+    return value
+
+
+def _criterion_choice_labels(
+    criteria: tuple[Criterion, ...],
+) -> tuple[str, ...]:
+    if not criteria:
+        raise ConcordWorkflowValidationError(
+            "No current compatible Criterion is available for this Score target. "
+            "Return to Assessment Setup and verify the selected Criterion Set; "
+            "no Score was recorded."
+        )
+    return distinguish_equal_labels(
+        tuple(
+            f"{_verified_assessment_label(item.label, kind='Criterion')} "
+            f"[{item.criterion_kind}]"
+            for item in criteria
+        ),
+        noun="Criterion",
+    )
+
+
 def _choose_criterion(
     context: ArtifactRoutineScoringContext,
     target: ScoreTargetReference,
@@ -254,7 +365,7 @@ def _choose_criterion(
     return select_one(
         "Choose Criterion",
         criteria,
-        tuple(f"{item.label} [{item.criterion_kind}]" for item in criteria),
+        _criterion_choice_labels(criteria),
         help_text=(
             "Choose one explicit Criterion compatible with the selected target. "
             "Concord does not infer a Criterion from the Artifact."
@@ -268,6 +379,14 @@ def _choose_scale(
     criterion_id: str,
 ) -> ScoringScale:
     options = routine_scale_options(context, target, criterion_id)
+    if not options.scales:
+        raise ConcordWorkflowValidationError(
+            "No current active Scoring Scale is available. Return to "
+            "Assessment Setup to activate or select a compatible Scale; "
+            "no Score was recorded."
+        )
+    for item in options.scales:
+        _verified_assessment_label(item.name, kind="Scoring Scale")
     default_id = (
         None
         if options.default_scale is None
@@ -283,9 +402,12 @@ def _choose_scale(
             ),
         )
     )
-    labels = tuple(
-        item.name + (" [default]" if item.scoring_scale_id == default_id else "")
-        for item in ordered
+    labels = distinguish_equal_labels(
+        tuple(
+            item.name + (" [default]" if item.scoring_scale_id == default_id else "")
+            for item in ordered
+        ),
+        noun="Scoring Scale",
     )
     default_note = {
         "valid": "The configured current default is marked [default].",
@@ -372,7 +494,10 @@ def _choose_subject_context(
     return select_many(
         "Choose Evidence Subjects",
         options,
-        tuple(_subject_label(activity, context, item) for item in options),
+        distinguish_equal_labels(
+            tuple(_subject_label(activity, context, item) for item in options),
+            noun="Evidence Subject",
+        ),
         help_text=(
             "Choose only current confirmed Artifact Subjects that apply to this "
             "evidence use."
@@ -422,6 +547,69 @@ def _subject_preview_label(
     return ", ".join(_subject_label(activity, context, item) for item in subjects)
 
 
+def _review_evidence_lines(
+    context: ArtifactRoutineScoringContext,
+    preview: RoutineScorePreview,
+) -> tuple[str, ...]:
+    """Show exact Review provenance and proposed native Artifact evidence.
+
+    Review provenance informs the teacher's judgment, but is not itself
+    written as an additional Score Evidence Link. The native Artifact link
+    does not identify an immutable scanned-file or assembly version.
+    """
+    artifact_id = context.artifact.artifact_instance_id
+    review = context.current_review
+    source = context.evidence_reference
+    linked = preview.evidence.evidence_reference
+    if (
+        review is None
+        or not context.eligibility.routine_scoring_eligible
+        or review.artifact_instance_id != artifact_id
+        or preview.artifact_instance_id != artifact_id
+        or preview.class_id != context.class_id
+        or preview.activity_id != context.activity_id
+        or preview.snapshot_revision != context.snapshot_revision
+        or preview.snapshot_sha256 != context.snapshot_sha256
+        or source.evidence_kind != "artifact_instance"
+        or source.owning_system != "concord"
+        or source.record_id != artifact_id
+        or linked != source
+    ):
+        raise ConcordWorkflowConflictError(
+            "The reviewed Artifact or proposed evidence identity changed. "
+            "Reopen Score this work; no Score was recorded."
+        )
+    reviewer = review.reviewer
+    reviewer_label = (
+        reviewer.display_label_snapshot
+        if reviewer.actor_kind == "authorized_adult"
+        and reviewer.display_label_snapshot
+        else "Reviewer display name not recorded"
+    )
+    return (
+        "Review provenance (preview only): explicit current Artifact Review",
+        (
+            f"Review outcome/readiness: {review.review_outcome.replace('_', ' ')} / "
+            f"{review.scoring_readiness.replace('_', ' ')}"
+        ),
+        f"Reviewed by: {reviewer_label}",
+        teacher_recorded_instant(review.reviewed_at, kind="Reviewed"),
+        (
+            f"Review author/subject judgments: "
+            f"{review.author_judgment.replace('_', ' ')} / "
+            f"{review.subject_judgment.replace('_', ' ')}"
+        ),
+        (
+            f"Concord Artifact status: {context.artifact.artifact_status} "
+            "(not independent proof of a Core scan receipt)"
+        ),
+        (
+            "Proposed Score Evidence Link: one native Concord Artifact; "
+            "no exact scanned-file or assembled-PDF version linked"
+        ),
+    )
+
+
 def _preview_lines(
     activity: ActivitySummary,
     context: ArtifactRoutineScoringContext,
@@ -448,6 +636,7 @@ def _preview_lines(
         f"Moderation: {preview.evidence.moderation_requirement}",
         f"Relevance: {preview.evidence.relevance_description}",
     ]
+    lines.extend(_review_evidence_lines(context, preview))
     if preview.target_reference.target_kind == "concord_group":
         lines.extend(
             (
@@ -457,6 +646,55 @@ def _preview_lines(
             )
         )
     return tuple(lines)
+
+
+def _routine_score_receipt_lines(
+    decision_lines: tuple[str, ...],
+    mutation: ScoreMutationResult,
+) -> tuple[str, ...]:
+    """Report the committed Score using pre-approval verified human labels.
+
+    Never resolve names again after mutation from a possibly changed workspace.
+    A missing Evidence Link or no-op is an uncertain outcome, not proof that
+    a teacher should blindly submit a second Score.
+    """
+    link_count = len(mutation.score_evidence_link_ids)
+    snapshot = f"Snapshot: {mutation.commit.snapshot_revision}"
+    if mutation.commit.no_op or link_count != 1:
+        return (
+            "Score write outcome requires verification; do not submit again.",
+            f"Reported native Artifact Evidence Links: {link_count}",
+            snapshot,
+            "Open View Scores to verify the exact durable Score and links.",
+        )
+    names = (
+        "Target: ",
+        "Criterion: ",
+        "Scale: ",
+        "Value: ",
+        "Disposition: ",
+        "Basis: ",
+        "Evidence: ",
+        "Session: ",
+    )
+    details = tuple(
+        line for line in decision_lines
+        if line.startswith(names)
+    )
+    group_note = (
+        ("Group Score only: no individual student Scores were created.",)
+        if "GROUP SCORE WARNING:" in decision_lines
+        else ()
+    )
+    return (
+        "Teacher-authorized Score and native Artifact Evidence Link recorded.",
+        *details,
+        f"Native Artifact Evidence Links: {link_count}",
+        snapshot,
+        *group_note,
+        "Recording a Score is not a Grade or a Meridian publication.",
+        "Use View Scores to inspect it or Advanced Score to revise.",
+    )
 
 
 def _record_selected_artifact_score(
@@ -484,11 +722,8 @@ def _record_selected_artifact_score(
         artifact_instance_id,
         workspace_root=write_preview.root,
     )
-    if (
-        context.snapshot_revision != write_preview.snapshot_revision
-        or context.snapshot_sha256 != write_preview.snapshot_sha256
-        or context.artifact.artifact_instance_id != artifact_instance_id
-    ):
+    _require_pinned_score_label_context(context, write_preview)
+    if context.artifact.artifact_instance_id != artifact_instance_id:
         raise ConcordWorkflowConflictError(
             "Selected routine Score context changed after Activity selection."
         )
@@ -543,10 +778,11 @@ def _record_selected_artifact_score(
             ),
         )
         return None
+    decision_lines = _preview_lines(current, context, preview)
     actor = confirm_actor_write(
         "Score this work",
         "SCORE",
-        _preview_lines(current, context, preview),
+        decision_lines,
         state=state,
         legacy_confirm=confirm_write,
     )
@@ -573,10 +809,7 @@ def _record_selected_artifact_score(
     )
     show_result(
         "Score Recorded",
-        (
-            "The explicit Score and native Artifact Evidence Link were recorded.",
-            f"Snapshot: {result.commit.snapshot_revision}",
-        ),
+        _routine_score_receipt_lines(decision_lines, result),
     )
     return _RoutineScoreMenuResult(
         preview=preview, mutation=result, write_context=write_context
@@ -611,6 +844,7 @@ def _record_another_criterion(
         snapshot_revision=context.snapshot_revision,
         snapshot_sha256=context.snapshot_sha256,
     )
+    _require_pinned_score_label_context(context, write_preview)
     if (
         context.class_id != write_preview.class_id
         or context.activity_id != write_preview.activity_id
@@ -652,7 +886,7 @@ def _record_another_criterion(
     criterion = select_one(
         "Choose Another Criterion",
         criteria,
-        tuple(f"{item.label} [{item.criterion_kind}]" for item in criteria),
+        _criterion_choice_labels(criteria),
         help_text=(
             "Choose a fresh explicit Criterion. The just-completed Criterion "
             "is not reused by this shortcut."
@@ -687,10 +921,11 @@ def _record_another_criterion(
             ),
         )
         return None
+    decision_lines = _preview_lines(activity, context, preview)
     actor = confirm_actor_write(
         "Score another Criterion",
         "SCORE",
-        _preview_lines(activity, context, preview),
+        decision_lines,
         state=state,
         legacy_confirm=confirm_write,
     )
@@ -717,10 +952,7 @@ def _record_another_criterion(
     )
     show_result(
         "Score Recorded",
-        (
-            "Another explicit Score and native Artifact Evidence Link were recorded.",
-            f"Snapshot: {result.commit.snapshot_revision}",
-        ),
+        _routine_score_receipt_lines(decision_lines, result),
     )
     return _RoutineScoreMenuResult(
         preview=preview, mutation=result, write_context=write_context

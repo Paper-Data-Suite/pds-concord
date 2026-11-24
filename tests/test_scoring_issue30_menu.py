@@ -8,6 +8,7 @@ import pytest
 import concord.menu_activity as menu_activity
 import concord.menu_scoring as menu_scoring
 from concord.menu_context import MenuSessionContext
+from concord.menu_score_teacher_labels import ScoreTeacherLabels
 from concord.models import Criterion, ScoreTargetReference
 from concord.workflows import (
     ActivityDetail,
@@ -30,6 +31,24 @@ def _activity() -> ActivitySummary:
     )
 
 
+@pytest.fixture
+def _synthetic_confirmation_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate legacy confirmation tests from canonical label-storage reads.
+
+    #152 separately exercises real authoritative label failures and no-write
+    behavior. These historical tests use only an in-memory Activity summary.
+    """
+
+    def labels(activity: ActivitySummary) -> ScoreTeacherLabels:
+        assert activity.class_id == "class-1"
+        assert activity.activity_id == "activity-1"
+        return ScoreTeacherLabels(
+            targets={("concord_group", "group-1"): "Synthetic Cluster"}
+        )
+
+    monkeypatch.setattr(menu_scoring, "build_score_teacher_labels", labels)
+
+
 def test_json_scalar_parser_preserves_native_types() -> None:
     integer = menu_scoring._parse_json_scalar("1")
     floating = menu_scoring._parse_json_scalar("1.0")
@@ -42,6 +61,7 @@ def test_json_scalar_parser_preserves_native_types() -> None:
     assert type(boolean) is bool
 
 
+@pytest.mark.usefixtures("_synthetic_confirmation_labels")
 def test_group_score_confirmation_warns_against_individual_propagation() -> None:
     activity = _activity()
     target = ScoreTargetReference(
@@ -70,11 +90,13 @@ def test_group_score_confirmation_warns_against_individual_propagation() -> None
         0,
     )
 
+    assert "Target: Synthetic Cluster" in lines
     assert "GROUP SCORE WARNING:" in lines
     assert "This Score applies only to the Group." in lines
     assert "It creates no individual student Scores." in lines
 
 
+@pytest.mark.usefixtures("_synthetic_confirmation_labels")
 def test_record_score_requires_literal_score_confirmation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -134,6 +156,7 @@ def test_record_score_requires_literal_score_confirmation(
 
     assert captured["title"] == "Record a Score"
     assert captured["expected"] == "SCORE"
+    assert "Target: Synthetic Cluster" in cast(tuple[str, ...], captured["lines"])
     assert "GROUP SCORE WARNING:" in cast(tuple[str, ...], captured["lines"])
 
 

@@ -69,18 +69,28 @@ def test_source_boundary_inventory_preserves_named_p02_sites() -> None:
     assert {row["service_name"] for row in frozen_rows} == {
         row["service_name"] for row in rows
     }
-    assert all(
-        row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in frozen_rows
-    )
+    assert all(row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in frozen_rows)
     # A separate #142 successor inventory must track the CURRENT source exactly.
     # Do not label source-only candidate status as runtime verification.
-    successor = ROOT / (
-        "docs/audits/issue142/slice6c4_current_boundary_inventory.csv"
-    )
-    assert successor.read_bytes() == payload
+    successor = ROOT / ("docs/audits/issue142/slice6c4_current_boundary_inventory.csv")
+    # The #142 successor inventory is also a frozen historical source census.
+    # #152 changes teacher-menu call lines and explicit Standards keywords.
+    # Verify stable callsite identities without rewriting either archive.
+    old_rows = tuple(csv.DictReader(io.StringIO(successor.read_text(encoding="utf-8"))))
+
+    def identities(items: tuple[dict[str, str], ...]) -> set[tuple[str, str, str]]:
+        return {
+            (row["source_file"], row["service_name"], row["qualification_owner"])
+            for row in items
+        }
+
+    assert identities(rows) == identities(old_rows)
     assert successor.read_bytes() != frozen
+    assert successor.read_bytes() != payload
 
 
+# Preserve the historic witness name referenced by the frozen #140 Slice 3E
+# audit. Its assertion now verifies #152 fail-closed behavior, not silent loss.
 def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -106,18 +116,20 @@ def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
         current_only=False,
     )
     assert native_scales and native_sets
-    # The menu label projection has no Standards parameter. We inject only
-    # the exact disposable workspace root; leave its missing library untouched.
-    monkeypatch.setattr(
-        teacher_labels,
-        "list_scoring_scales",
-        lambda *a, **kw: list_scoring_scales(*a, **kw, workspace_root=fixture.root),
-    )
-    monkeypatch.setattr(
-        teacher_labels,
-        "list_criterion_sets",
-        lambda *a, **kw: list_criterion_sets(*a, **kw, workspace_root=fixture.root),
-    )
+    # Preserve the original guarded-read witness independently of ambient
+    # teacher configuration. Neither direct read has canonical Standards.
+    with pytest.raises(
+        Exception, match="standards_library is required for this Activity"
+    ):
+        list_scoring_scales(
+            SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root, current_only=False
+        )
+    with pytest.raises(
+        Exception, match="standards_library is required for this Activity"
+    ):
+        list_criterion_sets(
+            SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root, current_only=False
+        )
     monkeypatch.setattr(teacher_labels, "list_groups", lambda *a, **kw: ())
     monkeypatch.setattr(teacher_labels, "list_sessions", lambda *a, **kw: ())
     monkeypatch.setattr(
@@ -126,31 +138,29 @@ def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
     monkeypatch.setattr(
         teacher_labels, "resolve_read_workspace_root", lambda: fixture.root
     )
-    # Confirm the failure is *specifically* the guarded Standards read, not a
-    # fixture setup problem or a missing Criterion/Scale definition.
-    with pytest.raises(
-        Exception, match="standards_library is required for this Activity"
-    ):
-        teacher_labels.list_scoring_scales(
-            SOURCE_CLASS, ACTIVITY_ID, current_only=False
-        )
-    with pytest.raises(
-        Exception, match="standards_library is required for this Activity"
-    ):
-        teacher_labels.list_criterion_sets(
-            SOURCE_CLASS, ACTIVITY_ID, current_only=False
-        )
+    monkeypatch.setattr(
+        teacher_labels, "standards_for_activity", lambda _activity: fixture.standards
+    )
+    before = list_work_snapshots(fixture.root, _work())
     labels = teacher_labels.build_score_teacher_labels(
         activity, include_score_definitions=True
     )
-    assert labels.scales == {}
-    assert labels.criteria == {}
-    assert labels.scale("issue140-scale") == "Scoring Scale label unavailable"
-    assert (
-        labels.criterion("issue140-criterion-individual")
-        == "Criterion label unavailable"
-    )
-    assert list_work_snapshots(fixture.root, _work())
+    assert labels.scales
+    assert labels.criteria
+
+    def failed_scale_read(*a: Any, **kw: Any) -> Any:
+        assert kw["workspace_root"] == fixture.root
+        assert kw["standards_library"] is fixture.standards
+        raise RuntimeError("synthetic authoritative scale read failure")
+
+    monkeypatch.setattr(teacher_labels, "list_scoring_scales", failed_scale_read)
+    # A failed authoritative assessment read must block consequential Score
+    # selection, not pretend the real native definitions are absent.
+    with pytest.raises(Exception, match="Scoring Scale labels could not be verified"):
+        teacher_labels.build_score_teacher_labels(
+            activity, include_score_definitions=True
+        )
+    assert list_work_snapshots(fixture.root, _work()) == before
 
 
 @pytest.mark.parametrize("explicit", (False, True))

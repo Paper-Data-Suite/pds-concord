@@ -15,6 +15,7 @@ import pytest
 
 import concord.menu_scoring as menu
 from concord.menu_context import MenuSessionContext
+from concord.menu_score_teacher_labels import ScoreTeacherLabels
 from concord.models import StatusReason
 from concord.workflows import WorkflowActor
 from concord.workflows.context import actor_reference
@@ -160,12 +161,29 @@ def test_final_reviewed_actor_owns_status_reason_or_cancel_is_no_write(
         )
         menu._record_score(current, state)
     else:
-        predecessor = SimpleNamespace(score_record_id="prior-score")
+        predecessor = SimpleNamespace(
+            score_record_id="prior-score",
+            target_reference=SimpleNamespace(
+                target_kind="core_student", target_id="student-fake"
+            ),
+            criterion_id="criterion-fake",
+            scoring_scale_id="scale-fake",
+            session_id=None,
+            scored_at="2026-11-14T12:34:56+00:00",
+            disposition="scored",
+            value="meeting",
+            is_current=True,
+        )
+        labels = ScoreTeacherLabels(
+            targets={("core_student", "student-fake"): "Synthetic student"},
+            criteria={"criterion-fake": "Synthetic criterion"},
+            scales={"scale-fake": "Synthetic scale"},
+        )
         monkeypatch.setattr(
             menu, "list_current_score_heads", lambda *_a, **_kw: (predecessor,)
         )
         monkeypatch.setattr(
-            menu, "build_score_teacher_labels", lambda *_a, **_kw: object()
+            menu, "build_score_teacher_labels", lambda *_a, **_kw: labels
         )
         monkeypatch.setattr(menu, "select_one", lambda *_a, **_kw: predecessor)
         monkeypatch.setattr(menu, "_score_label", lambda *_a, **_kw: "Previous score")
