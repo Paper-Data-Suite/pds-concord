@@ -75,12 +75,12 @@ def _privacy() -> PrivacyPolicy:
     return PrivacyPolicy(classification="teacher_restricted")
 
 
-def _standards() -> StandardsLibrary:
+def _standards(standard_id: str = "standard-1") -> StandardsLibrary:
     return StandardsLibrary(
         standards=(
             StandardDefinition(
-                standard_id="standard-1",
-                code="SYN.1",
+                standard_id=standard_id,
+                code="SYN.1" if standard_id == "standard-1" else standard_id,
                 source="synthetic",
                 short_name="Synthetic standard",
                 description="Privacy-safe standard used only by tests.",
@@ -90,7 +90,7 @@ def _standards() -> StandardsLibrary:
         profiles=(
             StandardsProfile(
                 profile_id="profile-1",
-                standards=("standard-1",),
+                standards=(standard_id,),
                 title="Synthetic standards profile",
             ),
         ),
@@ -123,7 +123,7 @@ def _artifact_evidence() -> EvidenceReference:
 
 
 def _workspace(
-    tmp_path: Path,
+    tmp_path: Path, *, standard_id: str = "standard-1"
 ) -> tuple[Path, int, StandardsLibrary]:
     root = ensure_workspace_root(tmp_path / "workspace")
     write_class_metadata_for_class(
@@ -150,7 +150,7 @@ def _workspace(
             ),
         ),
     )
-    standards = _standards()
+    standards = _standards(standard_id)
     activity = create_activity_context(
         CreateActivityContextRequest(
             class_id="class-1",
@@ -159,7 +159,7 @@ def _workspace(
             activity_type="project",
             scoring_orientation="mixed",
             standards_profile_id="profile-1",
-            focus_standard_ids=("standard-1",),
+            focus_standard_ids=(standard_id,),
             session_id="session-1",
             actor=_actor(),
         ),
@@ -228,7 +228,7 @@ def _workspace(
                     label="Reasoning",
                     definition="Uses evidence to support reasoning.",
                     criterion_kind="standard_backed",
-                    standard_id="standard-1",
+                    standard_id=standard_id,
                     supported_target_kinds=("core_student",),
                     default_scoring_scale_id="scale-1",
                 ),

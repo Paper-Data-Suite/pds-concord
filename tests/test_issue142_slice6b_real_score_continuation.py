@@ -66,11 +66,14 @@ def _revision(root: Path) -> int:
 
 
 def _setup_reviewed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    standard_id: str = "standard-1",
 ) -> tuple[Path, object]:
     # Existing real Core setup: student roster, standard-backed and local
     # Criteria, an active Scale, and an explicitly selected Criterion Set.
-    root, _initial_revision, standards = scoring_workspace(tmp_path)
+    root, _initial_revision, standards = scoring_workspace(tmp_path, standard_id=standard_id)
     write_workspace_standards_library(root, standards)
     prepared = prepare_artifact_pages(
         PrepareArtifactPagesRequest(

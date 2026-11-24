@@ -53,10 +53,13 @@ GROUP_CRITERION = "criterion-cluster-collaboration"
 
 
 def _prepare_individual_and_group(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    standard_id: str = "standard-1",
 ) -> tuple[Path, object]:
     """Use existing physical-shaped synthetic fixture; add genuine Group data."""
-    root, standards = _setup_reviewed(tmp_path, monkeypatch)
+    root, standards = _setup_reviewed(tmp_path, monkeypatch, standard_id=standard_id)
     effective = EffectiveContext(
         activity_id=ACTIVITY,
         session_ids=("session-1",),
@@ -187,10 +190,13 @@ def _group_menu_choices(
     return confirmed
 
 
+@pytest.mark.parametrize("standard_id", ("standard-1", "SL.PE.11-12.1"))
 def test_real_student_and_cluster_scores_are_separate_native_records(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, standard_id: str
 ) -> None:
-    root, standards = _prepare_individual_and_group(tmp_path, monkeypatch)
+    root, standards = _prepare_individual_and_group(
+        tmp_path, monkeypatch, standard_id=standard_id
+    )
     context = inspect_artifact_routine_scoring(
         CLASS, ACTIVITY, ARTIFACT, workspace_root=root
     )
@@ -226,7 +232,7 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
     first = _first_score(root, monkeypatch)
     assert first.preview.target_reference == individual
     assert first.preview.score_kind == "standard_backed"
-    assert first.preview.standard_id == "standard-1"
+    assert first.preview.standard_id == standard_id
     prior_revision = _revision(root)
 
     confirms = _group_menu_choices(monkeypatch)
@@ -265,7 +271,18 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
     assert scores[("core_student", "student-1")].criterion_id == (
         "criterion-standard"
     )
-    assert scores[("concord_group", GROUP_ID)].criterion_id == GROUP_CRITERION
+    student_score = scores[("core_student", "student-1")]
+    group_score = scores[("concord_group", GROUP_ID)]
+    assert student_score.standard_id == standard_id
+    assert student_score.value == 3
+    assert group_score.criterion_id == GROUP_CRITERION
+    assert group_score.standard_id is None
+    assert group_score.value == 4
+    (student_link,) = (
+        link for link in graph.score_evidence_links
+        if link.score_record_id == student_score.score_record_id
+    )
+    assert student_link.evidence_reference.record_id == ARTIFACT
     assert {
         item.evidence_reference.record_id for item in graph.score_evidence_links
     } == {ARTIFACT}
