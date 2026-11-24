@@ -69,26 +69,21 @@ def test_source_boundary_inventory_preserves_named_p02_sites() -> None:
     assert {row["service_name"] for row in frozen_rows} == {
         row["service_name"] for row in rows
     }
-    assert all(
-        row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in frozen_rows
-    )
+    assert all(row["evidence_status"] == "BLOCKED_OR_UNTESTED" for row in frozen_rows)
     # A separate #142 successor inventory must track the CURRENT source exactly.
     # Do not label source-only candidate status as runtime verification.
-    successor = ROOT / (
-        "docs/audits/issue142/slice6c4_current_boundary_inventory.csv"
-    )
+    successor = ROOT / ("docs/audits/issue142/slice6c4_current_boundary_inventory.csv")
     # The #142 successor inventory is also a frozen historical source census.
     # #152 changes teacher-menu call lines and explicit Standards keywords.
     # Verify stable callsite identities without rewriting either archive.
-    old_rows = tuple(
-        csv.DictReader(io.StringIO(successor.read_text(encoding="utf-8")))
-    )
+    old_rows = tuple(csv.DictReader(io.StringIO(successor.read_text(encoding="utf-8"))))
 
     def identities(items: tuple[dict[str, str], ...]) -> set[tuple[str, str, str]]:
         return {
             (row["source_file"], row["service_name"], row["qualification_owner"])
             for row in items
         }
+
     assert identities(rows) == identities(old_rows)
     assert successor.read_bytes() != frozen
     assert successor.read_bytes() != payload
@@ -159,9 +154,7 @@ def test_mixed_activity_score_label_reader_silently_loses_native_definitions(
     # #152 fixes the original silent-loss bug: a failed authoritative
     # assessment read must block consequential Score selection, not pretend
     # the real native definitions are absent.
-    with pytest.raises(
-        Exception, match="Scoring Scale labels could not be verified"
-    ):
+    with pytest.raises(Exception, match="Scoring Scale labels could not be verified"):
         teacher_labels.build_score_teacher_labels(
             activity, include_score_definitions=True
         )
