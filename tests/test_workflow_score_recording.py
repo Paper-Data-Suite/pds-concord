@@ -1228,8 +1228,7 @@ def test_score_revision_uses_fresh_links_and_can_correct_target_and_criterion(
     )
     scores = {item.score_record_id: item for item in loaded.graph.score_records}
     links = {
-        item.score_evidence_link_id: item
-        for item in loaded.graph.score_evidence_links
+        item.score_evidence_link_id: item for item in loaded.graph.score_evidence_links
     }
     assert scores["score-before"].target_reference == _student_target()
     assert scores["score-before"].criterion_id == "criterion-standard"

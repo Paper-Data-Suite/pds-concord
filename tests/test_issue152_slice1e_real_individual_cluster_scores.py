@@ -169,7 +169,8 @@ def _group_menu_choices(
 
     def criterion(context: object, _target: object) -> object:
         return next(
-            item for item in context.eligible_criteria
+            item
+            for item in context.eligible_criteria
             if item.criterion_id == GROUP_CRITERION
         )
 
@@ -180,9 +181,7 @@ def _group_menu_choices(
         lambda scale: scale.levels[3],
     )
 
-    def confirm(
-        _title: str, _token: str, lines: tuple[str, ...]
-    ) -> bool:
+    def confirm(_title: str, _token: str, lines: tuple[str, ...]) -> bool:
         confirmed.append(lines)
         return True
 
@@ -210,13 +209,12 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
     )
     assert individual in choices
     assert _group_target() in choices
-    assert {item.criterion_id for item in routine_criteria_for_target(
-        context, _group_target()
-    )} == {GROUP_CRITERION}
+    assert {
+        item.criterion_id
+        for item in routine_criteria_for_target(context, _group_target())
+    } == {GROUP_CRITERION}
     assert GROUP_CRITERION not in {
-        item.criterion_id for item in routine_criteria_for_target(
-            context, individual
-        )
+        item.criterion_id for item in routine_criteria_for_target(context, individual)
     }
     with pytest.raises(ConcordWorkflowValidationError):
         prepare_routine_score_preview(
@@ -253,9 +251,7 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
     assert "It creates no individual student Scores." in confirms[0]
     assert any("Review provenance" in line for line in confirms[0])
 
-    graph = load_current_record_graph(
-        root, WORK, standards_library=standards
-    ).graph
+    graph = load_current_record_graph(root, WORK, standards_library=standards).graph
     assert len(graph.score_records) == 2
     assert len(graph.score_evidence_links) == 2
     assert len(graph.memberships) == 2
@@ -268,9 +264,7 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
         ("concord_group", GROUP_ID),
     }
     assert ("core_student", "student-2") not in scores
-    assert scores[("core_student", "student-1")].criterion_id == (
-        "criterion-standard"
-    )
+    assert scores[("core_student", "student-1")].criterion_id == ("criterion-standard")
     student_score = scores[("core_student", "student-1")]
     group_score = scores[("concord_group", GROUP_ID)]
     assert student_score.standard_id == standard_id
@@ -279,7 +273,8 @@ def test_real_student_and_cluster_scores_are_separate_native_records(
     assert group_score.standard_id is None
     assert group_score.value == 4
     (student_link,) = (
-        link for link in graph.score_evidence_links
+        link
+        for link in graph.score_evidence_links
         if link.score_record_id == student_score.score_record_id
     )
     assert student_link.evidence_reference.record_id == ARTIFACT
@@ -299,9 +294,11 @@ def test_unconfirmed_cluster_score_preserves_student_and_group_state(
     before = list_work_snapshots(root, WORK)
     monkeypatch.setattr(scoring_menu, "_choose_target", lambda *_a: _group_target())
     monkeypatch.setattr(
-        scoring_menu, "_choose_criterion",
+        scoring_menu,
+        "_choose_criterion",
         lambda context, *_a: next(
-            item for item in context.eligible_criteria
+            item
+            for item in context.eligible_criteria
             if item.criterion_id == GROUP_CRITERION
         ),
     )
@@ -318,9 +315,7 @@ def test_unconfirmed_cluster_score_preserves_student_and_group_state(
     )
     assert result is None
     assert list_work_snapshots(root, WORK) == before
-    graph = load_current_record_graph(
-        root, WORK, standards_library=standards
-    ).graph
+    graph = load_current_record_graph(root, WORK, standards_library=standards).graph
     assert len(graph.score_records) == 1
     assert len(graph.score_evidence_links) == 1
     assert graph.score_records[0].target_reference.target_kind == "core_student"

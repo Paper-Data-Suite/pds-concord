@@ -73,7 +73,9 @@ def _setup_reviewed(
 ) -> tuple[Path, object]:
     # Existing real Core setup: student roster, standard-backed and local
     # Criteria, an active Scale, and an explicitly selected Criterion Set.
-    root, _initial_revision, standards = scoring_workspace(tmp_path, standard_id=standard_id)
+    root, _initial_revision, standards = scoring_workspace(
+        tmp_path, standard_id=standard_id
+    )
     write_workspace_standards_library(root, standards)
     prepared = prepare_artifact_pages(
         PrepareArtifactPagesRequest(
@@ -156,6 +158,7 @@ def _setup_reviewed(
 
     def resolver(explicit: str | Path | None = None) -> Path:
         return root if explicit is None else Path(explicit)
+
     monkeypatch.setattr(authority, "resolve_read_workspace_root", resolver)
     # Scoring labels must not consult the machine's default school workspace.
     monkeypatch.setattr(scoring_menu, "resolve_read_workspace_root", resolver)
@@ -197,7 +200,8 @@ def _first_score(
         scoring_menu,
         "_choose_criterion",
         lambda context, _target: next(
-            item for item in context.eligible_criteria
+            item
+            for item in context.eligible_criteria
             if item.criterion_id == "criterion-standard"
         ),
     )
@@ -205,7 +209,8 @@ def _first_score(
         scoring_menu,
         "_choose_scale",
         lambda context, *_args: next(
-            item for item in context.current_scoring_scales
+            item
+            for item in context.current_scoring_scales
             if item.scoring_scale_id == "scale-1"
         ),
     )
@@ -277,13 +282,12 @@ def test_real_standard_backed_and_second_criterion_record_distinct_scores(
     assert second.write_context.root == root
     assert len(list_work_snapshots(root, WORK)) == len(before) + 2
 
-    graph = load_current_record_graph(
-        root, WORK, standards_library=standards
-    ).graph
+    graph = load_current_record_graph(root, WORK, standards_library=standards).graph
     assert len(graph.score_records) == 2
     assert len(graph.score_evidence_links) == 2
     assert {item.criterion_id for item in graph.score_records} == {
-        "criterion-standard", "criterion-local"
+        "criterion-standard",
+        "criterion-local",
     }
     assert {
         item.evidence_reference.record_id for item in graph.score_evidence_links
@@ -322,6 +326,11 @@ def test_real_duplicate_standard_score_cannot_create_parallel_record(
             standards_library=standards,
         )
     assert _revision(root) == revision
-    assert len(load_current_record_graph(
-        root, WORK, standards_library=standards
-    ).graph.score_records) == 1
+    assert (
+        len(
+            load_current_record_graph(
+                root, WORK, standards_library=standards
+            ).graph.score_records
+        )
+        == 1
+    )
