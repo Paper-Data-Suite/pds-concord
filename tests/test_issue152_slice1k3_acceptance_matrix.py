@@ -59,10 +59,13 @@ def test_orientation_filters_explicit_score_preparation(
         with pytest.raises(ConcordWorkflowValidationError):
             routine_target_options(context)
     else:
-        assert tuple(
-            item.criterion_id
-            for item in routine_criteria_for_target(context, _target())
-        ) == allowed
+        assert (
+            tuple(
+                item.criterion_id
+                for item in routine_criteria_for_target(context, _target())
+            )
+            == allowed
+        )
     for criterion_id in ("focus", "non-focus", "local"):
         request = _request(criterion_id=criterion_id)
         if criterion_id not in allowed:
