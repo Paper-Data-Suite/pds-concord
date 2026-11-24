@@ -296,11 +296,15 @@ def test_two_class_native_scores_and_evidence_are_isolated(tmp_path: Path) -> No
         attempts = (
             replace(
                 valid,
-                target_reference=_request(fixture, foreign, group=False).target_reference,
+                target_reference=_request(
+                    fixture, foreign, group=False
+                ).target_reference,
             ),
             replace(
                 group,
-                target_reference=_request(fixture, foreign, group=True).target_reference,
+                target_reference=_request(
+                    fixture, foreign, group=True
+                ).target_reference,
             ),
             replace(valid, criterion_id=f"{foreign.class_id}-individual"),
             replace(valid, scoring_scale_id=f"{foreign.class_id}-scale"),
