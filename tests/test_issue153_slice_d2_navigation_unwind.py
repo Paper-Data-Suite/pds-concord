@@ -38,7 +38,9 @@ ROUTES = (
 
 
 def _choose(*_args: object, **_kwargs: object) -> str:
-    return select_one("Synthetic selection", ("one",), ("One",), help_text="Choose one.")
+    return select_one(
+        "Synthetic selection", ("one",), ("One",), help_text="Choose one."
+    )
 
 
 @pytest.mark.parametrize("route", ROUTES)
@@ -68,7 +70,9 @@ def test_nested_action_navigation_never_becomes_error_or_write(
     monkeypatch.setattr(
         activity_menu, "resolve_read_workspace_root", lambda: Path("synthetic")
     )
-    monkeypatch.setattr(activity_menu, "list_available_classes", lambda *_a: (object(),))
+    monkeypatch.setattr(
+        activity_menu, "list_available_classes", lambda *_a: (object(),)
+    )
     monkeypatch.setattr(activity_menu, "list_activities", lambda **_k: (ACTIVITY,))
     monkeypatch.setattr(
         activity_menu,
