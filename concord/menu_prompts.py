@@ -22,6 +22,8 @@ from concord.menu_context import CancelMenuAction
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -200,13 +202,16 @@ def confirm_write(title: str, expected: str, lines: Sequence[str]) -> bool:
 
 
 def prompt_conflict_reload() -> bool:
-    """Offer the ticketed stale-snapshot Reload/B/M/Q decision."""
+    """Offer a read-only inspection after a canonical storage conflict."""
     while True:
         clear_screen()
-        print_menu_header("Activity Changed")
-        print("This Activity changed after you opened it.")
+        print_menu_header("Activity Write Conflict")
+        print("Concord could not complete the requested write because of a conflict.")
         print()
-        print("Reload the current Activity before making another change.")
+        print("The Activity may have changed, or another write may be in progress.")
+        print("A storage collision is also possible; the cause is not yet verified.")
+        print("Reload the current Activity to inspect its saved state.")
+        print("Do not repeat the action until you have reviewed that state.")
         print()
         print("1. Reload")
         print_navigation()
@@ -215,9 +220,10 @@ def prompt_conflict_reload() -> bool:
         navigation = parse_menu_navigation(raw)
         if navigation is ConcordMenuChoice.HELP:
             clear_screen()
-            print_menu_header("Activity Changed Help")
+            print_menu_header("Activity Write Conflict Help")
             print("Reload reads the current Activity without retrying the write.")
             print("Concord never force-overwrites a stale snapshot.")
+            print("Reload does not establish that a write lock or sync conflict ended.")
             print()
             pause_for_user()
             continue
@@ -245,8 +251,8 @@ def show_partial_success(error: ConcordStoragePartialSuccessError) -> None:
     if error.durable_paths:
         lines.append(f"Durable recovery paths: {len(error.durable_paths)}")
     lines.append("Review canonical storage before retrying this action.")
+    lines.append("Do not resubmit the original action automatically.")
     show_result("Partial Success", tuple(lines))
-
 
 
 def handle_write_error(
@@ -260,8 +266,17 @@ def handle_write_error(
         if prompt_conflict_reload():
             try:
                 reload()
-            except Exception as reload_error:
-                show_result("Reload Error", (str(reload_error),))
+            except (CancelMenuAction, ReturnToMainMenu, QuitPDS):
+                raise
+            except Exception:
+                show_result(
+                    "Reload Error",
+                    (
+                        "The current Activity could not be inspected safely.",
+                        "Reopen it and verify the saved state before another write.",
+                        "The original action was not retried.",
+                    ),
+                )
         return
     if isinstance(error, ConcordStoragePartialSuccessError):
         show_partial_success(error)
@@ -438,8 +453,8 @@ def choose_session(
 
 def choose_group(groups: Sequence[GroupSummary], *, title: str) -> GroupSummary:
     labels = tuple(
-        f"{item.label} - {item.status.replace('_', ' ')} "
-        f"({item.member_count} members)" for item in groups
+        f"{item.label} - {item.status.replace('_', ' ')} ({item.member_count} members)"
+        for item in groups
     )
     return select_one(
         title,
