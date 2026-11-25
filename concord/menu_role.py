@@ -162,33 +162,33 @@ def _choose_existing(items: tuple[RoleSummary, ...], title: str) -> RoleSummary:
 
 
 def _choose_optional_group(activity: ActivitySummary) -> str | None:
-    groups = list_groups(activity.class_id, activity.activity_id)
-    if not groups:
-        return None
-    clear_screen()
-    print_menu_header("Role Group")
-    print("1. No Group")
-    print("2. Choose a Group")
-    print_navigation()
-    print()
-    raw = input("Select an option: ").strip()
-    navigation = parse_menu_navigation(raw)
-    if navigation is ConcordMenuChoice.HELP:
+    while True:
+        groups = list_groups(activity.class_id, activity.activity_id)
+        if not groups:
+            return None
         clear_screen()
-        print_menu_header("Role Group Help")
-        print("A Role may be Activity-wide or associated with one Group.")
+        print_menu_header("Role Group")
+        print("1. No Group")
+        print("2. Choose a Group")
+        print_navigation()
         print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Role Group Help")
+            print("A Role may be Activity-wide or associated with one Group.")
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            return None
+        if raw == "2":
+            return choose_group(groups, title="Choose a Role Group").group_id
+        print(navigation_hint_with_help())
         pause_for_user()
-        return _choose_optional_group(activity)
-    if navigation is NavigationChoice.BACK:
-        raise CancelMenuAction
-    if raw == "1":
-        return None
-    if raw == "2":
-        return choose_group(groups, title="Choose a Role Group").group_id
-    print(navigation_hint_with_help())
-    pause_for_user()
-    return _choose_optional_group(activity)
 
 
 def _choose_role_preset() -> PresetSummary | None:

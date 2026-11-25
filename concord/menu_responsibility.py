@@ -127,41 +127,44 @@ def _choose_existing(
 def _choose_assignee(
     activity: ActivitySummary,
 ) -> tuple[WorkflowAssigneeReference, str | None, str]:
-    clear_screen()
-    print_menu_header("Responsibility Assignee")
-    print("1. Student")
-    print("2. Group")
-    print_navigation()
-    print()
-    raw = input("Select an option: ").strip()
-    navigation = parse_menu_navigation(raw)
-    if navigation is ConcordMenuChoice.HELP:
+    while True:
         clear_screen()
-        print_menu_header("Responsibility Assignee Help")
-        print("Responsibilities may belong to one rostered student or to a Group.")
-        print(
-            "A Group assignee remains a Group; Concord does not synthesize a student."
-        )
+        print_menu_header("Responsibility Assignee")
+        print("1. Student")
+        print("2. Group")
+        print_navigation()
         print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw)
+        if navigation is ConcordMenuChoice.HELP:
+            clear_screen()
+            print_menu_header("Responsibility Assignee Help")
+            print(
+                "Responsibilities may belong to one rostered student or to a Group."
+            )
+            print(
+                "A Group assignee remains a Group; "
+                "Concord does not synthesize a student."
+            )
+            print()
+            pause_for_user()
+            continue
+        if navigation is NavigationChoice.BACK:
+            raise CancelMenuAction
+        if raw == "1":
+            root = resolve_workspace_root()
+            student = choose_student(root, activity.class_id)
+            return (
+                core_student_participant(root, activity.class_id, student.student_id),
+                None,
+                f"{student.first_name} {student.last_name}",
+            )
+        if raw == "2":
+            groups = list_groups(activity.class_id, activity.activity_id)
+            group = choose_group(groups, title="Choose an Assignee Group")
+            return group_record_reference(group.group_id), group.group_id, group.label
+        print(navigation_hint_with_help())
         pause_for_user()
-        return _choose_assignee(activity)
-    if navigation is NavigationChoice.BACK:
-        raise CancelMenuAction
-    if raw == "1":
-        root = resolve_workspace_root()
-        student = choose_student(root, activity.class_id)
-        return (
-            core_student_participant(root, activity.class_id, student.student_id),
-            None,
-            f"{student.first_name} {student.last_name}",
-        )
-    if raw == "2":
-        groups = list_groups(activity.class_id, activity.activity_id)
-        group = choose_group(groups, title="Choose an Assignee Group")
-        return group_record_reference(group.group_id), group.group_id, group.label
-    print(navigation_hint_with_help())
-    pause_for_user()
-    return _choose_assignee(activity)
 
 
 def _choose_responsibility_preset() -> PresetSummary | None:

@@ -1,4 +1,4 @@
-"""#153 A2b: bounded failing-before witnesses for local navigation."""
+"""#153: local navigation regression and remaining A2b witness."""
 
 from __future__ import annotations
 
@@ -73,11 +73,6 @@ def _selector(
     return lambda: original(*args), expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=RecursiveRetryDetected,
-    reason="A2b: confirmed recursive Help/invalid-input retry path",
-)
 @pytest.mark.parametrize("selector", SELECTORS)
 @pytest.mark.parametrize("retry", ("h", "invalid"))
 def test_selector_retry_keeps_one_controller_frame(
@@ -88,6 +83,30 @@ def test_selector_retry_keeps_one_controller_frame(
     values = iter((retry, "", valid))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
     assert run() == expected
+
+
+@pytest.mark.parametrize("selector", SELECTORS)
+def test_selector_multiple_retries_remain_iterative(
+    monkeypatch: pytest.MonkeyPatch, selector: str
+) -> None:
+    run, expected = _selector(monkeypatch, selector)
+    valid = "2" if selector == "responsibility" else "1"
+    values = iter(("h", "", "invalid", "") * 25 + (valid,))
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
+    assert run() == expected
+
+
+def test_role_group_retry_refreshes_available_groups(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, expected = _selector(monkeypatch, "role")
+    group = SimpleNamespace(group_id="group-1", label="Cluster A")
+    reads = iter(((group,), ()))
+    monkeypatch.setattr(role_menu, "list_groups", lambda *_a: next(reads))
+    values = iter(("h", ""))
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
+    assert run() == expected
+    assert next(reads, None) is None
 
 
 @pytest.mark.parametrize("selector", SELECTORS)

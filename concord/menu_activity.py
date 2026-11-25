@@ -209,14 +209,14 @@ def _read_context_counts(activity: ActivitySummary) -> None:
 def _choose_activity_type() -> str:
     builtins = tuple(_ACTIVITY_TYPES)
     labels = tuple(item.replace("_", " ").title() for item in builtins)
-    clear_screen()
-    print_menu_header("Activity Type")
-    for index, label in enumerate(labels, start=1):
-        print(f"{index}. {label}")
-    print("4. Custom namespaced type")
-    print_navigation()
-    print()
     while True:
+        clear_screen()
+        print_menu_header("Activity Type")
+        for index, label in enumerate(labels, start=1):
+            print(f"{index}. {label}")
+        print("4. Custom namespaced type")
+        print_navigation()
+        print()
         raw = input("Select an option: ").strip()
         navigation = parse_menu_navigation(raw)
         if navigation is ConcordMenuChoice.HELP:
@@ -225,7 +225,7 @@ def _choose_activity_type() -> str:
             print("Choose a built-in type or enter a valid namespaced extension key.")
             print()
             pause_for_user()
-            return _choose_activity_type()
+            continue
         if navigation is NavigationChoice.BACK:
             raise CancelMenuAction
         if raw.isdigit():
@@ -242,7 +242,6 @@ def _choose_activity_type() -> str:
                 return custom
         print(navigation_hint_with_help())
         pause_for_user()
-        return _choose_activity_type()
 
 
 def _choose_scoring_orientation() -> str:
