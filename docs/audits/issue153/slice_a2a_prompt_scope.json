@@ -1,0 +1,639 @@
+{
+  "schema": "concord.issue153.prompt_scope.v1",
+  "source_commit": "75f607dba0179e77d1fa2c9602cd6d6449fc4e27",
+  "census_commit": "fad9ad1fbc050713ec69ec8011a8707e6fa24377",
+  "census_sha256": "F4F556EFDB05F6066A622FE060B14F506F380552D576058984FA12FEED78F26C",
+  "scope": "Direct input callsites only. Choice does not authorize Notes. Mixed confirmation/review prompts classified as confirmation.",
+  "rows": [
+    {
+      "path": "concord/menu_activity.py",
+      "line": 220,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 453,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 493,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 584,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 879,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 931,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 967,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1009,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1117,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1200,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1309,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1345,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_activity.py",
+      "line": 1382,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_actor_action.py",
+      "line": 148,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact_scoring.py",
+      "line": 984,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact_scoring.py",
+      "line": 1097,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 1199,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 1636,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 2433,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3093,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3506,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3640,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3673,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3826,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3902,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_artifact.py",
+      "line": 3965,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_attention.py",
+      "line": 144,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_attention.py",
+      "line": 185,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_attention.py",
+      "line": 300,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_context.py",
+      "line": 141,
+      "kind": "data_entry",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group_plan_bulk.py",
+      "line": 87,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group_plan_bulk.py",
+      "line": 212,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group_plan.py",
+      "line": 584,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group_plan.py",
+      "line": 921,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group_plan.py",
+      "line": 1009,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group.py",
+      "line": 272,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group.py",
+      "line": 315,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group.py",
+      "line": 683,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_group.py",
+      "line": 729,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_grouping_signal.py",
+      "line": 381,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 458,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 664,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 821,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 926,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 998,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1080,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1266,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1293,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1327,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1393,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1448,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1484,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1542,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_guided_activity.py",
+      "line": 1621,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_packet_generation.py",
+      "line": 110,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_packet_generation.py",
+      "line": 333,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_packet_generation.py",
+      "line": 997,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_packet.py",
+      "line": 628,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_presets.py",
+      "line": 974,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_presets.py",
+      "line": 1012,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 76,
+      "kind": "data_entry",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 130,
+      "kind": "data_entry",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 185,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 214,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 311,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 374,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 517,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_prompts.py",
+      "line": 633,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_publication.py",
+      "line": 758,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_publication.py",
+      "line": 902,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_publication.py",
+      "line": 968,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_responsibility.py",
+      "line": 136,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_responsibility.py",
+      "line": 178,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_responsibility.py",
+      "line": 538,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_role.py",
+      "line": 99,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_role.py",
+      "line": 174,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_role.py",
+      "line": 205,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_role.py",
+      "line": 556,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_saved_grouping_revisions.py",
+      "line": 237,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_saved_groupings.py",
+      "line": 466,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scan.py",
+      "line": 177,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scan.py",
+      "line": 469,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scan.py",
+      "line": 643,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_score_analysis_export.py",
+      "line": 232,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_score_analysis.py",
+      "line": 439,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3190,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3260,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3588,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3638,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3685,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_scoring.py",
+      "line": 3743,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_session.py",
+      "line": 329,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_session.py",
+      "line": 373,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_student_feedback.py",
+      "line": 158,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_student_feedback.py",
+      "line": 224,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_student_feedback.py",
+      "line": 393,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_teacher_settings.py",
+      "line": 94,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_teacher_settings.py",
+      "line": 279,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_template.py",
+      "line": 840,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_template.py",
+      "line": 906,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_ui.py",
+      "line": 28,
+      "kind": "pause",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_workspace.py",
+      "line": 59,
+      "kind": "confirmation",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_workspace.py",
+      "line": 68,
+      "kind": "data_entry",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu_workspace.py",
+      "line": 150,
+      "kind": "choice",
+      "notes": "disabled"
+    },
+    {
+      "path": "concord/menu.py",
+      "line": 59,
+      "kind": "choice",
+      "notes": "disabled"
+    }
+  ]
+}
