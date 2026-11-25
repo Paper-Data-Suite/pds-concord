@@ -367,7 +367,7 @@ def select_many(
                 print("N. Next page")
             if page_index > 0:
                 print("P. Previous page")
-        print("A. Select all")
+        print("A. Select all items across every page")
         print("D. Done")
         print_navigation()
         print()
@@ -378,6 +378,7 @@ def select_many(
             print_menu_header(f"{title} Help")
             print(help_text)
             print("Choose a number to add or remove it from the selection.")
+            print("A selects all items across every page, not just this page.")
             print()
             pause_for_user()
             continue

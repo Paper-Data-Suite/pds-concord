@@ -139,9 +139,7 @@ def _choose_assignee(
         if navigation is ConcordMenuChoice.HELP:
             clear_screen()
             print_menu_header("Responsibility Assignee Help")
-            print(
-                "Responsibilities may belong to one rostered student or to a Group."
-            )
+            print("Responsibilities may belong to one rostered student or to a Group.")
             print(
                 "A Group assignee remains a Group; "
                 "Concord does not synthesize a student."

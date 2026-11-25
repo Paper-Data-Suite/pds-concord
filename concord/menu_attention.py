@@ -268,16 +268,17 @@ def launch_activity_attention_details(
 ) -> None:
     """Page through all current attention categories; no implicit owner route."""
     page_index = 0
+    feedback: str | None = None
     while True:
         clear_screen()
         print_menu_header("All Activity attention categories")
         if summary is None:
             print("Attention unavailable: the Activity could not be inspected safely.")
             print()
-            print_navigation()
-            if _read_only_return(prompt="Select B to return: "):
-                return
-            continue
+            while True:
+                print_navigation()
+                if _read_only_return(prompt="Select B to return: "):
+                    return
         items = summary.items
         if not items:
             print("No current actionable Concord attention categories.")
@@ -295,6 +296,10 @@ def launch_activity_attention_details(
                     print("P. Previous page")
         print("Open the owning Plan/Prepare/Collect/Review/Score/Share menu to act.")
         print("Categories are not ranked by urgency; counts are not additive.")
+        if feedback is not None:
+            print()
+            print(feedback)
+            feedback = None
         print_navigation()
         try:
             choice = input("Select an option: ").strip()
@@ -304,7 +309,7 @@ def launch_activity_attention_details(
         if nav is NavigationChoice.BACK:
             return
         if nav is ConcordMenuChoice.HELP:
-            print("This view is read-only. Use N/P to page and B to return.")
+            feedback = "This view is read-only. Use N/P to page and B to return."
             continue
         if (
             items
@@ -316,7 +321,7 @@ def launch_activity_attention_details(
         if items and choice.casefold() == "p" and page_index > 0:
             page_index -= 1
             continue
-        print("Use N/P for pages, B to return, or H for help.")
+        feedback = "Use N/P for pages, B to return, or H for help."
 
 
 __all__ = [

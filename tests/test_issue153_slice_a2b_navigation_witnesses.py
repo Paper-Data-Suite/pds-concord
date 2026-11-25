@@ -1,4 +1,4 @@
-"""#153: local navigation regression and remaining A2b witness."""
+"""#153: local navigation and screen lifecycle regressions."""
 
 from __future__ import annotations
 
@@ -133,22 +133,19 @@ def test_selector_navigation_preserves_existing_unwind(
         run()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=HelpClearedBeforeAcknowledgement,
-    reason="A2b: attention Help is cleared before acknowledgement",
-)
 def test_attention_help_remains_visible_until_input(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     clear = "<<<CLEAR>>>"
     help_text = "This view is read-only. Use N/P to page and B to return."
     values = iter(("h", "b"))
+    observed: list[str] = []
 
     def read(_prompt: str = "") -> str:
         output = capsys.readouterr().out
         if help_text in output and clear in output.split(help_text, 1)[1]:
             raise HelpClearedBeforeAcknowledgement
+        observed.append(output)
         return next(values)
 
     monkeypatch.setattr(attention_menu, "clear_screen", lambda: print(clear))
@@ -157,3 +154,5 @@ def test_attention_help_remains_visible_until_input(
         class_id="class-1", activity_id="activity-1", title="Synthetic Activity"
     )
     attention_menu.launch_activity_attention_details(summary)
+    assert len(observed) == 2
+    assert help_text in observed[1]
