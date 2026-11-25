@@ -93,9 +93,10 @@ def test_generic_select_all_explicitly_includes_every_page(
     values = iter(("n", "h", "", "a", "d"))
     monkeypatch.setattr(prompts, "clear_screen", lambda: print(CLEAR))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
-    assert prompts.select_many(
+    selected = prompts.select_many(
         "Choose Items", items, labels, help_text="Choose items."
-    ) == items
+    )
+    assert selected == items
     output = capsys.readouterr().out
     assert "A. Select all items across every page" in output
     assert "A selects all items across every page, not just this page." in output
