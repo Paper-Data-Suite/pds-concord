@@ -16,6 +16,8 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -275,6 +277,8 @@ def _generate(
         _post_generation_open_menu(activity, rendered)
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except PacketInstantiationPartialSuccessError as error:
         show_result(
             "Packet Generation Partial Success",
@@ -924,6 +928,8 @@ def _open_ready_packet(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Open Rendered Packet", (str(error),))
 
@@ -1191,6 +1197,8 @@ def _render_generation(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except PacketGenerationRenderPartialSuccessError as error:
         show_result(
             "Packet Generation Rendering Incomplete",
@@ -1268,6 +1276,8 @@ def _inspect_instance(activity: ActivitySummary) -> None:
         show_result("Packet Instance", lines)
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Packet Instance Error", (str(error),))
 
@@ -1318,6 +1328,8 @@ def _render_instance(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except PacketRenderPartialSuccessError as error:
         show_result(
             "Packet Rendering Partial Success",
@@ -1370,6 +1382,8 @@ def _resume_generation(activity: ActivitySummary) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except PacketInstantiationPartialSuccessError as error:
         show_result(
             "Packet Generation Partial Success",

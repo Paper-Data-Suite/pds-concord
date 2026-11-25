@@ -35,6 +35,8 @@ from concord.menu_guided_activity import (
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -433,6 +435,8 @@ def _create_activity(state: MenuSessionContext) -> None:
         show_result("Activity Result", tuple(lines))
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except ConcordStoragePartialSuccessError as error:
         show_partial_success(error)
     except Exception as error:
@@ -703,6 +707,8 @@ def _copy_activity(state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except ConcordStoragePartialSuccessError as error:
         show_partial_success(error)
     except Exception as error:
@@ -852,6 +858,8 @@ def _update_activity_field(
         show_result("Activity Result", tuple(receipt_lines))
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         handle_write_error(
             error,
