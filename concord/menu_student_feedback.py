@@ -1,4 +1,3 @@
-
 """Teacher-facing Student Feedback Distribution menu for one Activity."""
 
 from __future__ import annotations
@@ -115,9 +114,7 @@ def _preview_lines(
         f"Requested students: {preview.requested_count}",
         f"Selected for distribution: {preview.selected_for_output_count}",
     ]
-    selected = tuple(
-        _display_name(entry) for entry in preview.selected_entries
-    )
+    selected = tuple(_display_name(entry) for entry in preview.selected_entries)
     no_feedback = _affected_names(preview, FEEDBACK_AVAILABILITY_NONE)
     unresolved = _affected_names(preview, FEEDBACK_AVAILABILITY_UNRESOLVED)
     if selected:
@@ -201,9 +198,7 @@ def _confirm_prepare(
             print(line)
         print()
         print("Outputs:")
-        print(
-            f"- {preview.selected_for_output_count} individual student feedback PDFs"
-        )
+        print(f"- {preview.selected_for_output_count} individual student feedback PDFs")
         print("- 1 combined class print PDF")
         print("- Feedback Index")
         print("- Distribution manifest")
@@ -333,9 +328,7 @@ def _existing_directory() -> Path:
 
 
 def _verify_existing() -> None:
-    verified = verify_student_feedback_distribution_directory(
-        _existing_directory()
-    )
+    verified = verify_student_feedback_distribution_directory(_existing_directory())
     show_result(
         "Student Feedback Distribution Verified",
         (
@@ -348,9 +341,7 @@ def _verify_existing() -> None:
 
 
 def _open_existing_folder() -> None:
-    verified = open_student_feedback_distribution_directory(
-        _existing_directory()
-    )
+    verified = open_student_feedback_distribution_directory(_existing_directory())
     show_result(
         "Student Feedback Distribution",
         (
@@ -362,9 +353,7 @@ def _open_existing_folder() -> None:
 
 
 def _open_existing_print_pdf() -> None:
-    verified = open_student_feedback_distribution_print_pdf(
-        _existing_directory()
-    )
+    verified = open_student_feedback_distribution_print_pdf(_existing_directory())
     show_result(
         "Student Feedback Distribution",
         (

@@ -42,9 +42,7 @@ from concord.workflows import (
 
 def _finding_counts(inspection: GroupingSignalInspection) -> tuple[int, int]:
     errors = sum(
-        1
-        for finding in inspection.diagnostics.findings
-        if finding.severity == "error"
+        1 for finding in inspection.diagnostics.findings if finding.severity == "error"
     )
     warnings = sum(
         1
@@ -63,8 +61,7 @@ def _source_lines(inspection: GroupingSignalInspection) -> tuple[str, ...]:
         lines.append(f"Source snapshot: {source.snapshot_id}")
     if source.snapshot_digest_algorithm is not None:
         lines.append(
-            "Source snapshot digest algorithm: "
-            f"{source.snapshot_digest_algorithm}"
+            f"Source snapshot digest algorithm: {source.snapshot_digest_algorithm}"
         )
     if source.snapshot_digest is not None:
         lines.append(f"Source snapshot digest: {source.snapshot_digest}")
@@ -80,8 +77,7 @@ def _import_source_lines(preview: GroupingSignalImportPreview) -> tuple[str, ...
         lines.append(f"Source snapshot: {source.snapshot_id}")
     if source.snapshot_digest_algorithm is not None:
         lines.append(
-            "Source snapshot digest algorithm: "
-            f"{source.snapshot_digest_algorithm}"
+            f"Source snapshot digest algorithm: {source.snapshot_digest_algorithm}"
         )
     if source.snapshot_digest is not None:
         lines.append(f"Source snapshot digest: {source.snapshot_digest}")
@@ -253,9 +249,7 @@ def _parse_created_at(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError as error:
-        raise ValueError(
-            "New created_at must be a valid ISO-8601 datetime."
-        ) from error
+        raise ValueError("New created_at must be a valid ISO-8601 datetime.") from error
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("New created_at must be timezone-aware.")
     return parsed
@@ -266,9 +260,7 @@ def _import_preview_lines(
 ) -> tuple[str, ...]:
     dimension = preview.diagnostics.dimensions[0]
     warnings = sum(
-        1
-        for finding in preview.diagnostics.findings
-        if finding.severity == "warning"
+        1 for finding in preview.diagnostics.findings if finding.severity == "warning"
     )
     lines = [
         f"Class: {preview.signal.class_id}",
