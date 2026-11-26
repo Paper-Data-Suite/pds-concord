@@ -245,9 +245,7 @@ def test_commit_publishes_one_native_generation_then_reconciles_routes(
     assert packet.review_digest == prepared.review_digest
     assert packet.generation_date == "2026-08-25"
     assert len(packet.artifact_bindings) == 2
-    assert all(
-        binding.rendering_values for binding in packet.artifact_bindings
-    )
+    assert all(binding.rendering_values for binding in packet.artifact_bindings)
     assert all(
         value.source_kind not in {"pds2_route_payload", "human_fallback"}
         for binding in packet.artifact_bindings
@@ -573,8 +571,7 @@ def test_issue153_historical_date_only_label_is_not_reinterpreted() -> None:
     assert teacher_planned_date("2026-10-19") == "Planned Oct 19, 2026"
     assert teacher_planned_date("2026-10-20") == "Planned Oct 20, 2026"
     assert (
-        teacher_planned_date("2026-10-20T01:00:00+00:00")
-        == "Planned date unavailable"
+        teacher_planned_date("2026-10-20T01:00:00+00:00") == "Planned date unavailable"
     )
 
 
@@ -612,7 +609,8 @@ def test_issue153_reviewed_local_date_survives_commit_after_midnight(
         root, ModuleWorkRef("concord", "class-1", "activity-1")
     ).graph
     packet = next(
-        item for item in graph.packet_instances
+        item
+        for item in graph.packet_instances
         if item.packet_instance_id in result.packet_instance_ids
     )
     assert packet.generation_date == prepared.generation_date

@@ -312,8 +312,7 @@ def prepare_packet_instantiation(
         )
     if (
         packet_version.status != "active"
-        or packet_library.current_packet_version_id
-        != packet_version.packet_version_id
+        or packet_library.current_packet_version_id != packet_version.packet_version_id
     ):
         raise ConcordWorkflowValidationError(
             "new Packet generation requires the exact current active Packet Version."
@@ -387,9 +386,7 @@ def prepare_packet_instantiation(
     for component in packet_version.components:
         assert component.template_id is not None
         assert component.template_version_id is not None
-        source = sources[
-            (component.template_id, component.template_version_id)
-        ]
+        source = sources[(component.template_id, component.template_version_id)]
         targets = _expand_targets(
             root,
             request.class_id,
@@ -478,9 +475,7 @@ def prepare_packet_instantiation(
             f"the selected exact Template: {component_id}:{input_key}"
         )
 
-    unknown_subject_bindings = sorted(
-        set(subject_bindings) - consumed_subject_bindings
-    )
+    unknown_subject_bindings = sorted(set(subject_bindings) - consumed_subject_bindings)
     if unknown_subject_bindings:
         component_id, target_key = unknown_subject_bindings[0]
         raise ConcordWorkflowValidationError(
@@ -631,9 +626,7 @@ def _generation_date(clock: Callable[[], datetime] | None) -> str:
     """Use the host-local calendar date, or the supplied clock's exact date."""
     value = datetime.now(timezone.utc) if clock is None else clock()
     if not isinstance(value, datetime):
-        raise ConcordWorkflowValidationError(
-            "workflow clock must return a datetime."
-        )
+        raise ConcordWorkflowValidationError("workflow clock must return a datetime.")
     if value.tzinfo is None or value.utcoffset() is None:
         raise ConcordWorkflowValidationError(
             "workflow clock must return a timezone-aware datetime."
@@ -674,9 +667,7 @@ def _require_activity(graph: ConcordRecordGraph, activity_id: str) -> Activity:
         None,
     )
     if match is None:
-        raise ConcordWorkflowNotFoundError(
-            f"Activity is not available: {activity_id}"
-        )
+        raise ConcordWorkflowNotFoundError(f"Activity is not available: {activity_id}")
     return match
 
 
@@ -771,9 +762,7 @@ def _binding_index(
     request: PreparePacketInstantiationRequest,
     packet_version: PacketVersion,
 ) -> dict[tuple[str, str], RenderingScalar]:
-    component_ids = {
-        item.packet_component_id for item in packet_version.components
-    }
+    component_ids = {item.packet_component_id for item in packet_version.components}
     result: dict[tuple[str, str], RenderingScalar] = {}
     for binding in request.rendering_bindings:
         if not isinstance(binding, PacketRenderingBinding):
@@ -798,9 +787,7 @@ def _subject_binding_index(
     request: PreparePacketInstantiationRequest,
     packet_version: PacketVersion,
 ) -> dict[tuple[str, str], SubjectReference]:
-    component_ids = {
-        item.packet_component_id for item in packet_version.components
-    }
+    component_ids = {item.packet_component_id for item in packet_version.components}
     result: dict[tuple[str, str], SubjectReference] = {}
     for binding in request.subject_bindings:
         if not isinstance(binding, PacketSubjectBinding):
@@ -934,12 +921,8 @@ def _resolve_template_source(
         raise ConcordWorkflowValidationError(
             f"invalid exact Template rendering specification: {error}"
         ) from error
-    manifest = tuple(
-        (item.page_key, item.sequence) for item in version.page_manifest
-    )
-    layout_pages = tuple(
-        (item.page_key, item.sequence) for item in layout.pages
-    )
+    manifest = tuple((item.page_key, item.sequence) for item in version.page_manifest)
+    layout_pages = tuple((item.page_key, item.sequence) for item in layout.pages)
     if manifest != layout_pages:
         raise ConcordWorkflowValidationError(
             "Template page manifest disagrees with the exact rendering layout."
@@ -963,9 +946,8 @@ def _group_applies(
 ) -> bool:
     if group.activity_id != activity_id or group.status not in {"planned", "active"}:
         return False
-    return (
-        group.effective_context is None
-        or session_id in context_session_ids(graph, group.effective_context)
+    return group.effective_context is None or session_id in context_session_ids(
+        graph, group.effective_context
     )
 
 
@@ -1056,16 +1038,14 @@ def _expand_targets(
                 participant.participant_kind == "core_student"
                 and participant.owning_system == "core"
             ):
-                group_ids_by_student.setdefault(
-                    participant.participant_id, set()
-                ).add(membership.group_id)
+                group_ids_by_student.setdefault(participant.participant_id, set()).add(
+                    membership.group_id
+                )
         result: list[PacketTargetContext] = []
         for student in sorted(roster.students, key=lambda item: item.student_id):
             groups_for_student = group_ids_by_student.get(student.student_id, set())
             group_id = (
-                next(iter(groups_for_student))
-                if len(groups_for_student) == 1
-                else None
+                next(iter(groups_for_student)) if len(groups_for_student) == 1 else None
             )
             result.append(
                 PacketTargetContext(
@@ -1242,9 +1222,7 @@ def _plan_artifact(
                     diagnostics.append(
                         PacketInstantiationDiagnostic(
                             code="required_rendering_input_missing",
-                            message=(
-                                "Required teacher rendering input is unresolved."
-                            ),
+                            message=("Required teacher rendering input is unresolved."),
                             blocking=True,
                             packet_component_id=component.packet_component_id,
                             target_key=target_key,
@@ -1341,8 +1319,7 @@ def _plan_artifact(
         )
     privacy = _effective_privacy(activity, version, target, subject)
     has_subject_display = any(
-        item.source_kind == "subject_display_label"
-        for item in planned_inputs
+        item.source_kind == "subject_display_label" for item in planned_inputs
     )
     subject_print_label = (
         _subject_display_label(
@@ -1414,9 +1391,7 @@ def _plan_artifact(
             artifact_category=version.artifact_category,
             expected_return_status=version.default_expected_return_status,
             page_count=len(version.page_manifest),
-            route_count=sum(
-                page.route_required for page in version.page_manifest
-            ),
+            route_count=sum(page.route_required for page in version.page_manifest),
             rendering_inputs=tuple(planned_inputs),
             effective_privacy_policy=privacy,
             authorship_mode=author_mode,
@@ -1465,7 +1440,6 @@ def _resolve_system_input(
     raise ConcordWorkflowValidationError(
         f"unsupported system rendering input source: {source_kind}"
     )
-
 
 
 def _validate_rendering_value(
@@ -1574,11 +1548,7 @@ def _plan_subject(
             target,
             session,
         )
-        role = (
-            None
-            if legacy_subject is None
-            else _legacy_subject_role(legacy_subject)
-        )
+        role = None if legacy_subject is None else _legacy_subject_role(legacy_subject)
         return legacy_subject, role, legacy_notice, None, False
 
     if not isinstance(expectation, TemplateSubjectResolutionExpectation):
@@ -1906,10 +1876,7 @@ def _stricter_classification(left: str, right: str) -> str:
 
 def _target_subject(target: PacketTargetContext) -> SubjectReference | None:
     participant = target.participant_reference
-    if (
-        participant is not None
-        and participant.participant_kind == "core_student"
-    ):
+    if participant is not None and participant.participant_kind == "core_student":
         return SubjectReference(
             subject_kind="core_student",
             subject_id=participant.participant_id,
@@ -2061,9 +2028,7 @@ def _review_digest(
                 "template_version_id": item.template_version_id,
                 "snapshot_revision": item.snapshot_revision,
                 "snapshot_sha256": item.snapshot_sha256,
-                "rendering_specification_sha256": (
-                    item.rendering_specification_sha256
-                ),
+                "rendering_specification_sha256": (item.rendering_specification_sha256),
             }
             for item in template_sources
         ],
@@ -2093,9 +2058,7 @@ def _review_digest(
                         "template_version_id": artifact.template_version_id,
                         "page_count": artifact.page_count,
                         "route_count": artifact.route_count,
-                        "privacy": (
-                            artifact.effective_privacy_policy.classification
-                        ),
+                        "privacy": (artifact.effective_privacy_policy.classification),
                         "subject_reference": (
                             None
                             if artifact.proposed_subject_reference is None
