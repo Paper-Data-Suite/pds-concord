@@ -2100,9 +2100,7 @@ def _score_label(item: ScoreSummary, labels: ScoreTeacherLabels | None = None) -
     )
 
 
-def _revisable_score_label(
-    item: ScoreSummary, labels: ScoreTeacherLabels
-) -> str:
+def _revisable_score_label(item: ScoreSummary, labels: ScoreTeacherLabels) -> str:
     """Require exact human identity before offering an immutable replacement."""
     reference = item.target_reference
     target = labels.require_target(reference.target_kind, reference.target_id)
@@ -2159,7 +2157,8 @@ def _score_history_detail_lines(
         _score_history_label(selected, labels),
         "Exact scored scan version not recorded in Score metadata.",
         f"Score state: {'current' if selected.is_current else 'historical'}",
-        "Target: " + labels.target(
+        "Target: "
+        + labels.target(
             selected.target_reference.target_kind,
             selected.target_reference.target_id,
         ),
@@ -2169,9 +2168,7 @@ def _score_history_detail_lines(
         f"Scale version: {labels.scale_version(selected.scoring_scale_id)}",
         f"Session: {labels.session(selected.session_id)}",
         f"Disposition: {selected.disposition}",
-        "Value: " + (
-            "-" if selected.value is None else json.dumps(selected.value)
-        ),
+        "Value: " + ("-" if selected.value is None else json.dumps(selected.value)),
         f"Basis: {selected.basis}",
         f"Rationale: {detail.rationale or '-'}",
         f"Evidence Links: {len(detail.evidence_links)}",
@@ -2196,13 +2193,8 @@ def _browse_scores(activity: ActivitySummary) -> None:
             standards_library=_library(),
             current_only=False,
         )
-        labels = build_score_teacher_labels(
-            current, include_score_definitions=True
-        )
-        if any(
-            item.snapshot_revision != current.snapshot_revision
-            for item in scores
-        ):
+        labels = build_score_teacher_labels(current, include_score_definitions=True)
+        if any(item.snapshot_revision != current.snapshot_revision for item in scores):
             raise ConcordWorkflowConflictError(
                 "Score history changed before selection. Reopen the Activity."
             )
@@ -2250,9 +2242,7 @@ def _revise_score(
         labels = build_score_teacher_labels(current, include_score_definitions=True)
         # Preflight every offered head. Read-only historical inspection
         # remains available when a historical definition is unresolvable.
-        candidate_labels = tuple(
-            _revisable_score_label(item, labels) for item in heads
-        )
+        candidate_labels = tuple(_revisable_score_label(item, labels) for item in heads)
         predecessor = select_one(
             "Revise a Score",
             heads,
