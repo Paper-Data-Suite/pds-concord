@@ -46,6 +46,8 @@ from concord.menu_criterion_guidance import guide_native_criterion_set
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -390,6 +392,8 @@ def _create_scale(
         return result.scoring_scale_id
     except CancelMenuAction:
         return None
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
         return None
@@ -509,6 +513,8 @@ def _revise_scale(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -554,6 +560,8 @@ def _browse_scales(activity: ActivitySummary) -> None:
         show_result("Scoring Scale Detail", tuple(lines))
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Scoring Scale Error", (str(error),))
 
@@ -743,6 +751,8 @@ def _import_saved_scale(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -970,6 +980,8 @@ def _create_criterion_set(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -1116,6 +1128,8 @@ def _create_guided_criterion_set(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -1335,6 +1349,8 @@ def _revise_criterion_set_advanced(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -1397,6 +1413,8 @@ def _select_criterion_sets_advanced(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -1495,6 +1513,8 @@ def _browse_criterion_sets(activity: ActivitySummary) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Criterion Set Error", (str(error),))
 
@@ -2058,6 +2078,8 @@ def _record_score(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -2208,6 +2230,8 @@ def _browse_scores(activity: ActivitySummary) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Score Error", (str(error),))
 
@@ -2314,6 +2338,8 @@ def _revise_score(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -2417,6 +2443,8 @@ def _save_scale_as_preset(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -2680,6 +2708,8 @@ def _save_criterion_set_as_preset(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -2928,6 +2958,8 @@ def _use_existing_criterion_set(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -3165,6 +3197,8 @@ def _revise_criterion_set(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -3475,6 +3509,8 @@ def _use_saved_scoring_setup(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -3519,6 +3555,8 @@ def _continue_created_scale(
             _criterion_set_menu(_latest(activity), state)
         except CancelMenuAction:
             return
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             show_result(
                 "Native Scale Saved — Criteria Not Confirmed",
@@ -3538,6 +3576,8 @@ def _continue_created_scale(
         saved_id = _save_scale_id_as_preset(_latest(activity), state, scale_id)
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result(
             "Native Scale Saved — Preset Outcome Not Confirmed",
