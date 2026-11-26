@@ -50,7 +50,9 @@ def test_parent_menu_preserves_nested_navigation(
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
     monkeypatch.setattr(publication, "_root", lambda: Path("synthetic"))
     monkeypatch.setattr(
-        publication, "show_activity", lambda *_a, **_k: SimpleNamespace(summary=ACTIVITY)
+        publication,
+        "show_activity",
+        lambda *_a, **_k: SimpleNamespace(summary=ACTIVITY),
     )
     monkeypatch.setattr(publication, "_handle_error", _forbidden)
     monkeypatch.setattr(publication, "_share_results", _choose)
