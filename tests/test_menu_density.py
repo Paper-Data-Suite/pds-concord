@@ -139,7 +139,7 @@ def test_partial_success_reports_commit_identity_without_paths(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _inputs(monkeypatch, [""])
+    _inputs(monkeypatch, ["t", "b", ""])
     monkeypatch.setattr(prompts, "clear_screen", _record_clear)
     prompts.show_partial_success(
         ConcordStoragePartialSuccessError(
@@ -151,7 +151,12 @@ def test_partial_success_reports_commit_identity_without_paths(
         )
     )
     output = capsys.readouterr().out
-    assert "The Activity was committed" in output
+    ordinary = output.split(CLEAR)[1]
+    assert "The Activity was committed" in ordinary
+    assert "Snapshot:" not in ordinary
+    assert "Snapshot SHA-256:" not in ordinary
+    assert "Technical Details" in ordinary
+    assert "Partial Success - Technical Details" in output
     assert "Snapshot: 2" in output
     assert f"Snapshot SHA-256: {'a' * 64}" in output
     assert "Durable recovery paths: 2" in output

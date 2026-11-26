@@ -236,23 +236,70 @@ def prompt_conflict_reload() -> bool:
 
 
 def show_partial_success(error: ConcordStoragePartialSuccessError) -> None:
-    """Present durable partial-success identity without dumping paths."""
-    lines = [
-        (
-            "The Activity was committed, but follow-up work was incomplete."
-            if error.pointer_published
-            else "The Activity was not published as the current snapshot."
-        )
-    ]
+    """Acknowledge a partial outcome; inspect exact storage metadata on request."""
+    outcome = (
+        "The Activity was committed, but follow-up work was incomplete."
+        if error.pointer_published
+        else "The Activity was not published as the current snapshot."
+    )
+    guidance = (
+        "Review canonical storage before retrying this action.",
+        "Do not resubmit the original action automatically.",
+    )
+    details: list[str] = []
     if error.snapshot_revision is not None:
-        lines.append(f"Snapshot: {error.snapshot_revision}")
+        details.append(f"Snapshot: {error.snapshot_revision}")
     if error.snapshot_sha256 is not None:
-        lines.append(f"Snapshot SHA-256: {error.snapshot_sha256}")
+        if re.fullmatch(r"[0-9a-fA-F]{64}", error.snapshot_sha256):
+            details.append(f"Snapshot SHA-256: {error.snapshot_sha256}")
+        else:
+            details.append("Snapshot SHA-256 unavailable.")
     if error.durable_paths:
-        lines.append(f"Durable recovery paths: {len(error.durable_paths)}")
-    lines.append("Review canonical storage before retrying this action.")
-    lines.append("Do not resubmit the original action automatically.")
-    show_result("Partial Success", tuple(lines))
+        details.append(f"Durable recovery paths: {len(error.durable_paths)}")
+    if not details:
+        details.append("No snapshot identity or recovery path count was reported.")
+
+    technical = False
+    feedback = ""
+    while True:
+        clear_screen()
+        print_menu_header(
+            "Partial Success - Technical Details" if technical else "Partial Success"
+        )
+        print(outcome)
+        if technical:
+            print()
+            for line in details:
+                print(line)
+        print()
+        for line in guidance:
+            print(line)
+        print()
+        if feedback:
+            print(feedback)
+            feedback = ""
+        if technical:
+            print("Press Enter or B to return to the receipt.")
+        else:
+            print("T. Technical Details (read-only)")
+            print("Press Enter or B to acknowledge and return.")
+        print_navigation(help=False)
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw, allow_help=False)
+        if navigation is NavigationChoice.BACK or not raw:
+            if technical:
+                technical = False
+                continue
+            return
+        if not technical and raw.casefold() == "t":
+            technical = True
+            continue
+        feedback = (
+            "Use Enter, B, M or Q."
+            if technical
+            else "Use Enter, T, B, M or Q."
+        )
 
 
 def handle_write_error(
