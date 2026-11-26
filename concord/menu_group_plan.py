@@ -243,6 +243,8 @@ def _create_manual(activity: ActivitySummary, state: MenuSessionContext) -> None
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "GroupPlan Error", error)
 
@@ -351,6 +353,8 @@ def _create_random(activity: ActivitySummary, state: MenuSessionContext) -> None
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "GroupPlan Error", error)
 
@@ -410,6 +414,8 @@ def _import_arrangement(activity: ActivitySummary, state: MenuSessionContext) ->
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Arrangement Import Error", error)
 

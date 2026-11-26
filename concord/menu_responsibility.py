@@ -18,6 +18,8 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -310,6 +312,8 @@ def _assign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -379,6 +383,8 @@ def _save_responsibility_as_preset(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -451,6 +457,8 @@ def _end(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 
@@ -515,6 +523,8 @@ def _reassign(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
 

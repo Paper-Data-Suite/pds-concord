@@ -16,6 +16,8 @@ from concord.menu_group_plan import launch_group_plan_menu
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -229,6 +231,8 @@ def _create_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Group Error", error)
 
@@ -297,6 +301,8 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
         detail = show_group(activity.class_id, activity.activity_id, selected.group_id)
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Group Error", error)
         return
@@ -434,6 +440,8 @@ def _edit_group(activity: ActivitySummary, state: MenuSessionContext) -> None:
             return
         except CancelMenuAction:
             return
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             _handle_error(activity, "Group Error", error)
             return
@@ -517,6 +525,8 @@ def _add_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Membership Error", error)
 
@@ -594,6 +604,8 @@ def _end_member(activity: ActivitySummary, state: MenuSessionContext) -> None:
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Membership Error", error)
 
@@ -657,6 +669,8 @@ def _reassign_member(activity: ActivitySummary, state: MenuSessionContext) -> No
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, "Membership Error", error)
 
