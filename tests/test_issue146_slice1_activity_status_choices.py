@@ -24,9 +24,7 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.storage import list_work_snapshots
 from concord.workflows import show_activity
 
-_STATUSES = (
-    "draft", "configured", "active", "completed", "cancelled", "archived"
-)
+_STATUSES = ("draft", "configured", "active", "completed", "cancelled", "archived")
 
 
 def _work() -> ModuleWorkRef:
@@ -35,8 +33,11 @@ def _work() -> ModuleWorkRef:
 
 def _summary() -> SimpleNamespace:
     return SimpleNamespace(
-        class_id="class-test", activity_id="activity-test", title="Discussion",
-        status="draft", snapshot_revision=7,
+        class_id="class-test",
+        activity_id="activity-test",
+        title="Discussion",
+        status="draft",
+        snapshot_revision=7,
     )
 
 
@@ -64,13 +65,13 @@ def test_status_chooser_exposes_only_native_values_and_current_context(
     title, items, labels, help_text = seen[0]
     assert items == _STATUSES
     assert len(labels) == len(_STATUSES)
-    assert all(item.replace("_", " ").lower() in label.lower()
-               for item, label in zip(items, labels, strict=True))
+    assert all(
+        item.replace("_", " ").lower() in label.lower()
+        for item, label in zip(items, labels, strict=True)
+    )
     assert labels[0].endswith("[current]")
     assert all(not label.endswith("[current]") for label in labels[1:])
-    for fragment in (
-        "Discussion", "class-test", "activity-test", "draft"
-    ):
+    for fragment in ("Discussion", "class-test", "activity-test", "draft"):
         assert fragment in title
     assert "Snapshot:" not in title
     assert "teacher decision" in help_text
@@ -133,7 +134,9 @@ def test_status_commit_through_real_menu_and_canonical_service(
     before = show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root)
     snapshots = list_work_snapshots(fixture.root, _work())
     review, receipts, errors = _wire(
-        monkeypatch, fixture.root, fixture.standards,
+        monkeypatch,
+        fixture.root,
+        fixture.standards,
     )
     menu._update_activity_field(
         before.summary, MenuSessionContext(actor=ACTOR), "status"
@@ -163,15 +166,18 @@ def test_selecting_current_status_is_zero_write_and_no_confirmation(
     before = show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root)
     snapshots = list_work_snapshots(fixture.root, _work())
     review, receipts, errors = _wire(
-        monkeypatch, fixture.root, fixture.standards, selected="draft",
+        monkeypatch,
+        fixture.root,
+        fixture.standards,
+        selected="draft",
     )
     monkeypatch.setattr(
         menu, "update_activity", lambda *_args, **_kwargs: pytest.fail("No-op wrote")
     )
     monkeypatch.setattr(
-        menu, "_load_activity_context", lambda *_args, **_kwargs: pytest.fail(
-            "No-op loaded a write context"
-        )
+        menu,
+        "_load_activity_context",
+        lambda *_args, **_kwargs: pytest.fail("No-op loaded a write context"),
     )
     menu._update_activity_field(
         before.summary, MenuSessionContext(actor=ACTOR), "status"
@@ -190,7 +196,10 @@ def test_cancel_from_choice_or_confirmation_never_writes(
     before = show_activity(SOURCE_CLASS, ACTIVITY_ID, workspace_root=fixture.root)
     snapshots = list_work_snapshots(fixture.root, _work())
     review, receipts, errors = _wire(
-        monkeypatch, fixture.root, fixture.standards, confirmed=False,
+        monkeypatch,
+        fixture.root,
+        fixture.standards,
+        confirmed=False,
     )
     monkeypatch.setattr(
         menu, "update_activity", lambda *_args, **_kwargs: pytest.fail("Canceled write")
@@ -200,7 +209,6 @@ def test_cancel_from_choice_or_confirmation_never_writes(
     )
     assert len(review) == 1 and not receipts and not errors
     assert list_work_snapshots(fixture.root, _work()) == snapshots
-
 
 
 def test_back_from_status_picker_is_zero_write(
@@ -235,7 +243,9 @@ def test_missing_canonical_standards_aborts_before_activity_write(
     snapshots = list_work_snapshots(fixture.root, _work())
     review, receipts, errors = _wire(monkeypatch, fixture.root, None)
     monkeypatch.setattr(
-        menu, "update_activity", lambda *_args, **_kwargs: pytest.fail(
+        menu,
+        "update_activity",
+        lambda *_args, **_kwargs: pytest.fail(
             "No canonical Standards must abort before write"
         ),
     )
