@@ -18,6 +18,8 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -234,6 +236,8 @@ def save_grouping_from_plan(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         handle_write_error(
             error,
@@ -395,6 +399,8 @@ def use_saved_grouping(activity: ActivitySummary, state: MenuSessionContext) -> 
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         handle_write_error(
             error,
@@ -444,6 +450,8 @@ def manage_saved_groupings(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         show_result("Saved grouping error", (str(error),))
 

@@ -47,6 +47,8 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -937,6 +939,8 @@ def launch_share_results_menu(
                 pause_for_user()
         except CancelMenuAction:
             continue
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             _handle_error(error)
 
@@ -1005,5 +1009,7 @@ def launch_publication_menu(
                 pause_for_user()
         except CancelMenuAction:
             continue
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             _handle_error(error)

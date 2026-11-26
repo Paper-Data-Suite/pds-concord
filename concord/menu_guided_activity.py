@@ -1349,6 +1349,8 @@ def _launch_materials(activity: ActivitySummary, state: MenuSessionContext) -> N
                 continue
         except CancelMenuAction:
             continue
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             show_result("Classroom Materials", (str(error),))
             continue
