@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
 import pytest
@@ -15,7 +15,9 @@ from pds_core.route_registrations import load_route_registration
 from pds_core.routing_models import ModuleWorkRef
 from pds_core.workspace import ensure_workspace_root
 
+import concord.workflows.packet_instantiation as preparation_module
 import concord.workflows.packet_instantiation_commit as commit_module
+from concord.menu_teacher_history import teacher_planned_date
 from concord.model_conversion import record_to_dict
 from concord.models import (
     ConcordRecordReference,
@@ -31,6 +33,7 @@ from concord.starter_templates.catalog import list_starter_templates
 from concord.storage import load_current_record_graph
 from concord.workflows import (
     ConcordWorkflowConflictError,
+    ConcordWorkflowValidationError,
     CreateActivityContextRequest,
     CreateGroupWithMembersRequest,
     GroupMemberSpec,
@@ -484,3 +487,141 @@ def test_lifecycle_failure_preserves_routes_and_is_resumable(
     assert resumed.artifact_page_ids == original_pages
     assert resumed.route_ids == original_routes
     assert resumed.routes_verified == resumed.routes_expected
+
+
+def _freeze_host_clock(
+    monkeypatch: pytest.MonkeyPatch,
+    instant: datetime,
+    offset_hours: int,
+) -> None:
+    # Represent the host offset at the specified instant. This is portable to
+    # Windows without an external IANA timezone database.
+    local_zone = timezone(timedelta(hours=offset_hours))
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> datetime:
+            assert tz is timezone.utc
+            return cls.fromtimestamp(instant.timestamp(), tz=tz)
+
+        def astimezone(self, tz: tzinfo | None = None) -> datetime:
+            return super().astimezone(local_zone if tz is None else tz)
+
+    monkeypatch.setattr(preparation_module, "datetime", FrozenDateTime)
+
+
+@pytest.mark.parametrize(
+    ("utc", "offset_hours", "expected"),
+    [
+        ("2026-10-20T01:00:00+00:00", -4, "2026-10-19"),
+        ("2026-10-20T03:59:59+00:00", -4, "2026-10-19"),
+        ("2026-10-20T04:00:00+00:00", -4, "2026-10-20"),
+        ("2026-03-08T06:59:59+00:00", -5, "2026-03-08"),
+        ("2026-03-08T07:00:00+00:00", -4, "2026-03-08"),
+        ("2026-11-01T05:59:59+00:00", -4, "2026-11-01"),
+        ("2026-11-01T06:00:00+00:00", -5, "2026-11-01"),
+        ("2026-10-19T15:00:00+00:00", 9, "2026-10-20"),
+    ],
+    ids=[
+        "ny-evening-rollover",
+        "ny-before-midnight",
+        "ny-midnight",
+        "ny-spring-before",
+        "ny-spring-after",
+        "ny-fall-before",
+        "ny-fall-after",
+        "tokyo-midnight",
+    ],
+)
+def test_issue153_default_generation_date_uses_host_calendar(
+    monkeypatch: pytest.MonkeyPatch,
+    utc: str,
+    offset_hours: int,
+    expected: str,
+) -> None:
+    _freeze_host_clock(monkeypatch, datetime.fromisoformat(utc), offset_hours)
+    assert preparation_module._generation_date(None) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2026-10-20T01:00:00+00:00", "2026-10-20"),
+        ("2026-10-19T21:00:00-04:00", "2026-10-19"),
+        ("2026-10-20T00:00:00+14:00", "2026-10-20"),
+    ],
+)
+def test_issue153_explicit_clock_preserves_supplied_calendar_date(
+    value: str, expected: str
+) -> None:
+    assert (
+        preparation_module._generation_date(lambda: datetime.fromisoformat(value))
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (datetime(2026, 10, 19, 21), date(2026, 10, 19)),
+)
+def test_issue153_invalid_clock_remains_rejected(value: object) -> None:
+    with pytest.raises(ConcordWorkflowValidationError, match="workflow clock"):
+        preparation_module._generation_date(lambda: value)  # type: ignore[arg-type]
+
+
+def test_issue153_historical_date_only_label_is_not_reinterpreted() -> None:
+    assert teacher_planned_date("2026-10-19") == "Planned Oct 19, 2026"
+    assert teacher_planned_date("2026-10-20") == "Planned Oct 20, 2026"
+    assert (
+        teacher_planned_date("2026-10-20T01:00:00+00:00")
+        == "Planned date unavailable"
+    )
+
+
+def test_issue153_reviewed_local_date_survives_commit_after_midnight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _workspace(tmp_path)
+    _install_and_packet(root)
+    request = _prepared(root).request
+    evening = datetime(2026, 10, 20, 1, tzinfo=timezone.utc)
+    after_midnight = datetime(2026, 10, 20, 5, tzinfo=timezone.utc)
+
+    with monkeypatch.context() as scoped:
+        _freeze_host_clock(scoped, evening, -4)
+        prepared = prepare_packet_instantiation(request, workspace_root=root)
+
+    assert prepared.ready_for_commit
+    assert prepared.generation_date == "2026-10-19"
+    planned_dates = [
+        item.value
+        for target in prepared.target_plans
+        for artifact in target.artifacts
+        for item in artifact.rendering_inputs
+        if item.source_kind == "current_date"
+    ]
+    assert planned_dates
+    assert set(planned_dates) == {"2026-10-19"}
+
+    result = commit_packet_instantiation(
+        prepared,
+        workspace_root=root,
+        clock=lambda: after_midnight,
+    )
+    graph = load_current_record_graph(
+        root, ModuleWorkRef("concord", "class-1", "activity-1")
+    ).graph
+    packet = next(
+        item for item in graph.packet_instances
+        if item.packet_instance_id in result.packet_instance_ids
+    )
+    assert packet.generation_date == prepared.generation_date
+    assert packet.review_digest == prepared.review_digest
+    assert packet.created_provenance.timestamp == after_midnight.isoformat()
+    durable_dates = [
+        item.value
+        for binding in packet.artifact_bindings
+        for item in binding.rendering_values
+        if item.source_kind == "current_date"
+    ]
+    assert durable_dates == planned_dates

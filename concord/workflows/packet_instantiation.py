@@ -628,6 +628,7 @@ def _validate_request(request: PreparePacketInstantiationRequest) -> None:
 
 
 def _generation_date(clock: Callable[[], datetime] | None) -> str:
+    """Use the host-local calendar date, or the supplied clock's exact date."""
     value = datetime.now(timezone.utc) if clock is None else clock()
     if not isinstance(value, datetime):
         raise ConcordWorkflowValidationError(
@@ -637,6 +638,11 @@ def _generation_date(clock: Callable[[], datetime] | None) -> str:
         raise ConcordWorkflowValidationError(
             "workflow clock must return a timezone-aware datetime."
         )
+    # Convert an actual instant using the host timezone at that instant, not
+    # today's fixed UTC offset. An explicit clock preserves its own date:
+    # commit-time revalidation deliberately supplies the reviewed date.
+    if clock is None:
+        value = value.astimezone()
     return value.date().isoformat()
 
 
