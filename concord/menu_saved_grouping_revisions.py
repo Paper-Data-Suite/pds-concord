@@ -16,6 +16,8 @@ from concord.menu_context import CancelMenuAction, MenuSessionContext
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -273,6 +275,8 @@ def manage_grouping_revision(
                 pause_for_user()
         except CancelMenuAction:
             continue
+        except (ReturnToMainMenu, QuitPDS):
+            raise
         except Exception as error:
             handle_write_error(
                 error,

@@ -7,6 +7,7 @@ from pds_core.workspace import resolve_workspace_root
 
 from concord.menu_actor_action import confirm_prepared_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_navigation import QuitPDS, ReturnToMainMenu
 from concord.menu_prompts import (
     choose_session,
     confirm_write,
@@ -177,6 +178,8 @@ def save_grouping_from_existing_groups(
         )
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         handle_write_error(
             error,

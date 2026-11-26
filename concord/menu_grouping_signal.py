@@ -9,6 +9,8 @@ from concord.menu_context import CancelMenuAction
 from concord.menu_navigation import (
     ConcordMenuChoice,
     NavigationChoice,
+    QuitPDS,
+    ReturnToMainMenu,
     navigation_hint_with_help,
     parse_menu_navigation,
 )
@@ -408,5 +410,7 @@ def launch_grouping_signal_menu(activity: ActivitySummary) -> None:
                     pause_for_user()
             except CancelMenuAction:
                 continue
+            except (ReturnToMainMenu, QuitPDS):
+                raise
             except Exception as error:
                 show_result("Grouping Signal Error", (str(error),))

@@ -11,6 +11,7 @@ from concord.group_plan_signal import (
 )
 from concord.menu_actor_action import confirm_actor_write
 from concord.menu_context import CancelMenuAction, MenuSessionContext
+from concord.menu_navigation import QuitPDS, ReturnToMainMenu
 from concord.menu_prompts import (
     confirm_write,
     handle_write_error,
@@ -346,5 +347,7 @@ def create_signal_group_plan_from_menu(
         show_result("GroupPlan Result", _result_lines(result, target_line))
     except CancelMenuAction:
         return
+    except (ReturnToMainMenu, QuitPDS):
+        raise
     except Exception as error:
         _handle_error(activity, error)
