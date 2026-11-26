@@ -92,6 +92,7 @@ def test_remaining_activity_context_preserves_starting_sequence(
     assert context.sequence_end is None
     assert context.applies_to_remaining_activity is True
 
+
 def test_confirmation_honors_help_and_navigation(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

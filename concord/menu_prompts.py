@@ -295,11 +295,7 @@ def show_partial_success(error: ConcordStoragePartialSuccessError) -> None:
         if not technical and raw.casefold() == "t":
             technical = True
             continue
-        feedback = (
-            "Use Enter, B, M or Q."
-            if technical
-            else "Use Enter, T, B, M or Q."
-        )
+        feedback = "Use Enter, B, M or Q." if technical else "Use Enter, T, B, M or Q."
 
 
 def handle_write_error(
