@@ -55,6 +55,7 @@ from concord.menu_prompts import (
     select_one,
     show_partial_success,
     show_result,
+    show_technical_details,
     slug_identifier,
 )
 from concord.menu_publication import (
@@ -159,30 +160,61 @@ def _selection_hint(page_index: int, pages: int) -> str:
     return f"Please choose a listed option, {suffix}."
 
 
+def _activity_technical_lines(summary: ActivitySummary) -> tuple[str, ...]:
+    return (
+        f"Activity: {summary.title}",
+        f"Class: {summary.class_id}",
+        f"Activity ID: {summary.activity_id}",
+        f"Snapshot: {summary.snapshot_revision}",
+    )
+
+
 def _print_summary(activity: ActivitySummary) -> None:
-    clear_screen()
-    print_menu_header("Activity Summary")
     try:
         detail = show_activity(activity.class_id, activity.activity_id)
-    except ConcordWorkflowError as error:
-        print(f"Activity could not be loaded: {error}")
-    else:
-        summary = detail.summary
+    except ConcordWorkflowError:
+        show_result(
+            "Activity Summary",
+            ("Activity could not be loaded safely. Reopen the Activity.",),
+        )
+        return
+
+    summary = detail.summary
+    feedback = ""
+    while True:
+        clear_screen()
+        print_menu_header("Activity Summary")
+        print(f"Activity: {summary.title}")
         print(f"Class: {summary.class_id}")
-        print(f"Activity: {summary.activity_id}")
-        print(f"Title: {summary.title}")
+        print(f"Activity ID: {summary.activity_id}")
         print(f"Status: {summary.status}")
         print(f"Type: {detail.activity_type}")
         print(f"Scoring: {summary.scoring_orientation}")
         print(f"Sessions: {summary.session_count}")
         print(f"Groups: {summary.group_count}")
-        print(f"Snapshot: {summary.snapshot_revision}")
         if detail.description:
             print(f"Description: {detail.description}")
         if detail.focus_standard_ids:
             print(f"Focus Standards: {len(detail.focus_standard_ids)}")
-    print()
-    pause_for_user()
+        print()
+        if feedback:
+            print(feedback)
+            feedback = ""
+        print("T. Technical Details (read-only)")
+        print("Press Enter or B to return.")
+        print_navigation(help=False)
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw, allow_help=False)
+        if navigation is NavigationChoice.BACK or not raw:
+            return
+        if raw.casefold() == "t":
+            show_technical_details(
+                "Activity Summary - Technical Details",
+                _activity_technical_lines(summary),
+            )
+            continue
+        feedback = "Use Enter, T, B, M or Q."
 
 
 def _read_context_counts(activity: ActivitySummary) -> None:
@@ -296,8 +328,7 @@ def _choose_activity_status(current: ActivitySummary) -> str:
             f"Activity: {current.title}\n"
             f"Class: {current.class_id}\n"
             f"Activity ID: {current.activity_id}\n"
-            f"Current status: {current.status}\n"
-            f"Snapshot: {current.snapshot_revision}"
+            f"Current status: {current.status}"
         ),
         _ACTIVITY_STATUS_CHOICES,
         labels,
@@ -307,6 +338,7 @@ def _choose_activity_status(current: ActivitySummary) -> str:
             "GroupPlans does not change the Activity lifecycle. Status alone "
             "never proves returned evidence, Scores, Grades, or publication."
         ),
+        technical_details=_activity_technical_lines(current),
     )
 
 

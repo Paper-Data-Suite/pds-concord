@@ -51,7 +51,10 @@ def test_status_chooser_exposes_only_native_values_and_current_context(
         labels: tuple[str, ...],
         *,
         help_text: str,
+        technical_details: tuple[str, ...],
     ) -> str:
+        assert "Snapshot: 7" in technical_details
+        assert "Activity ID: activity-test" in technical_details
         seen.append((title, items, labels, help_text))
         return "configured"
 
@@ -66,9 +69,10 @@ def test_status_chooser_exposes_only_native_values_and_current_context(
     assert labels[0].endswith("[current]")
     assert all(not label.endswith("[current]") for label in labels[1:])
     for fragment in (
-        "Discussion", "class-test", "activity-test", "draft", "Snapshot: 7"
+        "Discussion", "class-test", "activity-test", "draft"
     ):
         assert fragment in title
+    assert "Snapshot:" not in title
     assert "teacher decision" in help_text
     assert "not a new transition" in help_text
 
@@ -84,7 +88,8 @@ def test_real_numbered_picker_rejects_unlisted_input_and_supports_back(
     assert menu._choose_activity_status(_summary()) == "configured"
     output = capsys.readouterr().out
     assert "Current status: draft" in output
-    assert "Snapshot: 7" in output
+    assert "Snapshot: 7" not in output
+    assert "T. Technical Details (read-only)" in output
     assert "1. Draft" in output
     assert "2. Configured" in output
 

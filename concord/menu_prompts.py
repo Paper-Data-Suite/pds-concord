@@ -336,12 +336,34 @@ def show_result(title: str, lines: Sequence[str]) -> None:
     pause_for_user()
 
 
+def show_technical_details(title: str, lines: Sequence[str]) -> None:
+    """Inspect supplied Concord metadata without reading or writing records."""
+    feedback = ""
+    while True:
+        clear_screen()
+        print_menu_header(title)
+        for line in lines:
+            print(line)
+        print()
+        if feedback:
+            print(feedback)
+        print("Press Enter or B to return.")
+        print_navigation(help=False)
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw, allow_help=False)
+        if navigation is NavigationChoice.BACK or not raw:
+            return
+        feedback = "Use Enter, B, M or Q."
+
+
 def select_one(
     title: str,
     items: Sequence[T],
     labels: Sequence[str],
     *,
     help_text: str,
+    technical_details: Sequence[str] = (),
 ) -> T:
     """Choose one item with ten-row pagination and standard navigation."""
     if len(items) != len(labels):
@@ -364,6 +386,8 @@ def select_one(
                 print("N. Next page")
             if page_index > 0:
                 print("P. Previous page")
+        if technical_details:
+            print("T. Technical Details (read-only)")
         print_navigation()
         print()
         raw = input("Select an option: ").strip()
@@ -378,6 +402,9 @@ def select_one(
         if navigation is NavigationChoice.BACK:
             raise CancelMenuAction
         normalized = raw.casefold()
+        if technical_details and normalized == "t":
+            show_technical_details("Technical Details", technical_details)
+            continue
         if normalized == "n" and page_index + 1 < pages:
             page_index += 1
             continue
