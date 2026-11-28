@@ -173,7 +173,12 @@ def prompt_positive_int(
         pause_for_user()
 
 
-def confirm_write(title: str, expected: str, lines: Sequence[str]) -> bool:
+def confirm_write(
+    title: str,
+    expected: str,
+    lines: Sequence[str],
+    technical_details: Sequence[str] = (),
+) -> bool:
     """Review one write while honoring H/B/M/Q before confirmation."""
     while True:
         clear_screen()
@@ -181,6 +186,8 @@ def confirm_write(title: str, expected: str, lines: Sequence[str]) -> bool:
         for line in lines:
             print(line)
         print()
+        if technical_details:
+            print("T. Technical Details (read-only)")
         print(f"Type {expected} to confirm, or press Enter to cancel.")
         print_navigation()
         print()
@@ -193,6 +200,9 @@ def confirm_write(title: str, expected: str, lines: Sequence[str]) -> bool:
             print(f"Type {expected} only when the displayed change is correct.")
             print()
             pause_for_user()
+            continue
+        if technical_details and raw.casefold() == "t":
+            show_technical_details(f"{title} - Technical Details", technical_details)
             continue
         if navigation is NavigationChoice.BACK:
             return False
@@ -334,6 +344,34 @@ def show_result(title: str, lines: Sequence[str]) -> None:
         print(line)
     print()
     pause_for_user()
+
+
+def show_result_with_details(
+    title: str, lines: Sequence[str], technical_details: Sequence[str]
+) -> None:
+    """Keep a receipt visible until acknowledged; disclose metadata on request."""
+    feedback = ""
+    while True:
+        clear_screen()
+        print_menu_header(title)
+        for line in lines:
+            print(line)
+        print()
+        if feedback:
+            print(feedback)
+            feedback = ""
+        print("T. Technical Details (read-only)")
+        print("Press Enter or B to return.")
+        print_navigation(help=False)
+        print()
+        raw = input("Select an option: ").strip()
+        navigation = parse_menu_navigation(raw, allow_help=False)
+        if navigation is NavigationChoice.BACK or not raw:
+            return
+        if raw.casefold() == "t":
+            show_technical_details(f"{title} - Technical Details", technical_details)
+            continue
+        feedback = "Use Enter, T, B, M or Q."
 
 
 def show_technical_details(title: str, lines: Sequence[str]) -> None:

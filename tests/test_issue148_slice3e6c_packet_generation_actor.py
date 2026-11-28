@@ -117,7 +117,12 @@ def test_packet_generate_reprepares_and_renders_with_approved_actor(
 
     def prepare(request: Any) -> Any:
         prepared_requests.append(request)
-        return SimpleNamespace(request=request, ready_for_commit=True, diagnostics=())
+        return SimpleNamespace(
+            request=request,
+            ready_for_commit=True,
+            diagnostics=(),
+            review_digest=request.actor.actor_id + "-digest",
+        )
 
     monkeypatch.setattr(menu, "prepare_packet_instantiation", prepare)
     monkeypatch.setattr(menu, "_prompt_missing_bindings", lambda *_a: ())
@@ -133,6 +138,8 @@ def test_packet_generate_reprepares_and_renders_with_approved_actor(
         state: MenuSessionContext,
         legacy_confirm: Any,
         prepare_for_actor: Any,
+        prepare_details: Any,
+        legacy_details_confirm: Any,
     ) -> Any:
         assert (title, expected) == ("Generate Packet", "GENERATE")
         assert state.actor == default
@@ -143,6 +150,9 @@ def test_packet_generate_reprepares_and_renders_with_approved_actor(
         assert second.request.actor == alternate
         assert first.request.packet_definition_id == second.request.packet_definition_id
         assert first_lines != second_lines
+        assert callable(legacy_details_confirm)
+        assert prepare_details(first) == (f"Review digest: {first.review_digest}",)
+        assert prepare_details(second) == (f"Review digest: {second.review_digest}",)
         if choice == "cancel":
             return None
         if choice == "default":
@@ -275,7 +285,17 @@ def test_instance_render_forwards_reviewed_actor_or_cancels(
         ),
     )
     _no_error(monkeypatch)
+    receipts: list[tuple[str, Any, Any]] = []
+    monkeypatch.setattr(
+        menu,
+        "show_result_with_details",
+        lambda title, lines, details: receipts.append((title, lines, details)),
+    )
     menu._render_instance(_activity(), state)
+    assert len(receipts) == int(approved)
+    if receipts:
+        assert "Output SHA-256" not in "\n".join(receipts[0][1])
+        assert receipts[0][2] == (f"Output SHA-256: {'e' * 64}",)
     assert len(writes) == int(approved)
     if writes:
         assert writes[0].actor == alternate

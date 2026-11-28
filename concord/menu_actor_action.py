@@ -15,7 +15,7 @@ from concord.menu_navigation import (
     NavigationChoice,
     parse_menu_navigation,
 )
-from concord.menu_prompts import prompt_text, show_result
+from concord.menu_prompts import prompt_text, show_result, show_technical_details
 from concord.menu_ui import clear_screen, print_menu_header, print_navigation
 from concord.teacher_attribution import (
     TeacherAttributionIdentity,
@@ -25,6 +25,7 @@ from concord.teacher_attribution import (
 from concord.workflows import WorkflowActor
 
 LegacyConfirm = Callable[[str, str, Sequence[str]], bool]
+DetailsConfirm = Callable[[str, str, Sequence[str], Sequence[str]], bool]
 _PreparedT = TypeVar("_PreparedT")
 
 
@@ -60,6 +61,7 @@ def confirm_actor_write(
     state: MenuSessionContext,
     legacy_confirm: LegacyConfirm,
     review_lines: Callable[[WorkflowActor], Sequence[str]] | None = None,
+    review_details: Callable[[WorkflowActor], Sequence[str]] | None = None,
 ) -> WorkflowActor | None:
     """Return a *reviewed* actor for this operation or None on cancellation.
 
@@ -121,32 +123,44 @@ def confirm_actor_write(
             if unconfigured_default and alternate is None
             else reviewed_actor(alternate)
         )
-        clear_screen()
-        print_menu_header(title)
         # Actor-dependent previews must not be prepared without a reviewed
         # actor. Selecting Advanced will render the exact prepared request.
         preview = (
             lines if review_lines is None or actor is None else review_lines(actor)
         )
-        for line in preview:
-            print(line)
-        print()
-        if actor is None:
-            print("Recorded by: not configured; choose A for this action.")
-            print("No academic write can be confirmed without a reviewed actor.")
-        else:
-            print(f"Recorded by: {actor.display_label or actor.actor_id}")
-            print(f"Actor ID: {actor.actor_id}")
-        print("Actor attribution is self-declared, not authentication.")
-        if alternate is not None:
-            print("Attribution: temporary for THIS action; no default changed.")
-            print("D. Use saved default instead")
-        print("A. Advanced: use another actor for this action")
-        print(f"Type {expected} to confirm, or press Enter to cancel.")
-        print_navigation()
-        print()
-        raw = input("Confirmation: ").strip()
-        navigation = parse_menu_navigation(raw)
+        details = (
+            review_details(actor)
+            if review_details is not None and actor is not None
+            else ()
+        )
+        while True:
+            clear_screen()
+            print_menu_header(title)
+            for line in preview:
+                print(line)
+            print()
+            if actor is None:
+                print("Recorded by: not configured; choose A for this action.")
+                print("No academic write can be confirmed without a reviewed actor.")
+            else:
+                print(f"Recorded by: {actor.display_label or actor.actor_id}")
+                print(f"Actor ID: {actor.actor_id}")
+            print("Actor attribution is self-declared, not authentication.")
+            if alternate is not None:
+                print("Attribution: temporary for THIS action; no default changed.")
+                print("D. Use saved default instead")
+            print("A. Advanced: use another actor for this action")
+            if details:
+                print("T. Technical Details (read-only)")
+            print(f"Type {expected} to confirm, or press Enter to cancel.")
+            print_navigation()
+            print()
+            raw = input("Confirmation: ").strip()
+            navigation = parse_menu_navigation(raw)
+            if details and raw.casefold() == "t":
+                show_technical_details(f"{title} - Technical Details", details)
+                continue
+            break
         if navigation is ConcordMenuChoice.HELP:
             show_result(
                 "Action Attribution Help",
@@ -200,6 +214,8 @@ def confirm_prepared_actor_write(
     state: MenuSessionContext,
     legacy_confirm: LegacyConfirm,
     prepare_for_actor: Callable[[WorkflowActor], tuple[_PreparedT, Sequence[str]]],
+    prepare_details: Callable[[_PreparedT], Sequence[str]] | None = None,
+    legacy_details_confirm: DetailsConfirm | None = None,
 ) -> _PreparedT | None:
     """Reprepare and review the exact request for each selected actor.
 
@@ -214,14 +230,42 @@ def confirm_prepared_actor_write(
         latest = actor, pending
         return lines
 
-    actor = confirm_actor_write(
-        title,
-        expected,
-        (),
-        state=state,
-        legacy_confirm=legacy_confirm,
-        review_lines=render,
-    )
+    if prepare_details is None:
+        actor = confirm_actor_write(
+            title,
+            expected,
+            (),
+            state=state,
+            legacy_confirm=legacy_confirm,
+            review_lines=render,
+        )
+    else:
+        if legacy_details_confirm is None:
+            raise ValueError("Opt-in prepared details require a legacy details review.")
+        details_for = prepare_details
+        confirm_with_details = legacy_details_confirm
+
+        def details(actor: WorkflowActor) -> Sequence[str]:
+            if latest is None or latest[0] != actor:
+                raise RuntimeError("Details do not match the exact prepared actor.")
+            return details_for(latest[1])
+
+        def legacy_review(
+            review_title: str, token: str, lines: Sequence[str]
+        ) -> bool:
+            if latest is None:
+                raise RuntimeError("No prepared review is available.")
+            return confirm_with_details(review_title, token, lines, details(latest[0]))
+
+        actor = confirm_actor_write(
+            title,
+            expected,
+            (),
+            state=state,
+            legacy_confirm=legacy_review,
+            review_lines=render,
+            review_details=details,
+        )
     if actor is None:
         return None
     if latest is None or latest[0] != actor:

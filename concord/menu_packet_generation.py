@@ -26,6 +26,7 @@ from concord.menu_prompts import (
     prompt_text,
     select_one,
     show_result,
+    show_result_with_details,
 )
 from concord.menu_teacher_history import (
     distinguish_equal_labels,
@@ -230,7 +231,9 @@ def _generate(
                 )
             )
         if not prepared.ready_for_commit:
-            show_result("Packet Preview", _preview_lines(prepared))
+            show_result_with_details(
+                "Packet Preview", _preview_lines(prepared), _preview_details(prepared)
+            )
             return
 
         def prepare_for_actor(
@@ -262,6 +265,8 @@ def _generate(
             state=state,
             legacy_confirm=confirm_write,
             prepare_for_actor=prepare_for_actor,
+            prepare_details=_preview_details,
+            legacy_details_confirm=confirm_write,
         )
         if reviewed is None:
             return
@@ -688,7 +693,6 @@ def _preview_lines(
         f"Artifacts: {prepared.artifact_count}",
         f"Pages: {prepared.page_count}",
         f"Routes: {prepared.route_count}",
-        f"Review digest: {prepared.review_digest}",
         "",
         "Components:",
     ]
@@ -721,6 +725,10 @@ def _preview_lines(
             for item in prepared.diagnostics
         )
     return tuple(lines)
+
+
+def _preview_details(prepared: PreparedPacketInstantiation) -> tuple[str, ...]:
+    return (f"Review digest: {prepared.review_digest}",)
 
 
 def _relationship_preview_lines(
@@ -1316,15 +1324,15 @@ def _render_instance(
                 actor=actor,
             )
         )
-        show_result(
+        show_result_with_details(
             "Packet Render Result",
             (
                 f"Output: {result.output_path}",
-                f"Output SHA-256: {result.output_sha256}",
                 f"Pages: {result.page_count}",
                 f"Routes: {result.route_count}",
                 f"Reprint: {'yes' if result.replayed else 'no'}",
             ),
+            (f"Output SHA-256: {result.output_sha256}",),
         )
     except CancelMenuAction:
         return
