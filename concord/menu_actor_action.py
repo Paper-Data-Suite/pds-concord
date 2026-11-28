@@ -250,9 +250,7 @@ def confirm_prepared_actor_write(
                 raise RuntimeError("Details do not match the exact prepared actor.")
             return details_for(latest[1])
 
-        def legacy_review(
-            review_title: str, token: str, lines: Sequence[str]
-        ) -> bool:
+        def legacy_review(review_title: str, token: str, lines: Sequence[str]) -> bool:
             if latest is None:
                 raise RuntimeError("No prepared review is available.")
             return confirm_with_details(review_title, token, lines, details(latest[0]))
